@@ -118,11 +118,31 @@ async function typeLineName(page, id, name, leave){
   await page.fill('[data-line-id="' + id + '"] .f-what', name);
   if(leave){ await page.press('[data-line-id="' + id + '"] .f-what', "Tab"); await page.waitForTimeout(300); }
 }
+// Waits for what a step is waiting on, not a fixed time: a fixed wait that a busy CI runner overran failed three
+// journeys (a fading toast, setup's focus, a page transition). A fixed wait stays only where a step checks that
+// something did NOT happen — there's nothing to wait for — and is marked so.
+async function settle(page){
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.waitForTimeout(150);
+}
+// Until fn (run in the page, with arg) is true, up to 10s. It doesn't fail by itself: the step's own check after it
+// says what was wrong.
+const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
+// The same from this side: until test() (async, here) is true, up to 10s, polling every 100ms.
+async function eventually(test){ for(let t0 = Date.now(); Date.now() - t0 < 10000; await new Promise(r => setTimeout(r, 100))) if(await test()) return; }
 async function go(page, pageId, subAttr, sub){
   await page.evaluate(([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]'); b.click(); if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
-  await page.waitForTimeout(700);
+  // The page, and its subtab, showing — then a frame for what they draw.
+  await page.waitForFunction(([p, a, s]) => document.body.getAttribute("data-current-page") === p &&
+    (!a || !!document.querySelector("[" + a + '="' + s + '"]:is(.active, [aria-selected="true"], [aria-current="page"], [aria-current="true"])')),
+    [pageId, subAttr, sub], { timeout: 10000 });
+  await settle(page);
 }
-const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
+// Clicks the first match, once there is one (up to 10s) — a step's target can arrive after a redraw.
+const click = async (page, sel) => {
+  await page.waitForSelector(sel, { state: "attached", timeout: 10000 }).catch(() => {});
+  return page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
+};
 
 // App questions are asynchronous DOM dialogs. Drive their controls rather than bypassing approval.
 async function answerDialog(page, accept, value){
@@ -187,7 +207,7 @@ const JOURNEYS = {
     await page.fill(amt, "");
     await click(page, row + " [data-row-toggle]"); await page.waitForTimeout(300);
     check(await saved("amount") === 275, "closing with a blank amount saved " + await saved("amount"));
-    await click(page, row + " [data-row-toggle]"); await page.waitForTimeout(300);
+    await click(page, row + " [data-row-toggle]"); await page.locator(amt).waitFor({ state: "visible", timeout: 10000 });
     check(await page.inputValue(amt) === "275", "reopening didn't show the saved amount");
     check(!(await err(amt)).invalid, "reopening kept the old error");
   },
@@ -367,10 +387,11 @@ const JOURNEYS = {
     await go(page, "plan", "data-plan-sub", "scenarios");
     const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))[1]);
     const savedBefore = await stored(page, "((state.scenarioChanges || {})[" + JSON.stringify(name) + "] || []).length");
-    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await page.waitForTimeout(800);
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
     await click(page, "[data-sc-addsheet]"); await page.waitForTimeout(300);
-    await click(page, '[data-sc-new="cost"]'); await page.waitForTimeout(600);
+    await click(page, '[data-sc-new="cost"]');
     const draftKey = "Draft · " + name;
+    await until(page, k => import("/src/state.js").then(m => ((m.state.scenarioChanges || {})[k] || []).length > 0), draftKey);
     const draftLen = await st(page, "((state.scenarioChanges || {})[" + JSON.stringify(draftKey) + "] || []).length");
     await saveIn(other, 444);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).shared[0].amount === 444);
@@ -378,10 +399,10 @@ const JOURNEYS = {
     check(await st(page, "((state.scenarioChanges || {})[" + JSON.stringify(draftKey) + "] || []).length") === draftLen, "3: another tab's save replaced the scenario draft");
     check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "3: the editor closed under the person");
     check(await stored(page, "state.shared[0].amount") === 444, "3: the other tab's save didn't survive");
-    await click(page, "[data-sc-save]"); await page.waitForTimeout(800);
+    await click(page, "[data-sc-save]"); await until(page, () => !!document.querySelector('#storageConflict[data-kind="stale"]'));
     check(await stored(page, "state.shared[0].amount") === 444, "3: a stale tab wrote over the other tab's save");
     check(await banner(page) === "stale", "3: a refused save didn't say so");
-    await click(page, "[data-storage-keep]"); await answerDialog(page, true); await page.waitForTimeout(400);
+    await click(page, "[data-storage-keep]"); await answerDialog(page, true); await until(page, () => !document.getElementById("storageConflict"));
     check(await stored(page, "((state.scenarioChanges || {})[" + JSON.stringify(name) + "] || []).length") === savedBefore + 1, "3: keeping this tab's version didn't save the scenario");
     check(await banner(page) === null, "3: the banner stayed after choosing");
     // B was idle: it takes A's chosen version.
@@ -389,12 +410,15 @@ const JOURNEYS = {
     // 4. Price and cash-rate refreshes, in either tab: neither blocks the other, and both still save.
     for(const [who, by] of [["B", other], ["A", page]]){
       await by.evaluate(async () => { const m = await import("/src/state.js"); m.state.cashRate = null; await (await import("/src/components/cashrate.js")).readCashRateNow(); await (await import("/src/components/autoprices.js")).refreshAutoPrices(); });
+      // Fixed on purpose: a refresh may save or may not (nothing changed), so there's no event to wait for — this
+      // only gives a save, if there was one, time to reach the other tab.
       await page.waitForTimeout(500);
       for(const [w, p] of [["A", page], ["B", other]]){
         await saveIn(p, w === "A" ? 501 : 502);
         check(await stored(p, "state.shared[0].amount") === (w === "A" ? 501 : 502), "4: after a refresh in " + who + ", tab " + w + " couldn't save");
         check(await banner(p) === null, "4: a refresh in " + who + " raised the banner in " + w);
-        await page.waitForTimeout(400);
+        // The other tab has taken this save before it makes its own.
+        await until(p === page ? other : page, a => import("/src/state.js").then(m => m.state.shared[0].amount === a), w === "A" ? 501 : 502);
       }
     }
     // ...and a refresh in a tab that's mid-edit, after the other saved, applies nothing and redraws nothing.
@@ -412,7 +436,13 @@ const JOURNEYS = {
     for(let i = 0; i < 8; i++){
       if(await banner(page) || await banner(other)) break;
       await Promise.all([saveIn(page, 700 + i * 2), saveIn(other, 701 + i * 2)]);
-      await page.waitForTimeout(600);
+      // Both tabs see the same saved copy, and each has either taken it or said why not.
+      await eventually(async () => {
+        const a = await stored(page, "state.shared[0].amount"), b = await stored(other, "state.shared[0].amount");
+        if(a !== b) return false;
+        for(const p of [page, other]) if(!(await banner(p)) && await st(p, "state.shared[0].amount") !== a) return false;
+        return true;
+      });
       const kept = await stored(page, "state.shared[0].amount");
       for(const [w, p, mine] of [["A", page, 700 + i * 2], ["B", other, 701 + i * 2]]){
         if(kept === mine) continue;
@@ -502,12 +532,13 @@ const JOURNEYS = {
     });
     await runBackup(page, 'doShare', 'invented-test-passphrase');
     await page.getByRole('button', {name:'Send',exact:true}).click();
+    // Fixed on purpose: this checks the reminder did NOT change, so there's nothing to wait for.
     await page.waitForTimeout(200);
     check(!await st(page, 'state.lastBackupDate'), 'cancelled sharing cleared the backup reminder');
     await page.evaluate(() => { Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}}); });
     await runBackup(page, 'doShare', 'invented-test-passphrase');
     await page.getByRole('button', {name:'Send',exact:true}).last().click();
-    await page.waitForTimeout(200);
+    await eventually(async () => await st(page, 'state.lastBackupDate') === '2026-11-03');
     check(await st(page, 'state.lastBackupDate') === '2026-11-03', 'successful sharing did not update the reminder');
     await page.evaluate(async()=>{
       const m=await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
@@ -529,7 +560,7 @@ const JOURNEYS = {
     check((await page.locator('[data-home-card="tax"]').textContent()).includes('estimated annual tax'), 'annual tax still reads as tax so far');
     check((await home.innerText()).includes('Recorded balances'), 'net worth lacks data-quality context');
     await page.locator('#quickFab').click();
-    await page.waitForTimeout(800);
+    await until(page, () => !!document.querySelector('#quickLogRoot [role="dialog"], #quickLogRoot .quick-log, #quickLogRoot input, #quickLogSheet input'));
     check(await page.locator('#quickLogRoot [role="dialog"], #quickLogRoot .quick-log, #quickLogRoot input').count() > 0 || await page.locator('#quickLogSheet input').count() > 0, 'primary Log spending action did not open entry');
     await page.keyboard.press('Escape');
     await go(page,'plan','data-plan-sub','scenarios');
@@ -600,12 +631,12 @@ const JOURNEYS = {
     }, original);
     await go(page, 'plan', 'data-plan-sub', 'scenarios');
     const compare = page.locator('.cmp-scroll').first();
-    await compare.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    await compare.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await compare.elementHandle());
     check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
     await go(page, 'reports');
     await page.locator('[data-report="networth"]').click();
     const report = page.locator('#reportSheet .rp-scroll');
-    await report.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    await report.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await report.elementHandle());
     check(await report.evaluate(el => el.scrollLeft > 0), 'net worth report cannot scroll with the keyboard');
   },
   async onboardingaudit(page){
@@ -731,7 +762,7 @@ const JOURNEYS = {
     const goals = setup.getByRole('button', { name: 'Review Goals', exact: true });
     await goals.focus();
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(500);
+    await page.locator('#planSub-goals').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
     check(await page.locator('#planSub-goals').isVisible(), 'setup Goals action did not open Plan goals');
   },
 
@@ -740,28 +771,30 @@ const JOURNEYS = {
     const before = await st(page, "state.transactions.length");
     const btn = await page.$("#reviewExpensesBtn:not([hidden])");
     check(btn, "no \"bills to confirm\" button on the sample household");
-    await btn.click(); await page.waitForTimeout(500);
+    await btn.click(); await until(page, () => !!document.querySelector(".bc-confirm-row .bc-confirm-check:checked"));
     const n = await page.evaluate(() => document.querySelectorAll(".bc-confirm-row .bc-confirm-check:checked").length);
     check(n > 0, "the sheet lists no bills");
-    await click(page, "[data-review-confirm]"); await page.waitForTimeout(600);
+    await click(page, "[data-review-confirm]"); await eventually(async () => await st(page, "state.transactions.length") > before);
     const after = await st(page, "state.transactions.length");
     check(after === before + n, "confirming " + n + " bills logged " + (after - before));
     check(await page.evaluate(() => /Logged/.test(document.querySelector(".review-panel").innerText)), "no \"Logged\" note after confirming");
   },
   async transfer(page){
     await go(page, "expenses", "data-expenses-sub", "spending");
-    await click(page, "#transactionsTable [data-cf-transfer]"); await page.waitForTimeout(300);
+    // The form draws after the click: reading it after a fixed 300ms is the "missing selector" Transfer failure (#267).
+    await click(page, "#transactionsTable [data-cf-transfer]"); await until(page, () => !!document.querySelector('#transactionsTable [data-tf="from"]'));
     const accts = await page.evaluate(() => [...document.querySelector('#transactionsTable [data-tf="from"]').options].map(o => o.value).filter(Boolean));
     const bal = () => page.evaluate(async (a) => { const s = (await import("/src/state.js")).state, ac = await import("/src/calc/accounts.js"); return a.map(n => Math.round(ac.accountBalance(s.accounts.find(x => x.name === n)).balance || 0)); }, accts.slice(0, 2));
     const before = await bal();
     await page.fill('#transactionsTable [data-tf="amount"]', "250");
     await page.selectOption('#transactionsTable [data-tf="from"]', accts[0]); await page.selectOption('#transactionsTable [data-tf="to"]', accts[1]);
     const box = await page.$('#transactionsTable [data-tf="balances"]'); if(box && !(await box.isChecked())) await box.check();
-    await click(page, "#transactionsTable [data-tf-save]"); await page.waitForTimeout(400);
+    await click(page, "#transactionsTable [data-tf-save]"); await eventually(async () => await st(page, "state.transfers.filter(function(t){ return t.amount === 250; }).length") > 0);
     const after = await bal();
     check(after[0] === before[0] - 250 && after[1] === before[1] + 250, "balances " + JSON.stringify(before) + " → " + JSON.stringify(after));
     check(await page.evaluate(() => document.querySelector("#transactionsTable").innerText.includes("250")), "the transfer isn't listed");
-    await page.evaluate(() => [...document.querySelectorAll(".toast button")].find(b => /undo/i.test(b.innerText)).click()); await page.waitForTimeout(400);
+    await page.evaluate(() => [...document.querySelectorAll(".toast button")].find(b => /undo/i.test(b.innerText)).click());
+    await eventually(async () => await st(page, "state.transfers.filter(function(t){ return t.amount === 250; }).length") === 0);
     check(JSON.stringify(await bal()) === JSON.stringify(before), "Undo didn't put the balances back");
     check(await st(page, "state.transfers.filter(function(t){ return t.amount === 250; }).length") === 0, "Undo left the transfer");
   },
@@ -769,7 +802,7 @@ const JOURNEYS = {
     await go(page, "accounts");
     await page.evaluate(() => { const c = [...document.querySelectorAll("#accountsTable .acct-card")].find(c => /loan/i.test(c.innerText)); c.querySelector(".acct-card-toggle").click(); });
     await page.waitForTimeout(400);
-    await click(page, "[data-ap-add]"); await page.waitForTimeout(400);
+    await click(page, "[data-ap-add]"); await until(page, () => !!document.querySelector('[data-ap-field="from"]'));
     const from = await page.evaluate(() => [...document.querySelector('[data-ap-field="from"]').options].map(o => o.value).find(v => /everyday/i.test(v)));
     await page.selectOption('[data-ap-field="from"]', from);
     await page.fill('[data-ap-field="amount"]', "1850"); await page.press('[data-ap-field="amount"]', "Tab");
@@ -778,7 +811,7 @@ const JOURNEYS = {
     check(await page.$('[data-home-card="autopay"]'), "Home doesn't ask about the payment on its day");
     await click(page, "[data-ap-other]"); await page.waitForTimeout(200);
     await page.fill(".ap-other-amount", "1912.35");
-    await click(page, "[data-ap-other-save]"); await page.waitForTimeout(400);
+    await click(page, "[data-ap-other-save]"); await eventually(async () => await st(page, "state.transfers.some(function(t){ return t.autoPay; })"));
     const ap = await st(page, "{ amount: state.autoPayments[0].amount, tx: state.transfers.filter(function(t){ return t.autoPay; }).map(function(t){ return t.amount; }) }");
     check(ap.amount === 1912.35 && ap.tx.length === 1 && ap.tx[0] === 1912.35, "after answering: " + JSON.stringify(ap));
     check(!(await page.$('[data-home-card="autopay"]')), "Home still asks after the answer");
@@ -788,16 +821,16 @@ const JOURNEYS = {
     const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))[1]);
     const card = () => page.evaluate(n => document.querySelector('#cards [data-edit-scenario="' + n + '"]').closest(".card").innerText.replace(/\s+/g, " "), name);
     const before = await card();
-    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await page.waitForTimeout(800);
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
     check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "Edit didn't open the scenario's page");
     check(await page.evaluate(() => getComputedStyle(document.getElementById("mobileTabbar")).display === "none"), "the bottom tabs show while editing");
     await click(page, "[data-sc-addsheet]"); await page.waitForTimeout(300);
     await click(page, '[data-sc-new="cost"]'); await page.waitForTimeout(600);
-    await click(page, "[data-sc-save]"); await page.waitForTimeout(800);
+    await click(page, "[data-sc-save]"); await until(page, () => document.body.getAttribute("data-current-page") === "plan"); await settle(page);
     check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "plan"), "Save didn't go back to Plan");
     check((await card()) !== before, "the card didn't change after saving a new cost");
-    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await page.waitForTimeout(800);
-    await click(page, "[data-make-real]"); await page.waitForTimeout(500);
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
+    await click(page, "[data-make-real]"); await until(page, () => /THIS WILL|This will/.test((document.querySelector("[data-mr-backdrop]") || {}).innerText || ""));
     check(await page.evaluate(() => /THIS WILL|This will/.test((document.querySelector("[data-mr-backdrop]") || {}).innerText || "")), "Make it real shows no plan");
     await page.keyboard.press("Escape");
   },
@@ -806,7 +839,7 @@ const JOURNEYS = {
     const before = await st(page, "state.transactions.length");
     await page.setInputFiles("#bankImportFile", { name: "statement.csv", mimeType: "text/csv", buffer: Buffer.from(STATEMENT_CSV) });
     await page.waitForSelector("#bankImportConfirmBtn", { timeout: 10000 });
-    await click(page, "#bankImportConfirmBtn"); await page.waitForTimeout(600);
+    await click(page, "#bankImportConfirmBtn"); await eventually(async () => await st(page, "state.transactions.length") > before);
     const after = await st(page, "state.transactions.length");
     check(after === before + 2, "the CSV's two purchases didn't land (" + (after - before) + ")");
   },
@@ -816,7 +849,7 @@ const JOURNEYS = {
     await page.setInputFiles("#bankImportFile", { name: "statement.pdf", mimeType: "application/pdf", buffer: statementPdf() });
     await page.waitForSelector("#bankImportConfirmBtn", { timeout: 20000 });
     check(await page.evaluate(() => /3 transactions to import/.test(document.getElementById("bankImportPanel").innerText)), "the PDF's three purchases weren't read");
-    await click(page, "#bankImportConfirmBtn"); await page.waitForTimeout(600);
+    await click(page, "#bankImportConfirmBtn"); await eventually(async () => await st(page, "state.transactions.length") > before);
     check((await st(page, "state.transactions.length")) === before + 3, "the PDF's purchases didn't land");
   },
   // v3.208.0 (item 240): a property manager's statement dropped into the same import lands in its property's form.
@@ -828,7 +861,8 @@ const JOURNEYS = {
     const form = await page.evaluate(() => { const p = [...document.querySelectorAll("[data-as-panel]")].find(d => d.open && d.offsetParent); const v = k => p.querySelector('[data-as="' + k + '"]').value; return { rent: v("rent"), fees: v("fees"), net: p.querySelector("[data-as-net]").textContent }; });
     check(form.rent === "1200" && form.fees === "84" && /1,116\.00/.test(form.net), "the statement didn't fill its property's form: " + JSON.stringify(form));
     check(!(await page.evaluate(() => !!document.getElementById("bankImportConfirmBtn"))), "it was read as a bank statement too");
-    await page.evaluate(() => [...document.querySelectorAll("[data-as-log]")].find(b => b.offsetParent).click()); await page.waitForTimeout(600);
+    await page.evaluate(() => [...document.querySelectorAll("[data-as-log]")].find(b => b.offsetParent).click());
+    await eventually(async () => await st(page, "state.incomeLog.length") > before);
     check((await st(page, "state.incomeLog.length")) === before + 1, "logging it didn't record the rent received");
   },
   // Item 243: a loan account's statement — its interest and fees go on the loan, nothing lands as spending.
@@ -838,7 +872,8 @@ const JOURNEYS = {
     await page.setInputFiles("#bankImportFile", { name: "Investment loan statement.csv", mimeType: "text/csv", buffer: Buffer.from(LOAN_STATEMENT_CSV) });
     await page.waitForSelector("[data-bank-loan]", { timeout: 10000 });
     check(/Record 5 on the loan/.test(await page.evaluate(() => document.getElementById("bankImportConfirmBtn").textContent)), "the loan's charges weren't offered");
-    await click(page, "#bankImportConfirmBtn"); await page.waitForTimeout(600);
+    // Wait for the charges on the loan; then nothing having landed as spending is a real check (one import, one save).
+    await click(page, "#bankImportConfirmBtn"); await eventually(async () => await st(page, "state.properties[0].loans[0].charges.length") >= 5);
     check((await st(page, "state.transactions.length")) === tx, "a loan charge landed as spending");
     const loan = await st(page, "({ n: state.properties[0].loans[0].charges.length, bank: (state.properties[0].loans[0].bankRepayment || {}).amount })");
     check(loan.n === 5 && loan.bank === 2950, "the charges or the bank's repayment weren't recorded: " + JSON.stringify(loan));
@@ -853,7 +888,7 @@ const JOURNEYS = {
     const picks = await page.evaluate(() => [...document.querySelectorAll("#cashRatePanel [data-cr-loan]:checked")].map(x => x.getAttribute("data-cr-loan")));
     check(picks.length > 0, "no loans offered for the rate change");
     await page.fill("#cashRatePanel [data-cr-date]", "2026-11-20");
-    await click(page, "#cashRatePanel [data-cr-record]"); await page.waitForTimeout(400);
+    await click(page, "#cashRatePanel [data-cr-record]"); await until(page, () => !document.querySelector("#cashRatePanel [data-cr-record]"));
     const r = await page.evaluate(async (key) => {
       const s = (await import("/src/state.js")).state, P = await import("/src/calc/property.js");
       const [pid, i] = key.split(":"), l = s.properties.find(p => p.id === pid).loans[Number(i)];
@@ -937,7 +972,7 @@ if(process.env.SPEED !== "0"){
   const transfers = [];
   // The first save warms up; the median of the next five counts.
   for(let i = 0; i < 6; i++){
-    await click(page, "#transactionsTable [data-cf-transfer]"); await page.waitForTimeout(300);
+    await click(page, "#transactionsTable [data-cf-transfer]"); await until(page, () => !!document.querySelector('#transactionsTable [data-tf="from"]'));
     await page.evaluate(() => { const f = document.querySelector('#transactionsTable [data-tf="from"]'), t = document.querySelector('#transactionsTable [data-tf="to"]'), o = [...f.options].map(x => x.value).filter(Boolean); f.value = o[0]; t.value = o[1]; document.querySelector('#transactionsTable [data-tf="amount"]').value = "75"; });
     const ms = await page.evaluate(() => { const t0 = performance.now(); document.querySelector("#transactionsTable [data-tf-save]").click(); return performance.now() - t0; });
     if(i) transfers.push(ms);
@@ -945,8 +980,9 @@ if(process.env.SPEED !== "0"){
   }
   results.transfer = Math.round(median(transfers));
   await go(page, "plan", "data-plan-sub", "scenarios");
-  await page.evaluate(() => { const b = [...document.querySelectorAll("#cards [data-edit-scenario]")][1]; if(b) b.click(); }); await page.waitForTimeout(1000);
-  await click(page, "[data-sc-addsheet]"); await page.waitForTimeout(400);
+  await page.evaluate(() => { const b = [...document.querySelectorAll("#cards [data-edit-scenario]")][1]; if(b) b.click(); });
+  await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
+  await click(page, "[data-sc-addsheet]"); await until(page, () => !!document.querySelector('[data-sc-new="cost"]'));
   results.scenarioChange = Math.round(await page.evaluate(() => { const t0 = performance.now(); document.querySelector('[data-sc-new="cost"]').click(); return performance.now() - t0; }));
   errors.forEach(e => failures.push("speed: " + e));
   // A step that only redraws what it changes stays well under a full redraw, whatever the machine's speed.

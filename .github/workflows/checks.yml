@@ -5,7 +5,7 @@
 #          household at 4x CPU slowdown. Fails on a broken journey or a step over budget.
 #   lint — npm run check (v3.201.0): ESLint, TypeScript's checker over src/calc, stylelint. Dev-only tools
 #          from package.json's devDependencies, installed here from the lockfile.
-#   pages — scripts/smoke.mjs: every page and subtab in headless Chromium at 390px and 1280px,
+#   pages — scripts/smoke.mjs: every page and subtab in headless Chromium at 320px, 390px and 1280px,
 #           light and dark, failing on page errors, empty pages, sideways scroll, NaN/undefined
 #           text and bars that don't draw. Playwright is installed here only, never added to
 #           package.json — the app and its test suite stay dependency-free.

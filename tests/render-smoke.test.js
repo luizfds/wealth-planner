@@ -2177,3 +2177,19 @@ test("the Investments purchase table uses cash and offsets, without assuming uns
   } finally {setState(keep);}
   function fmtCurrencyForTest(n){return new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:0}).format(n);}
 });
+
+// #254: the shared field builder — runs for every kind, ties label/help/error together, escapes what it's given.
+import { fieldHtml } from "../src/lib/field.js";
+test("fieldHtml builds a labelled control for each kind, and escapes what it's given", () => {
+  for(const type of ["text", "number", "date", "url", "select", "textarea"]){
+    const html = fieldHtml({ id: "f-" + type, label: "Amount", type, value: "5", options: [{ value: "5", label: "Five" }], unit: "$", help: "Help", required: true });
+    assert.ok(html.includes('for="f-' + type + '"') && html.includes('id="f-' + type + '"'), type + ": label not tied to its control");
+    assert.ok(html.includes('aria-describedby="f-' + type + '-help f-' + type + '-error"'), type + ": help/error not described");
+  }
+  const bad = fieldHtml({ id: "x", label: '<img src=x onerror=alert(1)>', value: '"><script>', error: "<b>no</b>" });
+  assert.ok(!bad.includes("<img") && !bad.includes("<script") && !bad.includes("<b>"), "unescaped text in a field");
+  assert.ok(bad.includes('aria-invalid="true"'), "an error isn't marked invalid");
+  assert.match(fieldHtml({ id: "s", label: "Pick", type: "select", value: "b", options: [{ value: "a" }, { value: "b" }] }), /value="b" selected/);
+  assert.throws(() => fieldHtml({ label: "No id" }));
+  assert.throws(() => fieldHtml({ id: "y", attrs: { 'onclick="x"': "1" } }));
+});

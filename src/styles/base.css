@@ -14,6 +14,19 @@
     --card-px: 20px;
     --card-py: 18px;
     --inner-radius: 10px;
+    /* #254: one field. Measured across the app (docs/design/fields.md): 6px corners on 60% of fields, 6px 8px
+       padding, 13px text and 36px height on a desktop, the page's paper and border. A phone's 44px and 16px
+       floors are in phone.css. Every colour is another token, so both themes follow. */
+    --field-radius: 6px;
+    --field-py: 6px;
+    --field-px: 8px;
+    --field-fs: var(--fs-sm);
+    --field-h: 36px;
+    --field-bg: var(--paper);
+    --field-border: var(--border);
+    --field-border-hover: var(--ink-soft);
+    --field-focus: var(--brass);
+    --field-muted-bg: var(--paper-sunken);
     --paper: #f8fafc;
     --paper-raised: #ffffff;
     --paper-sunken: #eef2f7;
@@ -140,10 +153,36 @@
      the browser's grey inset border and square corners. :where() makes this weigh nothing, so a rule
      written for a particular field still wins; fields already styled aren't touched. */
   :where(input:not([class]):not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob){
-    font: inherit; font-size:var(--fs-md); color: var(--ink); background: var(--paper);
-    border:1px solid var(--border); border-radius:6px; padding:5px 8px; min-height:36px; box-sizing:border-box; max-width:100%;
+    font: inherit; font-size:var(--fs-md); color: var(--ink); background: var(--field-bg);
+    border:1px solid var(--field-border); border-radius:var(--field-radius); padding:5px var(--field-px); min-height:var(--field-h); box-sizing:border-box; max-width:100%;
   }
   :where(textarea:not([class])){ min-height:72px; line-height:1.45; }
+  /* ---------------- One field (#254) ----------------
+     .field-control is every text field's skin, from the --field-* tokens; .field wraps it with its label, a unit,
+     help and an error (lib/field.js builds the markup). Here in the base layer, so a page's own rule still wins
+     until its family moves onto these — and so nothing changes for a field that hasn't. States: :hover, :focus-visible,
+     :disabled, [readonly], [aria-invalid="true"] (error) and .is-valid (success); [required] marks the label. */
+  .field{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .field-label{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
+  .field-req{ color:var(--bad-ink); margin-left:2px; }
+  .field-row{ display:flex; align-items:center; gap:6px; min-width:0; }
+  .field-row > .field-control{ flex:1 1 auto; }
+  .field-unit{ font-size:var(--fs-sm); color:var(--ink-soft); white-space:nowrap; }
+  .field-help{ font-size:var(--fs-xs); color:var(--ink-soft); line-height:1.4; margin:0; }
+  .field-error{ font-size:var(--fs-xs); color:var(--bad-ink); line-height:1.4; margin:0; }
+  .field-error:empty{ display:none; }
+  .field-control{
+    box-sizing:border-box; min-width:0; max-width:100%; min-height:var(--field-h);
+    padding:var(--field-py) var(--field-px); border:1px solid var(--field-border); border-radius:var(--field-radius);
+    background:var(--field-bg); color:var(--ink); font:inherit; font-size:var(--field-fs);
+  }
+  textarea.field-control{ min-height:72px; line-height:1.45; }
+  .field-control:hover:not(:disabled, [readonly]){ border-color:var(--field-border-hover); }
+  .field-control:focus-visible{ border-color:var(--field-focus); outline:none; box-shadow:var(--focus-ring); }
+  .field-control:disabled{ background:var(--field-muted-bg); color:var(--ink-soft); cursor:not-allowed; }
+  .field-control[readonly]{ background:var(--field-muted-bg); }
+  .field-control[aria-invalid="true"]{ border-color:var(--bad-ink); }
+  .field-control.is-valid{ border-color:var(--good-ink); }
   :where(input:not([class]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob):focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   input[type="number"]{ -moz-appearance:textfield; }
   input[type="number"]::-webkit-outer-spin-button,

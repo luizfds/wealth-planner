@@ -1,7 +1,8 @@
 /* ---------------- On a phone (v3.167.0, item 197; its own layer since v3.207.1, item 238) ----------------
    The ≤880px floors: tap targets, bottom sheets, a list's sticky total, swipe and pull to refresh. The
    `phone` layer is declared last in styles.css, so these win over every page's own rules on a phone by
-   layer — not by being last in the file — and nothing here applies above 880px. The tap-target floors
+   layer — not by being last in the file — and nothing here applies above 880px (except the 16px text-field floor on a
+   touch screen, below). The tap-target floors
    are !important, and an !important declaration in a *later* layer is the *weaker* one: no page rule
    below may mark min-height or min-width !important, or it beats these. */
 /* ---------------- Tap targets on a phone (v3.167.0, item 197) ----------------
@@ -99,9 +100,14 @@
    In the phone layer it beats every component's own size for a field (.m-edit-field input, .calc-field input…)
    by layer; it stays !important for the two fields sized by an inline style (the stamp duty override, the shares
    paste box), which a layered rule can only beat that way. */
-@media (max-width: 640px){
+/* #254: every text-entry type — url, month, time, week and datetime-local had been left out (the price Sheet's link
+   and the month picker zoomed) — and on any touch screen, not only up to 640px: a tablet is touch too, and at 768px
+   its fields were 13px. The one rule in this layer that can apply above 880px (a large touch screen); a desktop
+   with a mouse never matches (pointer: coarse). */
+@media (max-width: 640px), (pointer: coarse){
   input[type="text"], input[type="number"], input[type="date"], input[type="search"],
-  input[type="email"], input[type="tel"], input[type="password"], input:not([type]), textarea{
+  input[type="email"], input[type="tel"], input[type="password"], input[type="url"], input[type="month"],
+  input[type="time"], input[type="week"], input[type="datetime-local"], input:not([type]), textarea{
     font-size:var(--fs-lg) !important;
   }
 }

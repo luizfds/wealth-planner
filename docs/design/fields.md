@@ -1,0 +1,122 @@
+# One field: inventory and spec (#254)
+
+**Status: foundation shipped for review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
+One family, Benchmarks, uses it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
+once this spec is agreed. Part of #253.
+
+## How this was measured
+
+Every page and subtab of the synthetic demo household was opened at 390, 768 and 1280px, with every disclosure open and
+the first row editors on each list expanded. Every visible `input`, `select` and `textarea` was then read with
+`getComputedStyle` and `getBoundingClientRect`: 810 controls, 708 of them text entry (text, number, date, url, month,
+password, search, select, textarea), and 102 checkboxes and ranges. The script ran against main at v3.229.0.
+
+| Property | What the app had (text entry, all widths) |
+|---|---|
+| Corner radius | 6px on 483, 7px on 156, 8px on 66, 100px (pill) on 3 |
+| Vertical padding | 6px on 324, 5px on 255, 4px on 102, 3px on 18, 8px on 6, 2px on 3 |
+| Horizontal padding | 8px on 426, 6px on 180, 4px on 93, 10px on 9 |
+| Text size, 1280px | 13px on 163, 14px on 57, 12px on 13 |
+| Height, 1280px | 36px on 86, 40 on 70, 30 on 42, 38 on 15, 32 on 9 (and 34, 39) |
+| Border | 1px `--border` on 699; none on 9 |
+| Background | `--paper` on 585, `--paper-raised` on 108, `--paper-sunken` on 6 |
+| Under 16px, touch | **2** text-entry fields at 390px (the price Sheet link, a month picker) and **194 of 196** at 768 and 1024px |
+
+59 distinct kinds of control (tag and class), skinned by about a dozen independent rules.
+
+## The spec
+
+### Tokens (`base.css`)
+
+| Token | Value | Why |
+|---|---|---|
+| `--field-radius` | 6px | What 68% of fields already had |
+| `--field-py` / `--field-px` | 6px / 8px | The most common padding each way |
+| `--field-fs` | `var(--fs-sm)`, 13px | The most common desktop size |
+| `--field-h` | 36px | The most common desktop height |
+| `--field-bg` | `var(--paper)` | 83% of fields |
+| `--field-border` | `var(--border)` | Every bordered field |
+| `--field-border-hover` | `var(--ink-soft)` | A hover state, which no field had |
+| `--field-focus` | `var(--brass)`, plus `--focus-ring` | The existing focus treatment |
+| `--field-muted-bg` | `var(--paper-sunken)` | Disabled and read-only |
+
+Every colour is another token, so both themes follow without a dark-mode block.
+
+### States (`.field-control`)
+
+| State | Look |
+|---|---|
+| Rest | 1px `--field-border`, `--field-bg` |
+| Hover | border `--field-border-hover` (not when disabled or read-only) |
+| Focus (`:focus-visible`) | border `--field-focus`, `--focus-ring` |
+| Disabled | `--field-muted-bg`, `--ink-soft` text, not-allowed cursor |
+| Read-only | `--field-muted-bg` |
+| Required | `required` on the control; a `*` after the label (`aria-hidden`; the attribute is what's announced) |
+| Error | `aria-invalid="true"`: border `--bad-ink`; message in `.field-error` (`aria-live="polite"`) |
+| Success | `.is-valid`: border `--good-ink` |
+
+### Structure (`lib/field.js`)
+
+`fieldHtml({ id, label, type, value, options, unit, help, error, valid, required, disabled, readonly, placeholder,
+className, attrs })` returns:
+
+```
+.field
+  label.field-label[for=id]  (+ .field-req "*")
+  .field-row  →  .field-control  +  .field-unit       (when there's a unit; else the control alone)
+  p.field-help#id-help                                   (when there's help)
+  p.field-error#id-error[aria-live=polite]               (always; hidden while empty)
+```
+
+The control's `aria-describedby` names the help and the error. Everything it's given goes through `escapeAttr`, and
+`attrs` keys are checked against an attribute-name pattern.
+
+### Touch floors (`phone.css`), changed in this PR
+
+- **44px:** unchanged. Every field at ≤880px.
+- **16px text:** every text-entry type is now covered (`url`, `month`, `time`, `week` and `datetime-local` were missing).
+  It applies on any touch screen (`pointer: coarse`), not only ≤640px. Measured on touch emulation, text-entry fields
+  under 16px went from 2 to 0 at 390px and from 194 to 0 at 768 and 1024px. No view started scrolling sideways, and no
+  field began clipping its value. Desktops with a mouse are unchanged.
+
+## Inventory: every control → shared field or variant
+
+Counts are text-entry controls at 1280px (236 per width).
+
+| Family | Controls | Maps to | Notes |
+|---|---|---|---|
+| Benchmarks (`.bm-controls`) | 2 | **Shared field (migrated in this PR)** | Was 8px corners, 4px padding |
+| Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field | The largest family; label-above layout already |
+| Investments: holdings, lots, offsets (`.h-*`, `.lot-*`, `.po-*`, `.offset-*`) | 31 | Shared field; lots → *compact* | 7px corners on holdings |
+| Tax: this year, returns (`.ty-*`, `.tax-*`) | 31 | Shared field; rent grid → *compact* | Mix of 6/7/8px |
+| Tax: people (`.pp-*`) | 22 | Shared field | 7–8px corners |
+| Calculators (`.cq-field`) | 16 | Shared field | 14px text |
+| Settings: categories (`.cat-mgmt-*`) | 15 | *Inline rename* | Name typed in place in a list row |
+| Setup wizard (`.fr-field`) | 4 | Shared field | |
+| Price sheet (`.ps-*`) | 3 | Shared field | Was on the base fallback by name |
+| Goals (`.goal-add`), imports (`.tr-text`) | 2 | Shared field | |
+| No class of their own (Plan, Home, Cash flow dates, Reports selects…) | 73 | Shared field via the base fallback | The fallback reads the tokens now; it stays 14px/5px until its pages move |
+| App dialogs (`.app-dialog-field`) | — | Shared field | Newest (#256); 10px corners, 8×10 padding today |
+
+### Documented variants, kept on purpose
+
+| Variant | Where | Why it differs |
+|---|---|---|
+| **Headline amount** | `#quickLogAmount` | The one big number you're typing; sized as a figure, not a field |
+| **Badge select** | `.prop-kind` and similar | A select that reads as a tag (10.5px uppercase) |
+| **Inline rename** | Category names (`.cat-mgmt-name`) | Text edited in place inside a list row |
+| **Compact cell** | Purchase lots, the rental grid | Dense table cells: shared tokens, but 4px horizontal padding |
+| **Search** | `.cf-search-input` | A search box (8px corners), wider and rounder than a form field |
+| **Native toggles and ranges** | Checkbox, radio, range | Native controls; colour by `accent-color`, 44px via their label |
+
+## Open questions for review
+
+1. **Selects and the 16px floor.** `phone.css` leaves `select` out on purpose. Its comment says a select opens a native
+   picker and never triggers iOS's zoom, and that 16px would break the badge selects. 48 selects are under 16px at
+   390px. That claim needs checking on a real iPhone; this work used Chromium emulation only. If it's wrong, selects
+   join the floor and badge selects stay an exception.
+2. **Desktop text: 13px or 14px?** The spec takes 13px (`--fs-sm`, the majority). The unclassed fallback and the
+   calculators use 14px (`--fs-md`), which is also the body size. Pick one before migrating.
+3. **Compact cells:** a variant (4px padding, as now), or the full field with the grid allowed to scroll sideways?
+4. **Migration order.** Proposed: the Cash flow budget editor (largest), then Investments, Tax, Calculators, and the
+   fallback's pages. One family per PR, each with before/after measurements.

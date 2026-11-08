@@ -165,10 +165,10 @@ function pctPa(r){ return r == null ? "—" : (r >= 0 ? "" : "−") + fmtPercent
 export function investmentsHtml(d){
   var presetKnown = BENCHMARK_PRESETS.some(function(p){ return p.symbol === d.symbol; });
   var controls = '<div class="bm-controls">' +
-    '<label>Compare with <select data-bm-symbol>' + BENCHMARK_PRESETS.map(function(p){ return '<option value="' + p.symbol + '"' + (p.symbol === d.symbol ? " selected" : "") + '>' + esc(p.label) + '</option>'; }).join("") +
+    '<label>Compare with <select class="field-control" data-bm-symbol>' + BENCHMARK_PRESETS.map(function(p){ return '<option value="' + p.symbol + '"' + (p.symbol === d.symbol ? " selected" : "") + '>' + esc(p.label) + '</option>'; }).join("") +
       '<option value="__other"' + (presetKnown ? "" : " selected") + '>Other ASX code…</option></select></label>' +
-    (presetKnown ? "" : '<label>ASX code <input type="text" data-bm-other value="' + esc(d.symbol) + '" maxlength="8" style="width:80px;text-transform:uppercase"></label>') +
-    '<label>and a fixed <input type="number" step="0.5" min="0" max="30" data-bm-rate value="' + Math.round(d.fixedRate * 1000) / 10 + '" style="width:64px"> % a year</label>' +
+    (presetKnown ? "" : '<label>ASX code <input type="text" class="field-control" data-bm-other value="' + esc(d.symbol) + '" maxlength="8" style="width:80px;text-transform:uppercase"></label>') +
+    '<label>and a fixed <input type="number" class="field-control" step="0.5" min="0" max="30" data-bm-rate value="' + Math.round(d.fixedRate * 1000) / 10 + '" style="width:64px"> % a year</label>' +
   '</div>';
   if(!d.flows.length){
     return controls + '<p class="fire-note">Add purchase lots to your share holdings (Net worth → Investments → Shares → a holding → Purchase lots) and this compares what your money did against the same dollars, on the same dates, in ' + esc(d.symbol) + ' and at a fixed rate.' +

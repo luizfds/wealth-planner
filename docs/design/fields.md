@@ -1,7 +1,7 @@
 # One field: inventory and spec (#254)
 
-**Status: foundation shipped for review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
-One family, Benchmarks, uses it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
+**Status: foundation shipped (PR #272); shared ledger editors migrated in the current follow-up.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
+Benchmarks and the generic ledger editor use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
 ## How this was measured
@@ -86,7 +86,7 @@ Counts are text-entry controls at 1280px (236 per width).
 | Family | Controls | Maps to | Notes |
 |---|---|---|---|
 | Benchmarks (`.bm-controls`) | 2 | **Shared field (migrated in this PR)** | Was 8px corners, 4px padding |
-| Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field | The largest family; label-above layout already |
+| Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field (generic row migrated) | The separate group picker and income-specific controls remain |
 | Investments: holdings, lots, offsets (`.h-*`, `.lot-*`, `.po-*`, `.offset-*`) | 31 | Shared field; lots → *compact* | 7px corners on holdings |
 | Tax: this year, returns (`.ty-*`, `.tax-*`) | 31 | Shared field; rent grid → *compact* | Mix of 6/7/8px |
 | Tax: people (`.pp-*`) | 22 | Shared field | 7–8px corners |
@@ -120,3 +120,30 @@ Counts are text-entry controls at 1280px (236 per width).
 3. **Compact cells:** a variant (4px padding, as now), or the full field with the grid allowed to scroll sideways?
 4. **Migration order.** Proposed: the Cash flow budget editor (largest), then Investments, Tax, Calculators, and the
    fallback's pages. One family per PR, each with before/after measurements.
+
+## Shared ledger migration (#261, first family)
+
+The generic budget, scenario home-cost and property income/cost row now uses `fieldHtml`, including its shared
+More options fields. Income inherits the shared timing/deduction fields; its main editor remains a separate migration.
+Existing field classes and delegated edit handlers stay in place. Each surface has its own stable id scope, so the
+same property cost can be opened from Budget and Property without duplicate control/help/error ids. Row sorting keeps
+those ids stable. Grouped claim choices retain deleted-property recovery and escape names.
+
+Labels use the shared label style and activate their controls. Timing, claim dates, claim ownership and reserve-year
+explanations appear below their controls and are tied with aria-describedby; none requires hovering. Native date
+controls take a full row below 640px so their year segment remains readable. Checkbox labels keep their existing
+native toggle treatment. Receipt/log group headings are text rather than unattached labels.
+
+Validation reuses the shared field's reserved error node instead of creating another with the same id. The amount's
+native minimum now agrees with the existing rule allowing negative values; calculation and persistence rules do not change.
+
+Browser coverage: `ledgerfields` checks label activation, conditional person/property claims, visible error association,
+unique ids, focus through redraw, 320/390/1280px field sizing and reflow. The existing validation and two-tab journeys
+remain. Accessibility adds editor-scoped expanded timing, personal claim, property claim and invalid amount states in both themes,
+plus a 320px light pass. The original full-page scans remain. A full-document editor scan also exposed background controls available behind the sheet; modal semantics, focus trapping and isolation are tracked in #278. Automated accessibility-tree checks do not replace actual screen-reader testing.
+
+**Manual verification task (pending):** using VoiceOver/Safari and NVDA/Firefox, open a Budget row, expand More options,
+read the date and tax help, switch person/property claim, clear/retype an amount and close/reopen the editor. Confirm
+names, descriptions, error announcements and focus order, on a physical phone as well as desktop. Remaining families
+under #261: income-specific controls/pay changes, holdings/lots, full property/loan editors, tax forms, scenario changes,
+goals, calculators and Settings. The wider issue stays open.

@@ -520,7 +520,7 @@ function modernIncomeRowHtml(item, idx, colorIdx){
     '</div>' +
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
       '<div class="m-edit-grid" style="margin-top:8px">' +
-        timingFieldsHtml(item) +
+        timingFieldsHtml(item, "income", idx, "income") +
       '</div>' +
     '</details>' +
     '<div class="m-edit-actions">' +

@@ -232,6 +232,53 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
+  async ledgerfields(page){
+    await typeLineName(page, "demo-groceries", await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"), false);
+    const row=page.locator('[data-line-id="demo-groceries"]');
+    check(await row.locator('.f-freq').evaluate(el=>!!el.labels?.length), 'Frequency has no associated visible label');
+    await row.locator('.row-more-options').evaluate(el=>el.open=true);
+    await row.locator('.f-deductible').check();
+    await row.locator('.f-irregular').check();
+    const inspect=()=>row.evaluate(root=>{
+      const controls=[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length);
+      return {count:controls.length,unlabelled:controls.filter(el=>!el.labels?.length || !el.labels[0].textContent.trim() || el.labels[0].control!==el).map(el=>el.className),
+        missingDescriptions:controls.filter(el=>(el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id))).map(el=>el.className),
+        duplicateIds:controls.filter(el=>document.querySelectorAll('[id="'+el.id+'"]').length!==1).map(el=>el.id)};
+    });
+    const labels=await inspect();
+    check(labels.count>=15 && !labels.unlabelled.length && !labels.missingDescriptions.length && !labels.duplicateIds.length, 'Ledger field associations failed: '+JSON.stringify(labels));
+    const cdp=await page.context().newCDPSession(page);
+    const tree=await cdp.send('Accessibility.getFullAXTree');
+    check(tree.nodes.some(n=>!n.ignored && n.name?.value==='Frequency' && n.role?.value==='combobox'), 'Frequency is missing from the native accessibility tree');
+    check(tree.nodes.some(n=>!n.ignored && n.name?.value==='Starts (optional)' && /Leave blank/.test(n.description?.value || '')), 'Timing help is missing from the native accessibility description');
+    await cdp.detach();
+    for(const cls of ['f-what','f-amount']){
+      const id=await row.locator('.'+cls).getAttribute('id');
+      await row.locator('label[for="'+id+'"]').click();
+      check(await page.evaluate(id=>document.activeElement.id===id,id), 'Clicking the '+cls+' label did not focus its field');
+    }
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844});
+      const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
+      check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && f.radius==='6px' && f.padding==='6px 8px' && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
+    }
+    await row.getByLabel('Amount',{exact:true}).fill('-40');
+    check(await stored(page, "state.shared.find(x=>x.id==='demo-groceries').amount")===-40 && await row.locator('.f-amount').evaluate(el=>el.validity.valid), 'A supported negative amount was rejected by the shared control');
+    await row.getByLabel('Amount',{exact:true}).fill('');
+    const invalid=await row.locator('.f-amount').evaluate(el=>({invalid:el.getAttribute('aria-invalid'),messages:document.querySelectorAll('[id="'+el.id+'-error"]').length,help:document.getElementById(el.id+'-error')?.textContent}));
+    check(invalid.invalid==='true' && invalid.messages===1 && /Enter an amount/.test(invalid.help), 'Shared field validation did not reuse its error: '+JSON.stringify(invalid));
+    await row.getByLabel('Amount',{exact:true}).fill('275');
+    const owner=row.locator('.f-deductperson');
+    const property=await owner.locator('option[value^="property:"]').first().getAttribute('value');
+    await owner.selectOption(property);
+    check(await row.locator('.f-rentline').isVisible() && !await row.locator('.f-deductlabel').isVisible(), 'Property claim did not reveal its labelled rental line');
+    await owner.selectOption('Alex');
+    check(await row.locator('.f-deductlabel').isVisible() && !await row.locator('.f-rentline').isVisible(), 'Personal claim did not restore its labelled return field');
+    await row.locator('.f-startdate').focus();
+    const focused=await row.locator('.f-startdate').getAttribute('id');
+    await page.evaluate(async()=> (await import('/src/components/redraw.js')).renderAll());
+    check(await page.evaluate(id=>document.activeElement.id===id,focused), 'Redraw lost focus on a shared timing field');
+  },
   async taximporterrors(page){
     await page.evaluate(()=>{window.__failLodged=true;});
     const file={kind:'wealth-planner-tax-year',fy:2026,markLodged:true,people:{Alex:{}}};

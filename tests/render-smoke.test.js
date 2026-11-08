@@ -662,8 +662,8 @@ import { borrowingNoteText } from "../src/components/properties.js";
 
 test("a deductible row renders its claim-from/until fields", function(){
   var html = modernPlainRowHtml({ id: "r1", what: "Rent", amount: 720, freq: "Weekly", deductible: true, deductiblePct: 6.4, deductibleUntil: "2025-09-30" }, 0, "shared", {}, {});
-  assert.match(html, /class="f-deductfrom"/);
-  assert.match(html, /class="f-deductuntil" value="2025-09-30"/);
+  assert.match(html, /class="field-control f-deductfrom"/);
+  assert.match(html, /class="field-control f-deductuntil"[^>]*value="2025-09-30"/);
 });
 
 test("the borrowing-costs note says what's deductible, or what's missing", function(){
@@ -931,12 +931,12 @@ test("rows: a property cost picks its return line; a budget line can be claimed 
   lt.setDeductionPropertiesProvider(function(){ return [{ id: "r1", what: "9 Sample Ave" }]; });
   try {
     var prop = lt.modernPlainRowHtml({ what: "Pest inspection", amount: 240, freq: "Yearly" }, 0, "propexp:r1", {}, { showClass: true });
-    assert.match(prop, /<label>Return line<\/label><select class="f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
+    assert.match(prop, /Rental schedule line<\/label><select[^>]*class="field-control f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
     assert.doesNotMatch(prop, /f-deductible/, "no second, personal claim on a property's own cost");
     var line = lt.modernPlainRowHtml({ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }, 0, "shared", {}, { showClass: true });
     assert.match(line, /<optgroup label="Investment property"><option value="property:r1" selected>9 Sample Ave<\/option>/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><label>Rental schedule line/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><label>Return label/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><div class="field"><label[^>]*>Rental schedule line/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><div class="field"><label[^>]*>Return label/);
     var gone = lt.modernPlainRowHtml({ what: "Old", amount: 1, freq: "Yearly", deductible: true, claimProperty: "zz" }, 0, "shared", {}, {});
     assert.match(gone, /value="property:zz" selected>\(deleted property\)/);
     var note = claimedHereHtml({ id: "r1" }, [{ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }]);
@@ -1358,7 +1358,7 @@ test("a closed row's edit form is text until the row opens", () => {
   const item = { id: "l1", what: "Groceries </script><b>", amount: 120, freq: "Weekly", classification: "Needs" };
   const closed = plainRow(item, 0, "shared", {}, { showClass: true });
   assert.match(closed, /<script type="text\/x-row-edit" class="m-row-edit-tpl"><div class="m-row-edit">/);
-  assert.match(closed, /class="f-amount"/, "the form is still there, as text, for when it opens");
+  assert.match(closed, /class="field-control f-amount"/, "the form is still there, as text, for when it opens");
   assert.equal(closed.match(/<\/script>/gi).length, 1, "text someone typed can't end it early");
   assert.equal(rowEditSlot(false, '<p>a</p></SCRIPT><p>b</p>'), '<script type="text/x-row-edit" class="m-row-edit-tpl"><p>a</p><\\/SCRIPT><p>b</p></script>');
   const open = plainRow(item, 0, "shared", { "shared:0": true }, { showClass: true });
@@ -2192,4 +2192,20 @@ test("fieldHtml builds a labelled control for each kind, and escapes what it's g
   assert.match(fieldHtml({ id: "s", label: "Pick", type: "select", value: "b", options: [{ value: "a" }, { value: "b" }] }), /value="b" selected/);
   assert.throws(() => fieldHtml({ label: "No id" }));
   assert.throws(() => fieldHtml({ id: "y", attrs: { 'onclick="x"': "1" } }));
+});
+
+// Grouped claims keep their selected value and escape imported names.
+test("shared select groups preserve selection and escape labels", () => {
+  const html=fieldHtml({id:"claim",label:"Claimed by",type:"select",value:"property:p1",options:[{value:"Alex"},{label:'<Property>',options:[{value:"property:p1",label:'<Example>'}]}]});
+  assert.match(html, /<optgroup label="&lt;Property>">/);
+  assert.match(html, /value="property:p1" selected>&lt;Example>/);
+});
+
+test("one property cost has stable, distinct field ids on Budget and Property", () => {
+  const item={id:"cost-1",what:"Insurance",amount:120,freq:"Monthly"};
+  const render=(scope,index)=>modernPlainRowHtml(item,index,"propexp:p1",{}, {fieldScope:scope});
+  const ids=html=>[...html.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]);
+  const budget=ids(render("budget",0)), property=ids(render("property",0));
+  assert.deepEqual(ids(render("budget",2)),budget,"sorting the rows changed their field identities");
+  assert.equal(new Set([...budget,...property]).size,budget.length+property.length,"two editor surfaces share field ids");
 });

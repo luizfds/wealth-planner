@@ -458,7 +458,7 @@
   .m-edit-field[hidden]{ display:none; }
   .m-edit-field.span2{ grid-column: span 2; }
   .m-edit-field.span3{ grid-column: span 3; }
-  .m-edit-field label{ display:block; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin-bottom:4px; }
+  .m-edit-field label:not(.field-label){ display:block; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin-bottom:4px; }
   /* "(optional)" next to a field label — deliberately quieter than the label itself (normal
      weight, no uppercase) so a form scans as "these are the fields" first and "this one you can
      skip" second, rather than every label competing at the same visual weight. */
@@ -466,7 +466,7 @@
   /* 40px, not the 29-31px that 6px of padding produced: these are the fields you actually fill in
      on a phone, several in a row, and they were the single largest group of undersized controls in
      the app. See the touch-target note in base.css. */
-  .m-edit-field input, .m-edit-field select{
+  .m-edit-field input:not(.field-control), .m-edit-field select:not(.field-control){
     width:100%; border:1px solid var(--border); background: var(--paper); color: var(--ink); border-radius:7px;
     padding:6px 8px; font-size:var(--fs-sm); font-family:inherit; min-height:40px;
   }
@@ -474,7 +474,7 @@
      panel expands from is already mono) — font-family:inherit above is for the text/select
      fields only; it was overriding the number input's mono by equal-specificity source order. */
   .m-edit-field input[type="number"]{ font-family:var(--font-num); font-variant-numeric: tabular-nums; }
-  .m-edit-field input:focus, .m-edit-field select:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .m-edit-field input:not(.field-control):focus, .m-edit-field select:not(.field-control):focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
   .m-edit-field .sacrifice-wrap{ display:flex; align-items:center; gap:4px; }
   .m-edit-field .sacrifice-wrap input{ flex: 0 0 64px; }
   .m-more-options{ margin-top:10px; }
@@ -518,7 +518,8 @@
 
   @media (max-width:640px){
     .m-edit-grid{ grid-template-columns: 1fr 1fr; }
-    .m-edit-field.span2, .m-edit-field.span3{ grid-column: span 2; }
+    /* Native date segments need a full row on a phone to keep the year readable. */
+    .m-edit-field.span2, .m-edit-field.span3, .m-edit-field.ledger-date-field{ grid-column: span 2; }
     .m-row-edit-pad{ padding-left:16px; }
   }
 

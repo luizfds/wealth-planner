@@ -2,6 +2,19 @@ import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS } from "../constants.js";
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "./format.js";
 import { escapeAttr } from "./html.js";
+import { fieldHtml } from "./field.js";
+
+// Stable ids include the surface: the same property cost is editable from Budget and Property.
+// Keep the existing grid/conditional wrappers; fieldHtml owns the label, control, help and error.
+function ledgerFields(item, section, idx, surface){
+  var key = encodeURIComponent((surface || "ledger") + ":" + (section || "income") + ":" + (item.id == null ? idx : item.id));
+  return function(name, label, options, layout){
+    layout = layout || {};
+    return '<div class="m-edit-field' + (layout.className ? " " + escapeAttr(layout.className) : "") + (options && options.type === "date" ? " ledger-date-field" : "") + '"' + (layout.hidden ? " hidden" : "") + ">" +
+      fieldHtml(Object.assign({}, options, { id: "ledger-" + key + "-" + name, label: label, className: name })) + "</div>";
+  };
+}
+function choices(values){ return values.map(function(value){ return { value: value, label: value }; }); }
 
 function todayStr(){ return localDateStr(); }
 
@@ -44,23 +57,16 @@ export function historyTrendHtml(item){
 // surfaces can never drift apart on what these fields mean or how they're labeled. "Auto" (blank)
 // lets a less-than-monthly item's due month be inferred from the last time it was logged instead
 // of set explicitly.
-export function timingFieldsHtml(item, section){
-  var monthOptions = '<option value="">Auto</option>' + MONTH_NAMES.map(function(m, i){
-    return '<option value="' + (i + 1) + '"' + (item.dueMonth === i + 1 ? " selected" : "") + '>' + m + '</option>';
-  }).join("");
+export function timingFieldsHtml(item, section, idx, surface){
+  var field = ledgerFields(item, section, idx, surface);
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
       '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
-    '<div class="m-edit-field"><label>Due month</label><select class="f-duemonth" title="For anything billed less often than monthly — which month it\'s actually due. Auto infers it from the last time you logged it.">' + monthOptions + '</select></div>' +
-    // v3.72.0: with a month, a day puts a renewal (insurance, strata, rates) on the bills calendar
-    // before its first payment is ever logged.
-    '<div class="m-edit-field"><label>Due day</label><input type="number" min="1" max="31" step="1" class="f-dueday" value="' + (item.dueDay || "") + '" placeholder="1" title="Day of the month it\'s due. Used with Due month for the bills calendar until a payment is logged."></div>' +
-    startDateFieldHtml(item) +
-    endDateFieldHtml(item) +
-    // An investment property's own cost is already on its rental schedule (the Return line field
-    // says which line), so offering to claim it again as a personal deduction would be a double
-    // claim (v3.45.0).
-    (String(section || "").indexOf("propexp:") === 0 ? "" : deductionFieldsHtml(item)) +
-    reserveYearFieldHtml(item);
+    field("f-duemonth", "Due month", { type:"select", value:item.dueMonth || "", options:[{value:"",label:"Auto"}].concat(MONTH_NAMES.map(function(m,i){return {value:i+1,label:m};})), help:"For bills paid less often than monthly. Auto uses the last logged payment." }) +
+    field("f-dueday", "Due day", { type:"number", value:item.dueDay || "", placeholder:"1", attrs:{min:1,max:31,step:1}, help:"Day of the month it is due. Used with Due month for the bills calendar until a payment is logged." }) +
+    startDateFieldHtml(item, field) + endDateFieldHtml(item, field) +
+    // Property costs already belong to their rental schedule; a personal claim would count twice.
+    (String(section || "").indexOf("propexp:") === 0 ? "" : deductionFieldsHtml(item, field)) +
+    reserveYearFieldHtml(item, field);
 }
 // An optional last date a row applies. Blank — the default, and what every row created before
 // this existed carries — means "runs forever", which is what the projection assumed for
@@ -73,17 +79,11 @@ export function timingFieldsHtml(item, section){
 // The other end (v3.32.0). A cost or income that begins later — a new subscription from January,
 // childcare from next term — shouldn't count from today in every total, the projection and the
 // cash-flow forecast; and a year's figures count it from the day it starts.
-function startDateFieldHtml(item){
-  return '<div class="m-edit-field"><label>Starts (optional)</label>' +
-    '<input type="date" class="f-startdate" value="' + escapeAttr(item.startDate || "") + '"' +
-      ' title="The first date this line applies. Leave blank if it\'s already running. Totals, projections and the year\'s figures count it from this date.">' +
-  '</div>';
+function startDateFieldHtml(item, field){
+  return field("f-startdate", "Starts (optional)", {type:"date",value:item.startDate || "",help:"Leave blank if already running. Totals, projections and the year's figures count this line from this date."});
 }
-function endDateFieldHtml(item){
-  return '<div class="m-edit-field"><label>Ends (optional)</label>' +
-    '<input type="date" class="f-enddate" value="' + escapeAttr(item.endDate || "") + '"' +
-      ' title="The last date this line applies. Leave blank if it runs indefinitely. Projections stop counting it after this date.">' +
-  '</div>';
+function endDateFieldHtml(item, field){
+  return field("f-enddate", "Ends (optional)", {type:"date",value:item.endDate || "",help:"Leave blank if it runs indefinitely. Projections stop counting this line after this date."});
 }
 
 // Work-related deduction fields. Two, not one: the flag alone would claim 100% of a phone bill or
@@ -93,46 +93,23 @@ function endDateFieldHtml(item){
 // The person select only appears with more than one person to choose between — in a single-income
 // household an unattributed row already belongs to the only person, and asking would be noise.
 // See calc/tax.js's deductionRows() for why an ambiguous row is deliberately claimed by nobody.
-function deductionFieldsHtml(item){
+function deductionFieldsHtml(item, field){
   var people = deductionPeopleProvider ? deductionPeopleProvider() : [];
-  // v3.45.0: a line can be claimed against an investment property instead of a person — it then
-  // goes on that property's rental schedule (on the Return line chosen below) and reaches each
-  // owner through their share.
   var props = deductionPropertiesProvider ? deductionPropertiesProvider() : [];
   var onProperty = !!item.claimProperty;
   var current = onProperty ? "property:" + item.claimProperty : (item.deductiblePerson || "");
-  var personField = people.length > 1 || props.length
-    ? '<div class="m-edit-field"><label>Claimed by</label><select class="f-deductperson" title="Whose return this goes on — a person\'s, or an investment property\'s rental schedule (split by ownership). Left unset in a two-income household it is claimed by nobody, rather than silently loaded onto one of you.">' +
-        (people.length > 1 || !people.length ? '<option value=""' + (!current ? " selected" : "") + '>— Not set —</option>' : '') +
-        optionsHtml(people, current) +
-        (props.length ? '<optgroup label="Investment property">' + props.map(function(p){
-          return '<option value="property:' + escapeAttr(p.id) + '"' + (current === "property:" + p.id ? " selected" : "") + '>' + escapeAttr(p.what || "Property") + '</option>';
-        }).join("") + '</optgroup>' : '') +
-        (onProperty && !props.some(function(p){ return p.id === item.claimProperty; }) ? '<option value="property:' + escapeAttr(item.claimProperty) + '" selected>(deleted property)</option>' : '') +
-      '</select></div>'
-    : "";
-  var rentLineField = '<div class="m-edit-field f-deduct-extra f-claim-prop"' + (item.deductible && onProperty ? "" : " hidden") + '><label>Rental schedule line</label>' + rentLineSelectHtml(item) + '</div>';
+  var ownerOptions = people.length > 1 || !people.length ? [{value:"",label:"— Not set —"}] : [];
+  ownerOptions = ownerOptions.concat(choices(people));
+  if(props.length) ownerOptions.push({label:"Investment property",options:props.map(function(p){ return {value:"property:"+p.id,label:p.what || "Property"}; })});
+  if(onProperty && !props.some(function(p){ return p.id===item.claimProperty; })) ownerOptions.push({value:current,label:"(deleted property)"});
   return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-deductible"' + (item.deductible ? " checked" : "") +
       '> Tax deduction — claimable on a tax return</label></div>' +
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claimable %</label>' +
-      '<input type="number" min="0" max="100" step="5" class="f-deductpct" value="' + (item.deductiblePct == null ? 100 : item.deductiblePct) + '" title="How much of this is claimable — for a work expense, the work-related share. A phone bill or a car is rarely 100%.">' +
-    '</div>' +
-    (personField ? '<div class="f-deduct-extra"' + (item.deductible ? "" : " hidden") + ' style="display:contents">' + personField + '</div>' : "") +
-    // The claim's own dates, separate from "Ends": rent carries on after the home-office share of
-    // it stops being claimable (an employer starts providing an office), and a tax year counts only
-    // the days the claim covered. Blank = the whole year.
-    rentLineField +
-    '<div class="m-edit-field f-deduct-extra f-claim-person"' + (item.deductible && !onProperty ? "" : " hidden") + '><label>Return label</label>' +
-      '<select class="f-deductlabel" aria-label="Tax return label" title="Where this goes on the return — the tax card totals claims by label, the way myTax asks for them.">' +
-        DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((item.deductionLabel || "D5") === d.code ? " selected" : "") + '>' + d.label + '</option>'; }).join("") +
-      '</select>' +
-    '</div>' +
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim from</label>' +
-      '<input type="date" class="f-deductfrom" value="' + escapeAttr(item.deductibleFrom || "") + '" title="The first day this was claimable. Leave blank if it was claimable from before this tax year began." aria-label="Claimable from">' +
-    '</div>' +
-    '<div class="m-edit-field f-deduct-extra"' + (item.deductible ? "" : " hidden") + '><label>Claim until</label>' +
-      '<input type="date" class="f-deductuntil" value="' + escapeAttr(item.deductibleUntil || "") + '" title="The last day this was claimable, if the claim stopped while the expense carried on — e.g. home-office rent once an employer office became available. The tax year counts only the days in between." aria-label="Claimable until">' +
-    '</div>';
+    field("f-deductpct", "Claimable %", {type:"number", value:item.deductiblePct == null ? 100 : item.deductiblePct, attrs:{min:0,max:100,step:5}, help:"Only the work-related share is claimable. A phone bill or a car is rarely 100%."}, {className:"f-deduct-extra",hidden:!item.deductible}) +
+    (people.length > 1 || props.length ? field("f-deductperson", "Claimed by", {type:"select",value:current,options:ownerOptions,help:"Choose a person or an investment property's rental schedule (split by ownership). In a household with more than one income, Not set is claimed by nobody."}, {className:"f-deduct-extra",hidden:!item.deductible}) : "") +
+    rentLineFieldHtml(item,field,{className:"f-deduct-extra f-claim-prop",hidden:!(item.deductible && onProperty)}) +
+    field("f-deductlabel", "Return label", {type:"select",value:item.deductionLabel || "D5",options:DEDUCTION_LABELS.map(function(d){return {value:d.code,label:d.label};}),help:"Where this goes on the return. The tax card totals claims by label, as myTax does."}, {className:"f-deduct-extra f-claim-person",hidden:!(item.deductible && !onProperty)}) +
+    field("f-deductfrom", "Claim from", {type:"date",value:item.deductibleFrom || "",help:"First day this was claimable. Leave blank if claimable before this tax year began."}, {className:"f-deduct-extra",hidden:!item.deductible}) +
+    field("f-deductuntil", "Claim until", {type:"date",value:item.deductibleUntil || "",help:"Last claimable day if the claim stopped while the expense continued. The tax year counts only the claim's dates."}, {className:"f-deduct-extra",hidden:!item.deductible});
 }
 // Same registration shape as calc/tax.js's deductible-items provider, and for the same reason: the
 // person list comes from calc/tax.js's getTaxPeople(), and lib/ deliberately imports no calc module.
@@ -144,12 +121,10 @@ var deductionPropertiesProvider = null;
 export function setDeductionPropertiesProvider(fn){ deductionPropertiesProvider = fn; }
 var rentLinesProvider = null;
 export function setRentLinesProvider(fn){ rentLinesProvider = fn; }
-function rentLineSelectHtml(item){
+function rentLineFieldHtml(item, field, layout){
   var rl = rentLinesProvider ? rentLinesProvider() : null;
   if(!rl) return "";
-  var cur = rl.lineFor(item);
-  return '<select class="f-rentline" aria-label="Rental schedule line" title="Which line of the rental schedule (Tax → Returns) this goes on. Defaults to a guess from the name.">' +
-    rl.lines.map(function(l){ return '<option value="' + l.key + '"' + (l.key === cur ? " selected" : "") + '>' + escapeAttr(l.label) + '</option>'; }).join("") + '</select>';
+  return field("f-rentline", "Rental schedule line", {type:"select",value:rl.lineFor(item),options:rl.lines.map(function(l){return {value:l.key,label:l.label};}),help:"Which rental schedule line this goes on in Tax → Returns. Defaults to a guess from the name."},layout);
 }
 
 // Only shown once "no fixed timing" is ticked, because that's the only case it changes anything:
@@ -161,20 +136,9 @@ var RESERVE_YEAR_LABELS = [
   ["financial", "Financial year (Jul–Jun)"],
   ["rolling12", "Rolling 12 months"]
 ];
-function reserveYearFieldHtml(item){
-  // "" is a real, selectable choice, not an absence: it means "whatever the household uses"
-  // (Accounts → Preferences), so changing that preference moves every line that hasn't been given
-  // its own answer. It's first and default because that's what most lines want — a line only
-  // needs its own budget year when it genuinely differs from the household's.
+function reserveYearFieldHtml(item, field){
   var current = RESERVE_YEAR_BASES.indexOf(item.reserveYear) !== -1 ? item.reserveYear : "";
-  var options = '<option value=""' + (current === "" ? " selected" : "") + '>Follow my year (Settings → Preferences)</option>' +
-    RESERVE_YEAR_LABELS.map(function(pair){
-      return '<option value="' + pair[0] + '"' + (pair[0] === current ? " selected" : "") + '>' + pair[1] + '</option>';
-    }).join("");
-  return '<div class="m-edit-field f-reserveyear-field"' + (item.irregular ? "" : " hidden") + '>' +
-    '<label>Budget year</label>' +
-    '<select class="f-reserveyear" title="Which twelve months this reserve is measured over on the Spending tab. A travel or maintenance budget you think of in financial years shouldn\'t reset every 1 January.">' + options + '</select>' +
-  '</div>';
+  return field("f-reserveyear", "Budget year", {type:"select",value:current,options:[{value:"",label:"Follow my year (Settings → Preferences)"}].concat(RESERVE_YEAR_LABELS.map(function(pair){return {value:pair[0],label:pair[1]};})),help:"Which twelve months this reserve is measured over on Spending. A financial-year budget need not reset on 1 January."}, {className:"f-reserveyear-field",hidden:!item.irregular});
 }
 
 // The collapsed-row counterpart to the Ends field: a row with an end date looks identical to a
@@ -353,46 +317,20 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   }
   // With a Classification field, Account gets its own full-width row below (matches Expenses);
   // without one, there's room for Amount/Frequency/Account to share a single row instead.
-  var classField = opts.showClass
-    ? '<div class="m-edit-field"><label>Classification</label><select class="f-class">' + optionsHtml(CLASSES, item.classification || "Needs") + '</select></div>'
-    : "";
-  // A second, orthogonal axis to Classification: that one says whether the spend is discretionary,
-  // this says where it goes. Only offered where the caller passes a category list (Expenses), and
-  // only ever used for reporting — it never regroups the list the row lives in.
-  var categoryField = opts.categories
-    ? '<div class="m-edit-field"><label>Category</label><select class="f-category" title="Groups this line with others like it for the spending charts — manage the list under Settings → Categories">' +
-        '<option value=""' + (!(item.category || "") ? " selected" : "") + '>— None —</option>' +
-        optionsHtml(opts.categories, item.category || "") +
-      '</select></div>'
-    : "";
-  var accountField = '<div class="m-edit-field' + (opts.showClass ? " span3" : "") + '"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>';
-  // span2: the date input + button need more room than a single 1-of-3 grid column gives them
-  // at narrow widths (they'd wrap onto separate lines) — span2 fits them on one line and, for
-  // every current caller, exactly fills out the row alongside whatever's next to it.
-  var logField = opts.showLog
-    ? '<div class="m-edit-field span2"><label>Record a change</label>' + logControlsHtml(section, idx, item) + '</div>'
-    : "";
-  var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider
-    ? '<div class="m-edit-field"><label>Return line</label>' + rentLineSelectHtml(item) + '</div>'
-    : "";
+  var field = ledgerFields(item, section, idx, opts.fieldScope);
+  var classField = opts.showClass ? field("f-class", "Classification", {type:"select",value:item.classification || "Needs",options:choices(CLASSES)}) : "";
+  var categoryField = opts.categories ? field("f-category", "Category", {type:"select",value:item.category || "",options:[{value:"",label:"— None —"}].concat(choices(opts.categories)),help:"Groups this line in spending charts. Manage categories in Settings → Categories."}) : "";
+  var accountField = field("f-account", "Account", {value:item.account || "",attrs:{list:"acctSuggestions"}}, {className:opts.showClass ? "span3" : ""});
+  var logField = opts.showLog ? '<div class="m-edit-field span2"><span class="field-label">Record a change</span>' + logControlsHtml(section, idx, item) + '</div>' : "";
+  var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider ? rentLineFieldHtml(item,field) : "";
   var fieldsHtml =
-    '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
-    classField +
-    categoryField +
-    '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
-    '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
-    accountField +
-    rentLineField +
-    logField +
-    // v3.170.0: the caller's own extra fields (Budget's receipts).
-    (opts.extraFieldsHtml || "");
-  // v3.164.0 (item 194): a budget line can say which part of the flexible view it counts in.
-  var flexField = opts.showClass
-    ? '<div class="m-edit-field"><label>Counts as</label><select class="f-flexkind" title="Where this line sits when Budget is grouped Flexible">' +
-        [["", "Worked out"], ["fixed", "Fixed bill"], ["flex", "Flexible"], ["nonmonthly", "Non-monthly"]].map(function(o){ return '<option value="' + o[0] + '"' + ((item.flexKind || "") === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
-      '</select></div>'
-    : "";
-  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + flexField + timingFieldsHtml(item, section) + '</div></details>';
+    field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
+    classField + categoryField +
+    field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"}}) +
+    field("f-freq", "Frequency", {type:"select",value:item.freq,options:choices(FREQS)}) +
+    accountField + rentLineField + logField + (opts.extraFieldsHtml || "");
+  var flexField = opts.showClass ? field("f-flexkind", "Counts as", {type:"select",value:item.flexKind || "",options:[["","Worked out"],["fixed","Fixed bill"],["flex","Flexible"],["nonmonthly","Non-monthly"]].map(function(o){return {value:o[0],label:o[1]};}),help:"Where this line sits when Budget is grouped Flexible."}) : "";
+  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + flexField + timingFieldsHtml(item, section, idx, opts.fieldScope) + '</div></details>';
   // A visible "Done" (opts.showDone) — every field here already saves itself as you type, same as
   // any other row in the app, but on a full-screen mobile row editor there's otherwise nothing
   // that reads as "I'm finished, put this away" except the ✕ in the header, which reads more like

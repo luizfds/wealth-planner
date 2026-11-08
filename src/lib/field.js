@@ -8,7 +8,7 @@
 // fieldHtml({ id, label, type, value, options, unit, help, error, valid, required, disabled, readonly,
 //             placeholder, className, attrs })
 //   type     "text" (default), "number", "date", "url", … any input type; or "select" / "textarea"
-//   options  for a select: [{ value, label }] — the one matching `value` is selected
+//   options  for a select: [{ value, label }] or groups { label, options: [...] }
 //   attrs    extra attributes for the control, e.g. { "data-goal-amount": "g1", step: "0.01" }
 import { escapeAttr } from "./html.js";
 
@@ -31,7 +31,8 @@ export function fieldHtml(o){
   });
   var type = o.type || "text", value = o.value == null ? "" : String(o.value), control;
   if(type === "select"){
-    control = "<select" + a + ">" + (o.options || []).map(function(opt){
+    control = "<select" + a + ">" + (o.options || []).map(function optionHtml(opt){
+      if(opt.options) return '<optgroup label="' + escapeAttr(opt.label || "") + '">' + opt.options.map(optionHtml).join("") + "</optgroup>";
       var v = String(opt.value == null ? "" : opt.value);
       return '<option value="' + escapeAttr(v) + '"' + (v === value ? " selected" : "") + ">" + escapeAttr(opt.label == null ? v : opt.label) + "</option>";
     }).join("") + "</select>";

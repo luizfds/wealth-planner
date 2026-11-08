@@ -347,7 +347,7 @@ function modernHomeCompBarHtml(rowMeta){
 }
 function modernHomeListHtml(scenario){
   return homeRowMeta(scenario).map(function(m){
-    return modernPlainRowHtml(m.item, m.idx, "home:" + scenario, modernHomeRowOpen, {showClass:true, primaryId:"homeLoanRow", colorIdx:m.colorIdx});
+    return modernPlainRowHtml(m.item, m.idx, "home:" + scenario, modernHomeRowOpen, {fieldScope:"scenario", showClass:true, primaryId:"homeLoanRow", colorIdx:m.colorIdx});
   }).join("");
 }
 export function renderHomeListModern(scenario, i){

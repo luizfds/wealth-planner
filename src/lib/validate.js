@@ -34,6 +34,12 @@ export function markField(input, result){
   if(!input) return !!(result && result.ok);
   var box = input.closest(".m-edit-field, .field, label") || input.parentElement;
   var msg = box && box.querySelector(".field-error[data-for-input]");
+  // Shared fields reserve an error element and already describe it. Reuse it so
+  // validation never creates a second message with the same id.
+  if(!msg && box && input.id){
+    var reserved = document.getElementById(input.id + "-error");
+    if(reserved && box.contains(reserved)) msg = reserved;
+  }
   if(result && result.ok){
     input.removeAttribute("aria-invalid");
     if(msg){ msg.textContent = ""; }

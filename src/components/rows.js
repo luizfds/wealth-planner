@@ -12,6 +12,7 @@ import { exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoan
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { materializeRowEdit, editRowEditSource } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
+import { readNumberField, markField } from "../lib/validate.js";
 import { sectionOf, parseAdd, runRowAction } from "../lib/sections.js";
 import { redraw } from "../lib/views.js";
 import { state, persist } from "../state.js";
@@ -83,6 +84,34 @@ function isBudgetListSection(section){
   return !!(sec && sec.def.inBudget && sec.def.inBudget(sec.arg));
 }
 // ---------------- Event wiring ----------------
+// #263: what each number field in a row's editor allows. A field that doesn't read keeps its draft, shows why and
+// saves nothing; readField returns the reading, or null when there's nothing to save.
+var RULES = {
+  amount: { empty: "Enter an amount — 0 if there isn't one." },
+  sacrifice: { empty: "Enter how much — 0 for none." },
+  deductShare: { empty: "Enter the claimable share, from 0 to 100%.", min: 0, max: 100, range: "The claimable share is from 0 to 100%." }
+};
+function readField(input, rule){
+  var r = readNumberField(input.value, Object.assign({ badInput: !!(input.validity && input.validity.badInput) }, rule));
+  return markField(input, r) ? r : null;
+}
+// Closing a row is cancelling what couldn't be saved: a field left invalid shows its saved value again (the item's,
+// not the value it was first drawn with — a valid edit earlier in this sitting may have moved it) and loses its message.
+var SAVED_VALUE = {
+  "f-amount": function(it){ return it.amount; },
+  "f-sacrificevalue": function(it){ return it.sacrificeValue; },
+  "f-deductpct": function(it){ return it.deductiblePct == null ? 100 : it.deductiblePct; }
+};
+function restoreInvalidFields(row, item){
+  row.querySelectorAll('[aria-invalid="true"]').forEach(function(input){
+    Object.keys(SAVED_VALUE).forEach(function(cls){
+      if(!input.classList.contains(cls)) return;
+      var v = item ? SAVED_VALUE[cls](item) : null;
+      input.value = v == null ? "" : v;
+      markField(input, { ok: true });
+    });
+  });
+}
 function onLedgerInput(e){
   var tr = e.target.closest("[data-section]");
   if(!tr) return;
@@ -117,12 +146,14 @@ function onLedgerInput(e){
     // and a re-render would needlessly tear down whatever row is being edited.
     if(sec.def.freqRebuilds) structural = true;
   }
-  else if(e.target.classList.contains("f-amount")) item.amount = parseFloat(e.target.value) || 0;
+  // #263: an amount is saved only when it reads — cleared to retype, or not a number, it stays as it was and says
+  // why, instead of becoming $0. A negative is allowed, as before (docs/design/validation.md).
+  else if(e.target.classList.contains("f-amount")){ var amountRead = readField(e.target, RULES.amount); if(!amountRead) return; item.amount = amountRead.value; }
   else if(e.target.classList.contains("f-person")){ item.person = e.target.value; structural = true; }
   else if(e.target.classList.contains("f-incometype")){ item.incomeType = e.target.value; structural = true; }
   else if(e.target.classList.contains("f-superincluded")){ item.superMode = e.target.value; }
   else if(e.target.classList.contains("f-sacrificemode")){ item.sacrificeMode = sacrificeLabelToMode(e.target.value); structural = true; }
-  else if(e.target.classList.contains("f-sacrificevalue")){ item.sacrificeValue = parseFloat(e.target.value) || 0; }
+  else if(e.target.classList.contains("f-sacrificevalue")){ var sacrificeRead = readField(e.target, RULES.sacrifice); if(!sacrificeRead) return; item.sacrificeValue = sacrificeRead.value; }
   // The pay schedule: one of these per row, whichever the frequency calls for. structural,
   // because the row's "Next pay …" sub-line is derived from it and has to be re-rendered.
   else if(e.target.classList.contains("f-payday")){ item.payDay = e.target.value === "last" ? "last" : (e.target.value ? Number(e.target.value) : null); structural = true; }
@@ -150,7 +181,8 @@ function onLedgerInput(e){
     syncClaimFields(tr, item);
     taxDeductionsChanged = true;
   }
-  else if(e.target.classList.contains("f-deductpct")){ item.deductiblePct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)); taxDeductionsChanged = true; }
+  // #263: outside 0–100%, or blank, is said and not saved — it was clamped (150 → 100) or zeroed (blank → 0%).
+  else if(e.target.classList.contains("f-deductpct")){ var shareRead = readField(e.target, RULES.deductShare); if(!shareRead) return; item.deductiblePct = shareRead.value; taxDeductionsChanged = true; }
   else if(e.target.classList.contains("f-deductperson")){
     // "property:<id>" claims the line against an investment property instead (v3.45.0).
     var claimVal = e.target.value || "";
@@ -332,7 +364,11 @@ function discardUneditedRow(section, idx, freshItem){
 function closeActiveModernRowUI(){
   if(!activeModernRow) return;
   var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
-  if(row) row.classList.remove("open");
+  if(row){
+    row.classList.remove("open");
+    var rowsOf = getArrayForSection(activeModernRow.section);
+    restoreInvalidFields(row, rowsOf && rowsOf[activeModernRow.idx]);
+  }
   activeModernRow.openState[activeModernRow.key] = false;
   var wasBudgetRow = isBudgetListSection(activeModernRow.section);
   // A row opened straight from "+ Add" (see openNewRowModal) carries the item it just created
@@ -470,6 +506,22 @@ function openNewRowModal(containerId, section, idx, openState, item){
 export function wireLedgerEdits(){
   document.addEventListener("input", function(e){
     if(e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) onLedgerInput(e);
+  });
+  // #263: a comma typed in a number field is dropped by the browser ("1,5" reads as 15). It can't be read as a
+  // decimal here — "1,250" is a thousands separator — so say so while the field has focus, and let the person see
+  // the figure it became.
+  document.addEventListener("keydown", function(e){
+    var t = e.target;
+    if(e.key !== "," || !t.matches || !t.matches('input[type="number"]') || !(t.closest("table.ledger-table") || t.closest(".m-rows"))) return;
+    var box = t.closest(".m-edit-field") || t.parentElement;
+    if(!box || box.querySelector("[data-comma-note]")) return;
+    var note = document.createElement("p");
+    note.className = "field-help";
+    note.setAttribute("data-comma-note", "");
+    note.setAttribute("aria-live", "polite");
+    note.textContent = "Commas are left out — for a decimal, use a full stop (1.5).";
+    box.appendChild(note);
+    t.addEventListener("blur", function(){ note.remove(); }, { once: true });
   });
   document.addEventListener("change", function(e){
     if((e.target.closest("table.ledger-table") || e.target.closest(".m-rows")) && (e.target.tagName === "SELECT")) onLedgerInput(e);

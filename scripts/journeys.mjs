@@ -15,6 +15,8 @@
 //   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
 //                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
+//   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
+//                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
 //                 work in progress survives; refreshes in either tab; near-simultaneous saves never pass silently
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
@@ -144,6 +146,51 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #263: a row editor's numbers are saved only when they read — never cleared into $0, never clamped into range.
+  async validation(page){
+    const row = '[data-line-id="demo-groceries"]', amt = row + " .f-amount", pct = row + " .f-deductpct";
+    const saved = k => stored(page, "state.shared.find(x => x.id === 'demo-groceries')." + k);
+    const err = sel => page.evaluate(s => { const i = document.querySelector(s); const id = (i.getAttribute("aria-describedby") || "").split(" ").find(x => /-error$/.test(x)); const m = id && document.getElementById(id); return { invalid: i.getAttribute("aria-invalid") === "true", text: m ? m.textContent : "", border: getComputedStyle(i).borderTopColor }; }, sel);
+    await typeLineName(page, "demo-groceries", await stored(page, "state.shared.find(x => x.id === 'demo-groceries').what"), false);
+    const before = await saved("amount"), headline = await page.textContent(row + ' [data-computed="amt"]');
+    // Cleared to retype: nothing saved, the headline holds, and the field says why — tied to it for assistive tech.
+    await page.fill(amt, "");
+    check(await saved("amount") === before, "clearing the amount saved " + await saved("amount"));
+    check(await page.textContent(row + ' [data-computed="amt"]') === headline, "clearing the amount changed the row's headline");
+    let e1 = await err(amt);
+    check(e1.invalid && /Enter an amount/.test(e1.text), "a cleared amount isn't marked invalid with a message");
+    const okBorder = await page.evaluate(() => getComputedStyle(document.querySelector('[data-line-id="demo-groceries"] .f-what')).borderTopColor);
+    check(e1.border !== okBorder, "an invalid amount looks the same as a valid one");
+    // Retyped: saved, and the message goes.
+    await page.fill(amt, "275");
+    check(await saved("amount") === 275, "a retyped amount didn't save");
+    e1 = await err(amt);
+    check(!e1.invalid && !e1.text, "the message stayed after a valid amount");
+    // A comma: the browser drops it; the field says so while it has focus.
+    await page.click(amt, { clickCount: 3 }); await page.keyboard.type("1,5");
+    check(await page.locator(row + " [data-comma-note]").isVisible(), "a comma in a number field says nothing");
+    await page.fill(amt, "275"); await page.locator(row + " .f-what").focus();
+    check(!await page.locator(row + " [data-comma-note]").count(), "the comma note stayed after leaving the field");
+    // Zero and a negative are saved as themselves (a rule, not an error).
+    await page.fill(amt, "0"); check(await saved("amount") === 0, "0 wasn't saved");
+    await page.fill(amt, "275");
+    // The claimable share: out of range or blank is said, and the saved share doesn't move.
+    await page.evaluate(r => { document.querySelectorAll(r + " details").forEach(d => d.open = true); const c = document.querySelector(r + " .f-deductible"); if(c && !c.checked) c.click(); }, row);
+    await page.waitForTimeout(200);
+    await page.fill(pct, "60"); check(await saved("deductiblePct") === 60, "a share of 60 wasn't saved");
+    for(const bad of ["150", "-10", ""]){
+      await page.fill(pct, bad);
+      check(await saved("deductiblePct") === 60, "a share of '" + bad + "' saved " + await saved("deductiblePct"));
+      check((await err(pct)).invalid, "a share of '" + bad + "' isn't marked invalid");
+    }
+    // Leaving with an invalid draft: the saved value stands, and the editor opens on it again.
+    await page.fill(amt, "");
+    await click(page, row + " [data-row-toggle]"); await page.waitForTimeout(300);
+    check(await saved("amount") === 275, "closing with a blank amount saved " + await saved("amount"));
+    await click(page, row + " [data-row-toggle]"); await page.waitForTimeout(300);
+    check(await page.inputValue(amt) === "275", "reopening didn't show the saved amount");
+    check(!(await err(amt)).invalid, "reopening kept the old error");
+  },
   async taximporterrors(page){
     await page.evaluate(()=>{window.__failLodged=true;});
     const file={kind:'wealth-planner-tax-year',fy:2026,markLodged:true,people:{Alex:{}}};

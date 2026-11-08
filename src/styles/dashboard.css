@@ -24,8 +24,11 @@
   @media (max-width: 380px){
     #dashboardStats.stat-row{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   }
+  /* `minmax(0,1fr)`, not `1fr`: a bare `1fr` is `minmax(auto,1fr)`, so a tile's open "Compare monthly
+     trade-offs" table (already in its own scrolling wrapper) set the column's floor and took the page to
+     ~850px at 320px (#257). A zero floor lets the wrapper scroll instead. */
   @media (max-width: 340px){
-    #dashboardStats.stat-row{ grid-template-columns: 1fr; }
+    #dashboardStats.stat-row{ grid-template-columns: minmax(0,1fr); }
     #dashboardStats.stat-row .stat-tile:first-child{ grid-column: 1 / -1; }
   }
   .stat-tile{
@@ -253,7 +256,7 @@
     .stat-tile b{ font-size:var(--fs-lg); }
   }
   @media (max-width: 340px){
-    .stat-row:not(#dashboardStats){ grid-template-columns: 1fr; }
+    .stat-row:not(#dashboardStats){ grid-template-columns: minmax(0,1fr); }
   }
 
   /* v3.33.0 — a tile that opens the panel behind it. */
@@ -264,7 +267,8 @@
 
   /* v3.35.0 — Dashboard → Benchmarks. */
   .bm-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap:16px; align-items:start; }
-  @media (max-width: 760px){ .bm-grid{ grid-template-columns: 1fr; } }
+  /* minmax(0,1fr) for the same reason as the stat tiles: a bare 1fr let a panel's content floor push Benchmarks past 320px (#257). */
+  @media (max-width: 760px){ .bm-grid{ grid-template-columns: minmax(0,1fr); } }
   .bm-row{ padding:12px 0; border-top:1px solid var(--border); }
   .bm-row:first-of-type{ border-top:0; padding-top:4px; }
   .bm-row-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
@@ -285,8 +289,10 @@
 
   /* v3.35.0 — investments against a benchmark. */
   .bm-controls{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:var(--fs-sm); color: var(--ink-soft); margin:2px 0 12px; }
-  .bm-controls label{ display:inline-flex; align-items:center; gap:6px; }
+  .bm-controls label{ display:inline-flex; align-items:center; gap:6px; max-width:100%; }
   .bm-controls select, .bm-controls input{ min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; }
+  /* A select is as wide as its longest option; let it shrink inside the label on a 320px phone (#257). */
+  .bm-controls select{ min-width:0; flex:0 1 auto; }
   .bm-perf{ display:flex; flex-direction:column; gap:8px; margin:10px 0; }
   .bm-perf-row{ display:grid; grid-template-columns: minmax(110px, 1.1fr) 2fr auto; gap:10px; align-items:center; font-size:var(--fs-sm); }
   .bm-perf-track{ height:12px; border-radius:100px; background: var(--paper-sunken); overflow:hidden; }

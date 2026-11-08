@@ -270,6 +270,10 @@ const JOURNEYS = {
     await page.evaluate(async()=>{(await import('/src/lib/dialogs.js')).confirmDialog('Example Back question.');});
     await page.locator('.app-dialog').waitFor(); await page.goBack(); await page.locator('.app-dialog').waitFor({state:'detached'});
     check(await row.locator('.f-amount').inputValue()==='', 'Nested Back replaced the unfinished input');
+    await page.evaluate(async()=>{
+      const m=await import('/src/state.js');m.persist();
+      if(!m.hasPendingWork() || m.freshForBackground()) throw new Error('An unrelated save cleared the invalid row protection');
+    });
     await page.keyboard.press('Escape');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await page.evaluate(()=>!document.querySelector('#recurringRuleForm').closest('[inert]')),'Closing left the background inert');

@@ -18,7 +18,8 @@ it makes itself. It disconnects on close. If deletion removes the edited record,
 the overlay instead of treating the next row at the old index as the edited record. Undo is then reachable.
 
 Rows save edits immediately. Their new dialog role is excluded from the blanket open-dialog pending-work test;
-the existing typed-field tracker still protects invalid/incomplete and button-saved inputs. Thus an idle saved row
+the existing typed-field tracker still protects incomplete and button-saved inputs. Visible invalid row fields also
+count independently, so an unrelated save clearing the typing set does not erase their protection. Thus an idle saved row
 can adopt another tab's copy, while pending work, setup and native questions retain their existing protection.
 
 ## Verification

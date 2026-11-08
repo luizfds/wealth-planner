@@ -208,7 +208,9 @@ export function wireData(){
   onPendingWork(function(){
     var busy = false;
     typed.forEach(function(el){ if(!el.isConnected) typed.delete(el); else if(changedFromDrawn(el)) busy = true; });
-    if(busy || firstRun.open) return true;
+    // Another save can clear the typing set; an invalid live row field is still work.
+    var invalidRow = Array.prototype.some.call(document.querySelectorAll('.m-row.open [aria-invalid="true"]'), function(el){ return el.getClientRects().length > 0; });
+    if(busy || invalidRow || firstRun.open) return true;
     // Row editors save each edit immediately; their unsaved inputs are tracked above.
     // Naming an idle row as a dialog must not stop it adopting another tab's save.
     return Array.prototype.some.call(document.querySelectorAll("dialog[open], [role=dialog]:not([hidden]):not(.m-row)"), function(d){ return d.getClientRects().length > 0; });

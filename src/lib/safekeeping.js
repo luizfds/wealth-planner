@@ -65,7 +65,8 @@ export function backupToFolder(interactive){
         return handle.getFileHandle(name, { create: true }).then(function(fh){ return fh.createWritable(); })
           .then(function(w){ return w.write(body).then(function(){ return w.close(); }); });
       })
-        .then(function(){ persist(); return { ok: true, name: name, folder: handle.name }; });
+        // #269: the quiet weekly backup on load is a background save; one someone asked for isn't.
+        .then(function(){ persist(interactive ? undefined : { background: true }); return { ok: true, name: name, folder: handle.name }; });
     });
   });
 }

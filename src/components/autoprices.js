@@ -1,4 +1,4 @@
-import { state, persist } from "../state.js";
+import { state, persist, freshForBackground } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { localDateStr } from "../lib/format.js";
 import { applyPrices, applyBackfill } from "../calc/pricesheet.js";
@@ -25,6 +25,8 @@ function firstJson(urls){
 export function siteJson(file){ return getJson(siteUrl(file)); }
 function settle(p){ return p.then(function(v){ return { ok: true, value: v }; }, function(e){ return { ok: false, error: e }; }); }
 
+// What a refresh resolves with when it didn't apply: another tab saved while this one has work in progress.
+export var SKIPPED = { ok: false, skipped: true, updated: 0, missing: [], problems: ["not applied — another tab saved while this one has changes in progress"] };
 // Reads every source that's on and applies what came back. Resolves with state.autoPrices.lastResult.
 export function refreshAutoPrices(){
   var a = state.autoPrices, today = localDateStr();
@@ -37,6 +39,9 @@ export function refreshAutoPrices(){
     a.fx !== false ? settle(firstJson(FX_URLS)) : Promise.resolve(null)
   ];
   return Promise.all(jobs).then(function(r){
+    // #269: apply to the saved copy, not one another tab has since replaced; while this tab is mid-edit, not at all.
+    if(!freshForBackground()) return SKIPPED;
+    a = state.autoPrices;
     var file = r[0], weekly = r[1], cg = r[2], fx = r[3];
     var prices = [], res = { ok: true, at: new Date().toISOString(), updated: 0, missing: [], fx: false, backfilled: 0, problems: [] };
     if(file){
@@ -59,7 +64,7 @@ export function refreshAutoPrices(){
     if(!prices.length && res.problems.length) res.ok = false;
     a.lastRead = today;
     a.lastResult = res;
-    persist();
+    persist({ background: true });
     return res;
   });
 }

@@ -1,4 +1,4 @@
-import { state, persist } from "../state.js";
+import { state, persist, freshForBackground } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { localDateStr } from "../lib/format.js";
 import { sheetCsvUrls, readPriceSheet, applyPrices, applyBackfill, sheetRefreshDue } from "../calc/pricesheet.js";
@@ -43,21 +43,26 @@ export function refreshPriceSheet(){
   var sheet = state.priceSheet;
   var today = localDateStr();
   return fetchSheet(sheet.url).then(function(text){
+    // #269: as for automatic prices — the saved copy, and nothing while this tab is mid-edit.
+    if(!freshForBackground()) return { ok: false, skipped: true, reason: "Prices not applied — another tab saved while this one has changes in progress." };
+    sheet = state.priceSheet;
     var parsed = readPriceSheet(text);
     var p = applyPrices(state, parsed.prices, today);
     var b = applyBackfill(state, parsed.history, today);
     sheet.lastRead = today;
     sheet.lastResult = { ok: true, at: new Date().toISOString(), updated: p.updated, fx: p.fxUpdated, benchmarks: p.benchmarks,
       notFound: p.notFound, unreadable: parsed.unreadable, backfilled: b.added, backfilledHoldings: b.holdings };
-    persist();
+    persist({ background: true });
     return sheet.lastResult;
   }).catch(function(e){
+    if(!freshForBackground()) return { ok: false, skipped: true, reason: "Couldn't reach the sheet." };
+    sheet = state.priceSheet;
     var why = e && e.message;
     sheet.lastResult = { ok: false, at: new Date().toISOString(),
       reason: why === "bad-link" ? "That isn't a Google Sheets link." :
         why === "not-shared" ? "The sheet isn't shared. In Google Sheets: Share → General access → Anyone with the link (Viewer)." :
         "Couldn't reach the sheet" + (navigator.onLine === false ? " — you're offline." : ". Check it's shared as Anyone with the link, or use File → Share → Publish to web → CSV and paste that link.") };
-    persist();
+    persist({ background: true });
     return sheet.lastResult;
   });
 }

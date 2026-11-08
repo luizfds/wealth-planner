@@ -1,6 +1,6 @@
 {
  "src/app.js": {
-  "persist": 2,
+  "persist": 1,
   "stateWrites": 1
  },
  "src/components/accountswiring.js": {
@@ -14,10 +14,6 @@
  "src/components/assetswiring.js": {
   "persist": 26,
   "stateWrites": 22
- },
- "src/components/autoprices.js": {
-  "persist": 1,
-  "stateWrites": 0
  },
  "src/components/bank-import.js": {
   "persist": 0,
@@ -79,10 +75,6 @@
   "persist": 13,
   "stateWrites": 11
  },
- "src/components/pricesheet.js": {
-  "persist": 2,
-  "stateWrites": 0
- },
  "src/components/properties.js": {
   "persist": 3,
   "stateWrites": 0
@@ -136,7 +128,7 @@
   "stateWrites": 10
  },
  "src/lib/activity.js": {
-  "persist": 1,
+  "persist": 0,
   "stateWrites": 1
  },
  "src/lib/backup.js": {
@@ -144,7 +136,7 @@
   "stateWrites": 1
  },
  "src/lib/safekeeping.js": {
-  "persist": 1,
+  "persist": 0,
   "stateWrites": 4
  }
 }

@@ -29,7 +29,9 @@ export function noteChanges(){
   if(!changes.length) return 0;
   var entries = entriesFor(changes, { by: devicePerson(), device: deviceId(), idFactory: function(){ return genId("act"); } });
   state.activity = pruneActivity(entries.concat(state.activity || []));
-  persist();
+  // #269: a save nobody made — it follows one by a second or two, so it must never be the one that raises the
+  // conflict or writes over another tab's save made meanwhile.
+  persist({ background: true });
   return entries.length;
 }
 

@@ -11,6 +11,10 @@
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
 //   cashrate    — the RBA's move, read from the site's file, recorded on the household's loans from a date
+//   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
+//                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
+//   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
+//                 work in progress survives; refreshes in either tab; near-simultaneous saves never pass silently
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -70,6 +74,38 @@ async function fresh(opts){
   return { ctx, page, errors };
 }
 const st = (page, expr) => page.evaluate(new Function("return import('/src/state.js').then(function(m){ var state = m.state; return (" + expr + "); })"));
+// #269: what's in storage, as opposed to the tab's own copy; a second tab on the same household, settled (its own
+// startup and refreshes done); a save made in a tab; a budget line's name typed in its editor, left or not.
+const stored = (page, expr) => page.evaluate(new Function("var state = JSON.parse(localStorage.getItem('wealthPlanner.v1')); return (" + expr + ");"));
+async function secondTab(page){
+  const other = await page.context().newPage();
+  await other.goto(base + "/index.html");
+  await other.waitForFunction(() => document.documentElement.hasAttribute("data-wp-ready"));
+  await other.waitForLoadState("networkidle"); await other.waitForTimeout(1500);
+  return other;
+}
+const saveIn = (page, amount) => page.evaluate(async a => { const m = await import("/src/state.js"); m.state.shared[0].amount = a; m.commit(["shared"]); }, amount);
+// Work in progress for real: an account's new balance typed but not saved (it saves on its own button). Returns
+// the input's selector.
+async function typeBalance(page, value){
+  await go(page, "accounts");
+  await page.waitForSelector("#accountsTable .acct-card-update", { timeout: 10000 });
+  await click(page, "#accountsTable .acct-card-update");
+  const sel = "#accountsTable .acct-bal-input";
+  await page.waitForSelector(sel, { timeout: 10000 });
+  await page.fill(sel, String(value));
+  return sel;
+}
+async function typeLineName(page, id, name, leave){
+  if(!await page.locator('[data-line-id="' + id + '"] .f-what').isVisible().catch(() => false)){
+    await go(page, "expenses", "data-expenses-sub", "budget");
+    const group = await page.evaluate(i => { const r = document.querySelector('[data-line-id="' + i + '"]'); const c = r && r.closest(".m-card"); const h = c && c.querySelector("[data-budget-group-toggle]"); return h && h.getAttribute("aria-expanded") !== "true" ? h.getAttribute("data-budget-group-toggle") : null; }, id);
+    if(group) await click(page, '[data-budget-group-toggle="' + group + '"]');
+    await click(page, '[data-line-id="' + id + '"] [data-row-toggle]'); await page.waitForTimeout(300);
+  }
+  await page.fill('[data-line-id="' + id + '"] .f-what', name);
+  if(leave){ await page.press('[data-line-id="' + id + '"] .f-what', "Tab"); await page.waitForTimeout(300); }
+}
 async function go(page, pageId, subAttr, sub){
   await page.evaluate(([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]'); b.click(); if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
   await page.waitForTimeout(700);
@@ -77,16 +113,98 @@ async function go(page, pageId, subAttr, sub){
 const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
 
 const JOURNEYS = {
+  // #269: two tabs on one household — each check reads storage as well as the screen.
+  async twotabs(page){
+    const banner = p => p.evaluate(() => { const b = document.getElementById("storageConflict"); return b ? b.getAttribute("data-kind") : null; });
+    // 1. A second tab, opened and left alone (its startup and refreshes run), doesn't stop this one saving.
+    let other = await secondTab(page);
+    await typeLineName(page, "demo-groceries", "Groceries (tab A)", true);
+    check(await stored(page, "state.shared[0].what") === "Groceries (tab A)", "1: opening a second tab stopped the first saving");
+    check(await banner(page) === null, "1: a second tab, left alone, raised the banner");
+    // 2. A save in B; idle A takes it, shows it, and its next edit saves on top of it.
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    await saveIn(other, 333);
+    await page.waitForFunction(() => import("/src/state.js").then(m => m.state.shared[0].amount === 333), null, { timeout: 5000 }).catch(() => {});
+    check(await st(page, "state.shared[0].amount") === 333, "2: an idle tab didn't take another tab's save");
+    check(/Updated from another tab/.test(await page.evaluate(() => document.getElementById("statusText").textContent)), "2: no word that it updated");
+    await typeLineName(page, "demo-groceries", "Groceries (A again)", true);
+    check(await stored(page, "state.shared[0].amount") === 333 && await stored(page, "state.shared[0].what") === "Groceries (A again)", "2: an edit after adopting lost the other tab's save or its own");
+    // 3. A scenario draft in progress in A survives B's save; A's own save of it is refused, then kept by choice.
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))[1]);
+    const savedBefore = await stored(page, "((state.scenarioChanges || {})[" + JSON.stringify(name) + "] || []).length");
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await page.waitForTimeout(800);
+    await click(page, "[data-sc-addsheet]"); await page.waitForTimeout(300);
+    await click(page, '[data-sc-new="cost"]'); await page.waitForTimeout(600);
+    const draftKey = "Draft · " + name;
+    const draftLen = await st(page, "((state.scenarioChanges || {})[" + JSON.stringify(draftKey) + "] || []).length");
+    await saveIn(other, 444);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).shared[0].amount === 444);
+    await page.locator('#storageConflict[data-kind="updated"]').waitFor({ timeout: 5000 });
+    check(await st(page, "((state.scenarioChanges || {})[" + JSON.stringify(draftKey) + "] || []).length") === draftLen, "3: another tab's save replaced the scenario draft");
+    check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "3: the editor closed under the person");
+    check(await stored(page, "state.shared[0].amount") === 444, "3: the other tab's save didn't survive");
+    await click(page, "[data-sc-save]"); await page.waitForTimeout(800);
+    check(await stored(page, "state.shared[0].amount") === 444, "3: a stale tab wrote over the other tab's save");
+    check(await banner(page) === "stale", "3: a refused save didn't say so");
+    page.once("dialog", d => d.accept()); await click(page, "[data-storage-keep]"); await page.waitForTimeout(400);
+    check(await stored(page, "((state.scenarioChanges || {})[" + JSON.stringify(name) + "] || []).length") === savedBefore + 1, "3: keeping this tab's version didn't save the scenario");
+    check(await banner(page) === null, "3: the banner stayed after choosing");
+    // B was idle: it takes A's chosen version.
+    await other.waitForFunction(n => import("/src/state.js").then(m => ((m.state.scenarioChanges || {})[n] || []).length), name, { timeout: 5000 });
+    // 4. Price and cash-rate refreshes, in either tab: neither blocks the other, and both still save.
+    for(const [who, by] of [["B", other], ["A", page]]){
+      await by.evaluate(async () => { const m = await import("/src/state.js"); m.state.cashRate = null; await (await import("/src/components/cashrate.js")).readCashRateNow(); await (await import("/src/components/autoprices.js")).refreshAutoPrices(); });
+      await page.waitForTimeout(500);
+      for(const [w, p] of [["A", page], ["B", other]]){
+        await saveIn(p, w === "A" ? 501 : 502);
+        check(await stored(p, "state.shared[0].amount") === (w === "A" ? 501 : 502), "4: after a refresh in " + who + ", tab " + w + " couldn't save");
+        check(await banner(p) === null, "4: a refresh in " + who + " raised the banner in " + w);
+        await page.waitForTimeout(400);
+      }
+    }
+    // ...and a refresh in a tab that's mid-edit, after the other saved, applies nothing and redraws nothing.
+    const typedAt = await typeBalance(page, 1234);
+    await saveIn(other, 600);
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).shared[0].amount === 600);
+    const r = await page.evaluate(async () => (await import("/src/components/autoprices.js")).refreshAutoPrices());
+    check(r.skipped === true, "4: a refresh applied over work in progress");
+    check(await stored(page, "state.shared[0].amount") === 600, "4: a refresh in a stale tab wrote over the other tab's save");
+    check(await page.inputValue(typedAt) === "1234", "4: a refresh wiped the typing in progress");
+    await other.close();
+    // 5. Near-simultaneous saves from two settled tabs: whichever lands, the other tab is never left thinking it saved.
+    await page.reload(); await page.waitForFunction(() => document.documentElement.hasAttribute("data-wp-ready"));
+    other = await secondTab(page);
+    for(let i = 0; i < 8; i++){
+      if(await banner(page) || await banner(other)) break;
+      await Promise.all([saveIn(page, 700 + i * 2), saveIn(other, 701 + i * 2)]);
+      await page.waitForTimeout(600);
+      const kept = await stored(page, "state.shared[0].amount");
+      for(const [w, p, mine] of [["A", page, 700 + i * 2], ["B", other, 701 + i * 2]]){
+        if(kept === mine) continue;
+        const said = await banner(p), adopted = await st(p, "state.shared[0].amount") === kept;
+        check(said === "overwritten" || said === "stale" || adopted, "5: tab " + w + "'s save was written over and it wasn't told (round " + i + ")");
+      }
+    }
+    await other.close();
+  },
   async datasafety(page){
-    await page.evaluate(async () => {
-      const m = await import('/src/state.js'); m.state.shared[0].amount = 147; m.commit(['shared']); location.reload();
-    });
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 147; m.commit(['shared']); });
+    // A real reload: waiting on data-wp-ready alone could pass on the old page before the new one loads (#269).
+    await page.reload();
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') === 147, 'reload lost the last edit');
-    const other = await page.context().newPage();
-    await other.goto(base + '/index.html');
-    await other.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
-    await other.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 320; m.commit(['shared']); });
+    check(await stored(page, 'state.shared[0].amount') === 147, 'reload lost the last edit from storage');
+    const other = await secondTab(page);
+    // #269: an idle tab now takes another tab's save. A stale tab is one with work in progress: an account's new
+    // balance typed and not yet saved.
+    const typedAt = await typeBalance(page, 4321);
+    await saveIn(other, 320);
+    check(await stored(other, 'state.shared[0].amount') === 320, 'the newer tab did not save');
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount === 320); // propagation between tabs
+    await page.locator('#storageConflict[data-kind="updated"]').waitFor();
+    check(await page.inputValue(typedAt) === '4321', 'another tab\'s save replaced the typing in progress');
+    check(await st(page, 'state.shared[0].amount') === 147, 'another tab\'s save was taken over work in progress');
     await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 280; m.commit(['shared']); });
     check(await page.evaluate(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount) === 320, 'stale tab overwrote the newer household');
     check(await st(page, 'state.shared[0].amount') === 280, 'conflict destroyed the local copy');

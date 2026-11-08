@@ -813,7 +813,9 @@ try{
   // Write back immediately (not debounced) so a one-time, non-idempotent migration (e.g. moving
   // state.ip into state.properties) can't re-run and duplicate data on the next reload before the
   // user has made any edit of their own to trigger the normal debounced persist().
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // #269: only when that changed something — an unchanged copy rewritten is still a write other tabs hear.
+  var loaded = JSON.stringify(state);
+  if(loaded !== raw) localStorage.setItem(STORAGE_KEY, loaded);
 }catch(e){
   storageAvailable = false;
   state = defaultState();
@@ -828,18 +830,81 @@ export function setState(newState){
 }
 
 // Session-only revision guard: an older tab must never overwrite a newer saved copy.
+// #269: and another tab's save is adopted here when this tab has nothing in progress, rather than every
+// write anywhere (a startup save, a price refresh) stopping this tab saving. The guard stays the backstop:
+// a storage event tells tabs about each other, but localStorage can't make two writes atomic.
 var storageRevision = typeof raw === "string" ? raw : null;
 try { storageRevision = localStorage.getItem(STORAGE_KEY); } catch(e){}
+var ownRevision = null; // the copy this tab last wrote itself (not one it loaded or adopted)
+var lastSeen = storageRevision; // the newest saved copy this tab knows of: its own, adopted, or another tab's
+var ownWasBackground = false; // whether that own write was a background one (nothing anyone typed rides on it)
 var storageConflict = false;
 var conflictListeners = [];
 export function onStorageConflict(fn){ conflictListeners.push(fn); }
+function flagConflict(reason){
+  if(storageConflict) return;
+  storageConflict = true;
+  setStatus(false, reason === "overwritten" ? "Not saved — another tab saved over this tab’s last change" : "Not saved — another tab changed this household");
+  conflictListeners.forEach(function(fn){ try { fn(reason); } catch(e){} });
+}
+function readStored(){ try { return localStorage.getItem(STORAGE_KEY); } catch(e){ return storageRevision; } }
 export function checkStorageRevision(){
   if(storageConflict) return false;
-  if(localStorage.getItem(STORAGE_KEY) === storageRevision) return true;
-  storageConflict = true;
-  setStatus(false, "Not saved — another tab changed this household");
-  conflictListeners.forEach(function(fn){ fn(); });
+  if(readStored() === storageRevision) return true;
+  flagConflict("stale");
   return false;
+}
+export function storageChangedElsewhere(){ return readStored() !== storageRevision; }
+// Work this tab holds that isn't in the saved copy: a typed field, an open editor or dialog. Each part of the app
+// that can hold some says so here; a save this tab couldn't make counts too.
+var pendingChecks = [];
+export function onPendingWork(fn){ pendingChecks.push(fn); }
+export function hasPendingWork(){
+  if(storageConflict) return true;
+  return pendingChecks.some(function(fn){ try { return !!fn(); } catch(e){ return true; } });
+}
+// Take the saved copy as this tab's own. Only when nothing is pending, or someone chose to.
+var adoptedListeners = [];
+export function onAdopted(fn){ adoptedListeners.push(fn); }
+export function adoptStoredCopy(){
+  var stored = readStored(), parsed = null;
+  try { parsed = stored ? JSON.parse(stored) : null; } catch(e){}
+  if(!parsed || !parsed.income || !parsed.home) return false;
+  storageRevision = stored;
+  lastSeen = stored;
+  ownRevision = null;
+  storageConflict = false;
+  setState(migrateState(parsed));
+  adoptedListeners.forEach(function(fn){ try { fn(); } catch(e){} });
+  return true;
+}
+// Another tab saved (a storage event: oldValue is the copy that tab replaced, newValue its own). "same", "adopted",
+// "pending" (this tab is mid-edit and keeps its work) or "overwritten": this tab's own save was the newest it knew
+// of, and that tab's save started from something older — it never saw it, so the change now exists only here.
+// It's kept, and saving stops until someone chooses. (Started from anything this tab had seen, it's just newer.)
+export function takeOtherTabsSave(oldValue, newValue){
+  var stored = readStored();
+  // A lost background write (a price, the cash rate, the activity log) is fetched or recorded again; only a lost
+  // save someone made stops this tab. Otherwise it's simply an older copy than the other tab's.
+  var lost = ownRevision !== null && !ownWasBackground && lastSeen === ownRevision && typeof oldValue === "string" && oldValue !== ownRevision;
+  lastSeen = typeof newValue === "string" ? newValue : stored;
+  if(lost){ flagConflict("overwritten"); return "overwritten"; }
+  if(stored === storageRevision) return "same";
+  if(hasPendingWork()) return "pending";
+  return adoptStoredCopy() ? "adopted" : "pending";
+}
+// Before a background refresh (prices, the cash rate) changes anything: start from the saved copy, so the
+// refresh can't write back an older one. False when this tab is mid-edit — the refresh waits for another time.
+export function freshForBackground(){
+  if(!storageChangedElsewhere()) return !storageConflict;
+  if(hasPendingWork()) return false;
+  return adoptStoredCopy();
+}
+// Someone chose this tab's version over the saved one.
+export function keepThisTabsCopy(){
+  storageRevision = readStored();
+  storageConflict = false;
+  return persist();
 }
 // A random id for this browser, kept in its own storage (never in a backup's meaning of "who").
 export function deviceId(){
@@ -852,12 +917,23 @@ export function deviceId(){
 // v3.134.0: told after each save reaches storage (folder sync marks itself as having changes).
 var afterSave = [];
 export function onSaved(fn){ afterSave.push(fn); }
-export function persist(){
+// { background: true }: a save nobody asked for (startup, a refresh). It never overwrites another tab's save and
+// never raises the conflict — it catches up with the saved copy instead, when nothing here is pending.
+export function persist(opts){
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
     return false;
   }
   try{
+    if(opts && opts.background){
+      if(storageChangedElsewhere()){
+        if(!storageConflict && !hasPendingWork()) adoptStoredCopy();
+        return false;
+      }
+      // #269: a background save that changes nothing isn't written — a new savedAt alone is a change to every
+      // other tab. (A save someone made always writes, and says so if it can't.)
+      if(!storageConflict && JSON.stringify(state) === storageRevision) return true;
+    }
     if(!checkStorageRevision()) return false;
     // Save before returning: a reload or a closed tab cannot discard a delayed write.
     state.savedAt = new Date().toISOString();
@@ -867,6 +943,9 @@ export function persist(){
     var next = JSON.stringify(state);
     localStorage.setItem(STORAGE_KEY, next);
     storageRevision = next;
+    ownRevision = next;
+    ownWasBackground = !!(opts && opts.background);
+    lastSeen = next;
     setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
     afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
     return true;
@@ -884,8 +963,8 @@ export function persist(){
 // the bare persist() calls left in each file and fails if a file gains one (eslint-rules/ratchet.json).
 var commitListeners = [];
 export function onCommit(fn){ commitListeners.push(fn); }
-export function commit(touched){
-  persist();
+export function commit(touched, opts){
+  persist(opts);
   var t = Array.isArray(touched) && touched.length ? touched.slice() : ["*"];
   commitListeners.forEach(function(fn){ try { fn(t); } catch(err){} });
   return t;

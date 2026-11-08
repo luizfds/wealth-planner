@@ -1,3 +1,4 @@
+import { rowModal } from "../lib/rowmodal.js";
 // ---------------- A row's editor and the ledgers' edits, wired (v3.206.1, item 237) ----------------
 //
 // Every list's rows — open one in its editor (a sheet on a phone), type into it, add, delete. Which list a row
@@ -15,7 +16,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { readNumberField, markField } from "../lib/validate.js";
 import { sectionOf, parseAdd, runRowAction } from "../lib/sections.js";
 import { redraw } from "../lib/views.js";
-import { state, persist } from "../state.js";
+import { state, persist, onPendingWork } from "../state.js";
 import { modernAssetRowOpen } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems } from "./expenses.js";
@@ -364,8 +365,23 @@ function discardUneditedRow(section, idx, freshItem){
   if(sec && sec.def.discard){ sec.def.discard(sec.arg); return; }
   refreshAfterLedgerChange(section);
 }
+var activeRowModal = null, lastRowOpener = null;
+function rememberRowOpener(target){
+  var id = target.id, parent = target.closest("[id]"), parentId = parent && parent.id;
+  var attrs = Array.from(target.attributes).filter(function(a){ return a.name.indexOf("data-") === 0; }).map(function(a){ return [a.name, a.value]; });
+  return function(){
+    if(target.isConnected) return target;
+    if(id) return document.getElementById(id);
+    var scope = parentId && document.getElementById(parentId) || document;
+    return attrs.length ? Array.from(scope.querySelectorAll(target.tagName.toLowerCase())).find(function(el){
+      return el.getClientRects().length && attrs.every(function(a){ return el.getAttribute(a[0]) === a[1]; });
+    }) : null;
+  };
+}
 function closeActiveModernRowUI(){
   if(!activeModernRow) return;
+  var modal = activeRowModal; activeRowModal = null;
+  if(modal) modal.release();
   var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
   if(row){
     row.classList.remove("open");
@@ -390,12 +406,13 @@ function closeActiveModernRowUI(){
   }
   activeModernRow = null;
   document.getElementById("mRowBackdrop").hidden = true;
-  if(discardSection){ discardUneditedRow(discardSection, discardIdx, discardItem); return; }
+  if(discardSection){ discardUneditedRow(discardSection, discardIdx, discardItem); if(modal) modal.restoreFocus(); return; }
   // Recategorising is the one edit whose effect can't be patched in place: grouped by category
   // it moves the row into a different card, which means rebuilding the list — and doing that
   // while the modal is open would tear the row out from under the person editing it. So it's
   // deferred to here, the moment the modal closes.
   if(wasBudgetRow && budgetRegroupPending){ budgetRegroupPending = false; renderSharedGroups(); }
+  if(modal) modal.restoreFocus();
 }
 // The close entry point for every on-screen affordance (tap the row/header, Escape, tap the
 // backdrop) — see wireModernRowToggle, the Escape listener, and #mRowBackdrop's click listener
@@ -451,6 +468,32 @@ function openModernRow(row, openState, key, autoFocus, freshItem){
   };
   document.getElementById("mRowBackdrop").hidden = false;
   pushActiveOverlay(closeActiveModernRowUI, switchingRow);
+  var opened = activeModernRow, opener = document.activeElement, restoreOpener = lastRowOpener;
+  var lineId = row.getAttribute("data-line-id");
+  function recordAtIndex(){
+    var sec = sectionOf(opened.section);
+    var arr = sec && (sec.def.rows ? sec.def.rows(sec.arg) : sec.def.discardRows ? sec.def.discardRows(sec.arg) : null);
+    return arr && arr[opened.idx];
+  }
+  var record = recordAtIndex();
+  activeRowModal = rowModal(function(){
+    var current = findModernRowElement(opened.section, opened.idx, opened.containerId);
+    if(lineId) return current && current.getAttribute("data-line-id") === lineId ? current : null;
+    // Some older/property rows are positional. Do not turn the next record into
+    // the editor after deletion. Stable record ids still survive a tab adoption.
+    var now = recordAtIndex();
+    return current && (!record || now === record || record.id && now && now.id === record.id) ? current : null;
+  }, function(){
+    if(autoFocus && restoreOpener){ var remembered = restoreOpener(); if(remembered) return remembered; }
+    if(autoFocus && opener && opener !== document.body && opener.isConnected && !row.contains(opener)) return opener;
+    if(autoFocus){
+      var add = Array.from(document.querySelectorAll("[data-add]")).find(function(el){ return el.getAttribute("data-add") === opened.section && el.getClientRects().length; });
+      if(add) return add;
+    }
+    var container = document.getElementById(opened.containerId);
+    var current = container && lineId ? container.querySelector('[data-line-id="' + CSS.escape(lineId) + '"]') : findModernRowElement(opened.section, opened.idx, opened.containerId);
+    return current && current.querySelector("[data-row-toggle]") || container && container.querySelector("[data-add], [data-row-toggle]");
+  }, closeActiveModernRow);
   if(!autoFocus) return;
   var firstField = row.querySelector(".m-row-edit input, .m-row-edit select");
   if(firstField){
@@ -533,9 +576,19 @@ export function wireLedgerEdits(){
 }
 
 export function wireRowEditors(){
+  // An untouched Add is provisional: adoption would replace the object identity
+  // needed to discard it. Once edited/saved it follows the ordinary idle-row rule.
+  onPendingWork(function(){ return !!(activeModernRow && activeModernRow.freshItem && JSON.stringify(activeModernRow.freshItem) === activeModernRow.freshSnapshot); });
+  // Capture before an Add handler redraws/removes its own button. Questions above
+  // the editor must not replace that return address with their transient buttons.
+  document.addEventListener("click", function(e){
+    if(document.querySelector("dialog[open]")) return;
+    var target = e.target.closest("button,[role=button],a[href]");
+    if(target && !target.closest(".m-row.open")) lastRowOpener = rememberRowOpener(target);
+  }, true);
   document.getElementById("mRowBackdrop").addEventListener("click", closeActiveModernRow);
   document.addEventListener("keydown", function(e){
-    if(e.key === "Escape" && activeModernRow) closeActiveModernRow();
+    if(e.key === "Escape" && activeModernRow && !document.querySelector("dialog[open]")) closeActiveModernRow();
   });
   wireModernRowToggle("incomeGroups", modernIncomeRowOpen);
   wireModernRowToggle("sharedGroups", modernSharedRowOpen);

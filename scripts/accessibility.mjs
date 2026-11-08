@@ -81,8 +81,7 @@ for(const width of widths)for(const scheme of schemes){
    await page.locator('#recurringRuleForm').evaluate(f=>{f.closest('details').open=true;});
    await scan('recurring-rule-form');
    // #261: shared ledger fields, including their conditional tax controls and error state.
-   // Scope these to the editor. Full-document states remain above; modal background
-   // isolation and full-document scans with editors open are tracked separately in #278.
+   // #278: scan the whole document with the row modal open, including background isolation.
    const row=page.locator('[data-line-id="demo-groceries"]');
    await row.evaluate(el=>{const toggle=el.closest('.m-card').querySelector('[data-budget-group-toggle]');if(toggle?.getAttribute('aria-expanded')!=='true')toggle?.click();});
    await row.locator('[data-row-toggle]').first().click();
@@ -90,14 +89,14 @@ for(const width of widths)for(const scheme of schemes){
    // Desktop enters from opacity:0. Measure final colours after its actual animation,
    // rather than comparing partially blended text during the entrance.
    await row.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));
-   await scan('ledger-editor/timing', '.m-row.open');
+   await scan('ledger-editor/timing');
    await row.locator('.f-deductible').check();
-   await scan('ledger-editor/personal-claim', '.m-row.open');
+   await scan('ledger-editor/personal-claim');
    const owner=row.locator('.f-deductperson');
    await owner.selectOption(await owner.locator('option[value^="property:"]').first().getAttribute('value'));
-   await scan('ledger-editor/property-claim', '.m-row.open');
+   await scan('ledger-editor/property-claim');
    await row.getByLabel('Amount',{exact:true}).fill('');
-   await scan('ledger-editor/invalid-amount', '.m-row.open');
+   await scan('ledger-editor/invalid-amount');
    await row.locator('.m-row-edit [data-row-toggle]').click();
    await page.waitForFunction(()=>!document.querySelector('[data-line-id="demo-groceries"]').classList.contains('open'));
 

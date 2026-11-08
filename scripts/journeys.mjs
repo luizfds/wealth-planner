@@ -232,6 +232,97 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
+  async rowmodals(page){
+    await typeLineName(page,'demo-groceries',await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"),false);
+    const row=page.locator('[data-line-id="demo-groceries"]');
+    await row.getByRole('button',{name:/Close editor$/}).waitFor();
+    async function isolated(){
+      const result=await page.evaluate(()=>{
+        const row=document.querySelector('.m-row.open[role="dialog"]');
+        return {modal:row?.getAttribute('aria-modal'),editorInert:!!row?.closest('[inert]'),backgroundInert:!!document.querySelector('#recurringRuleForm')?.closest('[inert]')};
+      });
+      check(result.modal==='true' && !result.editorInert && result.backgroundInert,'Row modal isolation failed: '+JSON.stringify(result));
+      const cdp=await page.context().newCDPSession(page), tree=await cdp.send('Accessibility.getFullAXTree');
+      check(tree.nodes.some(n=>!n.ignored && n.role?.value==='dialog' && /^Edit /.test(n.name?.value || '')),'Row missing from native accessibility tree');
+      check(!tree.nodes.some(n=>!n.ignored && n.role?.value==='button' && n.name?.value==='Add recurring rule'),'Background still in the accessibility tree');
+      await cdp.detach();
+    }
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844}); await isolated();
+      await row.locator('.row-del').focus(); await page.keyboard.press('Tab');
+      check(await row.getByRole('button',{name:/Close editor$/}).evaluate(el=>el===document.activeElement),'Tab escaped the row modal');
+      await page.keyboard.press('/');
+      check(!await page.locator('[data-search-backdrop]').count(),'Search shortcut opened behind the modal');
+      await page.keyboard.press('Shift+Tab');
+      check(await row.locator('.row-del').evaluate(el=>el===document.activeElement),'Shift+Tab escaped the row modal');
+    }
+    await row.locator('.f-amount').fill('275');
+    const inputId=await row.locator('.f-amount').getAttribute('id');
+    await page.evaluate(async()=>{const d=await import('/src/lib/dialogs.js');window.__rowAnswer='pending';d.confirmDialog('Example question above the editor.').then(v=>window.__rowAnswer=v);});
+    await page.locator('.app-dialog').waitFor();
+    await page.evaluate(async()=> (await import('/src/components/redraw.js')).renderAll());
+    await page.keyboard.press('Escape'); await page.locator('.app-dialog').waitFor({state:'detached'});
+    check(await page.evaluate(()=>window.__rowAnswer)===false,'Escape did not cancel the nested question');
+    await isolated();
+    check(await page.evaluate(id=>document.activeElement.id===id,inputId),'Question/redraw lost focus in the editor');
+    // Back cancels the question while the editor retains an incomplete edit.
+    await row.locator('.f-amount').fill('');
+    await page.evaluate(async()=>{(await import('/src/lib/dialogs.js')).confirmDialog('Example Back question.');});
+    await page.locator('.app-dialog').waitFor(); await page.goBack(); await page.locator('.app-dialog').waitFor({state:'detached'});
+    check(await row.locator('.f-amount').inputValue()==='', 'Nested Back replaced the unfinished input');
+    await page.evaluate(async()=>{
+      const m=await import('/src/state.js');m.persist();
+      if(!m.hasPendingWork() || m.freshForBackground()) throw new Error('An unrelated save cleared the invalid row protection');
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await page.evaluate(()=>!document.querySelector('#recurringRuleForm').closest('[inert]')),'Closing left the background inert');
+    check(await page.evaluate(()=>document.activeElement.closest('[data-line-id]')?.dataset.lineId==='demo-groceries'),'Close did not restore focus to the row opener');
+    await row.locator('[data-row-toggle]').first().click(); await row.locator('[role="button"][aria-label$="Close editor"]').waitFor();
+    await row.locator('.m-row-edit [data-row-toggle]').click(); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
+    await page.goBack(); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
+    await page.locator('#mRowBackdrop').click({position:{x:2,y:2}}); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    const before=await stored(page,'state.shared.length');
+    await page.locator('[data-add="shared"]:visible').first().click();
+    await page.locator('.m-row.open[role="dialog"]').waitFor();
+    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.shared.length')===before,'Closing an untouched new row kept it');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-add="shared"]')),'Discard did not restore the Add opener');
+    await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
+    await row.locator('.row-del').click(); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(!await stored(page,"state.shared.some(x=>x.id==='demo-groceries')"),'Delete did not remove the edited row');
+    check(await page.evaluate(()=>!document.querySelector('#recurringRuleForm').closest('[inert]')),'Deleting stranded the modal boundary');
+    await page.locator('.toast-undo-btn').last().click();
+    check(await stored(page,"state.shared.some(x=>x.id==='demo-groceries')"),'Undo was unavailable after deleting the modal row');
+    await go(page,'assets','data-assets-sub','Cash');
+    const assets=await stored(page,'state.assets.length');
+    await page.locator('[data-add="assets:Cash"]').click();
+    await page.locator('.m-row.open[role="dialog"]').waitFor();
+    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.assets.length')===assets,'Closing an untouched cash row kept it');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-add="assets:Cash"]')),'Cash editor did not restore its Add opener');
+    // Older/property records may have no id: their successor must not inherit the modal.
+    await go(page,'expenses','data-expenses-sub','budget');
+    const index=await page.evaluate(async()=>{
+      const m=await import('/src/state.js'), index=m.state.shared.length;
+      m.state.shared.push({what:'Example positional row',amount:80,freq:'Monthly',classification:'Needs'},{what:'Following positional row',amount:80,freq:'Monthly',classification:'Needs'});
+      m.commit(['shared']);return index;
+    });
+    const positional=page.locator('.m-row[data-section="shared"][data-index="'+index+'"]');
+    await positional.evaluate(el=>{const toggle=el.closest('.m-card').querySelector('[data-budget-group-toggle]');if(toggle?.getAttribute('aria-expanded')!=='true')toggle?.click();});
+    await positional.locator('[data-row-toggle]').first().click();
+    await positional.getByRole('button',{name:/Close editor$/}).waitFor();
+    await positional.locator('.row-del').click();await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.shared[state.shared.length-1].what')==='Following positional row','Deleting a positional row changed its successor');
+
+
+  },
   async ledgerfields(page){
     await typeLineName(page, "demo-groceries", await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"), false);
     const row=page.locator('[data-line-id="demo-groceries"]');

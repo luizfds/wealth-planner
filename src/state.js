@@ -896,8 +896,10 @@ export function takeOtherTabsSave(oldValue, newValue){
 // Before a background refresh (prices, the cash rate) changes anything: start from the saved copy, so the
 // refresh can't write back an older one. False when this tab is mid-edit — the refresh waits for another time.
 export function freshForBackground(){
-  if(!storageChangedElsewhere()) return !storageConflict;
+  // Pending work matters even when this tab is the only writer: a refresh can redraw
+  // an invalid or incomplete field from its saved value and erase the draft.
   if(hasPendingWork()) return false;
+  if(!storageChangedElsewhere()) return true;
   return adoptStoredCopy();
 }
 // Someone chose this tab's version over the saved one.

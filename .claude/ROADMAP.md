@@ -4799,8 +4799,8 @@ The shared-field foundation (#254) is next, and in progress.
 
 ## Navigation transition timeout — issue #273
 
-`[x]` Distinguish a skipped page animation from a failed page update. `pageTransitionDone` classifies AbortError/TimeoutError only after a successful DOM update; rendering failures still reject navigation and other animation errors stay reported. Five unit cases and a deterministic browser journey cover the distinction and alias routing. Implemented on `codex/fix-dialog-journey-timeout`; awaiting PR review and release.
+`[x]` Distinguish a skipped page animation from a failed page update. `pageTransitionDone` classifies AbortError/TimeoutError only after a successful DOM update; rendering failures still reject navigation and other animation errors stay reported. Five unit cases and a deterministic browser journey cover the distinction and alias routing. Shipped v3.231.1 (PR #275).
 
 ## Cleared-amount validation reliability — issue #276
 
-`[~]` Trace the intermittent missing validation message, reproduce its cause deterministically, and preserve unsaved input and validation through relevant redraws without weakening assertions.
+`[x]` A same-tab price refresh bypassed pending-work checks and rebuilt a cleared amount from its saved value. Check pending work before the storage-revision shortcut, including for cash-rate and Sheet refreshes. The validation journey forces a price read during the invalid edit, keeps its input/message/storage assertions, and verifies prices resume after closing the editor. Cancelling an invalid number resets its saved baseline so the pending-work tracker clears it. Implemented on `codex/preserve-validation-drafts`; awaiting review and release.

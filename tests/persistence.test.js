@@ -105,6 +105,16 @@ test("a background save that changes nothing isn't written", () => device(`
   m.state.cashRate={rate:3}; assert.equal(m.persist({background:true}),true); assert.equal(writes,1);
 `));
 
+test("a same-tab background refresh waits for pending work without a storage conflict", () => device(`
+  m.persist();
+  const saved=entries.get(key);
+  let busy=true; m.onPendingWork(()=>busy);
+  assert.equal(m.freshForBackground(),false);
+  assert.equal(entries.get(key),saved);
+  busy=false;
+  assert.equal(m.freshForBackground(),true);
+`));
+
 test("a background refresh starts from the saved copy, and waits while this tab is mid-edit", () => device(otherTab + `
   let busy=false; m.onPendingWork(()=>busy);
   otherTabSaves(320);

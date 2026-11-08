@@ -4804,3 +4804,7 @@ The shared-field foundation (#254) is next, and in progress.
 ## Cleared-amount validation reliability — issue #276
 
 `[x]` A same-tab price refresh bypassed pending-work checks and rebuilt a cleared amount from its saved value. Check pending work before the storage-revision shortcut, including for cash-rate and Sheet refreshes. The validation journey forces a price read during the invalid edit, keeps its input/message/storage assertions, and verifies prices resume after closing the editor. Cancelling an invalid number resets its saved baseline so the pending-work tracker clears it. Implemented on `codex/preserve-validation-drafts`; awaiting review and release.
+
+## Shared ledger editor fields — issues #254 / #261
+
+`[~]` Migrate the generic budget/cost editor and its shared timing/deduction fields to labelled shared fields with visible help. Verify label activation, conditional tax fields, validation and mobile reflow. Income-specific, holdings, property/loan and other editor families remain separate work under #261.

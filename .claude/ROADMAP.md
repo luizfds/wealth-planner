@@ -4820,3 +4820,10 @@ The shared-field foundation shipped in PR #272; family migrations continue under
 ## Basic asset and vehicle shared fields — issues #254 / #261
 
 `[x]` Cash/Super/Other and Vehicle now use shared labelled fields and visible help. Fixed asset open-key mismatch/snapshot focus, safe category movement, blank depreciation display and nested Details actions; valuation/save rules remain unchanged. Browser/render/a11y coverage added on `codex/shared-asset-fields`, awaiting review/release. Holdings/lots and debt/offset forms remain separate families.
+
+## Goals editor shared fields — issues #254 / #261 / #263
+
+`[~]` Plan → Goals: the savings-goal editor on shared labelled fields with help; its target validated before saving
+(blank saved 0, a negative was clamped to 0); its saves are commits, so the redraw keeps focus (Tab out of a field
+dropped focus to the page body). Home → Benchmarks: the price-history paste box gets a visible linked label (it had a
+placeholder only), and each price field says what it is ("IOZ close on 30 Jun 2025").

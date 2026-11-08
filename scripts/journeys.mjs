@@ -955,6 +955,27 @@ const JOURNEYS = {
     });
     await go(page, 'dashboard');
     const opener = page.locator('#dashboardSetup [data-firstrun-open]');
+    // #282: a trace of the close, so a failure says why focus didn't come back — not a retry. Every focus change;
+    // every .focus() on an opener (in the page? visible? inert?) and who called it; every opener removed; and when
+    // the startup price and cash-rate reads land. The failure message prints it.
+    await page.evaluate(() => {
+      const t0 = performance.now(), log = window.__setupTrace = [];
+      const d = el => !el ? "none" : el === document.body ? "BODY" : el.tagName + (el.id ? "#" + el.id : "") + (el.matches && el.matches("[data-firstrun-open]") ? "[opener]" : "");
+      const L = m => { if(log.length < 80) log.push(Math.round(performance.now() - t0) + "ms " + m); };
+      document.addEventListener("focusin", e => L("focusin " + d(e.target)), true);
+      document.addEventListener("focusout", e => L("focusout " + d(e.target) + " -> " + d(e.relatedTarget)), true);
+      const focus = HTMLElement.prototype.focus;
+      HTMLElement.prototype.focus = function(o){
+        if(this.matches && this.matches("[data-firstrun-open]")) L("focus() on opener: inPage=" + this.isConnected + " visible=" + !!this.getClientRects().length + " inert=" + !!this.closest("[inert]") + " from " + ((new Error().stack || "").split("\n")[2] || "").trim().replace(/^.*\/src\//, "").replace(/\?v=[0-9.]+/, ""));
+        return focus.call(this, o);
+      };
+      const get = window.fetch;
+      window.fetch = function(u){ const r = get.apply(this, arguments); if(/latest\.json|weekly\.json|cash-rate/.test(String(u))) r.then(() => L("read " + String(u).split("/").pop().split("?")[0]), () => L("failed " + String(u).split("/").pop())); return r; };
+      new MutationObserver(ms => ms.forEach(m => m.removedNodes.forEach(n => {
+        if(n.nodeType === 1 && (n.matches("[data-firstrun-open]") || (n.querySelector && n.querySelector("[data-firstrun-open]")))) L("opener removed (in " + d(n) + "), focus now " + d(document.activeElement));
+      }))).observe(document, { childList: true, subtree: true });
+      window.addEventListener("popstate", () => L("popstate"), true);
+    });
     await opener.focus(); await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
     const first = dialog.locator('[data-fr-close]'), last = dialog.locator('[data-fr-next]');
@@ -976,6 +997,7 @@ const JOURNEYS = {
     await type.focus();
     await type.selectOption('savings');
     check(await type.evaluate(el => el === document.activeElement), 'changing account type lost keyboard focus');
+    await page.evaluate(() => window.__setupTrace && window.__setupTrace.push("--- Escape"));
     await page.keyboard.press('Escape');
     // Focus comes back at the end of an async chain (Escape → history.back() → popstate → close → setTimeout), so
     // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274).
@@ -986,7 +1008,8 @@ const JOURNEYS = {
       const a = document.activeElement;
       return JSON.stringify({ focus: a ? a.tagName + "#" + a.id + "." + a.className + " in " + ((a.closest("[id]") || {}).id || "-") : null,
         focusData: a ? Object.assign({}, a.dataset) : null, setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
-        openers: document.querySelectorAll('#dashboardSetup [data-firstrun-open]').length, page: document.body.getAttribute("data-current-page"), history: history.state });
+        openers: document.querySelectorAll('#dashboardSetup [data-firstrun-open]').length, page: document.body.getAttribute("data-current-page"), history: history.state,
+        trace: (window.__setupTrace || []).slice(-30) });
     }));
     check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
     // A full redraw (the app's own price refresh can land here) keeps a keyboard user's place: lib/keepui.js.

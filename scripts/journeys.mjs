@@ -647,18 +647,26 @@ const JOURNEYS = {
     check(await type.evaluate(el => el === document.activeElement), 'changing account type lost keyboard focus');
     await page.keyboard.press('Escape');
     // Focus comes back at the end of an async chain (Escape → history.back() → popstate → close → setTimeout), so
-    // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274). The check itself is unchanged.
+    // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274).
+    // Read focus and match the live opener in one browser task: locator.evaluate can resolve
+    // a node before a background redraw and compare that detached node to its focused replacement.
     await page.waitForFunction(() => { const a = document.activeElement; return !!(a && a.matches('#dashboardSetup [data-firstrun-open]')); }, null, { timeout: 5000 }).catch(() => {});
-    check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener — ' + await page.evaluate(() => {
+    check(await page.evaluate(() => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')), 'closing setup did not return focus to its opener — ' + await page.evaluate(() => {
       const a = document.activeElement;
       return JSON.stringify({ focus: a ? a.tagName + "#" + a.id + "." + a.className + " in " + ((a.closest("[id]") || {}).id || "-") : null,
-        setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
+        focusData: a ? Object.assign({}, a.dataset) : null, setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
         openers: document.querySelectorAll('#dashboardSetup [data-firstrun-open]').length, page: document.body.getAttribute("data-current-page"), history: history.state });
     }));
     check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
     // A full redraw (the app's own price refresh can land here) keeps a keyboard user's place: lib/keepui.js.
-    await page.evaluate(async () => (await import('/src/components/redraw.js')).renderAll());
-    check(await opener.evaluate(el => el === document.activeElement), 'a full redraw took focus from the setup opener');
+    // Hold the old node to exercise the redraw that can land between a locator's
+    // resolution and evaluate(). Focus belongs to the replacement, not that detached node.
+    await page.evaluate(async () => {
+      const before = document.activeElement;
+      (await import('/src/components/redraw.js')).renderAll();
+      if(before.isConnected) throw new Error('Focus regression did not replace the opener');
+      if(!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')) throw new Error('A full redraw took focus from the setup opener');
+    });
     await page.evaluate(async original => {
       const s = await import('/src/state.js'); s.setState(s.migrateState(JSON.parse(original)));
       (await import('/src/calc/engine.js')).recalcComputedItems();

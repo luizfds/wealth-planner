@@ -4772,9 +4772,9 @@ or a small series; no merge or deployment until reviewed. Issue #267 (regression
    table took Home to ~850px, and the Benchmarks "Compare with" select took it to 344px. `scripts/smoke.mjs` gains
    a 320px light pass, which also caught the Accounts card toggles squeezed to 0–30px wide.
    Completed in PR #268, shipped v3.227.3.
-2. `[~]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
+2. `[x]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
    `<dialog>`/`showModal()` already in `safekeepingwiring.js`.
-3. `[ ]` **Issue #254: a shared-field foundation**, kept tight: the field, its label/help/error states and
+3. `[~]` **Issue #254: a shared-field foundation**, kept tight: the field, its label/help/error states and
    tokens, so issue #263 isn't held behind a large redesign.
 4. `[ ]` **Issue #263: inline validation before persisting financial inputs**, then page migrations, one feature
    family per PR: issues #255, #261, #258/#259/#260 (shared mobile patterns) and #266.
@@ -4794,5 +4794,5 @@ tab adopts; work in progress survives; refreshes in either tab; near-simultaneou
 
 Issue #256 implementation: shared asynchronous decision/text/password dialogs, explicit non-mutating cancellation,
 focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.
-Implementation is ready for review; inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
-The shared-field foundation (#254) is the next item after this PR.
+Shipped v3.229.0 (PR #271); inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
+The shared-field foundation (#254) is next, and in progress.

@@ -290,7 +290,7 @@
   /* v3.35.0 — investments against a benchmark. */
   .bm-controls{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:var(--fs-sm); color: var(--ink-soft); margin:2px 0 12px; }
   .bm-controls label{ display:inline-flex; align-items:center; gap:6px; max-width:100%; }
-  .bm-controls select, .bm-controls input{ min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; }
+  /* #254: the controls are .field-control (base.css) — the first family on the shared field; this skin was 8px/4px. */
   /* A select is as wide as its longest option; let it shrink inside the label on a 320px phone (#257). */
   .bm-controls select{ min-width:0; flex:0 1 auto; }
   .bm-perf{ display:flex; flex-direction:column; gap:8px; margin:10px 0; }

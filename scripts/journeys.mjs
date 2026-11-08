@@ -20,6 +20,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   taxlabels   — Tax's forms: every field named from its visible label, no help left in title tooltips (#261)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -171,6 +172,34 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #261: Tax's forms — every field named, its name starting with what's on screen (WCAG 2.5.3), no help left in a
+  // title tooltip, and visible help tied to its field.
+  async taxlabels(page){
+    for(const sub of ["year", "returns", "people"]){
+      await go(page, "tax", "data-tax-sub", sub);
+      await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
+      await settle(page);
+      const bad = await page.evaluate(() => {
+        const out = [];
+        const text = el => { const c = el.cloneNode(true); c.querySelectorAll(".visually-hidden, input, select, textarea").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim(); };
+        document.querySelectorAll(".app-page:not([hidden]) input:not([type=hidden]):not([type=file]), .app-page:not([hidden]) select, .app-page:not([hidden]) textarea").forEach(el => {
+          if(!el.getClientRects().length) return;
+          const who = el.className || el.getAttribute("data-ty-key") || el.type;
+          const label = el.labels && el.labels[0];
+          const name = el.getAttribute("aria-label") || (label ? label.textContent.replace(/\s+/g, " ").trim() : "");
+          if(!name) out.push(who + ": no accessible name");
+          if(el.title) out.push(who + ": help in a title tooltip");
+          if(label && !label.contains(el) && !el.getAttribute("aria-label") && !name.startsWith(text(label))) out.push(who + ": name doesn't start with its label");
+          (el.getAttribute("aria-describedby") || "").split(" ").filter(Boolean).forEach(id => { if(!document.getElementById(id)) out.push(who + ": describedby points at nothing (" + id + ")"); });
+        });
+        document.querySelectorAll(".app-page:not([hidden]) .field-help[id]").forEach(h => {
+          if(h.getClientRects().length && !document.querySelector('[aria-describedby~="' + h.id + '"]')) out.push("help #" + h.id + " describes no field");
+        });
+        return out;
+      });
+      check(!bad.length, "Tax → " + sub + ": " + bad.slice(0, 6).join("; "));
+    }
+  },
   // #254 / #261 / #263: Plan → Goals' editor on shared fields — labelled, validated, and keyboard-safe through its saves.
   async goals(page){
     await page.waitForLoadState("networkidle"); await settle(page);

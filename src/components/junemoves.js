@@ -13,9 +13,9 @@ export function juneMovesHtml(today){
   var any = false;
   var body = people.map(function(person){
     var j = juneMoves(person, today);
-    if(!j.moves.length) return '<div class="jm-person"><h4>' + escapeAttr(person) + '</h4><p class="ledger-note" style="margin:0">Nothing worth doing this year from what the app knows.</p></div>';
+    if(!j.moves.length) return '<div class="jm-person"><h3>' + escapeAttr(person) + '</h3><p class="ledger-note" style="margin:0">Nothing worth doing this year from what the app knows.</p></div>';
     any = true;
-    return '<div class="jm-person"><h4>' + escapeAttr(person) + ' <small>marginal rate ' + Math.round(j.marginal * 1000) / 10 + '% incl. Medicare</small></h4>' +
+    return '<div class="jm-person"><h3>' + escapeAttr(person) + ' <small>marginal rate ' + Math.round(j.marginal * 1000) / 10 + '% incl. Medicare</small></h3>' +
       j.moves.map(function(m){
         return '<div class="jm-move jm-' + m.kind + '"><div class="jm-head"><b>' + escapeAttr(m.title) + '</b>' +
           (m.saves ? '<span class="jm-saves">about ' + fmtCurrency0.format(m.saves) + (m.kind === "prepay" || m.kind === "interest" ? ' sooner' : ' less tax') + '</span>' : '') + '</div>' +

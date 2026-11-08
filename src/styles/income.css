@@ -306,8 +306,8 @@
 .jm-lead{ font-size:var(--fs-sm); color:var(--ink-soft); margin:0 0 10px; }
 .jm-lead b{ color:var(--ink); }
 .jm-person{ margin-bottom:14px; }
-.jm-person h4{ font-size:var(--fs-md); margin:0 0 6px; }
-.jm-person h4 small{ font-weight:600; color:var(--ink-soft); font-size:var(--fs-xs); margin-left:6px; }
+.jm-person h3{ font-size:var(--fs-md); margin:0 0 6px; }
+.jm-person h3 small{ font-weight:600; color:var(--ink-soft); font-size:var(--fs-xs); margin-left:6px; }
 .jm-move{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:6px; background:var(--paper); }
 .jm-head{ display:flex; gap:10px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; font-size:var(--fs-md); }
 .jm-saves{ font-size:var(--fs-sm); font-weight:600; color:var(--good-ink); white-space:nowrap; }

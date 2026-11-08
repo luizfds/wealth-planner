@@ -13,11 +13,16 @@ import { escapeAttr } from "../lib/html.js";
 // is a planning view; they're facts about the person, so they live here and the tax card links to
 // them. Salary sacrifice and the top-up stay on the tax card — those are this year's choices.
 
-function field(label, inner, title){
-  return '<div class="proj-field"><label' + (title ? ' title="' + escapeAttr(title) + '"' : '') + '>' + label + '</label>' + inner + '</div>';
+// #261: each field's visible label is its label — tied by for/id, with the person's name for a screen reader (so the
+// name starts with what's on screen: "HELP/HECS owing $ for Alex") — and its help shows under it, described, rather
+// than in a title tooltip that touch and keyboard never reach. `control` is the input, built with id and describedby.
+function field(id, label, person, control, help){
+  return '<div class="proj-field"><label for="' + id + '">' + label + '<span class="visually-hidden"> for ' + escapeAttr(person) + '</span></label>' +
+    control + (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
 }
-function numInput(cls, person, value, aria, step){
-  return '<input type="number" min="0" step="' + (step || 500) + '" class="pp-in ' + cls + '" data-pp-person="' + escapeAttr(person) + '" aria-label="' + escapeAttr(aria) + '" value="' + (Number(value) || 0) + '">';
+function numInput(cls, person, value, id, described, step){
+  return '<input type="number" min="0" step="' + (step || 500) + '" class="pp-in ' + cls + '" data-pp-person="' + escapeAttr(person) + '" id="' + id + '"' +
+    (described ? ' aria-describedby="' + id + '-help"' : '') + ' value="' + (Number(value) || 0) + '">';
 }
 
 function usesText(ref){
@@ -42,23 +47,25 @@ export function personCardHtml(person, index, today){
     hours.push('<div class="proj-field pp-hours"><label for="pp-wfh-' + index + '-' + fy + '">' + fyLabel(fy) + ' <small>' + Math.round(rate.rate * 100) + 'c/h</small></label>' +
       '<input type="number" min="0" step="1" id="pp-wfh-' + index + '-' + fy + '" class="pp-in pp-wfh" data-pp-person="' + pid + '" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + h + '" placeholder="0"></div>');
   }
+  var ppid = "pp-" + index + "-";
   return '<div class="pp-card" data-pp-card="' + pid + '">' +
     '<div class="pp-head"><span class="m-avatar series-color-' + (index % 8) + '" aria-hidden="true">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' +
-      '<input type="text" class="pp-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" title="Renaming updates every income row, holding, property share, budget line and tax year that names them">' +
+      '<input type="text" class="pp-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
       (age != null ? '<span class="pp-age">' + age + '</span>' : '') +
       '<button type="button" class="icon-btn icon-del" data-pp-remove="' + pid + '" aria-label="Remove ' + pid + ' from tax" title="Remove from tax — their income rows go back to Net">✕</button></div>' +
-    '<p class="pp-uses">' + usesText(personReferences(person)) + '</p>' +
+    // #261: what renaming does was a title tooltip on the name; it's said here, with what names them, and describes it.
+    '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +
-      field("Date of birth", '<input type="date" class="pp-in pp-dob" data-pp-person="' + pid + '" aria-label="Date of birth for ' + pid + '" value="' + escapeAttr(st.dateOfBirth || "") + '">',
+      field(ppid + "dob", "Date of birth", person, '<input type="date" class="pp-in pp-dob" data-pp-person="' + pid + '" id="' + ppid + 'dob" aria-describedby="' + ppid + 'dob-help" value="' + escapeAttr(st.dateOfBirth || "") + '">',
         "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Home → Benchmarks.") +
-      field("HELP/HECS owing $", numInput("pp-help", person, st.helpBalance, "HELP/HECS owing for " + person),
+      field(ppid + "help", "HELP/HECS owing $", person, numInput("pp-help", person, st.helpBalance, ppid + "help", true),
         "What's still owed on a study loan. The compulsory repayment is worked out from this and comes out of take-home.") +
-      field("Concessional cap $/yr", numInput("pp-cap", person, st.concessionalCap, "Concessional cap per year for " + person)) +
-      field("Carry-forward available $", numInput("pp-carry", person, st.carryForward, "Carry-forward available for " + person),
+      field(ppid + "cap", "Concessional cap $/yr", person, numInput("pp-cap", person, st.concessionalCap, ppid + "cap", false)) +
+      field(ppid + "carry", "Carry-forward available $", person, numInput("pp-carry", person, st.carryForward, ppid + "carry", true),
         "Unused cap from the last five years, available while the total super balance was under $500,000 on 30 June last year — myGov shows it.") +
-      field("Capital losses b/f $", numInput("pp-losses", person, st.capitalLossCarriedForward, "Capital losses carried forward for " + person, 100),
-        "Net capital losses from earlier years, as on the last notice of assessment.") +
-      field("Hours worked a week", '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week" data-pp-person="' + pid + '" aria-label="Hours worked a week for ' + pid + '" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
+      field(ppid + "losses", "Capital losses b/f $", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true, 100),
+        "Net capital losses brought forward (b/f) from earlier years, as on the last notice of assessment.") +
+      field(ppid + "week", "Hours worked a week", person, '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week" data-pp-person="' + pid + '" id="' + ppid + 'week" aria-describedby="' + ppid + 'week-help" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
         "What Cash flow → Income divides by when it's shown per hour. Empty counts as 38.") +
     '</div>' +
     // v3.145.0: only for someone a rental's loss saves tax for — whether their pay already has it.

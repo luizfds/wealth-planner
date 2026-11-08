@@ -255,13 +255,15 @@ function rentHtml(fy){
     var logged = rentalLogged(p, fy, localDateStr(), state, claimItems());
     var people = getTaxPeople();
     var shares = people.map(function(person){ return person + " " + propertyOwnershipPct(p, person, people) + "%"; }).join(" · ");
+    // #261: what a blank line means was a title tooltip on every field; the note says it and describes each one.
+    var helpId = "ty-rent-help-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_");
     var rows = sch.lines.map(function(l){
       var lg = logged.has[l.key] ? '<small class="ty-logged">Logged ' + money(logged.lines[l.key]) + (logged.wholeYear ? '' : ' so far') + '</small>' : '';
       return '<div class="ty-rent-row' + (l.actual != null ? " has-actual" : "") + '"><span>' + l.label + lg + '</span>' +
-        '<input class="ty-rent-in" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" title="Blank uses the estimate shown. Type the figure from the year\'s documents to replace it."></div>';
+        '<input class="ty-rent-in" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
     }).join("");
     return '<details class="row-more-options ty-rent"' + (sch.actualCount ? " open" : "") + '><summary>' + escapeAttr(p.what || "Property") + ' — rental schedule</summary>' +
-      '<p class="ledger-note" style="margin-left:0">Whole-property totals for ' + fyLabel(fy) + ' (' + shares + '). Grey figures are estimates from the property\'s rows, loans and depreciation; type the agent\'s summary, loan statement and bills over them. ' + sch.actualCount + ' of ' + RENT_LINES.length + ' lines from documents.</p>' +
+      '<p class="ledger-note" id="' + helpId + '" style="margin-left:0">Whole-property totals for ' + fyLabel(fy) + ' (' + shares + '). Grey figures are estimates from the property\'s rows, loans and depreciation; type the agent\'s summary, loan statement and bills over them — a line left blank uses its estimate. ' + sch.actualCount + ' of ' + RENT_LINES.length + ' lines from documents.</p>' +
       (logged.count
         ? '<div class="ty-logged-bar"><span>' + logged.count + (logged.count === 1 ? ' entry' : ' entries') + ' logged for ' + fyLabel(fy) + (logged.wholeYear ? '' : ' so far') + '.</span>' +
             '<button type="button" class="btn btn-sm" data-ty-uselogged="' + escapeAttr(p.id) + '">Use logged figures</button></div>'

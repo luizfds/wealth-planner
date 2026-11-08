@@ -30,13 +30,15 @@ for(const width of widths)for(const scheme of schemes){
  const cdp=await context.newCDPSession(page);
  await page.goto(base+'/index.html?mock=1');await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));await page.waitForTimeout(1200);
  await page.evaluate(axe);
- async function scan(name){
+ async function scan(name, selector){
   // A toast caught mid-fade (opacity between 0 and 1) fails color-contrast for the 200ms it takes to go — the
   // ?mock=1 "Sample data generated" one fades at ~3s, right as Home → Insights is scanned, so the job failed
   // whenever a runner landed on that moment. Wait it out; a toast fully shown is still scanned.
   await page.waitForFunction(()=>![...document.querySelectorAll('.toast')].some(t=>{const o=Number(getComputedStyle(t).opacity);return o>0&&o<1;}),null,{timeout:5000}).catch(()=>{});
-  const result=await page.evaluate(async()=>{
-   const r=await window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']}});
+  const result=await page.evaluate(async selector=>{
+   const scope=selector ? document.querySelector(selector) : document;
+   if(!scope) throw new Error("Missing accessibility scan scope: "+selector);
+   const r=await window.axe.run(scope,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']}});
    // axe cannot resolve contrast for single-character badges, glyphs and SVG labels.
    const luminance = color => {
     const rgb = color.match(/[\d.]+/g).slice(0,3).map(Number).map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
@@ -58,16 +60,16 @@ for(const width of widths)for(const scheme of schemes){
     contrastChecks.push({element:el.outerHTML.slice(0,250),foreground,background,ratio:(Math.max(a,b)+0.05)/(Math.min(a,b)+0.05)});
    });
    return {contrastChecks,violations:r.violations.map(v=>({id:v.id,impact:v.impact,description:v.description,help:v.help,nodes:v.nodes.map(n=>({target:n.target,html:n.html,summary:n.failureSummary}))})),incomplete:r.incomplete.map(v=>({id:v.id,count:v.nodes.length,nodes:v.nodes.map(n=>({target:n.target,html:n.html,summary:n.failureSummary}))}))};
-  });
+  }, selector || null);
   const layout = await page.evaluate(() => ({viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
   const nativeTree = await cdp.send('Accessibility.getFullAXTree');
   const accessibilityTree = nativeTree.nodes.filter(n=>!n.ignored).map(n=>({id:n.nodeId,role:n.role?.value,name:n.name?.value,description:n.description?.value,children:n.childIds}));
-  results.push({name,width,scheme,...result,accessibilityTree,layout});
-  if(process.env.A11Y_DIR && (name.startsWith('app-dialog/') || ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name))){
+  results.push({name,scope:selector || "document",width,scheme,...result,accessibilityTree,layout});
+  if(process.env.A11Y_DIR && (name.startsWith('app-dialog/') || name.startsWith('ledger-editor/') || ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name))){
    fs.mkdirSync(process.env.A11Y_DIR,{recursive:true});
    await page.screenshot({path:path.join(process.env.A11Y_DIR, width+'-'+scheme+'-'+name.replaceAll('/','-')+'.png'),fullPage:true});
   }
-  console.log(JSON.stringify({name,width,scheme,violations:result.violations.map(v=>({id:v.id,count:v.nodes.length})),contrastFailures:result.contrastChecks.filter(c=>c.ratio<4.5)}));
+  console.log(JSON.stringify({name,scope:selector || "document",width,scheme,violations:result.violations.map(v=>({id:v.id,count:v.nodes.length,nodes:v.nodes})),contrastFailures:result.contrastChecks.filter(c=>c.ratio<4.5)}));
  }
  for(const [pg,attr,sub]of views){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
@@ -78,6 +80,27 @@ for(const width of widths)for(const scheme of schemes){
   if(pg==='expenses'&&sub==='budget'){
    await page.locator('#recurringRuleForm').evaluate(f=>{f.closest('details').open=true;});
    await scan('recurring-rule-form');
+   // #261: shared ledger fields, including their conditional tax controls and error state.
+   // Scope these to the editor. Full-document states remain above; modal background
+   // isolation and full-document scans with editors open are tracked separately in #278.
+   const row=page.locator('[data-line-id="demo-groceries"]');
+   await row.evaluate(el=>{const toggle=el.closest('.m-card').querySelector('[data-budget-group-toggle]');if(toggle?.getAttribute('aria-expanded')!=='true')toggle?.click();});
+   await row.locator('[data-row-toggle]').first().click();
+   await row.locator('.row-more-options').evaluate(el=>el.open=true);
+   // Desktop enters from opacity:0. Measure final colours after its actual animation,
+   // rather than comparing partially blended text during the entrance.
+   await row.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));
+   await scan('ledger-editor/timing', '.m-row.open');
+   await row.locator('.f-deductible').check();
+   await scan('ledger-editor/personal-claim', '.m-row.open');
+   const owner=row.locator('.f-deductperson');
+   await owner.selectOption(await owner.locator('option[value^="property:"]').first().getAttribute('value'));
+   await scan('ledger-editor/property-claim', '.m-row.open');
+   await row.getByLabel('Amount',{exact:true}).fill('');
+   await scan('ledger-editor/invalid-amount', '.m-row.open');
+   await row.locator('.m-row-edit [data-row-toggle]').click();
+   await page.waitForFunction(()=>!document.querySelector('[data-line-id="demo-groceries"]').classList.contains('open'));
+
   }
  }
 

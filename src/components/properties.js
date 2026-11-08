@@ -917,7 +917,7 @@ function modernPropListHtml(items, section, showClass){
   // An expense row gets the Category field an income row doesn't: an IP's costs are budget lines
   // on the Expenses page now, and they'd be the only ones you couldn't categorise from the page
   // that owns them. Passed off state.categories so both ends offer the same list.
-  var opts = { showClass: showClass, showLog: true };
+  var opts = { fieldScope:"property", showClass: showClass, showLog: true };
   if(showClass) opts.categories = state.categories;
   return items.map(function(item, i){ return modernPlainRowHtml(item, i, section, modernPropRowOpen, opts); }).join("");
 }

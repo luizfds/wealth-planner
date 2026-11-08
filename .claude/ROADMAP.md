@@ -4767,11 +4767,12 @@ The accepted work from the v3.227.2 UX assessment, in the agreed order. The numb
 issues**, not items in this file (items 253–257 above are unrelated). Each step is its own reviewable PR,
 or a small series; no merge or deployment until reviewed. Issue #267 (regression coverage) goes with every step.
 
-1. `[~]` **Issue #257: 320px reflow for Home and Benchmarks, plus a 320px smoke pass.** Single-column grids
+1. `[x]` **Issue #257: 320px reflow for Home and Benchmarks, plus a 320px smoke pass.** Single-column grids
    declared `1fr` (`minmax(auto,1fr)`) let content set the column's floor: an open "Compare monthly trade-offs"
    table took Home to ~850px, and the Benchmarks "Compare with" select took it to 344px. `scripts/smoke.mjs` gains
    a 320px light pass, which also caught the Accounts card toggles squeezed to 0–30px wide.
-2. `[ ]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
+   Completed in PR #268, shipped v3.227.3.
+2. `[~]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
    `<dialog>`/`showModal()` already in `safekeepingwiring.js`.
 3. `[ ]` **Issue #254: a shared-field foundation**, kept tight: the field, its label/help/error states and
    tokens, so issue #263 isn't held behind a large redesign.
@@ -4784,9 +4785,12 @@ the cause; don't retry it into a pass.
 
 ## Two tabs: adopt another tab's save, keep work in progress — issue #269
 
-`[~]` v3.228.0's save guard refused every save in a tab once any other tab wrote, and every tab writes on its
+`[x]` Shipped v3.228.1 (PR #270). v3.228.0's save guard refused every save in a tab once any other tab wrote, and every tab writes on its
 own (startup, prices, the cash rate). Adopt another tab's saved copy when this tab has nothing pending; when it
 has (a typed field not yet saved, an open scenario editor, an open dialog or setup), keep the work and offer an
 explicit choice. The guard stays as the backstop. Saves that change nothing aren't written, and a background
 refresh catches up with the stored copy before it writes. Journeys: a second tab doesn't block the first; an idle
 tab adopts; work in progress survives; refreshes in either tab; near-simultaneous saves are never a silent overwrite.
+
+Issue #256 implementation: shared asynchronous decision/text/password dialogs, explicit non-mutating cancellation,
+focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.

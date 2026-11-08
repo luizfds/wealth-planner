@@ -4750,6 +4750,17 @@ Fix confirmed keyboard, landmark, table, mobile layout and contrast defects; add
 accessibility CI job and browser regression. Evidence: `docs/audits/usability-accessibility-v3.227.1.md`.
 Draft PR only; physical device and actual screen-reader validation remain separate limitations.
 
+## Full assessment follow-up — November 2026
+
+`[x]` One PR: protect local saves across reloads and tabs; isolate sample data; unify settlement funding;
+record successful backups; clarify annual tax and planned/actual money; handle interrupted transitions;
+fix accessible controls; simplify Home, comparisons and primary actions; add data-quality context and explicit
+report download/share choices. Cover changed calculations and flows with synthetic unit and browser regressions,
+then run all unit, lint/type/style, page smoke, journey, accessibility and performance checks.
+
+Assessment follow-up implemented on `codex/assessment-reliability-ux`; validation and behaviour changes
+are recorded in `docs/audits/assessment-followup-2026-11.md`. One PR; not merged or deployed.
+
 ## UX assessment backlog — issue #253
 
 The accepted work from the v3.227.2 UX assessment, in the agreed order. The numbers below are **GitHub

@@ -16,10 +16,10 @@ const server=http.createServer((req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base='http://127.0.0.1:'+server.address().port;
-const browser=await chromium.launch();
+const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
-const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['reports','report','cashflow'],['reports','report','networth']];
+const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['assets','assets-sub','summary'],['reports','report','cashflow'],['reports','report','networth']];
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
 for(const width of widths)for(const scheme of schemes){
@@ -69,6 +69,7 @@ for(const width of widths)for(const scheme of schemes){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
   await page.waitForTimeout(300);
   await page.evaluate(([a,s])=>document.querySelector('[data-'+a+'="'+s+'"]').click(),[attr,sub]);await page.waitForTimeout(500);
+  if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   await scan(pg+'/'+sub);
   if(pg==='expenses'&&sub==='budget'){
    await page.locator('#recurringRuleForm').evaluate(f=>{f.closest('details').open=true;});

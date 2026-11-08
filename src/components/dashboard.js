@@ -75,6 +75,7 @@ export function renderCards(){
   try { baseT = scenarioTotals(currentScenario()); } catch(e){ baseT = null; }
   var html = state.scenarios.map(function(scenario){
     var t = scenarioTotals(scenario);
+    var fundingShort = t.draw && t.draw.short > 0;
     var isActive = state.activeScenario === scenario;
     var isBaseline = state.baselineScenario === scenario;
     return (
@@ -106,6 +107,7 @@ export function renderCards(){
             '<div class="card-savings' + (regularOf(t) < 0 ? " neg" : "") + '">' + fmtCurrency0.format(regularOf(t)) + '<span style="font-size:var(--fs-sm);font-weight:400;color:var(--ink-soft)"> /mo</span></div>' +
             '<div class="card-sub">' + fmtCurrency0.format(t.netYearly) + ' / year net savings' + (t.oneOffYearly > 0.5 ? ', incl. ' + fmtCurrency0.format(t.oneOffYearly) + ' bonuses' : '') + '</div>' +
           '</div>' +
+          (fundingShort ? '<p class="card-funding down">Funding incomplete · ' + fmtCurrency0.format(t.draw.short) + ' short<br><small>Projection assumes this gap is funded.</small></p>' : '') +
           '<div class="card-bar-track"><div class="card-bar-fill' + (t.rate < 0 ? " neg" : "") + '" style="width:' + Math.min(100, Math.abs(t.rate) / maxAbsRate * 100) + '%"></div></div>' +
           '<div class="card-stats"><span>Savings rate</span><b>' + fmtPercent1.format(t.rate) + '</b></div>' +
           '<div class="card-stats"><span>Home cost / mo</span><b>' + fmtCurrency0.format(t.homeMonthly) + '</b></div>' +
@@ -218,7 +220,7 @@ function taxTileHtml(){
     small = (lodged ? "" : "due 31 Oct · ") + refundText + (ev.length ? " · " + ticked + " of " + ev.length + " documents" : "");
   } else {
     var tax = results.reduce(function(sum, r){ return sum + r.totalTax; }, 0);
-    label = fyLabel(fy) + " tax so far";
+    label = fyLabel(fy) + (known.length ? " estimated tax return" : " estimated annual tax");
     big = known.length ? (refund >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(refund)) : fmtCurrency0.format(tax);
     small = known.length ? (refund >= 0 ? "estimated refund" : "estimated to pay") : "estimated tax and levies for the year";
   }
@@ -364,7 +366,7 @@ export function renderDashboardStats(){
     return;
   }
   el.innerHTML =
-    '<div class="stat-tile" data-home-card="savings"><span>Net savings</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
+    '<div class="stat-tile" data-home-card="savings"><span>Planned monthly surplus</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
       '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
     '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +

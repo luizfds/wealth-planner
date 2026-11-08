@@ -32,7 +32,7 @@ import { wireAccounts, wireGoals, renderGoalsTab } from "./components/accountswi
 import { wirePayslip, wireImports } from "./components/importwiring.js";
 import { wireSettings, wireActivity, wireErrorLog, renderSettingsTab } from "./components/settingswiring.js";
 import { wireCards, wireMonthReview, wireBenchmarks, wireHomeArrange, wireHomeSummary } from "./components/homewiring.js";
-import { wireData, wireFirstRun, buildDemoState } from "./components/datawiring.js";
+import { wireData, wireFirstRun, buildDemoState, hasRealUserData } from "./components/datawiring.js";
 import { wireNavigation, wireSubpages, wirePullToRefresh, wirePeriod, wireShortcuts } from "./components/chromewiring.js";
 import { wireAdvice, wireBudgetHistory } from "./components/budgettoolswiring.js";
 import { wireSafekeeping, keepNetWorthHistory } from "./components/safekeepingwiring.js";
@@ -238,16 +238,15 @@ import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
   if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
-  // immediately (no confirm needed, unlike the header's own Sample data button: there's nothing
-  // to lose landing here for the first time) and strip the query param via replaceState so a
-  // later reload or bookmark of this URL doesn't keep re-rolling random data.
-  if(new URLSearchParams(location.search).get("mock") === "1"){
+  // after confirming replacement if a household already exists. A sample link can be
+  // revisited after setup, so the URL alone is never permission to discard saved data.
+  if(new URLSearchParams(location.search).get("mock") === "1" && (!hasRealUserData() || confirm("Replace this household with sample data? Export a backup first to keep your data."))){
     buildDemoState();
     renderAll();
     persist();
     showToast("Sample data generated");
-    history.replaceState(history.state, "", location.pathname + location.hash);
   }
+  if(new URLSearchParams(location.search).has("mock")) history.replaceState(history.state, "", location.pathname + location.hash);
   wireShortcuts();
 
   // Matching #appLoading's inline styles in index.html — fades out only once the real UI above

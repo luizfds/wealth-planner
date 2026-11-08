@@ -47,3 +47,21 @@ test("ahead for a while and then behind again is said as such", function(){
   assert.equal(verdict({ isBaseline: false, short: 0, monthAfterTax: 900, monthUnderStress: 400, lowestCash: 1, aheadFrom: null, aheadForAWhile: 9, netWorth: [{ year: 20 }] }),
     "Ahead of staying put for a while from year 9, behind again by year 20, affordable on the figures here, and holds up under stress.");
 });
+
+test("settlement comparison and purchase warnings use the same cash, excluding unsold shares", async function(){
+  const { canBuy } = await import("../src/calc/canbuy.js");
+  const { compareScenario } = await import("../src/calc/compare.js");
+  const keep = state;
+  try {
+    setState(migrateState(demoHousehold("2026-10-15")));
+    state.assets.push({ id: "extra-shares", category: "Shares", what: "Example holding", amount: 420000, currency: "AUD" });
+    recalcComputedItems();
+    const name = state.scenarios.find(s => state.purchase[s] && state.purchase[s].enabled);
+    const buy = canBuy(name), comparison = compareScenario(name);
+    assert.equal(comparison.available, Math.round(buy.available));
+    assert.equal(comparison.short, Math.round(buy.short));
+    state.assets.find(a => a.id === "extra-shares").amount += 180000;
+    assert.equal(compareScenario(name).available, comparison.available, "a share revaluation cannot fund settlement");
+    assert.equal(compareScenario(name).reserveAfter, Math.round(Math.max(0, buy.left)));
+  } finally { setState(keep); }
+});

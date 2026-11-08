@@ -1,7 +1,8 @@
+import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
-import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, liquidAssetsValue, toAudAmount } from "../calc/engine.js";
+import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr, segLabel } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
@@ -1173,9 +1174,9 @@ export function patchAssetCategoryTotals(){
   renderAssetsSummary();
 }
 
-export function renderNetWorthPanel(){
+export function netWorthPurchaseHtml(){
   var total = totalNetWorthValue();
-  var liquid = liquidAssetsValue();
+  var liquid = drawFor(0).available;
   var purchaseScenarios = state.scenarios.filter(function(s){ return state.purchase[s] && state.purchase[s].enabled; });
   // This table's columns (LVR/stamp duty/LMI/upfront cash) are all purchase-specific and don't
   // apply to a scenario using the invest leg instead — rather than force it into a row shape
@@ -1185,10 +1186,8 @@ export function renderNetWorthPanel(){
     ? '<p class="calc-note" style="margin-top:10px">' + (investScenarios.length === 1 ? escapeAttr(investScenarios[0]) + ' is' : investScenarios.map(escapeAttr).join(", ") + ' are') +
       ' using "invest instead of buying" — see the Scenarios tab for that leg\'s own numbers.</p>'
     : '';
-  var panel = document.getElementById("netWorthPanel");
   if(!purchaseScenarios.length){
-    panel.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
-    return;
+    return '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
   }
   var rows = purchaseScenarios.map(function(s){
     var out = recalcPurchase(s);
@@ -1201,18 +1200,22 @@ export function renderNetWorthPanel(){
       '<td class="num ' + (shortfall > 0 ? "short" : "ok") + '">' + (shortfall > 0 ? "shortfall " : "surplus ") + fmtCurrency0.format(Math.abs(shortfall)) + '</td>' +
       '<td class="num">' + fmtCurrency0.format(netAfter) + '</td></tr>';
   }).join("");
-  panel.innerHTML =
-    '<div class="table-scroll"><table class="worth-table">' +
-      '<thead><tr><th>Scenario</th>' +
-        '<th class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
-        '<th class="num" title="Your Cash + Shares from the assets above, plus any property offset balances (real, spendable cash). Super and property equity can\'t be drawn on for a deposit.">Liquid assets (cash + shares + offset)</th>' +
-        '<th class="num" title="Liquid assets minus upfront cash needed. A shortfall means your current liquid savings don\'t cover it — you\'d need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.">Surplus / shortfall</th>' +
-        '<th class="num" title="Current total assets minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after</th>' +
+  return '<div class="table-scroll" role="region" aria-label="Purchase funding comparison" tabindex="0"><table class="worth-table">' +
+      '<thead><tr><th scope="col">Scenario</th>' +
+        '<th scope="col" class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
+        '<th scope="col" class="num" title="Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.">Cash and offsets available</th>' +
+        '<th scope="col" class="num" title="Cash and offsets minus upfront cash needed. A shortfall means your current liquid savings don\'t cover it — you\'d need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.">Surplus / shortfall</th>' +
+        '<th scope="col" class="num" title="Current net worth minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after costs (if funded)</th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table></div>' +
-    '<p class="calc-note help" style="margin-top:10px">Net worth after purchase = current total assets minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
+    '<p class="calc-note help" style="margin-top:10px">This illustration assumes any funding gap is filled. Selling investments is not assumed. Net worth after purchase = current net worth minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
     investNote;
+}
+
+export function renderNetWorthPanel(){
+  var panel = document.getElementById("netWorthPanel");
+  if(panel) panel.innerHTML = netWorthPurchaseHtml();
 }
 
 // Where the money actually is, over time. A single net-worth line cannot answer "am I getting more

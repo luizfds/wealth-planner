@@ -1868,7 +1868,7 @@ test("compareHtml draws a column per scenario and the verdicts", async function(
   assert.match(h2, /cash runs out/);
   assert.match(oddsCellHtml({ ofTen: 7, lasted: 42, runs: 60 }), /7 in 10.*3 in 10 run out/);
   var h3 = compareHtml([mk("Today", true), mk("Buy", false, { lender: { ok: false, surplus: -420, assessedMonthly: 5100 } })]);
-  assert.match(h3, /Say no.*\$420 a month short/);
+  assert.match(h3, /Does not pass.*\$420 a month short/);
   assert.doesNotMatch(h2, /undefined|NaN/);
 });
 
@@ -2156,4 +2156,24 @@ test("recurring management and partial-profile disclosures render without privat
   assert.match(setup, /data-setup-go="plan" data-setup-sub="goals"/);
   assert.equal((setup.match(/data-setup-go=/g) || []).length, 5);
   assert.match(reportDisclosureHtml(reportDisclosure({}, "2026-11-03", {}), true), /<details open>/);
+});
+
+test("the Investments purchase table uses cash and offsets, without assuming unsold shares fund settlement", async function(){
+  const { setState, migrateState } = await import("../src/state.js");
+  const { demoHousehold } = await import("../src/calc/demo.js");
+  const { recalcComputedItems } = await import("../src/calc/engine.js");
+  const { netWorthPurchaseHtml } = await import("../src/components/assets.js");
+  const { canBuy } = await import("../src/calc/canbuy.js");
+  const keep=state;
+  try {
+    setState(migrateState(demoHousehold("2026-10-15"))); recalcComputedItems();
+    const buy=canBuy(state.scenarios.find(s=>state.purchase[s] && state.purchase[s].enabled));
+    const html=netWorthPurchaseHtml();
+    assert.match(html,/Cash and offsets available/);
+    assert.ok(html.includes(fmtCurrencyForTest(buy.available)));
+    assert.ok(html.includes(fmtCurrencyForTest(buy.short)));
+    assert.match(html,/Selling investments is not assumed/);
+    assert.doesNotMatch(html,/Liquid assets \(cash \+ shares/);
+  } finally {setState(keep);}
+  function fmtCurrencyForTest(n){return new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:0}).format(n);}
 });

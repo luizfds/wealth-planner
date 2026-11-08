@@ -8,7 +8,7 @@
 // computeNetWorthSeries), so this can't disagree with the cards or the projection.
 
 import { state } from "../state.js";
-import { scenarioTotals, computeNetWorthSeries, currentScenario, liquidAssetsValue, scenarioLegChanges, scenarioLegContext, isCashTriggered } from "./engine.js";
+import { scenarioTotals, computeNetWorthSeries, currentScenario, scenarioLegChanges, scenarioLegContext, isCashTriggered } from "./engine.js";
 import { recalcPurchase, calcRepaymentMonthly, purchaseActiveRate, ipProperties, shockedLoanRepaymentMonthly, loanPaidOut } from "./property.js";
 import { sumField } from "./ledger.js";
 import { ipFigures } from "./scenariolegs.js";
@@ -16,6 +16,7 @@ import { badStartSeries } from "./outcomes.js";
 import { serviceability, SERVICE_BUFFER, livingFloor, assessedLiving } from "./salecgt.js";
 import { scenarioSharedItems, livesElsewhere } from "./scenariochanges.js";
 import { scenarioIncomeMonthly, getTaxPeople } from "./tax.js";
+import { drawFor } from "./cashdraw.js";
 import { periodsOf } from "./ledger.js";
 import { localDateStr } from "../lib/format.js";
 
@@ -68,7 +69,8 @@ export function compareScenario(scenario, opts){
     return sum + ipFigures(c, {}).upfront;
   }, 0);
   var upfront = (buying ? (recalcPurchase(scenario) || {}).upfrontCash || 0 : 0) + upfrontNow + (investing ? Number(inv.initialAmount) || 0 : 0);
-  var available = liquidAssetsValue();
+  var funding = drawFor(upfront);
+  var available = funding.available;
   var lowest = series.reduce(function(m, p){ return Math.min(m, p.investments); }, Infinity);
   // Ahead from a year means ahead from then to the end: the first year after the last one it was
   // behind. A scenario that pulls ahead for a while and falls back is said to, not called ahead.
@@ -94,6 +96,7 @@ export function compareScenario(scenario, opts){
     upfront: r0(upfront), available: r0(available), short: r0(Math.max(0, upfront - available)),
     monthBeforeTax: r0(monthBefore), monthAfterTax: r0(monthAfter), monthUnderStress: r0(monthAfter - stress),
     lowestCash: r0(lowest),
+    reserveAfter: r0(Math.max(0, available - upfront)),
     // The difference of the two figures as shown, so "vs today" always adds up to what's on screen.
     netWorth: COMPARE_YEARS.map(function(yr){ var v = r0(series[Math.min(yr, series.length - 1)].y); return { year: yr, value: v, vsBase: v - r0(baseSeries[Math.min(yr, baseSeries.length - 1)].y) }; }),
     aheadFrom: aheadFrom, aheadForAWhile: aheadForAWhile, lender: lender,

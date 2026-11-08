@@ -77,6 +77,137 @@ async function go(page, pageId, subAttr, sub){
 const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
 
 const JOURNEYS = {
+  async datasafety(page){
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'); m.state.shared[0].amount = 147; m.commit(['shared']); location.reload();
+    });
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    check(await st(page, 'state.shared[0].amount') === 147, 'reload lost the last edit');
+    const other = await page.context().newPage();
+    await other.goto(base + '/index.html');
+    await other.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await other.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 320; m.commit(['shared']); });
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 280; m.commit(['shared']); });
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount) === 320, 'stale tab overwrote the newer household');
+    check(await st(page, 'state.shared[0].amount') === 280, 'conflict destroyed the local copy');
+    await page.locator('#storageConflict').waitFor();
+    const recovery = page.waitForEvent('download'); await page.locator('[data-storage-copy]').click();
+    const file = await recovery;
+    const copy = JSON.parse(fs.readFileSync(await file.path(), 'utf8'));
+    check(copy.shared[0].amount === 280, 'recovery download omitted unsaved changes');
+    check(await page.evaluate(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount) === 320, 'recovery export changed the saved copy');
+    await other.close();
+    page.once('dialog', d => d.dismiss()); await page.locator('[data-storage-reload]').click();
+    check(await st(page, 'state.shared[0].amount') === 280, 'cancelled reload discarded the recoverable copy');
+    page.once('dialog', d => d.accept());
+    await Promise.all([page.waitForNavigation(), page.locator('[data-storage-reload]').click()]);
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    check(await st(page, 'state.shared[0].amount') === 320, 'Reload latest did not adopt the saved household');
+    page.once('dialog', d => d.dismiss());
+    await page.goto(base + '/index.html?mock=1');
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    check(await st(page, 'state.shared[0].amount') === 320, 'declining sample data replaced the household');
+    page.once('dialog', d => d.accept());
+    await page.goto(base + '/index.html?mock=1');
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    check(await st(page, 'state.shared[0].amount') !== 320, 'accepted sample replacement did not run');
+    check(!await page.locator('#firstRunRoot [role="dialog"]').count(), 'sample household opened the empty setup wizard');
+    const protectedSections = await page.evaluate(async()=>{
+      const m=await import('/src/state.js'), data=await import('/src/components/datawiring.js'), saved=m.state;
+      const checked=[];
+      try {
+        for(const key of ['accounts','incomeLog','transfers','savingsGoals','recurringRules']){
+          m.setState(m.defaultState()); m.state[key]=[{id:'synthetic-only'}];
+          if(!data.hasRealUserData()) throw new Error('Sample guard missed '+key);
+          checked.push(key);
+        }
+      } finally {m.setState(saved);}
+      return checked.length;
+    });
+    check(protectedSections===5,'sample guard did not protect partially entered households');
+    check(await page.evaluate(async()=>{
+      const m=await import('/src/state.js'), data=await import('/src/components/datawiring.js'), saved=m.state;
+      try {m.setState(m.defaultState()); m.state.home[m.state.baselineScenario][0].amount=430; return data.hasRealUserData();}
+      finally {m.setState(saved);}
+    }), 'sample guard missed a housing-only household');
+  },
+  async backupstatus(page){
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
+      window.claude = {use: async () => ({save: async () => {throw {code:'declined'};}})};
+      window.__auditPrompt = window.prompt; window.prompt = () => '';
+      await (await import('/src/lib/backup.js')).doExport();
+    });
+    check(!await st(page, 'state.lastBackupDate'), 'declined backup cleared the reminder');
+    await page.evaluate(async () => {
+      window.claude = {use: async () => ({save: async () => {}})};
+      await (await import('/src/lib/backup.js')).doExport();
+    });
+    check(await st(page, 'state.lastBackupDate') === '2026-11-03', 'successful backup did not update the reminder');
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
+      Object.defineProperty(navigator, 'canShare', {configurable:true,value:()=>true});
+      Object.defineProperty(navigator, 'share', {configurable:true,value:async()=>{throw new DOMException('Cancelled','AbortError')}});
+      window.prompt = () => 'invented-test-passphrase';
+      (await import('/src/lib/backup.js')).doShare();
+    });
+    await page.getByRole('button', {name:'Send',exact:true}).click();
+    await page.waitForTimeout(200);
+    check(!await st(page, 'state.lastBackupDate'), 'cancelled sharing cleared the backup reminder');
+    await page.evaluate(async () => {
+      Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}});
+      (await import('/src/lib/backup.js')).doShare();
+    });
+    await page.getByRole('button', {name:'Send',exact:true}).last().click();
+    await page.waitForTimeout(200);
+    check(await st(page, 'state.lastBackupDate') === '2026-11-03', 'successful sharing did not update the reminder');
+    await page.evaluate(async()=>{
+      const m=await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
+      const encrypt=crypto.subtle.encrypt;
+      crypto.subtle.encrypt=()=>Promise.reject(new Error('Synthetic encryption failure'));
+      try { await (await import('/src/lib/backup.js')).doExport(); } finally {crypto.subtle.encrypt=encrypt;}
+    });
+    check(!await st(page, 'state.lastBackupDate'), 'failed encryption cleared the reminder');
+    await page.evaluate(() => {window.prompt=window.__auditPrompt; delete window.claude;});
+  },
+  async assessmentux(page){
+    await go(page,'dashboard');
+    const home=page.locator('#homeSummary');
+    check(await home.locator('.home-grid').evaluate(e => e.previousElementSibling == null || !e.previousElementSibling.classList.contains('home-week')), 'weekly recap still leads Home');
+    check(await home.locator('.home-grid > [data-home-card]').first().getAttribute('data-home-card') === 'month', 'current cash flow is not first');
+    check(!await home.locator('.wk-details').evaluate(e=>e.open), 'weekly recap is not collapsed by default');
+    await home.locator('.wk-details summary').click(); check(await home.locator('.wk-details').evaluate(e=>e.open), 'weekly recap cannot be expanded');
+    check((await home.innerText()).includes('Planned monthly surplus'), 'planned and logged cash flow are not distinguished');
+    check((await page.locator('[data-home-card="tax"]').textContent()).includes('estimated annual tax'), 'annual tax still reads as tax so far');
+    check((await home.innerText()).includes('Recorded balances'), 'net worth lacks data-quality context');
+    await page.locator('#quickFab').click();
+    await page.waitForTimeout(800);
+    check(await page.locator('#quickLogRoot [role="dialog"], #quickLogRoot .quick-log, #quickLogRoot input').count() > 0 || await page.locator('#quickLogSheet input').count() > 0, 'primary Log spending action did not open entry');
+    await page.keyboard.press('Escape');
+    await go(page,'plan','data-plan-sub','scenarios');
+    check(await page.locator('.card-funding').count() > 0, 'unfunded scenario cards lack funding status');
+    const longterm=page.locator('.cmp-longterm');
+    check(!await longterm.evaluate(e=>e.open), 'long-term detail is not collapsed');
+    await longterm.locator('summary').focus(); await page.keyboard.press('Enter');
+    check(await longterm.evaluate(e=>e.open), 'long-term comparison is not keyboard operable');
+    check((await page.locator('.cmp-card').innerText()).includes('Indicative serviceability check'), 'comparison implies a lending approval');
+    await page.setViewportSize({width:1280,height:844});
+    await go(page,'assets','data-assets-sub','summary');
+    check(await page.evaluate(()=>{
+      const title=document.getElementById('pageTitle').getBoundingClientRect(), actions=document.querySelector('.app-topbar .actions').getBoundingClientRect();
+      return Math.abs((title.top+title.height/2)-(actions.top+actions.height/2))<12;
+    }), 'desktop Investments header wrapped its actions onto another row');
+    const funding=await page.evaluate(async()=>{
+      const rows=[...document.querySelectorAll('#netWorthPanel tbody tr')];
+      const m=await import('/src/calc/canbuy.js');
+      return rows.every(row=>{
+        const cells=row.querySelectorAll('td'), buy=m.canBuy(cells[0].textContent);
+        return Number(cells[2].textContent.replace(/[^0-9.]/g,''))===Math.round(buy.available) &&
+          Number(cells[3].textContent.replace(/[^0-9.]/g,''))===Math.round(Math.abs(buy.left));
+      });
+    });
+    check(funding,'Investments settlement table disagrees with the purchase warning');
+  },
   async keyboardaudit(page){
     page.setDefaultTimeout(10000);
     const original = await st(page, 'JSON.stringify(state)');
@@ -118,7 +249,7 @@ const JOURNEYS = {
       (await import('/src/components/redraw.js')).renderAll();
     }, original);
     await go(page, 'plan', 'data-plan-sub', 'scenarios');
-    const compare = page.locator('.cmp-scroll');
+    const compare = page.locator('.cmp-scroll').first();
     await compare.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
     check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
     await go(page, 'reports');
@@ -208,6 +339,11 @@ const JOURNEYS = {
   },
   async reportaudit(page){
     page.setDefaultTimeout(10000);
+    await page.evaluate(() => {
+      window.__csvShares = [];
+      Object.defineProperty(navigator, 'canShare', {configurable:true,value:()=>true});
+      Object.defineProperty(navigator, 'share', {configurable:true,value:async({files})=>{window.__csvShares.push({name:files[0].name,text:await files[0].text()});}});
+    });
     await go(page, "reports");
     await page.locator('[data-report="cashflow"]').click();
     const disclosure = page.locator('[aria-label="Report assumptions and data quality"]');
@@ -230,6 +366,15 @@ const JOURNEYS = {
     await page.locator('[data-report-csv]').click();
     const file = await download;
     check(file.suggestedFilename().endsWith('.csv'), 'report download did not produce a CSV');
+    check(await page.evaluate(()=>window.__csvShares.length) === 0, 'Download unexpectedly opened native sharing');
+    await page.locator('[data-report-share]').click();
+    await page.waitForFunction(()=>window.__csvShares.length === 1);
+    const shared = await page.evaluate(()=>window.__csvShares[0]);
+    check(shared.name.endsWith('.csv') && shared.text.includes('As of'), 'Share CSV omitted report or metadata');
+    const failedShare = page.waitForEvent('download');
+    await page.evaluate(()=>Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new Error('Unavailable')}}));
+    await page.locator('[data-report-share]').click();
+    check((await failedShare).suggestedFilename().endsWith('.csv'), 'failed CSV share did not offer a download');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
     check(!overflow, 'report scrolls sideways on mobile');
     const setup = page.locator('[aria-label="Planning setup progress"]');

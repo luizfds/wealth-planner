@@ -4774,9 +4774,9 @@ or a small series; no merge or deployment until reviewed. Issue #267 (regression
    Completed in PR #268, shipped v3.227.3.
 2. `[x]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
    `<dialog>`/`showModal()` already in `safekeepingwiring.js`.
-3. `[~]` **Issue #254: a shared-field foundation**, kept tight: the field, its label/help/error states and
+3. `[x]` **Issue #254: a shared-field foundation** (foundation shipped, PR #272; families migrate later), kept tight: the field, its label/help/error states and
    tokens, so issue #263 isn't held behind a large redesign.
-4. `[ ]` **Issue #263: inline validation before persisting financial inputs**, then page migrations, one feature
+4. `[~]` **Issue #263: inline validation before persisting financial inputs**, then page migrations, one feature
    family per PR: issues #255, #261, #258/#259/#260 (shared mobile patterns) and #266.
 5. `[ ]` **Issues #264 (search) and #265 (import)**: a separate design pass each, agreed before implementation.
 

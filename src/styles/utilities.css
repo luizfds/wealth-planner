@@ -29,3 +29,7 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .card-funding { margin: 8px 0; font-size: var(--fs-sm); }
 
 .quick-fab:hover { background: var(--action-fill); filter: brightness(1.08); }
+
+/* #263: every field that doesn't read shows it the same way, whichever family styles it — here in the utilities layer
+   so it wins over a page's own border (and its focus border). The message is .field-error (base.css). */
+:is(input, select, textarea)[aria-invalid="true"] { border-color: var(--bad-ink); }

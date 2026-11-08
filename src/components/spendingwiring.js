@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Spending, wired (v3.206.1, item 237) ----------------
 //
 // Cash flow → Spending: the list's filters, money in, transfers, splits, bulk edit, the transaction table, trips,
@@ -576,7 +577,7 @@ export function wireSpending(){
   });
 }
 
-export function wireTrips(){  document.getElementById("tripsBody").addEventListener("click", function(e){
+export function wireTrips(){  document.getElementById("tripsBody").addEventListener("click", async function(e){
     if(e.target.closest("[data-trip-add]")){
       var q = function(sel){ var x = document.querySelector(sel); return x ? x.value : ""; };
       var from = q("[data-trip-from]"), to = q("[data-trip-to]") || from, lineId = q("[data-trip-line]");
@@ -595,7 +596,7 @@ export function wireTrips(){  document.getElementById("tripsBody").addEventListe
       if(!t) return;
       var plan = tripPlan(t);
       if(!plan.length) return;
-      if(!confirm("Move " + plan.length + " transaction" + (plan.length === 1 ? "" : "s") + " between " + t.from + " and " + t.to + " to this trip's line? Regular bills, rent and property costs stay where they are.")) return;
+      if(!(await confirmDialog("Move " + plan.length + " transaction" + (plan.length === 1 ? "" : "s") + " between " + t.from + " and " + t.to + " to this trip's line? Regular bills, rent and property costs stay where they are.", {"title":"Move transactions","accept":"Move transactions"}))) return;
       var moved = applyTripRefile(t, state.transactions, budgetLineItems(), tripProtectedLineIds());
       persist(); afterTransactionsChange(); renderTrips();
       showToast(moved + " moved to " + t.name);

@@ -1,3 +1,4 @@
+import { textDialog, confirmDialog, choiceDialog, dialogOpen } from "../lib/dialogs.js";
 // ---------------- Safekeeping and sync, wired (v3.206.1, item 237) ----------------
 //
 // The passcode, folder backups and sync through the folder or Dropbox.
@@ -36,14 +37,14 @@ function unlock(){
   document.documentElement.classList.remove("is-locked");
   lockScreen.hidden = true;
 }
-function askNewPasscode(){
-  var a = prompt("New passcode (at least 4 characters):");
-  if(a == null) return Promise.resolve(false);
-  if(a.length < 4){ showToast("A passcode needs at least 4 characters"); return Promise.resolve(false); }
-  var b = prompt("Type it again:");
-  if(b !== a){ if(b != null) showToast("They didn't match — nothing changed"); return Promise.resolve(false); }
-  return setPasscode(a).then(function(){ try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){} return true; });
+async function askNewPasscode(){
+  var pass = await textDialog("Choose a passcode for this device. This hides the app on a shared screen; it does not encrypt browser storage.", "", {title:"Set device passcode",label:"Passcode",password:true,repeat:true,required:true,minLength:4,accept:"Set passcode"});
+  if(pass === null) return false;
+  await setPasscode(pass);
+  try{ sessionStorage.setItem("wealthPlanner.unlocked", "1"); }catch(e){}
+  return true;
 }
+
 function folderResult(r){
   if(r.ok) showToast("Backed up to " + r.folder + " (" + r.name + ")");
   else if(r.reason === "permission") showToast("The browser didn't allow writing to " + r.folder);
@@ -51,15 +52,11 @@ function folderResult(r){
 }
 // ---------------- Sync through the folder (v3.134.0) — lib/foldersync.js ----------------
 // v3.136.0: Dropbox's passphrase step, after connecting (or on a new device).
-function dropboxPassphrase(){
-  var pass = prompt("The passphrase for the synced copy. Use the same one on each device — it isn't stored anywhere, so keep it somewhere safe:");
+async function dropboxPassphrase(){
+  var pass = (await textDialog("The passphrase for the synced copy. Use the same one on each device — it isn't stored anywhere, so keep it somewhere safe:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true,"repeat":true,"required":true}));
   if(!pass) return Promise.resolve();
   return unlockSync(pass, true, "dropbox").then(function(r){
     if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in Dropbox" : r.reason === "not-connected" ? "Connect Dropbox first" : "Couldn't reach Dropbox"); return; }
-    if(!r.existing){
-      var again = prompt("Type the passphrase again:");
-      if(again !== pass){ stopSync(); showToast("The passphrases didn't match — sync is off"); renderSafekeeping(); return; }
-    }
     showToast(r.existing ? "Sync on — checking the copy in Dropbox" : "Sync on");
     renderSafekeeping();
     return runSync({ interactive: true });
@@ -68,10 +65,15 @@ function dropboxPassphrase(){
 function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
 function runSync(opts){
   opts = opts || {};
+  // Native questions used to pause JS. Shared dialogs are asynchronous: a background sync must
+  // not redraw the records or forms the person is currently deciding about.
+  function deferSync(){ clearTimeout(syncTimer); syncTimer = setTimeout(function(){ runSync({}); }, 3000); }
+  if(dialogOpen()){ deferSync(); return Promise.resolve(); }
   if(syncBusy) return Promise.resolve();
   syncBusy = true;
   return syncNow(opts).then(function(r){
     syncBusy = false;
+    if(dialogOpen()){ deferSync(); return r; }
     if(r.status === "pull"){
       try { var pulledObj = JSON.parse(r.text); unpackReceipts(takeReceiptFiles(pulledObj)).catch(function(){}); setState(migrateState(pulledObj)); } catch(e){ showToast("The synced copy couldn't be read"); return r; }
       pulled(r.rev);
@@ -81,12 +83,13 @@ function runSync(opts){
     else if(r.status === "same"){ if(opts.manual) showToast("Already in sync"); }
     else if(r.status === "paused") showPersistentToast("Sync is paused until the browser is allowed to use " + r.folder + " again.", "Allow", function(){ runSync({ interactive: true }); });
     else if(r.status === "not-connected") showPersistentToast("Sync needs Dropbox connecting again on this device.", "Connect", function(){ connectDropbox(); });
-    else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", function(){ var p = prompt("Sync passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
-    else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", function(){ var p = prompt("That copy's passphrase:"); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
+    else if(r.status === "locked") showPersistentToast("Sync needs its passphrase on this computer.", "Type it", async function(){ var p = (await textDialog("Sync passphrase:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true})); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open the synced copy"); }); });
+    else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", async function(){ var p = (await textDialog("That copy's passphrase:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true})); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
     else if(r.status === "conflict" && r.text && r.base && !opts.force) mergeSync(r);
-    else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", function(){
-      var load = confirm("Load the copy in " + r.folder + " (" + whenText(r.savedAt) + ")?\n\nOK — load it; this device's changes since the last sync are replaced.\nCancel — keep this device's copy and write it there instead.");
-      runSync({ interactive: true, manual: true, force: load ? "pull" : "push" });
+    else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", async function(){
+      var choice = await choiceDialog("Both copies have changes. Loading the synced copy replaces this device's changes. Using this device's copy replaces the synced changes. Cancel leaves both copies untouched.", {title:"Choose which copy to keep",accept:"Load synced copy",alternative:"Use this device’s copy"});
+      if(choice === null) return;
+      runSync({ interactive: true, manual: true, force: choice === "accept" ? "pull" : "push" });
     });
     return r;
   }).catch(function(){ syncBusy = false; if(opts.manual) showToast("Sync couldn't reach the folder"); });
@@ -153,7 +156,7 @@ export function wireSafekeeping(){
     });
   });
   if(document.documentElement.classList.contains("is-locked")) showLock();
-  document.getElementById("safekeepingBody").addEventListener("click", function(e){
+  document.getElementById("safekeepingBody").addEventListener("click", async function(e){
     var b = e.target.closest("[data-sk]");
     if(!b) return;
     var act = b.getAttribute("data-sk");
@@ -174,15 +177,11 @@ export function wireSafekeeping(){
     if(act === "file-open"){ document.getElementById("importFile").click(); return; }
     // v3.134.0: sync through the folder.
     if(act === "sync-on"){
-      savedFolder().then(function(h){ return h ? h : chooseFolder(); }).then(function(){
-        var pass = prompt("A passphrase for the synced copy. Use the same one on each computer — it isn't stored anywhere, so keep it somewhere safe:");
+      savedFolder().then(function(h){ return h ? h : chooseFolder(); }).then(async function(){
+        var pass = (await textDialog("A passphrase for the synced copy. Use the same one on each computer — it isn't stored anywhere, so keep it somewhere safe:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true,"repeat":true,"required":true}));
         if(!pass) return;
         return unlockSync(pass, true, "folder").then(function(r){
           if(!r.ok){ showToast(r.reason === "wrong-passphrase" ? "That passphrase doesn't open the copy already in the folder" : "Couldn't use the folder"); return; }
-          if(!r.existing){
-            var again = prompt("Type the passphrase again:");
-            if(again !== pass){ stopSync(); showToast("The passphrases didn't match — sync is off"); renderSafekeeping(); return; }
-          }
           showToast(r.existing ? "Sync on — checking the copy in the folder" : "Sync on");
           renderSafekeeping();
           return runSync({ interactive: true });
@@ -197,11 +196,11 @@ export function wireSafekeeping(){
     if(act === "dbx-connect"){ connectDropbox().catch(function(){ showToast("Couldn't start the Dropbox sign-in"); }); return; }
     if(act === "dbx-disconnect"){ disconnectDropbox().then(function(){ showToast("Dropbox disconnected"); renderSafekeeping(); }); return; }
     if(act === "dbx-pass"){ dropboxPassphrase(); return; }
-    if(act === "sync-off"){ if(confirm("Stop syncing on this device? The synced copy stays where it is.")) stopSync().then(function(){ showToast("Sync off on this device"); renderSafekeeping(); }); return; }
+    if(act === "sync-off"){ if((await confirmDialog("Stop syncing on this device? The synced copy stays where it is.", {"title":"Stop sync","accept":"Stop sync"}))) stopSync().then(function(){ showToast("Sync off on this device"); renderSafekeeping(); }); return; }
     if(act === "folder-stop"){ forgetFolder().then(function(){ showToast("Stopped backing up to the folder"); renderSafekeeping(); }); return; }
     if(act === "pass-set" || act === "pass-change"){ askNewPasscode().then(function(done){ if(done){ showToast("Passcode set"); renderSafekeeping(); } }); return; }
     if(act === "pass-off"){
-      var cur = prompt("Current passcode:");
+      var cur = (await textDialog("Current passcode:", "", {"title":"Turn off passcode","label":"Passcode","accept":"Turn off passcode","password":true}));
       if(cur == null) return;
       checkPasscode(cur).then(function(ok){ if(!ok){ showToast("That isn't the passcode"); return; } clearPasscode(); showToast("Passcode off"); renderSafekeeping(); });
       return;

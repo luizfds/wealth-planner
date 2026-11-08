@@ -1,3 +1,4 @@
+import { confirmDialog, textDialog } from "../lib/dialogs.js";
 // ---------------- Tax and people, wired (v3.206.1, item 237) ----------------
 //
 // People, the Tax & super card, Checks' fixes, the year's worksheet and documents, and Close the year.
@@ -67,8 +68,8 @@ function renameTaxPerson(oldName, newName){
   if(res.error){ showToast(res.error); renderPeopleTab(); return; }
   if(res.changed) afterPeopleChange();
 }
-function removeTaxPerson(name){
-  if(!confirm('Remove "' + name + '" from tax? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts; their date of birth, HELP and property shares are cleared.')) return;
+async function removeTaxPerson(name){
+  if(!(await confirmDialog('Remove "' + name + '" from tax? Their income rows go back to Type "Net" (counted as-is, at face value) and keep their current amounts; their date of birth, HELP and property shares are cleared.', {"title":"Remove person","accept":"Remove person","danger":true}))) return;
   removePersonFromTax(name);
   afterPeopleChange();
 }
@@ -189,8 +190,8 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     var rm = e.target.closest("[data-pp-remove]");
     if(rm) removeTaxPerson(rm.getAttribute("data-pp-remove"));
   });
-  document.getElementById("addPersonBtn").addEventListener("click", function(){
-    var name = prompt("Their name — they're added with a Gross income row you can fill in:");
+  document.getElementById("addPersonBtn").addEventListener("click", async function(){
+    var name = (await textDialog("Their name — they're added with a Gross income row you can fill in:", "", {"title":"Add a person","label":"Name","accept":"Add person","required":true}));
     if(name === null) return;
     name = name.trim();
     if(!name) return;

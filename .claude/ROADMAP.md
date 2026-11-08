@@ -4794,3 +4794,5 @@ tab adopts; work in progress survives; refreshes in either tab; near-simultaneou
 
 Issue #256 implementation: shared asynchronous decision/text/password dialogs, explicit non-mutating cancellation,
 focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.
+Implementation is ready for review; inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
+The shared-field foundation (#254) is the next item after this PR.

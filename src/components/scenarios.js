@@ -1,3 +1,4 @@
+import { textDialog } from "../lib/dialogs.js";
 import { renderProjectionsWhenSeen } from "./projections.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
 import { renameScenarioChanges, cloneScenarioChanges, deleteScenarioChanges, setLivesElsewhere, homeRowsFromBudget, livesElsewhere, effectiveChanges } from "../calc/scenariochanges.js";
@@ -29,8 +30,13 @@ export function selectScenario(name){
   refreshScenarioDependentViews();
 }
 
-export function addScenario(){
-  var name = prompt('Name the new scenario (e.g. "Buy Brisbane"):', "");
+function scenarioNameError(value, current){
+  var name = value.trim();
+  return name !== current && state.scenarios.indexOf(name) !== -1 ? "A scenario with that name already exists." : "";
+}
+
+export async function addScenario(){
+  var name = (await textDialog('Name the new scenario:', "", {"title":"Add scenario","label":"Scenario name","accept":"Create scenario","required":true,validate:scenarioNameError}));
   if(name === null) return;
   name = name.trim();
   if(!name) return;
@@ -192,8 +198,8 @@ function overridableRows(){
   return state.shared.concat(state.income);
 }
 
-export function renameScenario(oldName){
-  var name = prompt("Rename scenario:", oldName);
+export async function renameScenario(oldName){
+  var name = (await textDialog("Rename scenario:", oldName, {"title":"Rename scenario","label":"Scenario name","accept":"Rename","required":true,validate:function(value){ return scenarioNameError(value, oldName); }}));
   if(name === null) return;
   renameScenarioTo(oldName, name);
 }
@@ -247,9 +253,9 @@ export function renameScenarioTo(oldName, name){
 // patchHomeLoanRowIfSynced() and recalcComputedItems() find it regardless of which scenario they're
 // looking at. An id is only ever compared within one scenario's own array, never across scenarios,
 // so reusing them in the clone is the correct behaviour, not a collision.
-export function cloneScenario(sourceName){
+export async function cloneScenario(sourceName){
   if(state.scenarios.indexOf(sourceName) === -1) return;
-  var name = prompt('Name for the copy of "' + sourceName + '":', sourceName + " copy");
+  var name = (await textDialog('Name for the copy of "' + sourceName + '":', sourceName + " copy", {"title":"Copy scenario","label":"Scenario name","accept":"Create copy","required":true,validate:scenarioNameError}));
   if(name === null) return;
   name = name.trim();
   if(!name) return;

@@ -1,5 +1,6 @@
 // v3.202.0 (item 233): first, so it is listening before any other module runs.
 import { state, storageAvailable, persist, setStatus } from "./state.js";
+import { confirmDialog } from "./lib/dialogs.js";
 import { localDateStr } from "./lib/format.js";
 import { showToast } from "./lib/toast.js";
 import { initHelp, setShowHelp, showHelpPreference } from "./lib/help.js";
@@ -42,7 +43,7 @@ import { wireUpdates } from "./components/updates.js";
 import { applyTheme, getThemePref } from "./lib/theme.js";
 import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
 
-(function(){
+(async function(){
   "use strict";
 
   applyTheme(getThemePref());
@@ -241,7 +242,7 @@ import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // after confirming replacement if a household already exists. A sample link can be
   // revisited after setup, so the URL alone is never permission to discard saved data.
-  if(new URLSearchParams(location.search).get("mock") === "1" && (!hasRealUserData() || confirm("Replace this household with sample data? Export a backup first to keep your data."))){
+  if(new URLSearchParams(location.search).get("mock") === "1" && (!hasRealUserData() || (await confirmDialog("Replace this household with sample data? Export a backup first to keep your data.", {"title":"Use sample data","accept":"Replace with sample","danger":true})))){
     buildDemoState();
     renderAll();
     persist();

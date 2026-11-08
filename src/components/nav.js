@@ -299,6 +299,7 @@ export function updateQuickFab(pageId){
 var overlayCleanup = null;
 export function setOverlayCleanup(fn){ overlayCleanup = fn; }
 var leaveGuard = null;
+var leavePending = false;
 export function setLeaveGuard(fn){ leaveGuard = fn; }
 export function showPage(id, opts){
   opts = opts || {};
@@ -311,9 +312,22 @@ export function showPage(id, opts){
   }
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
   // v3.188.0 (item 219): leaving a scenario with unsaved changes asks first (its calculators aside).
-  if(currentPage === "scenario" && id !== "scenario" && id !== "calc" && leaveGuard && !leaveGuard(id)){
-    if(opts.skipUrl) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search); // the back button had already left
-    return;
+  if(!opts.guardApproved && currentPage === "scenario" && id !== "scenario" && id !== "calc" && leaveGuard){
+    if(leavePending) return;
+    var allowed = leaveGuard(id);
+    if(allowed && typeof allowed.then === "function"){
+      leavePending = true;
+      allowed.then(function(ok){
+        leavePending = false;
+        if(ok) showPage(id, Object.assign({}, opts, { guardApproved: true }));
+        else if(opts.skipUrl) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search);
+      });
+      return;
+    }
+    if(!allowed){
+      if(opts.skipUrl) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search);
+      return;
+    }
   }
   currentPage = id;
 

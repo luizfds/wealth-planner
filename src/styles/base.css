@@ -447,3 +447,20 @@ body.help-hidden :is(h2, h3, h4):has(> .help-btn-heading.help-open) ~ .help{ dis
   .parts-auto{ flex-basis:100%; }
   .fr-own{ display:flex; flex-direction:column; gap:6px; margin-top:14px; }
   .fr-own > span{ font-size:var(--fs-sm); font-weight:600; }
+
+/* Shared questions, text entry and passwords (#256). Native dialog provides modal semantics. */
+.app-dialog{ width:min(460px, calc(100% - 32px)); max-height:calc(100dvh - 32px); overflow:auto; color:var(--ink); background:var(--paper-raised); border:1px solid var(--border); border-radius:var(--card-radius); padding:var(--card-py) var(--card-px); box-shadow:var(--shadow); }
+.app-dialog::backdrop{ background:rgba(0,0,0,.45); }
+.app-dialog h2{ margin:0 0 10px; font-size:var(--fs-lg); }
+.app-dialog p{ white-space:pre-wrap; overflow-wrap:anywhere; margin:0 0 14px; }
+.app-dialog-fields{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+.app-dialog-field{ display:flex; flex-direction:column; gap:5px; font-size:var(--fs-md); }
+.app-dialog-field input{ width:100%; min-width:0; min-height:44px; font:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--border); border-radius:var(--inner-radius); padding:8px 10px; }
+.app-dialog-field input:focus-visible{ outline:none; box-shadow:var(--focus-ring); border-color:var(--brass); }
+.app-dialog-field input[aria-invalid=true]{ border-color:var(--bad-ink); }
+.app-dialog-error{ color:var(--bad-ink); font-size:var(--fs-sm); }
+.app-dialog-actions{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:16px; }
+.app-dialog-actions .btn{ white-space:normal; }
+@media (max-width: 880px){
+  .app-dialog{ position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:calc(100dvh - 24px); border-radius:var(--card-radius) var(--card-radius) 0 0; padding-bottom:calc(var(--card-py) + env(safe-area-inset-bottom, 0px)); }
+}

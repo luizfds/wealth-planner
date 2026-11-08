@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Properties, wired (v3.206.1, item 237) ----------------
 //
 // A property's card — its loans, offsets, depreciation, rent and costs, a loan strategy, "If you sold" — the
@@ -136,7 +137,7 @@ export function wireProperties(){
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(prop){ prop.nextRentReview = e.target.value || ""; persist(); renderAll(); }
   });
-  document.getElementById("propertiesBody").addEventListener("click", function(e){
+  document.getElementById("propertiesBody").addEventListener("click", async function(e){
     var c = e.target.closest("[data-property-id]"), prop = c && findProperty(c.getAttribute("data-property-id"));
     if(!prop) return;
     var rentPanel = function(){ var el = c.querySelector("[data-rent-panel]"); if(el) el.innerHTML = rentPanelHtml(prop); };
@@ -167,7 +168,7 @@ export function wireProperties(){
       // Rent already logged by hand for this statement would count twice.
       var net = statementTotals(vals).net, dayMs = 86400000;
       var already = (state.incomeLog || []).find(function(r){ return r.target === "rent:" + prop.id && Math.abs((Number(r.amount) || 0) - net) < 0.01 && Math.abs(Date.parse(r.date) - Date.parse(vals.date)) <= 31 * dayMs; });
-      if(already && !confirm("Rent of " + fmtCurrency2.format(net) + " was already logged on " + already.date + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)")) return;
+      if(already && !(await confirmDialog("Rent of " + fmtCurrency2.format(net) + " was already logged on " + already.date + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)", {title:"Possible duplicate payment",accept:"Log anyway"}))) return;
       var rec = logAgentStatement(state, prop, vals);
       if(!rec){ showToast("Type at least the rent collected"); return; }
       agentStatementUi.open[prop.id] = true;

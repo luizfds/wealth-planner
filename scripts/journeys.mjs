@@ -11,6 +11,8 @@
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
 //   cashrate    — the RBA's move, read from the site's file, recorded on the household's loans from a date
+//   appdialogs  — shared text/password/decision dialogs, keyboard, nested Back, and scenario leave guards
+//   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
 //                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -112,7 +114,124 @@ async function go(page, pageId, subAttr, sub){
 }
 const click = (page, sel) => page.evaluate(s => { const el = document.querySelector(s); if(!el) throw new Error("No " + s); el.click(); }, sel);
 
+// App questions are asynchronous DOM dialogs. Drive their controls rather than bypassing approval.
+async function answerDialog(page, accept, value){
+  const dialog = page.locator('.app-dialog');
+  await dialog.waitFor({state:'visible'});
+  if(value !== undefined){
+    await dialog.locator('#appDialogInput').fill(value);
+    if(await dialog.locator('#appDialogRepeat').count()) await dialog.locator('#appDialogRepeat').fill(value);
+  }
+  await dialog.locator(accept ? '[data-dialog-submit]' : '[data-dialog-cancel]').click();
+  await dialog.waitFor({state:'detached'});
+}
+async function runBackup(page, action, value){
+  await page.evaluate(async action => {
+    const b = await import('/src/lib/backup.js');
+    window.__backupDone = false;
+    b[action]().finally(() => { window.__backupDone = true; });
+  }, action);
+  await answerDialog(page, true, value);
+  await page.waitForFunction(() => window.__backupDone);
+}
+
 const JOURNEYS = {
+  async welcomedialogs(page){
+    await page.goto(base+'/welcome.html');
+    // state.js normalises loaded data before the import starts; compare at the dialog boundary.
+    const before=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    const data=JSON.parse(before);data.shared[0].amount=500;
+    await page.locator('#welcomeImportFile').setInputFiles({name:'example-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
+    await answerDialog(page,false);
+    const after=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    check(after===before,'cancelled welcome import replaced the saved copy');
+    await page.locator('#welcomeImportFile').setInputFiles({name:'example-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
+    await answerDialog(page,true);
+    await page.waitForURL('**/index.html');
+    await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));
+    check(await st(page,'state.shared[0].amount')===500,'welcome import did not apply the chosen backup');
+  },
+  async appdialogs(page){
+    await page.setViewportSize({width:320,height:844});
+    const native=[];page.on('dialog',d=>{native.push(d.type());d.dismiss();});
+    await go(page,'plan','data-plan-sub','scenarios');
+    const count=await st(page,'state.scenarios.length');
+    await page.locator('#addScenarioBtn').click();
+    await page.locator('[data-sq-blank]').click();
+    await answerDialog(page,false);
+    check(await st(page,'state.scenarios.length')===count,'Cancel created a scenario');
+    await page.locator('#addScenarioBtn').click();
+    await page.locator('[data-sq-blank]').click();
+    await page.locator('#appDialogInput').fill('Example plan');
+    await page.keyboard.press('Enter');await page.locator('.app-dialog').waitFor({state:'detached'});
+    check(await st(page,'state.scenarios.includes("Example plan")'),'text dialog did not create the scenario');
+    // Secret fields are masked, confirmation validates in place, and Cancel does not set a passcode.
+    await go(page,'settings','data-accounts-sub','preferences');
+    await page.locator('[data-sk="pass-set"]').click();
+    const d=page.locator('.app-dialog'), first=d.locator('#appDialogInput'), repeat=d.locator('#appDialogRepeat');
+    check(await first.getAttribute('type')==='password','secret was not masked');
+    await first.fill('invented-device-code');await repeat.fill('different-code');
+    await d.locator('[data-dialog-submit]').click();
+    check(await d.locator('[role="alert"]:visible').count()===1,'password mismatch did not show inline feedback');
+    check(!await page.evaluate(()=>localStorage.getItem('wealthPlanner.passcode')),'mismatched passcode was stored');
+    await d.getByRole('button',{name:'Show password'}).click();
+    check(await first.getAttribute('type')==='text','password reveal did not work');
+    const last=d.locator('[data-dialog-submit]');
+    await page.setViewportSize({width:320,height:400});await last.scrollIntoViewIfNeeded();
+    check(await d.evaluate(el=>el.getBoundingClientRect().width===innerWidth),'phone sheet does not use the viewport width');
+    check(await last.evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight),'short viewport hides the dialog action');
+    check(await page.evaluate(()=>document.documentElement.scrollWidth===320),'dialog widens the short phone viewport');
+    await page.setViewportSize({width:320,height:844});
+    await last.focus();await page.keyboard.press('Tab');
+    check(await first.evaluate(el=>el===document.activeElement),'Tab escaped the dialog');
+    await first.focus();await page.keyboard.press('Shift+Tab');
+    check(await last.evaluate(el=>el===document.activeElement),'Shift+Tab escaped the dialog');
+    await page.keyboard.press('Escape');await d.waitFor({state:'detached'});
+    check(!await page.evaluate(()=>localStorage.getItem('wealthPlanner.passcode')),'Escape changed the passcode');
+    check(await page.locator('[data-sk="pass-set"]').evaluate(el=>el===document.activeElement),'dialog did not return focus');
+    await page.locator('[data-sk="pass-set"]').click();
+    await answerDialog(page,true,'invented-device-code');
+    await page.locator('[data-sk="pass-off"]').waitFor();
+    check(!!await page.evaluate(()=>localStorage.getItem('wealthPlanner.passcode')),'valid passcode was not stored');
+    await page.locator('[data-sk="pass-off"]').click();await answerDialog(page,true,'invented-device-code');
+    await page.locator('[data-sk="pass-set"]').waitFor();
+    // Back cancels only the question, preserving a sheet's own history and unsaved field.
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.locator('#quickLogBtn').click();
+    await page.locator('#quickLogAmount').fill('123');
+    await page.evaluate(async()=>{
+      const d=await import('/src/lib/dialogs.js');window.__dialogResult='pending';
+      d.choiceDialog('Choose a copy <img src=x onerror=alert(1)>',{title:'Choose copy',accept:'Load saved copy',alternative:'Use this copy'}).then(v=>{window.__dialogResult=v;});
+    });
+    await page.locator('.app-dialog').waitFor();
+    check(!await page.locator('.app-dialog img').count(),'dialog message was interpreted as HTML');
+    check(await page.evaluate(async()=>(await import('/src/state.js')).hasPendingWork()),'open dialog did not protect pending work');
+    await page.goBack();await page.locator('.app-dialog').waitFor({state:'detached'});
+    check(await page.evaluate(()=>window.__dialogResult===null),'Back selected a destructive choice');
+    check(await page.locator('#quickLogAmount').inputValue()==='123','Back closed the underlying sheet or lost typing');
+    await page.keyboard.press('Escape');await page.locator('#quickLogAmount').waitFor({state:'hidden'});
+    for(const choice of ['alternative','accept']){
+      await page.evaluate(async()=>{
+        const d=await import('/src/lib/dialogs.js');window.__dialogResult='pending';
+        d.choiceDialog('Choose which copy to keep.',{title:'Choose copy',accept:'Load saved copy',alternative:'Use this copy'}).then(v=>{window.__dialogResult=v;});
+      });
+      await page.locator('.app-dialog').getByRole('button',{name:choice==='alternative'?'Use this copy':'Load saved copy',exact:true}).click();
+      await page.locator('.app-dialog').waitFor({state:'detached'});
+      check(await page.evaluate(()=>window.__dialogResult)===choice,'three-way choice selected the wrong copy');
+    }
+    // The scenario leave guard now awaits a decision; cancellation keeps its draft and page.
+    await go(page,'plan','data-plan-sub','scenarios');
+    await page.locator('#cards [data-edit-scenario="Example plan"]').click();
+    await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
+    await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
+    await page.goBack();await answerDialog(page,false);
+    check(await page.evaluate(()=>document.body.getAttribute('data-current-page')==='scenario'),'cancelled leave navigated away');
+    await page.goBack();await answerDialog(page,true);
+    await page.waitForFunction(()=>document.body.getAttribute('data-current-page')!=='scenario');
+    check(await st(page,'Object.keys(state.scenarioChanges).some(k=>k.startsWith("Draft"))'),'leaving lost the scenario draft');
+    check(native.length===0,'a migrated flow opened a native browser dialog');
+  },
+
   // #269: two tabs on one household — each check reads storage as well as the screen.
   async twotabs(page){
     const banner = p => p.evaluate(() => { const b = document.getElementById("storageConflict"); return b ? b.getAttribute("data-kind") : null; });
@@ -147,7 +266,7 @@ const JOURNEYS = {
     await click(page, "[data-sc-save]"); await page.waitForTimeout(800);
     check(await stored(page, "state.shared[0].amount") === 444, "3: a stale tab wrote over the other tab's save");
     check(await banner(page) === "stale", "3: a refused save didn't say so");
-    page.once("dialog", d => d.accept()); await click(page, "[data-storage-keep]"); await page.waitForTimeout(400);
+    await click(page, "[data-storage-keep]"); await answerDialog(page, true); await page.waitForTimeout(400);
     check(await stored(page, "((state.scenarioChanges || {})[" + JSON.stringify(name) + "] || []).length") === savedBefore + 1, "3: keeping this tab's version didn't save the scenario");
     check(await banner(page) === null, "3: the banner stayed after choosing");
     // B was idle: it takes A's chosen version.
@@ -215,18 +334,18 @@ const JOURNEYS = {
     check(copy.shared[0].amount === 280, 'recovery download omitted unsaved changes');
     check(await page.evaluate(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount) === 320, 'recovery export changed the saved copy');
     await other.close();
-    page.once('dialog', d => d.dismiss()); await page.locator('[data-storage-reload]').click();
+    await page.locator('[data-storage-reload]').click(); await answerDialog(page, false);
     check(await st(page, 'state.shared[0].amount') === 280, 'cancelled reload discarded the recoverable copy');
-    page.once('dialog', d => d.accept());
-    await Promise.all([page.waitForNavigation(), page.locator('[data-storage-reload]').click()]);
+    await page.locator('[data-storage-reload]').click();
+    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}), answerDialog(page, true)]);
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') === 320, 'Reload latest did not adopt the saved household');
-    page.once('dialog', d => d.dismiss());
     await page.goto(base + '/index.html?mock=1');
+    await answerDialog(page, false);
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') === 320, 'declining sample data replaced the household');
-    page.once('dialog', d => d.accept());
     await page.goto(base + '/index.html?mock=1');
+    await answerDialog(page, true);
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page, 'state.shared[0].amount') !== 320, 'accepted sample replacement did not run');
     check(!await page.locator('#firstRunRoot [role="dialog"]').count(), 'sample household opened the empty setup wizard');
@@ -253,40 +372,34 @@ const JOURNEYS = {
     await page.evaluate(async () => {
       const m = await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
       window.claude = {use: async () => ({save: async () => {throw {code:'declined'};}})};
-      window.__auditPrompt = window.prompt; window.prompt = () => '';
-      await (await import('/src/lib/backup.js')).doExport();
     });
+    await runBackup(page, 'doExport', '');
     check(!await st(page, 'state.lastBackupDate'), 'declined backup cleared the reminder');
-    await page.evaluate(async () => {
-      window.claude = {use: async () => ({save: async () => {}})};
-      await (await import('/src/lib/backup.js')).doExport();
-    });
+    await page.evaluate(() => { window.claude = {use: async () => ({save: async () => {}})}; });
+    await runBackup(page, 'doExport', '');
     check(await st(page, 'state.lastBackupDate') === '2026-11-03', 'successful backup did not update the reminder');
     await page.evaluate(async () => {
       const m = await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
       Object.defineProperty(navigator, 'canShare', {configurable:true,value:()=>true});
       Object.defineProperty(navigator, 'share', {configurable:true,value:async()=>{throw new DOMException('Cancelled','AbortError')}});
-      window.prompt = () => 'invented-test-passphrase';
-      (await import('/src/lib/backup.js')).doShare();
     });
+    await runBackup(page, 'doShare', 'invented-test-passphrase');
     await page.getByRole('button', {name:'Send',exact:true}).click();
     await page.waitForTimeout(200);
     check(!await st(page, 'state.lastBackupDate'), 'cancelled sharing cleared the backup reminder');
-    await page.evaluate(async () => {
-      Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}});
-      (await import('/src/lib/backup.js')).doShare();
-    });
+    await page.evaluate(() => { Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{}}); });
+    await runBackup(page, 'doShare', 'invented-test-passphrase');
     await page.getByRole('button', {name:'Send',exact:true}).last().click();
     await page.waitForTimeout(200);
     check(await st(page, 'state.lastBackupDate') === '2026-11-03', 'successful sharing did not update the reminder');
     await page.evaluate(async()=>{
       const m=await import('/src/state.js'); delete m.state.lastBackupDate; m.commit(['lastBackupDate']);
-      const encrypt=crypto.subtle.encrypt;
+      window.__encrypt=crypto.subtle.encrypt;
       crypto.subtle.encrypt=()=>Promise.reject(new Error('Synthetic encryption failure'));
-      try { await (await import('/src/lib/backup.js')).doExport(); } finally {crypto.subtle.encrypt=encrypt;}
     });
+    await runBackup(page, 'doExport', 'invented-test-passphrase');
+    await page.evaluate(()=>{crypto.subtle.encrypt=window.__encrypt; delete window.__encrypt; delete window.claude;});
     check(!await st(page, 'state.lastBackupDate'), 'failed encryption cleared the reminder');
-    await page.evaluate(() => {window.prompt=window.__auditPrompt; delete window.claude;});
   },
   async assessmentux(page){
     await go(page,'dashboard');
@@ -423,12 +536,12 @@ const JOURNEYS = {
     const id = await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').id");
     const preview = page.locator('[data-rr-preview="' + id + '"]');
     let message = '';
-    page.once('dialog', async d => { message = d.message(); await d.dismiss(); });
     await preview.click();
+    message = await page.locator('#appDialogMessage').innerText();
+    await answerDialog(page, false);
     check(message.includes('\n\n2026-10-01') && !message.includes('\\n'), 'preview must show readable occurrence lines');
     check(await st(page, "state.transactions.length") === before, 'cancelled preview wrote transactions');
-    page.once('dialog', d => d.accept());
-    await preview.click();
+    await preview.click(); await answerDialog(page, true);
     check(await st(page, "state.transactions.length") === before + 2, 'approved monthly occurrences were not recorded');
     await preview.click();
     check(await st(page, "state.transactions.length") === before + 2, 'repeated preview duplicated occurrences');
@@ -450,8 +563,7 @@ const JOURNEYS = {
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     await go(page, "expenses", "data-expenses-sub", "budget");
     check(await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').category") === 'Synthetic category', 'rule edit did not persist locally');
-    page.once('dialog', d => d.accept());
-    await page.locator('[data-rr-delete="' + id + '"]').click();
+    await page.locator('[data-rr-delete="' + id + '"]').click(); await answerDialog(page, true);
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
   },

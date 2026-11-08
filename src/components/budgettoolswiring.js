@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Budget tools, wired (v3.206.1, item 237) ----------------
 //
 // What the app notices and Ask Claude, Cash flow → Budget → Trim, a budget from history and recurring payments.
@@ -71,7 +72,7 @@ export function wireAdvice(){
   document.addEventListener("input", function(e){
     if(e.target.matches && e.target.matches("[data-ai-q]")){ askUi.question = e.target.value; askUi.approvalPending = false; }
   });
-  document.addEventListener("click", function(e){
+  document.addEventListener("click", async function(e){
     if(!e.target.closest) return;
     var go = e.target.closest("[data-adv-go]");
     if(go){
@@ -110,7 +111,7 @@ export function wireAdvice(){
         showToast("Review the exact prompt, then press Copy for any AI again");
         return;
       }
-      if(!window.confirm("Copy the displayed financial figures for sharing with an external AI? Aggregated figures may still identify you.")){ cancelAiApproval(); renderAdvice(); return; }
+      if(!(await confirmDialog("Copy the displayed financial figures for sharing with an external AI? Aggregated figures may still identify you.", {"title":"Share financial figures","accept":"Copy figures"}))){ cancelAiApproval(); renderAdvice(); return; }
       askUi.approvalPending = false;
       var fallback = function(){
         var ta = document.createElement("textarea");
@@ -148,7 +149,7 @@ export function wireAdvice(){
         showToast("Review the data preview, then press Confirm & send to Claude");
         return;
       }
-      if(!window.confirm("Send exactly the displayed aggregate financial figures to Anthropic? Financial figures can still be identifying.")){ cancelAiApproval(); renderAdvice(); return; }
+      if(!(await confirmDialog("Send exactly the displayed aggregate financial figures to Anthropic? Financial figures can still be identifying.", {"title":"Share financial figures","accept":"Send to Anthropic"}))){ cancelAiApproval(); renderAdvice(); return; }
       var approvedPayload = askUi.preview;
       askUi.approvalPending = false;
       askUi.busy = true; askUi.error = ""; renderAdvice();
@@ -315,7 +316,7 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     commit(["recurringRules"]); renderRecurring(true);
     showToast("Recurring rule saved locally. No transactions have been created.");
   });
-  document.getElementById("recurringBody").addEventListener("click", function(e){
+  document.getElementById("recurringBody").addEventListener("click", async function(e){
     var action = e.target.closest("[data-rr-edit],[data-rr-preview],[data-rr-toggle],[data-rr-delete]");
     if(!action) return;
     var id = action.getAttribute("data-rr-edit") || action.getAttribute("data-rr-preview") ||
@@ -328,7 +329,7 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
       commit(["recurringRules"]); renderRecurring(true); return;
     }
     if(action.hasAttribute("data-rr-delete")){
-      if(!window.confirm("Delete this recurring rule? Previously recorded transactions will remain.")) return;
+      if(!(await confirmDialog("Delete this recurring rule? Previously recorded transactions will remain.", {"title":"Delete recurring rule","accept":"Delete rule","danger":true}))) return;
       deleteRecurringRule(state, id);
       if(editingRecurringRule === id) editingRecurringRule = null;
       commit(["recurringRules"]); renderRecurring(true); return;
@@ -340,8 +341,8 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     if(!pending.length){ showToast("No unrecorded occurrences in the last 60 days."); return; }
     if(pending.length > 30){ showToast("Too many occurrences to approve at once. Narrow the rule interval."); return; }
     var details = pending.map(function(x){ return x.date + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\n");
-    if(!window.confirm("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\n\n" +
-      details + "\n\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.")) return;
+    if(!(await confirmDialog("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\n\n" +
+      details + "\n\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.", {"title":"Record past payments","accept":"Record payments"}))) return;
     // Recompute at the write boundary: repeated clicks cannot duplicate a recorded rule/date.
     var count = recordApprovedOccurrences(state, rule, from, today);
     commit([rule.kind === "Income" ? "incomeLog" : "transactions"]); renderAll();

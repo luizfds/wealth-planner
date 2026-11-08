@@ -4812,3 +4812,7 @@ The shared-field foundation (#254) is next, and in progress.
 ## Row editor modal accessibility — issue #278
 
 `[x]` Row editors are named modal dialogs. Sibling branches are inert while editing, with Tab containment and focus return, including after redraw/discard/delete. Native questions keep their own focus and history. Idle autosaved rows remain adoptable; unsaved fields still guard against adoption. Full-document expanded-editor checks restored. Implemented on `codex/accessible-row-modals`; awaiting review and release.
+
+## Income editor shared fields — issues #254 / #261
+
+`[~]` Migrate income-specific name/type/amount/frequency/super/sacrifice/pay-schedule/pay-change controls to shared labelled fields, visible help and mobile layouts; preserve calculation, save, history and modal behaviour.

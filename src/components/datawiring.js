@@ -18,7 +18,7 @@ import { localDateStr } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { compareCopies } from "../lib/safekeeping.js";
 import { showToast, showPersistentToast } from "../lib/toast.js";
-import { state, setState, persist, defaultState, migrateState, genId, onStorageConflict, checkStorageRevision } from "../state.js";
+import { state, setState, persist, defaultState, migrateState, genId, onStorageConflict, onPendingWork, onAdopted, onSaved, onCommit, takeOtherTabsSave, adoptStoredCopy, keepThisTabsCopy, hasPendingWork, setStatus } from "../state.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { firstRun, startFirstRun } from "./firstrun.js";
 import { showPage, showAssetsSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
@@ -149,20 +149,76 @@ function readFirstRunFields(){
 }
 
 export function wireData(){
-  onStorageConflict(function(){
-    if(document.getElementById("storageConflict")) return;
-    var banner = document.createElement("section");
-    banner.id = "storageConflict";
-    banner.className = "storage-conflict";
-    banner.setAttribute("role", "alert");
-    banner.innerHTML = '<b>Another tab saved a newer household.</b><p>Changes in this tab are not being saved. Download this tab’s copy to keep your edits, then reload the latest saved household.</p><button type="button" class="btn btn-sm" data-storage-copy>Download this tab’s copy</button> <button type="button" class="btn btn-sm btn-primary" data-storage-reload>Reload latest</button>';
-    document.getElementById("appContent").prepend(banner);
-    banner.addEventListener("click", function(e){
-      if(e.target.closest("[data-storage-copy]")) downloadBackupCopy();
-      if(e.target.closest("[data-storage-reload]") && confirm("Reload the saved household? Changes made in this tab will be replaced. Download this tab’s copy first if you need them.")) location.reload();
-    });
+  // #269: two tabs. Another tab's save is adopted here when this tab has nothing in progress; when it has, the work
+  // stays and this banner offers the choice. A save the guard refused, or one another tab wrote over, says so too.
+  var BANNERS = {
+    updated: ["Another tab updated this household.", "You have changes in progress here, so this tab hasn’t loaded it. Finish or download them, then load the latest — or keep this tab’s version instead."],
+    stale: ["Another tab saved a newer household.", "Changes in this tab are not being saved. Download this tab’s copy to keep your edits, then reload the latest saved household — or keep this tab’s version instead."],
+    overwritten: ["Another tab saved over this tab’s last change.", "It’s still here, and this tab has stopped saving until you choose: keep this tab’s version, or download it and reload the latest."]
+  };
+  function showStorageBanner(kind){
+    var banner = document.getElementById("storageConflict");
+    if(banner && kind === "updated") return; // never soften a stronger message
+    if(!banner){
+      banner = document.createElement("section");
+      banner.id = "storageConflict";
+      banner.className = "storage-conflict";
+      banner.setAttribute("role", "alert");
+      document.getElementById("appContent").prepend(banner);
+      banner.addEventListener("click", function(e){
+        if(e.target.closest("[data-storage-copy]")) downloadBackupCopy();
+        if(e.target.closest("[data-storage-reload]") && confirm("Reload the saved household? Changes made in this tab will be replaced. Download this tab’s copy first if you need them.")) location.reload();
+        if(e.target.closest("[data-storage-keep]") && confirm("Save this tab’s version over the household another tab saved? That tab’s changes since will be lost.")){
+          if(keepThisTabsCopy()){ banner.remove(); showToast("Saved this tab’s version"); }
+        }
+      });
+    }
+    banner.setAttribute("data-kind", kind);
+    banner.innerHTML = '<b>' + BANNERS[kind][0] + '</b><p>' + BANNERS[kind][1] + '</p>' +
+      '<button type="button" class="btn btn-sm" data-storage-copy>Download this tab’s copy</button> ' +
+      '<button type="button" class="btn btn-sm btn-primary" data-storage-reload>Reload latest</button> ' +
+      '<button type="button" class="btn btn-sm" data-storage-keep>Keep this tab’s version</button>';
+  }
+  onStorageConflict(function(reason){ showStorageBanner(reason === "overwritten" ? "overwritten" : "stale"); });
+  onAdopted(function(){
+    var banner = document.getElementById("storageConflict");
+    if(banner) banner.remove();
+    typed.clear();
+    renderAll();
+    setStatus(true, "Updated from another tab " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
   });
-  window.addEventListener("storage", function(e){ if(e.key === STORAGE_KEY || e.key === null) checkStorageRevision(); });
+  // Work in progress: a field typed into since the last save that still differs from what was drawn, the setup
+  // wizard, or an open dialog or sheet (it may hold a form, or point at rows by position). Search boxes don't count.
+  var typed = new Set();
+  function noteTyping(e){
+    var t = e.target;
+    if(t && t.matches && t.matches("input, textarea, select") && t.type !== "search" && !t.closest("#storageConflict")) typed.add(t);
+  }
+  // On input only (every control fires it, selects and checkboxes too): a field that saves as you type would
+  // otherwise be noted again by the change event after its save, and look unsaved for good.
+  document.addEventListener("input", noteTyping, true);
+  onSaved(function(){ typed.clear(); });
+  onCommit(function(){ typed.clear(); });
+  function changedFromDrawn(el){
+    if(el.type === "checkbox" || el.type === "radio") return el.checked !== el.defaultChecked;
+    if(el.tagName === "SELECT") return Array.prototype.some.call(el.options, function(o){ return o.selected !== o.defaultSelected; });
+    return el.value !== el.defaultValue;
+  }
+  onPendingWork(function(){
+    var busy = false;
+    typed.forEach(function(el){ if(!el.isConnected) typed.delete(el); else if(changedFromDrawn(el)) busy = true; });
+    if(busy || firstRun.open) return true;
+    return Array.prototype.some.call(document.querySelectorAll("dialog[open], [role=dialog]:not([hidden])"), function(d){ return d.getClientRects().length > 0; });
+  });
+  window.addEventListener("storage", function(e){
+    if(e.key !== STORAGE_KEY && e.key !== null) return;
+    if(takeOtherTabsSave(e.key === STORAGE_KEY ? e.oldValue : undefined, e.key === STORAGE_KEY ? e.newValue : undefined) === "pending") showStorageBanner("updated");
+  });
+  // A tab that held back (work in progress) catches up once the work is saved or let go, when it next gets focus.
+  window.addEventListener("focus", function(){
+    var banner = document.getElementById("storageConflict");
+    if(banner && banner.getAttribute("data-kind") === "updated" && !hasPendingWork()) adoptStoredCopy();
+  });
   // The skip link moves focus, not just the scroll position. An href="#id" alone scrolls a <div>
   // into view and leaves focus where it was, so the very next Tab goes back to the nav item after
   // the link — which is exactly the 22 stops the user was trying to skip. tabindex="-1" makes the

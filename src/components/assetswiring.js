@@ -173,19 +173,28 @@ function openAssetPersonSheet(){
 // line on Investments → Shares says what happened, and a failure never touches a price.
 function readPriceSheetNow(manual){
   var btn = document.querySelector("[data-ps-read]");
-  if(btn){ btn.disabled = true; btn.textContent = "Reading…"; }
+  if(btn){ btn.setAttribute("data-label", btn.textContent); btn.disabled = true; btn.textContent = "Reading…"; }
   return refreshPriceSheet().then(function(r){
+    if(r.skipped) return skippedRead(btn, manual, r.reason);
     recalcComputedItems();
     renderAll();
     if(manual || !r.ok || r.updated || r.backfilled) showToast(r.ok ? "Prices: " + priceSheetResultText(r) : r.reason);
     return r;
   });
 }
+// #269: a read that didn't apply (another tab saved; this one is mid-edit) redraws nothing — that would wipe the
+// work in progress — and only says so when someone asked for it.
+function skippedRead(btn, manual, text){
+  if(btn && btn.isConnected){ btn.disabled = false; btn.textContent = btn.getAttribute("data-label") || "Read now"; }
+  if(manual) showToast(text);
+  return { ok: false, skipped: true };
+}
 // v3.132.0: automatic prices first, then the person's own Sheet (which wins where both price a holding).
 function readAutoPricesNow(manual){
   var btn = document.querySelector("[data-ap-read]");
-  if(btn){ btn.disabled = true; btn.textContent = "Updating…"; }
+  if(btn){ btn.setAttribute("data-label", btn.textContent); btn.disabled = true; btn.textContent = "Updating…"; }
   return refreshAutoPrices().then(function(r){
+    if(r.skipped) return skippedRead(btn, manual, "Prices: " + autoPricesResultText(r));
     recalcComputedItems();
     renderAll();
     if(manual || !r.ok) showToast("Prices: " + autoPricesResultText(r));

@@ -4781,3 +4781,12 @@ or a small series; no merge or deployment until reviewed. Issue #267 (regression
 
 Also tracked in issue #267: the Transfer journey that failed once under concurrent load and passed alone. Find
 the cause; don't retry it into a pass.
+
+## Two tabs: adopt another tab's save, keep work in progress — issue #269
+
+`[~]` v3.228.0's save guard refused every save in a tab once any other tab wrote, and every tab writes on its
+own (startup, prices, the cash rate). Adopt another tab's saved copy when this tab has nothing pending; when it
+has (a typed field not yet saved, an open scenario editor, an open dialog or setup), keep the work and offer an
+explicit choice. The guard stays as the backstop. Saves that change nothing aren't written, and a background
+refresh catches up with the stored copy before it writes. Journeys: a second tab doesn't block the first; an idle
+tab adopts; work in progress survives; refreshes in either tab; near-simultaneous saves are never a silent overwrite.

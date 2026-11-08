@@ -12,7 +12,7 @@ import { newChange } from "../calc/scenariolegs.js";
 import { buildScenario } from "../calc/scenariotemplates.js";
 import { localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { commit, genId, state, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
+import { commit, genId, state, onPendingWork, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig } from "../state.js";
 import { calcFor, calcQ, calcOutHtml } from "./calculators.js";
 import { mrQ, makeRealSheetHtml } from "./makereal.js";
 import { showPage, showPlanSubpage, setLeaveGuard } from "./nav.js";
@@ -245,6 +245,9 @@ export function wireScenarioEditor(){
   });
   // v3.188.0 (item 219): unsaved changes aren't lost by a tap elsewhere, the back button or closing the app.
   function unsavedDraft(){ return !!(editing.name && editing.key !== editing.name && draftChanged(editing.name)); }
+  // #269: an open scenario editor, or a draft that says something the scenario doesn't, is work in progress —
+  // this tab keeps it rather than taking another tab's save over it.
+  onPendingWork(function(){ return unsavedDraft() || !!(editing.name && document.body.getAttribute("data-current-page") === "scenario"); });
   setLeaveGuard(function(){
     if(!unsavedDraft()) return true;
     return confirm('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)');

@@ -3,7 +3,7 @@
 // Reads rates/cash-rate.json from this site once a day (the job that writes it: scripts/cashrate/fetch.mjs), keeps it
 // in state.cashRate, moves any scenario rate that follows it, and — when it has moved and the move isn't answered —
 // shows Net worth → Property a panel to record the move on the household's loans, or let it be.
-import { state, commit } from "../state.js";
+import { state, commit, freshForBackground } from "../state.js";
 import { cashRateMove, loansForMove, takeCashRateFile } from "../calc/cashrate.js";
 import { siteJson } from "./autoprices.js";
 import { localDateStr, fmtDate } from "../lib/format.js";
@@ -14,9 +14,11 @@ export function cashRateDue(){ return !(state.cashRate && state.cashRate.readOn 
 export function readCashRateNow(){
   var today = localDateStr();
   return siteJson("rates/cash-rate.json").then(function(file){
+    // #269: from the saved copy, not one another tab has since replaced; not at all while this tab is mid-edit.
+    if(!freshForBackground()) return false;
     var r = takeCashRateFile(state, file, today);
-    if(r.moved) commit(["cashRate", "purchase", "scenarioChanges"]);
-    else if(r.changed) commit(["cashRate"]);
+    if(r.moved) commit(["cashRate", "purchase", "scenarioChanges"], { background: true });
+    else if(r.changed) commit(["cashRate"], { background: true });
     return r.news;
   }, function(){ return false; });
 }

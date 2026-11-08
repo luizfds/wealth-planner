@@ -214,7 +214,8 @@ import { overlayOpen, closeActiveOverlayNow } from "./lib/overlaystack.js";
     if(!Array.isArray(state.netWorthLog)) state.netWorthLog = [];
     var today = localDateStr();
     var added = backfillNetWorth(state.netWorthLog, function(d){ return netWorthOn(d, today); }, today, 104);
-    if(keepNetWorthHistory() || added) persist();
+    // #269: a background save — it never overwrites another tab's, and is skipped when nothing changed.
+    if(keepNetWorthHistory() || added) persist({ background: true });
   })();
   renderAll();
   initTableScrollShadows();

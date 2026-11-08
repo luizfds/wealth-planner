@@ -139,8 +139,8 @@ native minimum now agrees with the existing rule allowing negative values; calcu
 
 Browser coverage: `ledgerfields` checks label activation, conditional person/property claims, visible error association,
 unique ids, focus through redraw, 320/390/1280px field sizing and reflow. The existing validation and two-tab journeys
-remain. Accessibility adds editor-scoped expanded timing, personal claim, property claim and invalid amount states in both themes,
-plus a 320px light pass. The original full-page scans remain. A full-document editor scan also exposed background controls available behind the sheet; modal semantics, focus trapping and isolation are tracked in #278. Automated accessibility-tree checks do not replace actual screen-reader testing.
+remain. Accessibility adds expanded timing, personal claim, property claim and invalid amount states in both themes,
+plus a 320px light pass. The #278 follow-up restores full-document scans for these editor states after adding modal semantics, background isolation and keyboard containment. Automated accessibility-tree checks do not replace actual screen-reader testing.
 
 **Manual verification task (pending):** using VoiceOver/Safari and NVDA/Firefox, open a Budget row, expand More options,
 read the date and tax help, switch person/property claim, clear/retype an amount and close/reopen the editor. Confirm

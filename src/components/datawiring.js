@@ -209,7 +209,9 @@ export function wireData(){
     var busy = false;
     typed.forEach(function(el){ if(!el.isConnected) typed.delete(el); else if(changedFromDrawn(el)) busy = true; });
     if(busy || firstRun.open) return true;
-    return Array.prototype.some.call(document.querySelectorAll("dialog[open], [role=dialog]:not([hidden])"), function(d){ return d.getClientRects().length > 0; });
+    // Row editors save each edit immediately; their unsaved inputs are tracked above.
+    // Naming an idle row as a dialog must not stop it adopting another tab's save.
+    return Array.prototype.some.call(document.querySelectorAll("dialog[open], [role=dialog]:not([hidden]):not(.m-row)"), function(d){ return d.getClientRects().length > 0; });
   });
   window.addEventListener("storage", function(e){
     if(e.key !== STORAGE_KEY && e.key !== null) return;

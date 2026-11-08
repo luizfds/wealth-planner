@@ -431,6 +431,7 @@ export function wireShortcuts(){
     if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
     var t = e.target;
     if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if(document.querySelector('.m-row.open[role="dialog"]')) return;
     if(document.querySelector("dialog[open]") && e.key !== "?") return;
     if(goPending && Date.now() - goPending < 1200 && GO_KEYS[e.key]){
       goPending = 0; e.preventDefault();

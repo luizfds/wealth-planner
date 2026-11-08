@@ -31,6 +31,10 @@ for(const width of widths)for(const scheme of schemes){
  await page.goto(base+'/index.html?mock=1');await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));await page.waitForTimeout(1200);
  await page.evaluate(axe);
  async function scan(name){
+  // A toast caught mid-fade (opacity between 0 and 1) fails color-contrast for the 200ms it takes to go — the
+  // ?mock=1 "Sample data generated" one fades at ~3s, right as Home → Insights is scanned, so the job failed
+  // whenever a runner landed on that moment. Wait it out; a toast fully shown is still scanned.
+  await page.waitForFunction(()=>![...document.querySelectorAll('.toast')].some(t=>{const o=Number(getComputedStyle(t).opacity);return o>0&&o<1;}),null,{timeout:5000}).catch(()=>{});
   const result=await page.evaluate(async()=>{
    const r=await window.axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']}});
    // axe cannot resolve contrast for single-character badges, glyphs and SVG labels.

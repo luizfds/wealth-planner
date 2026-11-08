@@ -182,7 +182,7 @@ function readPriceSheetNow(manual){
     return r;
   });
 }
-// #269: a read that didn't apply (another tab saved; this one is mid-edit) redraws nothing — that would wipe the
+// #269/#276: a read that didn't apply while this tab is mid-edit redraws nothing — that would wipe the
 // work in progress — and only says so when someone asked for it.
 function skippedRead(btn, manual, text){
   if(btn && btn.isConnected){ btn.disabled = false; btn.textContent = btn.getAttribute("data-label") || "Read now"; }

@@ -181,6 +181,11 @@ const JOURNEYS = {
     await page.fill(amt, "");
     check(await saved("amount") === before, "clearing the amount saved " + await saved("amount"));
     check(await page.textContent(row + ' [data-computed="amt"]') === headline, "clearing the amount changed the row's headline");
+    // #276: make a same-tab background refresh land while the cleared field is pending.
+    // This must not rebuild the editor from its saved value or erase its validation message.
+    const refresh = await page.evaluate(async()=> (await import('/src/components/assetswiring.js')).readAutoPricesNow(false));
+    check(await page.inputValue(amt)==='', 'a background refresh replaced the unfinished amount');
+    check(refresh.skipped===true, 'a price refresh applied while an invalid edit was pending');
     let e1 = await err(amt);
     check(e1.invalid && /Enter an amount/.test(e1.text), "a cleared amount isn't marked invalid with a message");
     const okBorder = await page.evaluate(() => getComputedStyle(document.querySelector('[data-line-id="demo-groceries"] .f-what')).borderTopColor);
@@ -221,6 +226,11 @@ const JOURNEYS = {
     await click(page, row + " [data-row-toggle]"); await page.locator(amt).waitFor({ state: "visible", timeout: 10000 });
     check(await page.inputValue(amt) === "275", "reopening didn't show the saved amount");
     check(!(await err(amt)).invalid, "reopening kept the old error");
+    await click(page, row + ' [data-row-toggle]');
+    await page.locator(amt).waitFor({state:'hidden'});
+    const resumed=await page.evaluate(async()=> (await import('/src/components/assetswiring.js')).readAutoPricesNow(false));
+    check(!resumed.skipped, 'prices stayed blocked after the editor closed');
+    check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
   async taximporterrors(page){
     await page.evaluate(()=>{window.__failLodged=true;});

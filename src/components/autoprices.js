@@ -25,8 +25,8 @@ function firstJson(urls){
 export function siteJson(file){ return getJson(siteUrl(file)); }
 function settle(p){ return p.then(function(v){ return { ok: true, value: v }; }, function(e){ return { ok: false, error: e }; }); }
 
-// What a refresh resolves with when it didn't apply: another tab saved while this one has work in progress.
-export var SKIPPED = { ok: false, skipped: true, updated: 0, missing: [], problems: ["not applied — another tab saved while this one has changes in progress"] };
+// What a refresh resolves with when this tab has work in progress or an unresolved save conflict.
+export var SKIPPED = { ok: false, skipped: true, updated: 0, missing: [], problems: ["not applied — this tab has changes in progress or a save conflict"] };
 // Reads every source that's on and applies what came back. Resolves with state.autoPrices.lastResult.
 export function refreshAutoPrices(){
   var a = state.autoPrices, today = localDateStr();

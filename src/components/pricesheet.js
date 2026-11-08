@@ -44,7 +44,7 @@ export function refreshPriceSheet(){
   var today = localDateStr();
   return fetchSheet(sheet.url).then(function(text){
     // #269: as for automatic prices — the saved copy, and nothing while this tab is mid-edit.
-    if(!freshForBackground()) return { ok: false, skipped: true, reason: "Prices not applied — another tab saved while this one has changes in progress." };
+    if(!freshForBackground()) return { ok: false, skipped: true, reason: "Prices not applied — this tab has changes in progress or a save conflict." };
     sheet = state.priceSheet;
     var parsed = readPriceSheet(text);
     var p = applyPrices(state, parsed.prices, today);

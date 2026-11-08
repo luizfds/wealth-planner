@@ -108,6 +108,9 @@ function restoreInvalidFields(row, item){
       if(!input.classList.contains(cls)) return;
       var v = item ? SAVED_VALUE[cls](item) : null;
       input.value = v == null ? "" : v;
+      // This is the saved baseline after cancellation, not a draft. The pending-work
+      // tracker compares defaultValue, which may predate valid edits in this sitting.
+      input.defaultValue = input.value;
       markField(input, { ok: true });
     });
   });

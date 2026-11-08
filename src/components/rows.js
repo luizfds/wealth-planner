@@ -16,7 +16,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { readNumberField, markField } from "../lib/validate.js";
 import { sectionOf, parseAdd, runRowAction } from "../lib/sections.js";
 import { redraw } from "../lib/views.js";
-import { state, persist } from "../state.js";
+import { state, persist, onPendingWork } from "../state.js";
 import { modernAssetRowOpen } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems } from "./expenses.js";
@@ -470,9 +470,19 @@ function openModernRow(row, openState, key, autoFocus, freshItem){
   pushActiveOverlay(closeActiveModernRowUI, switchingRow);
   var opened = activeModernRow, opener = document.activeElement, restoreOpener = lastRowOpener;
   var lineId = row.getAttribute("data-line-id");
+  function recordAtIndex(){
+    var sec = sectionOf(opened.section);
+    var arr = sec && (sec.def.rows ? sec.def.rows(sec.arg) : sec.def.discardRows ? sec.def.discardRows(sec.arg) : null);
+    return arr && arr[opened.idx];
+  }
+  var record = recordAtIndex();
   activeRowModal = rowModal(function(){
     var current = findModernRowElement(opened.section, opened.idx, opened.containerId);
-    return current && (!lineId || current.getAttribute("data-line-id") === lineId) ? current : null;
+    if(lineId) return current && current.getAttribute("data-line-id") === lineId ? current : null;
+    // Some older/property rows are positional. Do not turn the next record into
+    // the editor after deletion. Stable record ids still survive a tab adoption.
+    var now = recordAtIndex();
+    return current && (!record || now === record || record.id && now && now.id === record.id) ? current : null;
   }, function(){
     if(autoFocus && restoreOpener){ var remembered = restoreOpener(); if(remembered) return remembered; }
     if(autoFocus && opener && opener !== document.body && opener.isConnected && !row.contains(opener)) return opener;
@@ -566,6 +576,9 @@ export function wireLedgerEdits(){
 }
 
 export function wireRowEditors(){
+  // An untouched Add is provisional: adoption would replace the object identity
+  // needed to discard it. Once edited/saved it follows the ordinary idle-row rule.
+  onPendingWork(function(){ return !!(activeModernRow && activeModernRow.freshItem && JSON.stringify(activeModernRow.freshItem) === activeModernRow.freshSnapshot); });
   // Capture before an Add handler redraws/removes its own button. Questions above
   // the editor must not replace that return address with their transient buttons.
   document.addEventListener("click", function(e){

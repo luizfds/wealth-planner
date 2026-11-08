@@ -286,7 +286,9 @@ const JOURNEYS = {
     await page.locator('#mRowBackdrop').click({position:{x:2,y:2}}); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     const before=await stored(page,'state.shared.length');
     await page.locator('[data-add="shared"]:visible').first().click();
-    await page.locator('.m-row.open[role="dialog"]').waitFor(); await page.keyboard.press('Escape');
+    await page.locator('.m-row.open[role="dialog"]').waitFor();
+    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.keyboard.press('Escape');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await stored(page,'state.shared.length')===before,'Closing an untouched new row kept it');
     check(await page.evaluate(()=>document.activeElement.matches('[data-add="shared"]')),'Discard did not restore the Add opener');
@@ -299,10 +301,26 @@ const JOURNEYS = {
     await go(page,'assets','data-assets-sub','Cash');
     const assets=await stored(page,'state.assets.length');
     await page.locator('[data-add="assets:Cash"]').click();
-    await page.locator('.m-row.open[role="dialog"]').waitFor(); await page.keyboard.press('Escape');
+    await page.locator('.m-row.open[role="dialog"]').waitFor();
+    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.keyboard.press('Escape');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await stored(page,'state.assets.length')===assets,'Closing an untouched cash row kept it');
     check(await page.evaluate(()=>document.activeElement.matches('[data-add="assets:Cash"]')),'Cash editor did not restore its Add opener');
+    // Older/property records may have no id: their successor must not inherit the modal.
+    await go(page,'expenses','data-expenses-sub','budget');
+    const index=await page.evaluate(async()=>{
+      const m=await import('/src/state.js'), index=m.state.shared.length;
+      m.state.shared.push({what:'Example positional row',amount:80,freq:'Monthly',classification:'Needs'},{what:'Following positional row',amount:80,freq:'Monthly',classification:'Needs'});
+      m.commit(['shared']);return index;
+    });
+    const positional=page.locator('.m-row[data-section="shared"][data-index="'+index+'"]');
+    await positional.evaluate(el=>{const toggle=el.closest('.m-card').querySelector('[data-budget-group-toggle]');if(toggle?.getAttribute('aria-expanded')!=='true')toggle?.click();});
+    await positional.locator('[data-row-toggle]').first().click();
+    await positional.getByRole('button',{name:/Close editor$/}).waitFor();
+    await positional.locator('.row-del').click();await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.shared[state.shared.length-1].what')==='Following positional row','Deleting a positional row changed its successor');
+
 
   },
   async ledgerfields(page){

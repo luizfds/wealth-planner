@@ -1,7 +1,7 @@
 # One field: inventory and spec (#254)
 
 **Status: foundation shipped (PR #272); shared ledger editors migrated in the current follow-up.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
-Benchmarks, the generic ledger editor and the income editor use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
+Benchmarks, generic ledger, income, basic asset and vehicle editors use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
 ## How this was measured
@@ -145,7 +145,7 @@ plus a 320px light pass. The #278 follow-up restores full-document scans for the
 **Manual verification task (pending):** using VoiceOver/Safari and NVDA/Firefox, open a Budget row, expand More options,
 read the date and tax help, switch person/property claim, clear/retype an amount and close/reopen the editor. Confirm
 names, descriptions, error announcements and focus order, on a physical phone as well as desktop. Remaining families
-under #261: holdings/lots, full property/loan editors, tax forms, scenario changes,
+under #261: holdings/lots, debt/offset forms, full property/loan editors, tax forms, scenario changes,
 goals, calculators and Settings. The wider issue stays open.
 
 ## Income migration (#254 / #261)
@@ -170,3 +170,30 @@ The browser journey checks labels, blank/retyped/negative Amount, sacrifice mode
 weekly/monthly/fortnightly schedules, draft-versus-recorded pay history, focus, unique ids, described help and field sizes
 at 320/390/1280px. Full-document accessibility adds the collapsed Income view plus seven expanded/conditional states.
 Actual screen-reader/physical-device checks remain the manual task above; the wider #261/#254 issues stay open.
+
+## Basic asset and vehicle migration (#254 / #261)
+
+Cash/Super/Other and Vehicle use the same shared adapter, with stable record-scoped ids and linked labels. Person and
+vehicle purchase date span the row. Visible described help covers category grouping, snapshots, super estimates and
+vehicle price/date/depreciation assumptions. Record value uses the standard secondary button styling. The separate
+View details action is inside the editor; the row header edits the record and no longer nests a Details button.
+
+The shared row controller writes open keys as `assets:<index>`, but all three asset renderers read bare indices.
+They now agree, including the holding renderer, so redraw/snapshot does not close the editor. Snapshot redraws use
+keepUi to retain keyboard focus. Category moves finish closing the original editor before rendering its destination,
+then return focus to the active category tab and confirm a successful save. Changing a new asset's category counts as
+an edit, preserving the new record instead of discarding it.
+
+Blank vehicle depreciation already saves null and calculates as 0; the renderer previously substituted 15. It now
+shows the stored blank. Explicit 0 stays 0, and new-vehicle defaults are unchanged. Current value keeps its label after
+live updates. Calculations and numeric save rules are unchanged, including existing blank/zero/negative handling and
+native constraints; numeric-policy migration remains under #263.
+
+Browser checks cover real label activation, stored values/person, category movement for existing/new records, Details
+routes, keyboard snapshots/history and focus (including holdings), Super assumptions, zero/positive/blank depreciation,
+missing purchase date/price, add/discard and 320/390/1280px reflow. Initial label audits query the live DOM atomically so
+a background redraw cannot make the assertion evaluate a detached node; no retries or error filters are added.
+Full-document accessibility adds Cash/Super/Vehicle pages and five expanded/computed/blank/stored-value states.
+
+Holdings/lots, debt/offset forms and other families remain separate migrations. Actual screen-reader and physical-device
+verification remains the pending manual task above.

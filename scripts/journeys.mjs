@@ -16,6 +16,7 @@
 //   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
 //                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
+//   assetfields / vehiclefields — shared labels/help, category movement, snapshots, depreciation and mobile reflow
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
@@ -233,12 +234,121 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
+  async assetfields(page){
+    const indexOf=id=>page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),id);
+    const saved=(id,key)=>stored(page,"state.assets.find(x=>x.id==='"+id+"')."+key);
+    await go(page,'assets','data-assets-sub','Cash');
+    const idx=await indexOf('demo-cash-everyday');
+    const row=page.locator('#assetsSub-Cash .m-row[data-index="'+idx+'"]');
+    await row.locator('[data-row-toggle]').first().click();
+    check(!await row.locator('.m-row-summary button').count(),'Details is nested inside the row Edit button');
+    check(await page.evaluate(idx=>!!document.querySelector('#assetsSub-Cash .m-row[data-index="'+idx+'"] .a-what')?.labels?.length,idx),'Asset name has no associated visible label');
+    for(const cls of ['a-what','a-amount']){
+      const id=await row.locator('.'+cls).getAttribute('id');
+      await row.locator('label[for="'+id+'"]').click();
+      check(await page.evaluate(id=>document.activeElement.id===id,id),'Asset label did not focus '+cls);
+    }
+    await row.getByLabel('Asset name',{exact:true}).fill('Example cash asset');
+    await row.getByLabel('Value',{exact:true}).fill('5000');
+    await row.getByLabel('Person',{exact:true}).fill('Alex');
+    check(await saved('demo-cash-everyday','amount')===5000 && await saved('demo-cash-everyday','person')==='Alex','Basic asset edits did not save');
+    await row.getByRole('button',{name:'Record value',exact:true}).focus();
+    check(await page.evaluate(()=>document.activeElement.matches('[data-asset-log]')), 'Record value could not receive keyboard focus');
+    await page.keyboard.press('Enter');
+    check(await saved('demo-cash-everyday',"history.some(x=>x.date==='2026-11-03' && x.value===5000)"),'Record value did not preserve the dated snapshot');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-asset-log]')),'Recording value lost keyboard focus: '+JSON.stringify(await page.evaluate(()=>({focus:document.activeElement.outerHTML.slice(0,350),open:!!document.querySelector('.m-row.open'),recordButtons:document.querySelectorAll('.m-row.open [data-asset-log]').length,keys:document.querySelector('.m-row.open')?.outerHTML.slice(0,150)}))));
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844});
+      const audit=await page.evaluate(idx=>{
+        const root=document.querySelector('#assetsSub-Cash .m-row[data-index="'+idx+'"]');
+        const fields=[...root.querySelectorAll('.field-control')];
+        return {doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,bad:fields.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return !el.labels?.length || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+      },idx);
+      check(audit.doc<=width && audit.scroll<=audit.width+1 && !audit.bad.length,'Basic asset fields failed at '+width+': '+JSON.stringify(audit));
+    }
+    await row.getByLabel('Category',{exact:true}).selectOption('Other');
+    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await saved('demo-cash-everyday','category')==='Other' && await saved('demo-cash-everyday','amount')===5000,'Moving category changed the stored value');
+    check(await page.evaluate(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active')), 'Moving category lost the list focus');
+    await go(page,'assets','data-assets-sub','Other');
+    const moved=page.locator('#assetsSub-Other .m-row[data-index="'+idx+'"]');
+    await moved.locator('[data-row-toggle]').first().click();
+    await moved.getByRole('button',{name:'View details',exact:true}).click();
+    await page.waitForFunction(()=>document.body.dataset.currentPage==='detail');
+    check(await page.evaluate(()=>location.pathname.includes('demo-cash-everyday')),'Separate Details action opened the wrong record');
+    await go(page,'assets','data-assets-sub','Super');
+    const si=await indexOf('demo-super-alex'), superRow=page.locator('#assetsSub-Super .m-row[data-index="'+si+'"]');
+    await superRow.locator('[data-row-toggle]').first().click();
+    check(await superRow.locator('.a-amount').evaluate(el=>{const ids=el.getAttribute('aria-describedby').split(' ');return ids.some(id=>/last snapshot.*employer super/.test(document.getElementById(id)?.textContent || ''));}),'Super estimate assumptions are not described visibly');
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    await page.locator('[data-add="assets:Super"]').click();await page.locator('.m-row.open[role="dialog"]').waitFor();
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await page.evaluate(()=>document.activeElement.matches('[data-add="assets:Super"]')),'Super discard did not return focus to Add');
+    // The shared open-key correction must also retain existing holding editors.
+    await go(page,'assets','data-assets-sub','Shares');
+    const hi=await page.evaluate(async()=>(await import('/src/state.js')).state.assets.findIndex(x=>x.category==='Shares'));
+    const holding=page.locator('#assetsSub-Shares .m-row[data-index="'+hi+'"]');
+    await holding.locator('[data-row-toggle]').first().click();
+    await holding.getByRole('button',{name:'Record value',exact:true}).focus();await page.keyboard.press('Enter');
+    check(await holding.evaluate(el=>el.classList.contains('open')),'A holding snapshot still closed its editor');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-asset-log]')),'Holding snapshot lost keyboard focus');
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    await go(page,'assets','data-assets-sub','Cash');
+    const beforeMove=await stored(page,'state.assets.length');
+    await page.locator('[data-add="assets:Cash"]').click();
+    await page.locator('.m-row.open').getByLabel('Category',{exact:true}).selectOption('Other');
+    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.assets.length')===beforeMove+1 && await stored(page,'state.assets[state.assets.length-1].category')==='Other','Changing a new asset category discarded it');
+
+
+  },
+  async vehiclefields(page){
+    await go(page,'assets','data-assets-sub','Vehicle');
+    const idx=await page.evaluate(async()=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id==='demo-car'));
+    const row=page.locator('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');
+    const saved=key=>stored(page,"state.assets.find(x=>x.id==='demo-car')."+key);
+    await row.locator('[data-row-toggle]').first().click();
+    await row.locator('.v-deprate').fill('');
+    await page.evaluate(async()=> (await import('/src/components/redraw.js')).renderAll());
+    // Older renderers closed the editor on redraw; reopening still must show its stored rate.
+    if(!await row.evaluate(el=>el.classList.contains('open'))) await row.locator('[data-row-toggle]').first().click();
+    check(await row.locator('.v-deprate').inputValue()==='', 'A blank depreciation rate reappeared as 15 despite calculating at 0');
+    check(await saved('depreciationRate')===null,'A blank rate did not retain its existing null meaning');
+    await row.getByLabel('Purchase price',{exact:true}).fill('20000');
+    await row.getByLabel('Purchase date',{exact:true}).fill('2024-01-01');
+    await row.getByLabel('Depreciation per year',{exact:true}).fill('0');
+    check(await saved('amount')===20000 && await saved('computed')===true,'Zero depreciation changed the purchase value');
+    await row.getByLabel('Depreciation per year',{exact:true}).fill('10');
+    const depreciated=await saved('amount');
+    check(depreciated>0 && depreciated<20000,'A positive rate did not update the current value');
+    check(/Current value/.test(await row.locator('.v-value-cell').textContent()),'Live value update removed its label');
+    await row.getByLabel('Purchase date',{exact:true}).fill('');
+    check(await saved('computed')===false && await saved('amount')===depreciated,'Clearing the date did not keep the stored value');
+    await row.getByLabel('Purchase price',{exact:true}).fill('');
+    check(await saved('purchasePrice')===0 && await saved('amount')===depreciated,'Clearing the price changed its existing fallback');
+    await row.getByLabel('Person',{exact:true}).fill('Sam');
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844});
+      const audit=await page.evaluate(idx=>{const root=document.querySelector('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');return {open:root.classList.contains('open'),hidden:!!root.closest('[hidden]'),route:location.pathname,doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,nameWidth:root.querySelector('.v-what').getBoundingClientRect().width,dateWidth:root.querySelector('.v-purchasedate').getBoundingClientRect().width,bad:[...root.querySelectorAll('.field-control')].filter(el=>!el.labels?.length || getComputedStyle(el).borderRadius!=='6px' || el.getBoundingClientRect().height<(innerWidth<880?44:36)).map(el=>el.className)};},idx);
+      check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.dateWidth>=audit.nameWidth-1 && !audit.bad.length,'Vehicle fields failed at '+width+': '+JSON.stringify(audit));
+    }
+    await row.getByRole('button',{name:'Record value',exact:true}).focus();
+    check(await page.evaluate(()=>document.activeElement.matches('[data-asset-log]')), 'Record value could not receive keyboard focus');
+    await page.keyboard.press('Enter');
+    check(await saved("history.some(x=>x.date==='2026-11-03' && x.value==="+depreciated+")"),'Vehicle snapshot did not record its current value');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-asset-log]')),'Vehicle recording lost focus: '+JSON.stringify(await page.evaluate(()=>({focus:document.activeElement.outerHTML.slice(0,350),open:!!document.querySelector('.m-row.open')}))));
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    const before=await stored(page,'state.assets.length');
+    await page.locator('[data-add="vehicle"]').click();await page.locator('.m-row.open[role="dialog"]').waitFor();
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+    check(await stored(page,'state.assets.length')===before,'An untouched vehicle was not discarded');
+  },
   async incomefields(page){
     await go(page,'expenses','data-expenses-sub','income');
     const index=await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(x=>x.id==='demo-pay-alex'));
     const row=page.locator('#incomeGroups .m-row[data-index="'+index+'"]');
     await row.locator('[data-row-toggle]').first().click();
-    check(await row.locator('.f-incometype').evaluate(el=>!!el.labels?.length),'Income type has no associated visible label');
+    check(await page.evaluate(idx=>!!document.querySelector('#incomeGroups .m-row[data-index="'+idx+'"] .f-incometype')?.labels?.length,index),'Income type has no associated visible label');
     const saved=key=>stored(page,"state.income.find(x=>x.id==='demo-pay-alex')."+key);
     const initial=await saved('amount');
     const nameId=await row.locator('.f-what').getAttribute('id');

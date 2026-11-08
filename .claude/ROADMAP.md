@@ -4808,3 +4808,7 @@ The shared-field foundation (#254) is next, and in progress.
 ## Shared ledger editor fields — issues #254 / #261
 
 `[x]` Generic budget/cost rows and shared timing/deduction fields now use labelled shared fields with visible help. Stable ids distinguish Budget/Property surfaces; reserved errors are reused; phone date controls span the row. Browser coverage checks label activation, conditional claims, validation, focus and 320/390/1280px reflow; accessibility includes expanded/editor error states. Implemented on `codex/label-ledger-editors`; awaiting review and release. Income-specific, holdings, property/loan and other editor families remain separate work under #261.
+
+## Row editor modal accessibility — issue #278
+
+`[~]` Isolate the background, name row dialogs, contain keyboard focus and restore it after closing; preserve nested questions, redraws, history, draft safety and two-tab adoption. Restore full-document expanded-editor accessibility checks.

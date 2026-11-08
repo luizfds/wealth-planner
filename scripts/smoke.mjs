@@ -1,5 +1,5 @@
 // Page smoke check (v3.43.0) — opens every page and subtab in a headless browser, at a phone and a
-// desktop width, light and dark, and fails on anything a unit test can't see:
+// desktop width, light and dark (and 320px light), and fails on anything a unit test can't see:
 //   - an uncaught page error or console error (a function imported from the wrong module, a
 //     variable out of scope — both have shipped past a green `npm test` in this repo)
 //   - a page that renders nothing
@@ -51,7 +51,9 @@ const VIEWS = [
 ];
 const failures = [];
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
-for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
+// #257: 320px too (light only — the colour scheme doesn't change layout). The narrowest phone is where a
+// grid track's content floor shows: at 390px there is room to hide it, and two such overflows shipped.
+for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, colorScheme: scheme });
   await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -250,4 +252,4 @@ if(failures.length){
   console.error("Smoke check failed:\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log("Smoke check passed: every page and subtab, 390px and 1280px, light and dark.");
+console.log("Smoke check passed: every page and subtab, 320px (light), 390px and 1280px (light and dark).");

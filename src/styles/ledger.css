@@ -1127,6 +1127,10 @@
     .acct-card-edit{ grid-template-columns: 1fr; }
     .ap-row{ grid-template-columns: 1fr; }
     .acct-card-spark{ display:none; }
+    /* #257: the balance and the Details/Update buttons left the name ~20–90px on a phone (0px for one
+       card at 320px), wrapping it a word a line. The name gets the first line; the rest sits under it. */
+    .acct-card-main{ flex-wrap:wrap; row-gap:6px; }
+    .acct-card-toggle{ flex-basis:100%; min-height:44px; }
     .acct-loose-row{ flex-wrap:wrap; row-gap:2px; }
     .acct-loose-row span{ flex-basis:100%; white-space:normal; }
     .acct-loose-row b{ flex:1 1 auto; }

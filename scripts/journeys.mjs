@@ -262,6 +262,8 @@ const JOURNEYS = {
       const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
       check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && f.radius==='6px' && f.padding==='6px 8px' && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
     }
+    await row.getByLabel('Amount',{exact:true}).fill('-40');
+    check(await stored(page, "state.shared.find(x=>x.id==='demo-groceries').amount")===-40 && await row.locator('.f-amount').evaluate(el=>el.validity.valid), 'A supported negative amount was rejected by the shared control');
     await row.getByLabel('Amount',{exact:true}).fill('');
     const invalid=await row.locator('.f-amount').evaluate(el=>({invalid:el.getAttribute('aria-invalid'),messages:document.querySelectorAll('[id="'+el.id+'-error"]').length,help:document.getElementById(el.id+'-error')?.textContent}));
     check(invalid.invalid==='true' && invalid.messages===1 && /Enter an amount/.test(invalid.help), 'Shared field validation did not reuse its error: '+JSON.stringify(invalid));

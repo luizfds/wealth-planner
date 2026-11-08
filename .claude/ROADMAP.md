@@ -4815,4 +4815,8 @@ The shared-field foundation shipped in PR #272; family migrations continue under
 
 ## Income editor shared fields — issues #254 / #261
 
-`[x]` Income-specific controls now use shared labels/help/error styling, conditional sacrifice and pay-schedule fields, and a named pay-change group. Account/anchor dates get room; pay-change fields stack on phones. Income redraws retain focus and open sections. Calculation, save and history rules stay unchanged. Browser/render/a11y coverage added; implemented on `codex/shared-income-fields`, awaiting review and release.
+`[x]` Income-specific controls now use shared labels/help/error styling, conditional sacrifice and pay-schedule fields, and a named pay-change group. Account/anchor dates get room; pay-change fields stack on phones. Income redraws retain focus and open sections. Calculation, save and history rules stay unchanged. Browser/render/a11y coverage added; shipped v3.233.0 (PR #281).
+
+## Basic asset and vehicle shared fields — issues #254 / #261
+
+`[x]` Cash/Super/Other and Vehicle now use shared labelled fields and visible help. Fixed asset open-key mismatch/snapshot focus, safe category movement, blank depreciation display and nested Details actions; valuation/save rules remain unchanged. Browser/render/a11y coverage added on `codex/shared-asset-fields`, awaiting review/release. Holdings/lots and debt/offset forms remain separate families.

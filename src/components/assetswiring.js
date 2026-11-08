@@ -333,13 +333,21 @@ export function wireAssets(){
       if(!tr) return;
       var idx = Number(tr.getAttribute("data-index"));
       if(state.assets[idx]){
-        state.assets[idx].category = e.target.value;
-        // Moving INTO Shares needs the same quantity/price/avgCost defaulting migrateState()
-        // does for legacy data — otherwise a plain-dollar item (e.g. a crypto holding tracked
-        // under Other) would render as qty 0 / price 0 the instant it lands here, silently
-        // losing its value instead of carrying it over as 1 unit at that price.
-        if(e.target.value === "Shares") normalizeShareAsset(state.assets[idx]);
-        renderAssets(); persist();
+        var category = e.target.value, asset = state.assets[idx];
+        if(asset.category === category) return;
+        asset.category = category;
+        // Keep the existing conversion when moving a plain-value asset into Shares.
+        if(category === "Shares") normalizeShareAsset(asset);
+        // Close while its original DOM still exists. Otherwise the shared open key
+        // would recreate an open editor inside the destination's hidden subpage.
+        requestCloseActiveOverlay().then(function(){
+          if(state.assets.indexOf(asset) === -1 || asset.category !== category) return;
+          renderAssets();
+          var saved = persist();
+          var tab = document.querySelector("#assetsSubnav .subnav-item.active");
+          if(tab && document.body.getAttribute("data-current-page") === "assets" && !document.querySelector("dialog[open]")) tab.focus();
+          if(saved) showToast("Moved to " + category);
+        });
       }
     }
     if(e.target.closest(".m-asset-rows") && e.target.classList.contains("h-market")){

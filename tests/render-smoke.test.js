@@ -2237,3 +2237,29 @@ test("income sacrifice and pay-change controls are named, grouped and escaped", 
   assert.doesNotMatch(modernIncomeRowHtml({...base,sacrificeMode:"none"},0,0),/f-sacrificevalue/);
   assert.doesNotMatch(modernIncomeRowHtml({...base,computed:true},0,0),/field-control|data-pay-change/);
 });
+
+import { modernAssetRowHtml, modernVehicleRowHtml, modernAssetRowOpen } from "../src/components/assets.js";
+test("basic asset fields keep categories, linked labels and separate Details actions", () => {
+  for(const category of ['Cash','Super','Other']){
+    const html=modernAssetRowHtml({id:'example-asset',what:'Example <asset>',category,amount:5000,person:'Alex'},2,0);
+    assert.match(html,/class="field-control a-what"/);
+    assert.match(html,new RegExp('value="'+category+'" selected'));
+    assert.match(html,/View details<\/button>/);
+    assert.doesNotMatch(html.split('<script')[0], /<button|<a /, 'an interactive Details action is nested inside the row button');
+    assert.doesNotMatch(html,/<asset>/);
+    if(category==='Super') assert.match(html,/employer super after contributions tax/);
+  }
+});
+test("asset renderers follow shared open keys and preserve blank versus zero depreciation", () => {
+  modernAssetRowOpen['assets:2']=true;
+  try{
+    const base={id:'example-car',what:'Example vehicle',category:'Vehicle',amount:20000,purchasePrice:20000,purchaseDate:'2024-01-01'};
+    const html=modernVehicleRowHtml({...base,depreciationRate:null},2,0);
+    assert.match(html,/<div class="m-row open"/);
+    assert.doesNotMatch(html,/<script/);
+    assert.match(html,/class="field-control v-deprate"[^>]*value=""/);
+    assert.match(html,/Blank or 0 applies no depreciation/);
+    assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control v-deprate"[^>]*value="0"/);
+    assert.match(modernAssetRowHtml({id:'example-cash',category:'Cash',what:'Example cash',amount:5000},2,0),/<div class="m-row open"/);
+  }finally{ delete modernAssetRowOpen['assets:2']; }
+});

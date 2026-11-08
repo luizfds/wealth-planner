@@ -1,3 +1,4 @@
+import { keepUi } from "../lib/keepui.js";
 import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
@@ -8,7 +9,7 @@ import { escapeAttr, segLabel } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
 function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
-import { optionsHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
+import { optionsHtml, historyTrendHtml, ledgerFields, rowEditSlot } from "../lib/ledger-table.js";
 import { superEstimate } from "../calc/estimates.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
@@ -503,10 +504,7 @@ function assetCategoryItems(cat){
   return { items: items, indices: indices };
 }
 
-// Session-only (not persisted) — shared across every asset subpage (Cash/Shares/Super/Vehicle/
-// Other) and both row types below. Keyed by the row's index into the flat state.assets array,
-// which (unlike Properties' several separately-indexed arrays) is already globally unique
-// regardless of category, so no section prefix is needed to avoid collisions.
+// Session-only keys follow the shared row controller: "assets:<index>" in every category.
 export var modernAssetRowOpen = {};
 
 // Every item in a category gets a color, cycling the same 8-color series used everywhere else —
@@ -532,25 +530,27 @@ export function superEstimateSubHtml(item, today){
   return '<div class="m-row-sub est-note" title="From the last statement, plus employer super since (after the 15% contributions tax) and growth at the projection\'s return. Replace it with the real figure when the next statement comes.">≈ ' +
     fmtCurrency0.format(est.value) + ' today, estimated from ' + fmtCurrency0.format(est.from.value) + ' on ' + escapeAttr(fmtDate(est.from.date)) + '</div>';
 }
-function modernAssetRowHtml(item, idx, colorIdx){
-  var isOpen = !!modernAssetRowOpen[idx];
+export function modernAssetRowHtml(item, idx, colorIdx){
+  var isOpen = !!modernAssetRowOpen["assets:" + idx];
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     dot +
-    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + nameLink(item) + '</div>' + superEstimateSubHtml(item) + '</div>' +
+    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what || "Asset") + '</div>' + superEstimateSubHtml(item) + '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
+  var field = ledgerFields(item, "assets", idx, "asset");
+  var valueHelp = item.category === "Super"
+    ? "Enter a confirmed balance. Any estimate shown uses the last snapshot, projected growth and employer super after contributions tax. Record value saves a dated snapshot."
+    : "Enter the value to track. Record value saves a dated snapshot for the history chart.";
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="a-what" value="' + escapeAttr(item.what) + '" aria-label="Asset name"></div>' +
-      '<div class="m-edit-field"><label>Category</label><select class="a-category" title="Move to a different category" aria-label="Category">' + optionsHtml(ASSET_CATEGORIES, item.category) + '</select></div>' +
-      '<div class="m-edit-field span2"><label>Value</label><input type="number" step="100" min="0" class="a-amount" value="' + item.amount + '" aria-label="Asset value"></div>' +
-      '<div class="m-edit-field"><label>Person</label><input type="text" class="a-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      field("a-what", "Asset name", {value:item.what || ""}, {className:"span3"}) +
+      field("a-category", "Category", {type:"select",value:item.category,options:ASSET_CATEGORIES.map(function(c){return {value:c,label:c};}),help:"Choose where this asset is grouped."}) +
+      field("a-amount", "Value", {type:"number",value:item.amount,attrs:{step:100,min:0},help:valueHelp}, {className:"span2"}) +
+      field("a-person", "Person", {value:item.person || "",attrs:{list:"personSuggestions"},placeholder:"Household",help:item.category === "Super" ? "Use the matching person's name to include their employer contributions in the super estimate. Leave blank for the household." : "Leave blank for a household asset."}, {className:"span3"}) +
     '</div>' +
-    // Sales live behind a disclosure: most holdings have none, and a CGT form permanently open on
-    // every row would bury the fields people actually use daily.
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
+    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -631,28 +631,30 @@ export function renderAssetCategoryHistoryChart(cat){
 
 export function patchVehicleRow(tr, item){
   var valueCell = tr.querySelector(".v-value-cell");
-  if(valueCell) valueCell.innerHTML = fmtCurrency0.format(Number(item.amount) || 0) + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>');
+  if(valueCell) valueCell.innerHTML = "Current value <b>" + fmtCurrency0.format(Number(item.amount) || 0) + "</b>" + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>');
 }
 
-function modernVehicleRowHtml(item, idx, colorIdx){
-  var isOpen = !!modernAssetRowOpen[idx];
+export function modernVehicleRowHtml(item, idx, colorIdx){
+  var isOpen = !!modernAssetRowOpen["assets:" + idx];
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
   var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
     dot +
-    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + nameLink(item) + '</div></div>' +
+    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what || "Vehicle") + '</div></div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
+  var field = ledgerFields(item, "assets", idx, "vehicle");
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="v-what" value="' + escapeAttr(item.what) + '" aria-label="Vehicle name"></div>' +
-      '<div class="m-edit-field"><label>Purchase price</label><input type="number" step="500" min="0" class="v-purchaseprice" value="' + (Number(item.purchasePrice) || 0) + '" aria-label="Purchase price"></div>' +
-      '<div class="m-edit-field"><label>Purchase date</label><input type="date" class="v-purchasedate" value="' + escapeAttr(item.purchaseDate || "") + '" aria-label="Purchase date"></div>' +
-      '<div class="m-edit-field"><label>Depreciation %/yr</label><input type="number" step="0.5" min="0" max="100" class="v-deprate" value="' + (item.depreciationRate != null ? item.depreciationRate : 15) + '" aria-label="Depreciation % per year"></div>' +
-      '<div class="m-edit-field"><label>Person</label><input type="text" class="v-person" list="personSuggestions" value="' + escapeAttr(item.person || "") + '" placeholder="Household" aria-label="Person"></div>' +
+      field("v-what", "Vehicle name", {value:item.what || ""}, {className:"span3"}) +
+      field("v-purchaseprice", "Purchase price", {type:"number",value:Number(item.purchasePrice) || 0,attrs:{step:500,min:0},help:"A positive price and purchase date enable the declining-balance estimate. Blank or 0 keeps the current stored value instead."}, {className:"span2"}) +
+      field("v-deprate", "Depreciation per year", {type:"number",value:item.depreciationRate == null ? "" : item.depreciationRate,attrs:{step:"0.5",min:0,max:100},unit:"%",help:"The yearly percentage removed from the remaining value. Blank or 0 applies no depreciation."}) +
+      field("v-purchasedate", "Purchase date", {type:"date",value:item.purchaseDate || "",help:"The estimate runs from this date. Leave blank to keep the current stored value."}, {className:"span3"}) +
+      field("v-person", "Person", {value:item.person || "",attrs:{list:"personSuggestions"},placeholder:"Household",help:"Leave blank for a household vehicle."}, {className:"span3"}) +
     '</div>' +
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
-    '<div class="m-edit-actions"><button type="button" class="btn btn-ghost btn-sm asset-log-btn" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
+    '<p class="field-help">Record value saves today’s current value as a dated snapshot for the history chart.</p>' +
+    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -673,7 +675,7 @@ export function renderVehiclesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><p class="ledger-note help" style="margin-left:0">Current value is estimated as declining-balance depreciation from your purchase price — a common approximation for cars, not a valuation. Leave depreciation fields blank to enter a value manually instead.</p>' + body + '</div></details>' +
+    '<div class="ledger-body"><p class="ledger-note help" style="margin-left:0">Declining-balance depreciation is an estimate, not a market valuation. A positive purchase price and purchase date recalculate the value; missing either keeps the stored value. Blank or 0 depreciation applies no decline.</p>' + body + '</div></details>' +
     // Vehicles get the same over-time chart as every other category. Theirs is the one most likely
     // to be empty — a depreciating car is exactly the thing nobody logs — so the panel's job here
     // is mostly to say that out loud rather than to draw anything.
@@ -690,7 +692,7 @@ function modernShareRowHtml(item, idx, colorIdx){
   var qty = Number(item.quantity) || 0;
   var price = Number(item.price) || 0;
   var currency = holdingCurrency(item);
-  var isOpen = !!modernAssetRowOpen[idx];
+  var isOpen = !!modernAssetRowOpen["assets:" + idx];
   var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
   var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
   var spark = sparklineHtml(item.history) || sparklinePlaceholderHtml();
@@ -1778,7 +1780,7 @@ export function logAssetSnapshot(idx){
     var entry = asset.history.find(function(h){ return h.date === dateStr; });
     if(entry) entry.price = Number(asset.price) || 0;
   }
-  renderAssets();
+  keepUi(renderAssets);
   renderProjectionOutputs();
   persist();
   showToast("Logged " + fmtCurrency0.format(num) + " for " + asset.what + " (" + dateStr + ")");

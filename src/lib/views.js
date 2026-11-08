@@ -9,6 +9,7 @@
 // run under a MutationObserver, the pages its writes landed in recorded.
 //
 // pages: an array of page ids ("expenses", "plan"…) or null for a view on every page.
+import { keepUi } from "./keepui.js";
 var views = [];
 var stale = {};
 
@@ -30,7 +31,8 @@ function run(view, now){
     return;
   }
   delete stale[view.name];
-  try { view.draw(); }
+  // keepUi: the focused control and any open section survive the view's markup being replaced (lib/keepui.js).
+  try { keepUi(view.draw); }
   catch(e){ setTimeout(function(){ throw e; }, 0); } // reported (lib/errorlog.js), without stopping the others
 }
 // The page on screen: what nav.js last showed.

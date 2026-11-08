@@ -204,6 +204,9 @@ const JOURNEYS = {
       await page.evaluate(r => { document.querySelectorAll(r + " details").forEach(d => d.open = true); const c = document.querySelector(r + " .f-deductible"); if(c && !c.checked) c.click(); }, row);
       return page.locator(pct).isVisible();
     });
+    // ...and a full redraw keeps the section open, rather than hiding the field being filled in (lib/keepui.js).
+    await page.evaluate(async () => (await import("/src/components/redraw.js")).renderAll());
+    check(await page.locator(pct).isVisible(), "a full redraw closed the row's More options");
     await page.fill(pct, "60"); check(await saved("deductiblePct") === 60, "a share of 60 wasn't saved");
     for(const bad of ["150", "-10", ""]){
       await page.fill(pct, bad);
@@ -629,8 +632,16 @@ const JOURNEYS = {
     // Focus comes back at the end of an async chain (Escape → history.back() → popstate → close → setTimeout), so
     // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274). The check itself is unchanged.
     await page.waitForFunction(() => { const a = document.activeElement; return !!(a && a.matches('#dashboardSetup [data-firstrun-open]')); }, null, { timeout: 5000 }).catch(() => {});
-    check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener');
+    check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener — ' + await page.evaluate(() => {
+      const a = document.activeElement;
+      return JSON.stringify({ focus: a ? a.tagName + "#" + a.id + "." + a.className + " in " + ((a.closest("[id]") || {}).id || "-") : null,
+        setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
+        openers: document.querySelectorAll('#dashboardSetup [data-firstrun-open]').length, page: document.body.getAttribute("data-current-page"), history: history.state });
+    }));
     check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
+    // A full redraw (the app's own price refresh can land here) keeps a keyboard user's place: lib/keepui.js.
+    await page.evaluate(async () => (await import('/src/components/redraw.js')).renderAll());
+    check(await opener.evaluate(el => el === document.activeElement), 'a full redraw took focus from the setup opener');
     await page.evaluate(async original => {
       const s = await import('/src/state.js'); s.setState(s.migrateState(JSON.parse(original)));
       (await import('/src/calc/engine.js')).recalcComputedItems();

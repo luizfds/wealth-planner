@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state, migrateState } from "../src/state.js";
 import { goalStatus, goalsOverview, addSavingsGoal } from "../src/calc/savegoals.js";
-import { goalsSectionHtml } from "../src/components/savegoals.js";
+import { goalsSectionHtml, goalOpen } from "../src/components/savegoals.js";
 
 function withState(fn){
   var keep = { accounts: state.accounts, assets: state.assets, debts: state.debts, properties: state.properties, savingsGoals: state.savingsGoals };
@@ -71,5 +71,24 @@ test("a goal past its target says by how much, and where the surplus could go", 
     // Nothing left to finish: the offset.
     state.savingsGoals = state.savingsGoals.slice(0, 1);
     assert.deepEqual(goalsOverview("2026-10-01", 1000).goals[0].surplusTo, { kind: "offset", name: "Loan offset", amount: 7000 });
+  });
+});
+
+// #254 / #261: an open goal's editor is shared fields — each label tied to its own goal's control, help described,
+// and a typed name escaped.
+test("an open goal's editor labels its own fields, describes its help, and escapes the name", function(){
+  withState(function(){
+    var a = addSavingsGoal({ name: 'Deposit <img src=x onerror=alert(1)>', target: 30000, by: "2027-10-01", accounts: ["Bank One Saver"] });
+    var b = addSavingsGoal({ name: "Car", target: 8000, accounts: ["Bank One Saver"] });
+    goalOpen[a.id] = true; goalOpen[b.id] = true;
+    try {
+      var html = goalsSectionHtml("2026-10-01", 1000);
+      assert.ok(!/<img/.test(html), "a goal's name went into the editor unescaped");
+      var ids = [...html.matchAll(/<label class="field-label" for="([^"]+)">([^<]+)/g)].map(m => m[1] + "=" + m[2]);
+      assert.equal(ids.length, 6, "three labelled fields per open goal: " + ids.join(", "));
+      assert.equal(new Set(ids.map(x => x.split("=")[0])).size, 6, "two goals' fields share an id");
+      for(const m of html.matchAll(/for="([^"]+)"/g)) assert.ok(html.includes('id="' + m[1] + '"'), "a label points at no control: " + m[1]);
+      assert.match(html, /aria-describedby="[^"]*-target-help[^"]*"/);
+    } finally { delete goalOpen[a.id]; delete goalOpen[b.id]; }
   });
 });

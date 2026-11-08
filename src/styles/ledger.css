@@ -1486,12 +1486,12 @@
   .sgl-hint{ margin:6px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.4; }
   .sgl-cover{ margin:0 0 10px; font-size:var(--fs-sm); }
   .sgl-cover.ok b{ color: var(--good-ink); } .sgl-cover.warn{ color:var(--warn-ink); }
-  .sgl-edit{ display:grid; grid-template-columns: 2fr 1fr 1fr; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .sgl-edit{ display:grid; grid-template-columns: 2fr 1fr 1fr; gap:8px; align-items:start; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .sgl-accts{ grid-column: 1 / -1; border:0; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px 14px; font-size:var(--fs-sm); }
   .sgl-accts legend{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:4px; }
   .sgl-accts label{ display:flex; gap:6px; align-items:center; min-height:32px; }
   .sgl-edit-foot{ grid-column: 1 / -1; display:flex; justify-content:flex-end; }
-  @media (max-width: 520px){ .sgl-edit{ grid-template-columns: 1fr 1fr; } .sgl-edit > label:first-child{ grid-column: 1 / -1; } }
+  @media (max-width: 520px){ .sgl-edit{ grid-template-columns: 1fr 1fr; } .sgl-edit > .field:first-child{ grid-column: 1 / -1; } }
 
   /* Recurring payments (v3.66.0) */
   .rc-sec{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:10px 0 4px; }

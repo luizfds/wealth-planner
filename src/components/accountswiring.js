@@ -11,12 +11,13 @@ import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { addSavingsGoal } from "../calc/savegoals.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
+import { readNumberField, markField } from "../lib/validate.js";
+import { redraw } from "../lib/views.js";
 import { state, persist, commit, genId } from "../state.js";
 import { openAccounts, balanceEditing } from "./accounts.js";
 import { renderCanBuy } from "./canbuy.js";
 import { renderEmergencyFund, existingEmergencyGoal } from "./emergency.js";
 import { renderTransactions, renderActualVsPlannedPanel, renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, renderYearSpending, renderSpendingTrends, listsShowAll } from "./expenses.js";
-import { renderHomeSummary } from "./home.js";
 import { showPage, showPlanSubpage } from "./nav.js";
 import { renderRetirement } from "./planwiring.js";
 import { renderAll, updateAccountSuggestions } from "./redraw.js";
@@ -42,10 +43,43 @@ function saveAccountBalance(idx){
 // where financial independence stands.
 function renderGoalsTab(){ renderSavingsGoals(); renderCanBuy(); var f = document.getElementById("goalsFireBody"); if(f) f.innerHTML = goalsFireHtml(); }
 // ---------------- Accounts → Savings goals (v3.65.0) ----------------
+var savingFrom = null; // the goal card whose field change is being saved (renderSavingsGoals keeps its editor)
 function renderSavingsGoals(){
   var el = document.getElementById("savingsGoalsBody");
-  if(el) el.innerHTML = goalsSectionHtml(localDateStr(), scenarioTotals(currentScenario()).netMonthly);
+  if(el){
+    var html = goalsSectionHtml(localDateStr(), scenarioTotals(currentScenario()).netMonthly);
+    // An editor someone is working in stays in the page through the redraw (#261). Tab picks the next field before the
+    // change that saves (and so redraws) fires; replacing the editor — even detaching it for a moment — dropped focus to
+    // the page body. So the redraw is built aside and swapped in around that card: its header and note, the other cards
+    // and the totals are new; its editor's elements never leave the page.
+    // The card being worked in: the one with focus — or, while a change is saving, the one it came from (the browser has
+    // already taken focus off the field and not yet given it to the next, so activeElement is the body then).
+    var working = Array.prototype.find.call(el.querySelectorAll(".sgl.is-open"), function(c){ return c.contains(document.activeElement) || c === savingFrom; });
+    var keepId = working && working.querySelector("[data-goal-toggle]") ? working.querySelector("[data-goal-toggle]").getAttribute("data-goal-toggle") : null;
+    var aside = document.createElement("div");
+    aside.innerHTML = html;
+    var freshCard = keepId ? Array.prototype.find.call(aside.querySelectorAll(".sgl.is-open"), function(c){ var t = c.querySelector("[data-goal-toggle]"); return t && t.getAttribute("data-goal-toggle") === keepId; }) : null;
+    var liveList = working && working.parentNode, freshList = freshCard && freshCard.parentNode;
+    if(!freshCard || !liveList || liveList.parentNode !== el || !freshList || freshList.parentNode !== aside) el.innerHTML = html;
+    else {
+      var editor = working.querySelector(".sgl-edit");
+      Array.prototype.slice.call(working.children).forEach(function(c){ if(c !== editor) c.remove(); });
+      Array.prototype.slice.call(freshCard.children).forEach(function(c){ if(!c.classList.contains("sgl-edit")) working.insertBefore(c, editor); });
+      working.className = freshCard.className;
+      swapAround(liveList, working, freshList, freshCard);
+      swapAround(el, liveList, aside, freshList);
+    }
+  }
   renderEmergencyFund();
+}
+// Replaces everything in live except `keep` with everything in fresh except its counterpart, in the same order.
+function swapAround(live, keep, fresh, counterpart){
+  Array.prototype.slice.call(live.children).forEach(function(c){ if(c !== keep) c.remove(); });
+  var before = true;
+  Array.prototype.slice.call(fresh.children).forEach(function(c){
+    if(c === counterpart){ before = false; return; }
+    if(before) live.insertBefore(c, keep); else live.appendChild(c);
+  });
 }
 
 export function wireAccounts(){  // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
@@ -178,15 +212,15 @@ export function wireGoals(){  // ---------------- Accounts → Emergency fund (v
     if(e.target.closest("[data-ef-goal]")){
       var f = emergencyFund();
       var g = existingEmergencyGoal();
-      if(g){ var was = g.target; g.target = f.target; persist(); renderSavingsGoals(); renderHomeSummary();
-        showUndoToast(g.name + " set to " + fmtCurrency0.format(f.target), function(){ g.target = was; persist(); renderSavingsGoals(); renderHomeSummary(); });
+      if(g){ var was = g.target; g.target = f.target; commit(["savingsGoals"]);
+        showUndoToast(g.name + " set to " + fmtCurrency0.format(f.target), function(){ g.target = was; commit(["savingsGoals"]); });
         return; }
       var accts = state.accounts.filter(function(a){ return a.type === "savings" || a.type === "offset"; }).map(function(a){ return a.name; });
       var ng = addSavingsGoal({ name: "Emergency fund", target: f.target, accounts: accts });
       goalOpen[ng.id] = true;
-      persist(); renderSavingsGoals(); renderHomeSummary();
+      commit(["savingsGoals"]);
       showUndoToast("Emergency fund goal added — on " + (accts.length ? accts.join(", ") : "no accounts yet; tick them on the goal"), function(){
-        state.savingsGoals = state.savingsGoals.filter(function(x){ return x.id !== ng.id; }); persist(); renderSavingsGoals(); renderHomeSummary();
+        state.savingsGoals = state.savingsGoals.filter(function(x){ return x.id !== ng.id; }); commit(["savingsGoals"]);
       });
     }
   });
@@ -195,19 +229,20 @@ export function wireGoals(){  // ---------------- Accounts → Emergency fund (v
     if(e.target.closest("[data-goal-add]")){
       var g = addSavingsGoal({ name: "New goal", target: 0, accounts: state.accounts.filter(function(a){ return a.type === "savings"; }).map(function(a){ return a.name; }) });
       goalOpen[g.id] = true;
-      persist(); renderSavingsGoals(); renderHomeSummary();
+      commit(["savingsGoals"]);
       var nameIn = goalsBody.querySelector('.sgl.is-open [data-goal-field="name"]');
       if(nameIn){ nameIn.focus(); nameIn.select(); }
       return;
     }
     var tog = e.target.closest("[data-goal-toggle]");
-    if(tog){ var id = tog.getAttribute("data-goal-toggle"); goalOpen[id] = !goalOpen[id]; renderSavingsGoals(); return; }
+    // Through the views (lib/views.js), so the redraw keeps focus on the toggle (lib/keepui.js).
+    if(tog){ var id = tog.getAttribute("data-goal-toggle"); goalOpen[id] = !goalOpen[id]; redraw(["savingsGoals"]); return; }
     var del = e.target.closest("[data-goal-del]");
     if(del){
       var i = Number(del.getAttribute("data-goal-del"));
       var gone = state.savingsGoals.splice(i, 1)[0];
-      persist(); renderSavingsGoals(); renderHomeSummary();
-      if(gone) showUndoToast("Goal deleted", function(){ state.savingsGoals.splice(i, 0, gone); persist(); renderSavingsGoals(); renderHomeSummary(); });
+      commit(["savingsGoals"]);
+      if(gone) showUndoToast("Goal deleted", function(){ state.savingsGoals.splice(i, 0, gone); commit(["savingsGoals"]); });
     }
   });
   goalsBody.addEventListener("change", function(e){
@@ -221,11 +256,17 @@ export function wireGoals(){  // ---------------- Accounts → Emergency fund (v
       if(t.checked) g.accounts.push(n);
     } else {
       var f = t.getAttribute("data-goal-field");
-      if(f === "target") g.target = Math.max(0, Number(t.value) || 0);
+      // #263: a target is saved only when it reads — blank was saved as 0 and a negative clamped to 0.
+      if(f === "target"){
+        var read = readNumberField(t.value, { badInput: !!(t.validity && t.validity.badInput), empty: "Enter a target — the amount the goal is for.", min: 0, range: "A target can't be negative." });
+        if(!markField(t, read)) return;
+        g.target = read.value;
+      }
       else if(f === "by") g.by = t.value || "";
       else if(f === "name") g.name = t.value.trim() || "Savings goal";
     }
-    persist(); renderSavingsGoals(); renderHomeSummary();
+    savingFrom = t.closest(".sgl");
+    try { commit(["savingsGoals"]); } finally { savingFrom = null; }
   });
 }
 

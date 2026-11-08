@@ -11,6 +11,7 @@
 //   loanguess   — the same statement with no account picked: the import asks which loan
 //   pdf import  — a PDF statement read into the same review
 //   cashrate    — the RBA's move, read from the site's file, recorded on the household's loans from a date
+//   transitiontimeout — a skipped animation still completes navigation and its alias subpage
 //   appdialogs  — shared text/password/decision dialogs, keyboard, nested Back, and scenario leave guards
 //   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
@@ -293,6 +294,22 @@ const JOURNEYS = {
     await page.waitForURL('**/index.html');
     await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));
     check(await st(page,'state.shared[0].amount')===500,'welcome import did not apply the chosen backup');
+  },
+  async transitiontimeout(page){
+    // Force Chromium's animation-only failure while running the real page update.
+    // Navigation must finish, including an alias subpage, without hiding render errors.
+    await page.evaluate(async()=>{
+      const original=document.startViewTransition;
+      document.startViewTransition=callback=>{
+        const updateCallbackDone=Promise.resolve().then(callback);
+        return {updateCallbackDone,ready:Promise.reject(new DOMException('Animation timed out','TimeoutError')),finished:updateCallbackDone};
+      };
+      try{
+        const nav=await import('/src/components/nav.js');
+        if(!await nav.showPage('income')) throw new Error('Navigation did not complete');
+        if(location.pathname!=='/expenses/income' || document.querySelector('#expensesSub-income').hidden || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
+      }finally{ document.startViewTransition=original; }
+    });
   },
   async appdialogs(page){
     await page.setViewportSize({width:320,height:844});
@@ -630,18 +647,26 @@ const JOURNEYS = {
     check(await type.evaluate(el => el === document.activeElement), 'changing account type lost keyboard focus');
     await page.keyboard.press('Escape');
     // Focus comes back at the end of an async chain (Escape → history.back() → popstate → close → setTimeout), so
-    // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274). The check itself is unchanged.
+    // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274).
+    // Read focus and match the live opener in one browser task: locator.evaluate can resolve
+    // a node before a background redraw and compare that detached node to its focused replacement.
     await page.waitForFunction(() => { const a = document.activeElement; return !!(a && a.matches('#dashboardSetup [data-firstrun-open]')); }, null, { timeout: 5000 }).catch(() => {});
-    check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener — ' + await page.evaluate(() => {
+    check(await page.evaluate(() => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')), 'closing setup did not return focus to its opener — ' + await page.evaluate(() => {
       const a = document.activeElement;
       return JSON.stringify({ focus: a ? a.tagName + "#" + a.id + "." + a.className + " in " + ((a.closest("[id]") || {}).id || "-") : null,
-        setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
+        focusData: a ? Object.assign({}, a.dataset) : null, setupOpen: !!document.querySelector('#firstRunRoot [role="dialog"]'), shellInert: !!(document.querySelector(".app-shell") || {}).inert,
         openers: document.querySelectorAll('#dashboardSetup [data-firstrun-open]').length, page: document.body.getAttribute("data-current-page"), history: history.state });
     }));
     check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
     // A full redraw (the app's own price refresh can land here) keeps a keyboard user's place: lib/keepui.js.
-    await page.evaluate(async () => (await import('/src/components/redraw.js')).renderAll());
-    check(await opener.evaluate(el => el === document.activeElement), 'a full redraw took focus from the setup opener');
+    // Hold the old node to exercise the redraw that can land between a locator's
+    // resolution and evaluate(). Focus belongs to the replacement, not that detached node.
+    await page.evaluate(async () => {
+      const before = document.activeElement;
+      (await import('/src/components/redraw.js')).renderAll();
+      if(before.isConnected) throw new Error('Focus regression did not replace the opener');
+      if(!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')) throw new Error('A full redraw took focus from the setup opener');
+    });
     await page.evaluate(async original => {
       const s = await import('/src/state.js'); s.setState(s.migrateState(JSON.parse(original)));
       (await import('/src/calc/engine.js')).recalcComputedItems();

@@ -4796,3 +4796,7 @@ Issue #256 implementation: shared asynchronous decision/text/password dialogs, e
 focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.
 Shipped v3.229.0 (PR #271); inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
 The shared-field foundation (#254) is next, and in progress.
+
+## Navigation transition timeout — issue #273
+
+`[x]` Distinguish a skipped page animation from a failed page update. `pageTransitionDone` classifies AbortError/TimeoutError only after a successful DOM update; rendering failures still reject navigation and other animation errors stay reported. Five unit cases and a deterministic browser journey cover the distinction and alias routing. Implemented on `codex/fix-dialog-journey-timeout`; awaiting PR review and release.

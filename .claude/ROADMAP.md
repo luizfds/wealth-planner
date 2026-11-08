@@ -4823,7 +4823,15 @@ The shared-field foundation shipped in PR #272; family migrations continue under
 
 ## Goals editor shared fields — issues #254 / #261 / #263
 
-`[~]` Plan → Goals: the savings-goal editor on shared labelled fields with help; its target validated before saving
+`[x]` Shipped (PR #285). Plan → Goals: the savings-goal editor on shared labelled fields with help; its target validated before saving
 (blank saved 0, a negative was clamped to 0); its saves are commits, so the redraw keeps focus (Tab out of a field
 dropped focus to the page body). Home → Benchmarks: the price-history paste box gets a visible linked label (it had a
 placeholder only), and each price field says what it is ("IOZ close on 30 Jun 2025").
+
+## Tax forms: labels and help — issue #261
+
+`[~]` Tax → This year, Returns and People. The payslip paste boxes get visible labels (placeholder only). Help that lived
+in title tooltips (date of birth, HELP, carry-forward, capital losses, gross so far, manual sacrifice, a blank rental
+line, renaming a person) shows under its field and describes it. Visible labels become the labels, so a field's
+accessible name starts with what's on screen ("Payslip date", not "Payslip period end"). The accessibility scan covers
+these tabs and Plan → Goals; it found the June moves' person headings skipping a level (h4 under h2).

@@ -170,6 +170,9 @@ const JOURNEYS = {
   async validation(page){
     const row = '[data-line-id="demo-groceries"]', amt = row + " .f-amount", pct = row + " .f-deductpct";
     const saved = k => stored(page, "state.shared.find(x => x.id === 'demo-groceries')." + k);
+    // The app's own startup reads (prices, then the cash rate) end in a full redraw, which closes an open editor's
+    // sections; this journey runs first, so let them finish before it opens anything.
+    await page.waitForLoadState("networkidle"); await settle(page);
     const err = sel => page.evaluate(s => { const i = document.querySelector(s); const id = (i.getAttribute("aria-describedby") || "").split(" ").find(x => /-error$/.test(x)); const m = id && document.getElementById(id); return { invalid: i.getAttribute("aria-invalid") === "true", text: m ? m.textContent : "", border: getComputedStyle(i).borderTopColor }; }, sel);
     await typeLineName(page, "demo-groceries", await stored(page, "state.shared.find(x => x.id === 'demo-groceries').what"), false);
     const before = await saved("amount"), headline = await page.textContent(row + ' [data-computed="amt"]');
@@ -195,8 +198,12 @@ const JOURNEYS = {
     await page.fill(amt, "0"); check(await saved("amount") === 0, "0 wasn't saved");
     await page.fill(amt, "275");
     // The claimable share: out of range or blank is said, and the saved share doesn't move.
-    await page.evaluate(r => { document.querySelectorAll(r + " details").forEach(d => d.open = true); const c = document.querySelector(r + " .f-deductible"); if(c && !c.checked) c.click(); }, row);
-    await page.waitForTimeout(200);
+    // Open the row's more options and tick deductible until the share shows — a redraw can close them again.
+    await eventually(async () => {
+      if(!await page.locator(amt).isVisible()) await click(page, row + " [data-row-toggle]");
+      await page.evaluate(r => { document.querySelectorAll(r + " details").forEach(d => d.open = true); const c = document.querySelector(r + " .f-deductible"); if(c && !c.checked) c.click(); }, row);
+      return page.locator(pct).isVisible();
+    });
     await page.fill(pct, "60"); check(await saved("deductiblePct") === 60, "a share of 60 wasn't saved");
     for(const bad of ["150", "-10", ""]){
       await page.fill(pct, bad);

@@ -4749,3 +4749,24 @@ and issues #214–216 were closed.
 Fix confirmed keyboard, landmark, table, mobile layout and contrast defects; add a repeatable
 accessibility CI job and browser regression. Evidence: `docs/audits/usability-accessibility-v3.227.1.md`.
 Draft PR only; physical device and actual screen-reader validation remain separate limitations.
+
+## UX assessment backlog — issue #253
+
+The accepted work from the v3.227.2 UX assessment, in the agreed order. The numbers below are **GitHub
+issues**, not items in this file (items 253–257 above are unrelated). Each step is its own reviewable PR,
+or a small series; no merge or deployment until reviewed. Issue #267 (regression coverage) goes with every step.
+
+1. `[~]` **Issue #257: 320px reflow for Home and Benchmarks, plus a 320px smoke pass.** Single-column grids
+   declared `1fr` (`minmax(auto,1fr)`) let content set the column's floor: an open "Compare monthly trade-offs"
+   table took Home to ~850px, and the Benchmarks "Compare with" select took it to 344px. `scripts/smoke.mjs` gains
+   a 320px light pass, which also caught the Accounts card toggles squeezed to 0–30px wide.
+2. `[ ]` **Issue #256: app dialogs instead of native `confirm`/`prompt`/`alert`** (~31 calls). Start from the
+   `<dialog>`/`showModal()` already in `safekeepingwiring.js`.
+3. `[ ]` **Issue #254: a shared-field foundation**, kept tight: the field, its label/help/error states and
+   tokens, so issue #263 isn't held behind a large redesign.
+4. `[ ]` **Issue #263: inline validation before persisting financial inputs**, then page migrations, one feature
+   family per PR: issues #255, #261, #258/#259/#260 (shared mobile patterns) and #266.
+5. `[ ]` **Issues #264 (search) and #265 (import)**: a separate design pass each, agreed before implementation.
+
+Also tracked in issue #267: the Transfer journey that failed once under concurrent load and passed alone. Find
+the cause; don't retry it into a pass.

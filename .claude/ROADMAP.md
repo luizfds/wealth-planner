@@ -4796,3 +4796,7 @@ Issue #256 implementation: shared asynchronous decision/text/password dialogs, e
 focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.
 Shipped v3.229.0 (PR #271); inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
 The shared-field foundation (#254) is next, and in progress.
+
+## Navigation transition timeout — issue #273
+
+`[~]` Distinguish a skipped page animation from a failed page update; keep genuine render errors visible and cover navigation completion deterministically.

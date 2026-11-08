@@ -19,7 +19,7 @@ const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
-const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['assets','assets-sub','summary'],['reports','report','cashflow'],['reports','report','networth']];
+const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['assets','assets-sub','summary'],['reports','report','cashflow'],['reports','report','networth']];
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
 for(const width of widths)for(const scheme of schemes){
@@ -65,9 +65,11 @@ for(const width of widths)for(const scheme of schemes){
   const nativeTree = await cdp.send('Accessibility.getFullAXTree');
   const accessibilityTree = nativeTree.nodes.filter(n=>!n.ignored).map(n=>({id:n.nodeId,role:n.role?.value,name:n.name?.value,description:n.description?.value,children:n.childIds}));
   results.push({name,scope:selector || "document",width,scheme,...result,accessibilityTree,layout});
-  if(process.env.A11Y_DIR && (name.startsWith('app-dialog/') || name.startsWith('ledger-editor/') || ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name))){
+  if(process.env.A11Y_DIR && (name.startsWith('app-dialog/') || name.startsWith('ledger-editor/') || name.startsWith('income-editor/') || ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name))){
    fs.mkdirSync(process.env.A11Y_DIR,{recursive:true});
-   await page.screenshot({path:path.join(process.env.A11Y_DIR, width+'-'+scheme+'-'+name.replaceAll('/','-')+'.png'),fullPage:true});
+   const shot=path.join(process.env.A11Y_DIR, width+'-'+scheme+'-'+name.replaceAll('/','-')+'.png');
+   if(name.startsWith('ledger-editor/') || name.startsWith('income-editor/')) await page.locator('.m-row.open').screenshot({path:shot});
+   else await page.screenshot({path:shot,fullPage:true});
   }
   console.log(JSON.stringify({name,scope:selector || "document",width,scheme,violations:result.violations.map(v=>({id:v.id,count:v.nodes.length,nodes:v.nodes})),contrastFailures:result.contrastChecks.filter(c=>c.ratio<4.5)}));
  }
@@ -101,6 +103,32 @@ for(const width of widths)for(const scheme of schemes){
    await page.waitForFunction(()=>!document.querySelector('[data-line-id="demo-groceries"]').classList.contains('open'));
 
   }
+  if(pg==='expenses'&&sub==='income'){
+   const index=await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(x=>x.id==='demo-pay-alex'));
+   const row=page.locator('#incomeGroups .m-row[data-index="'+index+'"]');
+   await row.locator('[data-row-toggle]').first().click();
+   await row.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));
+   await scan('income-editor/monthly');
+   await row.getByLabel('Frequency',{exact:true}).selectOption('Weekly');
+   await scan('income-editor/weekly');
+   await row.getByLabel('Frequency',{exact:true}).selectOption('Fortnightly');
+   await scan('income-editor/fortnightly');
+   await row.getByLabel('Salary sacrifice',{exact:true}).selectOption('Sacrifice %');
+   await scan('income-editor/percent');
+   await row.getByLabel('Sacrifice percentage',{exact:true}).fill('');
+   await scan('income-editor/invalid-sacrifice');
+   await row.getByLabel('Sacrifice percentage',{exact:true}).fill('5');
+   await row.getByLabel('Salary sacrifice',{exact:true}).selectOption('Sacrifice $');
+   await row.getByLabel('Sacrifice amount',{exact:true}).fill('500');
+   await scan('income-editor/amount');
+   const draft=row.getByRole('group',{name:'Record a pay change',exact:true}).getByLabel('New amount',{exact:true});
+   const original=await draft.inputValue();await draft.fill('1500');
+   await scan('income-editor/pay-change-draft');
+   await draft.fill(original);
+   await row.locator('.m-row-summary[data-row-toggle]').click();
+   await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+  }
+
  }
 
  // Shared questions: names, password/error states and explicit three-way cancellation (#256).

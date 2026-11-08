@@ -2209,3 +2209,31 @@ test("one property cost has stable, distinct field ids on Budget and Property", 
   assert.deepEqual(ids(render("budget",2)),budget,"sorting the rows changed their field identities");
   assert.equal(new Set([...budget,...property]).size,budget.length+property.length,"two editor surfaces share field ids");
 });
+
+// Income's conditional schedule/sacrifice forms share labels/help without changing their values.
+import { modernIncomeRowHtml } from "../src/components/income.js";
+test("income schedules retain monthly, weekly and fortnightly selections", () => {
+  const base={id:"example-pay",what:"Example pay",incomeType:"Net",amount:2000};
+  const monthly=modernIncomeRowHtml({...base,freq:"Monthly",payDay:"last"},0,0);
+  assert.match(monthly,/value="last" selected>Last day/);
+  assert.match(monthly,/Pay day of month/);
+  const weekly=modernIncomeRowHtml({...base,freq:"Weekly",payWeekday:0},0,0);
+  assert.match(weekly,/value="0" selected/);
+  assert.match(weekly,/Pay weekday/);
+  assert.doesNotMatch(weekly,/f-payanchor/);
+  const fortnight=modernIncomeRowHtml({...base,freq:"Fortnightly",payAnchor:"2026-10-01"},0,0);
+  assert.match(fortnight,/class="field-control f-payanchor"[^>]*value="2026-10-01"/);
+  assert.match(fortnight,/fortnightly cycle/);
+});
+test("income sacrifice and pay-change controls are named, grouped and escaped", () => {
+  const base={id:"example-pay",what:'Example <pay>',incomeType:"Net",amount:2000,freq:"Monthly"};
+  const html=modernIncomeRowHtml({...base,sacrificeMode:"percent",sacrificeValue:5},0,0);
+  assert.match(html,/Sacrifice percentage/);
+  assert.match(html,/class="field-control f-sacrificevalue"[^>]*max="100"[^>]*value="5"/);
+  assert.match(html,/<fieldset class="pay-change"><legend class="field-label">Record a pay change/);
+  assert.match(html,/New amount/);
+  assert.doesNotMatch(html,/<pay>/);
+  assert.match(modernIncomeRowHtml({...base,sacrificeMode:"amount",sacrificeValue:500},0,0),/Sacrifice amount/);
+  assert.doesNotMatch(modernIncomeRowHtml({...base,sacrificeMode:"none"},0,0),/f-sacrificevalue/);
+  assert.doesNotMatch(modernIncomeRowHtml({...base,computed:true},0,0),/field-control|data-pay-change/);
+});

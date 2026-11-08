@@ -16,6 +16,7 @@
 //   welcomedialogs — standalone import cancellation and approval preserve/replace the saved household
 //   datasafety  — a reload keeps the last edit; a tab with work in progress keeps it when another tab saves,
 //                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
+//   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -231,6 +232,78 @@ const JOURNEYS = {
     const resumed=await page.evaluate(async()=> (await import('/src/components/assetswiring.js')).readAutoPricesNow(false));
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
+  },
+  async incomefields(page){
+    await go(page,'expenses','data-expenses-sub','income');
+    const index=await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(x=>x.id==='demo-pay-alex'));
+    const row=page.locator('#incomeGroups .m-row[data-index="'+index+'"]');
+    await row.locator('[data-row-toggle]').first().click();
+    check(await row.locator('.f-incometype').evaluate(el=>!!el.labels?.length),'Income type has no associated visible label');
+    const saved=key=>stored(page,"state.income.find(x=>x.id==='demo-pay-alex')."+key);
+    const initial=await saved('amount');
+    const nameId=await row.locator('.f-what').getAttribute('id');
+    await row.locator('label[for="'+nameId+'"]').click();
+    check(await page.evaluate(id=>document.activeElement.id===id,nameId),'Income name label did not focus its field');
+    await row.getByLabel('Amount',{exact:true}).fill('');
+    check(await saved('amount')===initial,'Clearing income saved a zero');
+    const error=await row.locator('.f-amount').evaluate(el=>({invalid:el.getAttribute('aria-invalid'),count:document.querySelectorAll('[id="'+el.id+'-error"]').length,text:document.getElementById(el.id+'-error')?.textContent}));
+    check(error.invalid==='true' && error.count===1 && /Enter an amount/.test(error.text),'Income error association failed: '+JSON.stringify(error));
+    await row.getByLabel('Amount',{exact:true}).fill('-40');
+    check(await saved('amount')===-40 && await row.locator('.f-amount').evaluate(el=>el.validity.valid),'Supported negative income was rejected');
+    await row.getByLabel('Amount',{exact:true}).fill(String(initial));
+    const type=row.getByLabel('Income type',{exact:true});
+    for(const value of ['Net','Gross']){ await type.selectOption(value); check(await saved('incomeType')===value,'Income type did not save '+value); }
+    const mode=row.getByLabel('Salary sacrifice',{exact:true});
+    await mode.focus();const modeId=await mode.getAttribute('id');
+    await mode.selectOption('Sacrifice %');
+    check(await page.evaluate(id=>document.activeElement.id===id,modeId),'Changing sacrifice mode lost focus');
+    await row.getByLabel('Sacrifice percentage',{exact:true}).fill('5');
+    check(await saved('sacrificeValue')===5 && await saved('sacrificeMode')==='percent','Percentage sacrifice did not save');
+    await row.getByLabel('Sacrifice percentage',{exact:true}).fill('');
+    check(await saved('sacrificeValue')===5 && await row.locator('.f-sacrificevalue').getAttribute('aria-invalid')==='true','Blank sacrifice saved or lost its error');
+    await row.getByLabel('Sacrifice percentage',{exact:true}).fill('5');
+    await mode.selectOption('Sacrifice $');
+    await row.getByLabel('Sacrifice amount',{exact:true}).fill('500');
+    check(await saved('sacrificeValue')===500 && await saved('sacrificeMode')==='amount','Cash sacrifice did not save');
+    await mode.selectOption('Cash out');
+    check(!await row.locator('.f-sacrificevalue').count(),'No-sacrifice mode left its conditional value visible');
+    for(const value of ['Included','N/A','On top']){
+      await row.getByLabel('Super treatment',{exact:true}).selectOption(value);
+      check(await saved('superMode')===value,'Super treatment did not save '+value);
+    }
+    await row.locator('details.m-more-options').evaluate(el=>el.open=true);
+    const freq=row.getByLabel('Frequency',{exact:true});await freq.focus();const freqId=await freq.getAttribute('id');
+    await freq.selectOption('Weekly');
+    check(await page.evaluate(id=>document.activeElement.id===id,freqId),'Changing frequency lost focus');
+    check(await row.locator('details.m-more-options').evaluate(el=>el.open),'Frequency change closed More options');
+    await row.getByLabel('Pay weekday',{exact:true}).selectOption('0');
+    check(await saved('payWeekday')===0,'Sunday was lost as an empty weekday');
+    await freq.selectOption('Monthly');
+    await row.getByLabel('Pay day of month',{exact:true}).selectOption('last');
+    check(await saved('payDay')==='last','Last day of month did not save');
+    await freq.selectOption('Fortnightly');
+    await row.getByLabel('A recent pay date',{exact:true}).fill('2026-10-01');
+    check(await saved('payAnchor')==='2026-10-01','Fortnightly anchor did not save');
+    const group=row.getByRole('group',{name:'Record a pay change',exact:true});
+    await group.getByLabel('New amount',{exact:true}).fill('1500');
+    await group.getByLabel('Effective from',{exact:true}).fill('2026-10-01');
+    check(await saved('amount')===initial,'Pay-change draft saved before Record');
+    await group.getByRole('button',{name:'Record change',exact:true}).click();
+    check(await saved('amount')===1500,'Record did not save the new pay amount');
+    check(await saved("history.some(x=>x.date==='2026-10-01' && x.value===1500)") && await saved('history.some(x=>x.value==='+initial+')'),'Record did not preserve pay history');
+    check(await page.evaluate(()=>document.activeElement.matches('[data-pay-change]')),'Recording pay lost keyboard focus');
+    for(const width of [320,390,1280]){
+      await page.setViewportSize({width,height:844});
+      const audit=await row.evaluate(root=>{
+        const controls=[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length);
+        return {doc:document.documentElement.scrollWidth,viewport:innerWidth,width:root.clientWidth,scroll:root.scrollWidth,accountWidth:root.querySelector('.f-account').getBoundingClientRect().width,nameWidth:root.querySelector('.f-what').getBoundingClientRect().width,
+          bad:controls.filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.labels?.length || !el.labels[0].textContent.trim() || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+      });
+      check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.accountWidth>=audit.nameWidth-1 && !audit.bad.length,'Income field sizing/names/reflow failed at '+width+': '+JSON.stringify(audit));
+    }
+    const cdp=await page.context().newCDPSession(page), tree=await cdp.send('Accessibility.getFullAXTree');
+    check(tree.nodes.some(n=>!n.ignored && n.name?.value==='Super treatment' && /employer super/.test(n.description?.value || '')),'Super help is missing from the native accessibility tree');
+    await cdp.detach();
   },
   async rowmodals(page){
     await typeLineName(page,'demo-groceries',await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"),false);

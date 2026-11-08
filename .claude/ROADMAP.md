@@ -4795,7 +4795,7 @@ tab adopts; work in progress survives; refreshes in either tab; near-simultaneou
 Issue #256 implementation: shared asynchronous decision/text/password dialogs, explicit non-mutating cancellation,
 focus/keyboard/mobile behaviour, and migrations of native dialogs. Preserve two-tab pending-work protection.
 Shipped v3.229.0 (PR #271); inventory and validation notes: `docs/audits/shared-app-dialogs.md`.
-The shared-field foundation (#254) is next, and in progress.
+The shared-field foundation shipped in PR #272; family migrations continue under #254 / #261.
 
 ## Navigation transition timeout — issue #273
 
@@ -4807,12 +4807,12 @@ The shared-field foundation (#254) is next, and in progress.
 
 ## Shared ledger editor fields — issues #254 / #261
 
-`[x]` Generic budget/cost rows and shared timing/deduction fields now use labelled shared fields with visible help. Stable ids distinguish Budget/Property surfaces; reserved errors are reused; phone date controls span the row. Browser coverage checks label activation, conditional claims, validation, focus and 320/390/1280px reflow; accessibility includes expanded/editor error states. Shipped v3.232.0 (PR #279). Income-specific, holdings, property/loan and other editor families remain separate work under #261.
+`[x]` Generic budget/cost rows and shared timing/deduction fields now use labelled shared fields with visible help. Stable ids distinguish Budget/Property surfaces; reserved errors are reused; phone date controls span the row. Browser coverage checks label activation, conditional claims, validation, focus and 320/390/1280px reflow; accessibility includes expanded/editor error states. Shipped v3.232.0 (PR #279). Subsequent families are tracked below; holdings, property/loan and other editors remain under #261.
 
 ## Row editor modal accessibility — issue #278
 
-`[x]` Row editors are named modal dialogs. Sibling branches are inert while editing, with Tab containment and focus return, including after redraw/discard/delete. Native questions keep their own focus and history. Idle autosaved rows remain adoptable; unsaved fields still guard against adoption. Full-document expanded-editor checks restored. Implemented on `codex/accessible-row-modals`; awaiting review and release.
+`[x]` Row editors are named modal dialogs. Sibling branches are inert while editing, with Tab containment and focus return, including after redraw/discard/delete. Native questions keep their own focus and history. Idle autosaved rows remain adoptable; unsaved fields still guard against adoption. Full-document expanded-editor checks restored. Shipped v3.232.1 (PR #280).
 
 ## Income editor shared fields — issues #254 / #261
 
-`[~]` Migrate income-specific name/type/amount/frequency/super/sacrifice/pay-schedule/pay-change controls to shared labelled fields, visible help and mobile layouts; preserve calculation, save, history and modal behaviour.
+`[x]` Income-specific controls now use shared labels/help/error styling, conditional sacrifice and pay-schedule fields, and a named pay-change group. Account/anchor dates get room; pay-change fields stack on phones. Income redraws retain focus and open sections. Calculation, save and history rules stay unchanged. Browser/render/a11y coverage added; implemented on `codex/shared-income-fields`, awaiting review and release.

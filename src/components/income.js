@@ -11,7 +11,7 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "
 import { payFrequency } from "../calc/payslip.js";
 import { payslipCheck } from "../calc/payslipcheck.js";
 import { escapeAttr } from "../lib/html.js";
-import { optionsHtml, historyTrendHtml, timingFieldsHtml, endDateNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
+import { historyTrendHtml, ledgerFields, timingFieldsHtml, endDateNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { renderTaxYear } from "./taxyear.js";
 import { SHOW_AS, showAsOption, fromMonthly, DEFAULT_HOURS_PER_WEEK } from "../calc/showas.js";
@@ -340,33 +340,28 @@ export function renderIncomeGroups(){
 // why the three families need different information. Rendering all three and hiding two would be
 // simpler, but "Paid on" meaning three different things depending on a select two fields up is the
 // kind of ambiguity that makes people fill it in wrong.
-function payScheduleFieldHtml(item, idx){
+function payScheduleFieldHtml(item, field){
   var kind = payScheduleKindFor(item.freq);
   if(kind === "weekday"){
-    var days = WEEKDAY_NAMES.map(function(name, i){
-      return '<option value="' + i + '"' + (String(item.payWeekday) === String(i) ? " selected" : "") + '>' + name + '</option>';
-    }).join("");
-    return '<div class="m-edit-field"><label>Paid on</label>' +
-      '<select class="f-payweekday" aria-label="Day of the week this is paid">' +
-        '<option value=""' + (item.payWeekday == null || item.payWeekday === "" ? " selected" : "") + '>—</option>' + days +
-      '</select></div>';
+    return field("f-payweekday", "Pay weekday", {
+      type:"select", value:item.payWeekday == null ? "" : item.payWeekday,
+      options:[{value:"",label:"—"}].concat(WEEKDAY_NAMES.map(function(name,i){return {value:i,label:name};})),
+      help:"Day of the week this income is paid. Leave unset if unknown."
+    });
   }
   if(kind === "anchor"){
-    // A weekday alone can't place a fortnightly cycle — which of the two weeks is only knowable
-    // from a real date, so that's what this asks for.
-    return '<div class="m-edit-field"><label>A recent pay date</label>' +
-      '<input type="date" class="f-payanchor" value="' + escapeAttr(item.payAnchor || "") + '"' +
-      ' title="Any date you were actually paid — every fortnight is counted from here" aria-label="A recent pay date"></div>';
+    return field("f-payanchor", "A recent pay date", {
+      type:"date", value:item.payAnchor || "",
+      help:"Any date you were actually paid. The fortnightly cycle is counted from here."
+    }, {className:"span3"});
   }
-  var dayOptions = "";
-  for(var d = 1; d <= 31; d++){
-    dayOptions += '<option value="' + d + '"' + (String(item.payDay) === String(d) ? " selected" : "") + '>' + d + '</option>';
-  }
-  dayOptions += '<option value="last"' + (item.payDay === "last" ? " selected" : "") + '>Last day</option>';
-  return '<div class="m-edit-field"><label>Paid on</label>' +
-    '<select class="f-payday" aria-label="Day of the month this is paid" title="A day the month doesn\'t have is treated as its last — the 31st in a 30-day month means the 30th.">' +
-      '<option value=""' + (item.payDay == null || item.payDay === "" ? " selected" : "") + '>—</option>' + dayOptions +
-    '</select></div>';
+  var days = [{value:"",label:"—"}];
+  for(var d = 1; d <= 31; d++) days.push({value:d,label:d});
+  days.push({value:"last",label:"Last day"});
+  return field("f-payday", "Pay day of month", {
+    type:"select", value:item.payDay == null ? "" : item.payDay, options:days,
+    help:"A day the month does not have uses its last day: the 31st in a 30-day month means the 30th."
+  });
 }
 // A short, human "next pay" line for the row summary. Empty when the row hasn't been told enough
 // to know — a blank is honest, an invented date isn't.
@@ -383,15 +378,18 @@ function nextPayNoteHtml(item){
 // already in the Amount field, which meant a pay rise took two steps in the right order (edit the
 // amount, then log) and silently recorded the wrong figure in the wrong order. This asks for the
 // new amount directly and applies it: the row's amount becomes this, and the change is dated.
-function payChangeControlsHtml(idx, item){
-  return '<div class="pay-change">' +
-    '<input type="number" step="0.01" min="0" class="pay-change-amount" value="' + (Number(item.amount) || 0) + '" aria-label="New amount">' +
-    '<input type="date" class="pay-change-date" value="' + localDateStr() + '" aria-label="Date the new amount starts">' +
-    // A real button, not .asset-log-btn's bare text link: this is the primary action of the block
-    // it sits in, and on a phone a borderless label next to two filled inputs doesn't read as
-    // tappable at all.
-    '<button type="button" class="btn btn-sm" data-pay-change="' + idx + '" title="Set this as the new amount from that date, and keep the old one in this row\'s history">Record</button>' +
-  '</div>';
+function payChangeControlsHtml(idx, item, field){
+  return '<fieldset class="pay-change"><legend class="field-label">Record a pay change</legend><div class="pay-change-fields">' +
+    field("pay-change-amount", "New amount", {
+      type:"number", value:Number(item.amount) || 0, attrs:{step:"0.01",min:0},
+      help:"Uses this row's Frequency. This draft saves only when you choose Record change."
+    }) +
+    field("pay-change-date", "Effective from", {
+      type:"date", value:localDateStr(),
+      help:"Sets the amount from this date; blank uses today. Recorded amounts stay in the history below."
+    }) +
+    '<button type="button" class="btn btn-sm" data-pay-change="' + idx + '">Record change</button>' +
+  '</div></fieldset>';
 }
 // Past amounts, newest first — the point of recording a change is being able to see the series
 // afterwards. Without this the feature wrote to a store nothing ever displayed beyond a one-line
@@ -473,7 +471,7 @@ export function takeHomeLineHtml(person){
   return '<div class="m-takehome" data-takehome="' + escapeAttr(person) + '"><span>Take-home pay<small>after tax & super, as a payslip pays it</small></span><b>' + (v == null ? "—" : v + showAsOption(incomeShowAs()).suffix) + '</b>' +
     (slip ? '<small class="m-takehome-slip">' + escapeAttr(slip) + '</small>' : '') + '</div>';
 }
-function modernIncomeRowHtml(item, idx, colorIdx){
+export function modernIncomeRowHtml(item, idx, colorIdx){
   var isComputed = !!item.computed;
   var isGrossRef = item.incomeType === "Gross" && !isComputed;
   var monthly = periodsOf(item.amount, item.freq).monthly;
@@ -500,23 +498,33 @@ function modernIncomeRowHtml(item, idx, colorIdx){
     return '<div class="m-row computed" data-section="income" data-index="' + idx + '">' + summary + '</div>';
   }
   var isOpen = !!modernIncomeRowOpen["income:" + idx];
-  var sacrificeValueField = (item.sacrificeMode && item.sacrificeMode !== "none")
-    ? '<input type="number" min="0" step="' + (item.sacrificeMode === "percent" ? "1" : "50") + '" max="' + (item.sacrificeMode === "percent" ? "100" : "") + '" class="f-sacrificevalue" value="' + (item.sacrificeValue || 0) + '" aria-label="Sacrifice ' + (item.sacrificeMode === "percent" ? "percent" : "amount") + '">'
-    : "";
+  var field = ledgerFields(item, "income", idx, "income");
+  var percent = item.sacrificeMode === "percent";
+  var sacrificeAttrs = {min:0,step:percent ? "1" : "50"};
+  if(percent) sacrificeAttrs.max = 100;
+  var sacrificeValueField = item.sacrificeMode && item.sacrificeMode !== "none"
+    ? field("f-sacrificevalue", percent ? "Sacrifice percentage" : "Sacrifice amount", {
+      type:"number", value:item.sacrificeValue || 0, attrs:sacrificeAttrs, unit:percent ? "%" : "$",
+      help:percent ? "Share of cash salary, excluding employer super." : "Amount each period, using this row's Frequency."
+    }) : "";
+  var options = function(values){ return values.map(function(value){return {value:value,label:value};}); };
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="f-what" value="' + escapeAttr(item.what) + '" aria-label="Item name"></div>' +
-      '<div class="m-edit-field"><label>Type</label><select class="f-incometype">' + optionsHtml(INCOME_TYPES, item.incomeType || "Net") + '</select></div>' +
-      '<div class="m-edit-field"><label>Amount</label><input type="number" step="0.01" min="0" class="f-amount" value="' + item.amount + '" aria-label="Amount"></div>' +
-      '<div class="m-edit-field"><label>Frequency</label><select class="f-freq">' + optionsHtml(FREQS, item.freq) + '</select></div>' +
-      '<div class="m-edit-field"><label>Super</label><select class="f-superincluded" title="Whether super is already included in the Amount, paid on top, or doesn\'t apply at all">' + optionsHtml(SUPER_MODES, item.superMode || "On top") + '</select></div>' +
-      '<div class="m-edit-field"><label>Sacrifice</label><div class="sacrifice-wrap"><select class="f-sacrificemode">' + optionsHtml(SACRIFICE_MODES, sacrificeModeToLabel(item.sacrificeMode)) + '</select>' + sacrificeValueField + '</div></div>' +
-      '<div class="m-edit-field"><label>Account</label><input type="text" class="f-account" list="acctSuggestions" value="' + escapeAttr(item.account || "") + '" aria-label="Account"></div>' +
-      payScheduleFieldHtml(item, idx) +
-      '<div class="m-edit-field span3"><label>Record a pay change</label>' + payChangeControlsHtml(idx, item) +
-        '<p class="ledger-note" style="margin:6px 0 0">Sets this as the new amount from that date. The old one stays below.</p>' +
-        payHistoryHtml(item) +
-      '</div>' +
+      field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
+      field("f-incometype", "Income type", {type:"select",value:item.incomeType || "Net",options:options(INCOME_TYPES)}) +
+      field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"}}) +
+      field("f-freq", "Frequency", {type:"select",value:item.freq,options:options(FREQS)}) +
+      field("f-superincluded", "Super treatment", {
+        type:"select",value:item.superMode || "On top",options:options(SUPER_MODES),
+        help:"Whether employer super is included in Amount, added on top, or not applicable."
+      }) +
+      field("f-sacrificemode", "Salary sacrifice", {
+        type:"select",value:sacrificeModeToLabel(item.sacrificeMode),options:options(SACRIFICE_MODES),
+        help:"Choose no sacrifice, a percentage of cash salary, or an amount per period."
+      }) + sacrificeValueField +
+      field("f-account", "Account", {value:item.account || "",attrs:{list:"acctSuggestions"}}, {className:"span3"}) +
+      payScheduleFieldHtml(item, field) +
+      '<div class="m-edit-field span3">' + payChangeControlsHtml(idx, item, field) + payHistoryHtml(item) + '</div>' +
     '</div>' +
     '<details class="tax-advanced m-more-options"><summary>More options</summary>' +
       '<div class="m-edit-grid" style="margin-top:8px">' +

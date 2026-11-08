@@ -79,11 +79,16 @@
   /* "Next pay Thu 10 Sep · today" on the row summary. Rendered only when the row has been told
      enough to know (see nextPayDate) — a blank beats an invented date. */
   .next-pay{ font-size:var(--fs-xs); color: var(--ink-soft); }
-  /* Amount + date + button on one line. The amount leads because it's the field you came here to
-     change; the date defaults to today and is usually left alone. */
-  .pay-change{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .pay-change-amount{ flex:1 1 110px; min-width:90px; }
-  .pay-change-date{ flex:1 1 140px; min-width:130px; }
+  /* A named group keeps the unsaved pay-change amount/date together. The date
+     gets enough room for native segments; phone controls stack without scrolling. */
+  .pay-change{ min-width:0; padding:0; margin:0; border:0; }
+  .pay-change > legend{ padding:0; margin-bottom:8px; }
+  .pay-change-fields{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:8px; }
+  .pay-change-fields > button{ grid-column:1 / -1; justify-self:start; }
+  @media (max-width:640px){
+    .pay-change-fields{ grid-template-columns:minmax(0,1fr); }
+    .pay-change-fields > .m-edit-field{ grid-column:1 / -1; }
+  }
   .pay-hist{ margin-top:8px; border-top:1px solid var(--border); }
   .pay-hist-row{
     display:flex; align-items:center; gap:8px; padding:5px 0;

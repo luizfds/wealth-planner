@@ -588,7 +588,9 @@ const JOURNEYS = {
     await type.selectOption('savings');
     check(await type.evaluate(el => el === document.activeElement), 'changing account type lost keyboard focus');
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(400);
+    // Focus comes back at the end of an async chain (Escape → history.back() → popstate → close → setTimeout), so
+    // wait for it rather than a fixed 400ms, which a busy CI runner missed (#274). The check itself is unchanged.
+    await page.waitForFunction(() => { const a = document.activeElement; return !!(a && a.matches('#dashboardSetup [data-firstrun-open]')); }, null, { timeout: 5000 }).catch(() => {});
     check(await opener.evaluate(el => el === document.activeElement), 'closing setup did not return focus to its opener');
     check(await page.locator('.app-shell').evaluate(el => !el.inert), 'closing setup left the app inert');
     await page.evaluate(async original => {

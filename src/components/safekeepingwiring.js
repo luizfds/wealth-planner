@@ -87,7 +87,7 @@ function runSync(opts){
     else if(r.status === "other-key") showPersistentToast("The copy in " + r.folder + " was started again with a different passphrase (" + whenText(r.savedAt) + ").", "Type it", async function(){ var p = (await textDialog("That copy's passphrase:", "", {"title":"Protect your data","label":"Passphrase","accept":"Unlock sync","password":true})); if(p) unlockSync(p, true).then(function(u){ if(u.ok) runSync({ interactive: true }); else showToast("That passphrase doesn't open it"); }); });
     else if(r.status === "conflict" && r.text && r.base && !opts.force) mergeSync(r);
     else if(r.status === "conflict") showPersistentToast("This device and " + (r.fromThisDevice ? "an earlier session here" : "another one") + " both changed since they last synced (the copy in " + r.folder + ": " + whenText(r.savedAt) + ").", "Choose", async function(){
-      var choice = await choiceDialog("Both copies have changes. Loading the synced copy replaces this device's changes. Using this device's copy replaces the synced changes. Cancel leaves both copies untouched.", {title:"Choose which copy to keep",accept:"Load synced copy",alternative:"Use this device’s copy"});
+      var choice = await choiceDialog("The synced copy in " + r.folder + " was saved " + whenText(r.savedAt) + ". Both copies have changes. Loading the synced copy replaces this device's changes. Using this device's copy replaces the synced changes. Cancel leaves both copies untouched.", {title:"Choose which copy to keep",accept:"Load synced copy",alternative:"Use this device’s copy"});
       if(choice === null) return;
       runSync({ interactive: true, manual: true, force: choice === "accept" ? "pull" : "push" });
     });

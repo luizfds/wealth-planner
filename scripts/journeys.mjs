@@ -18,6 +18,8 @@
 //                 and its own save is refused, recoverable, and reloads to the latest; sample data asks first
 //   assetfields / vehiclefields — shared labels/help, category movement, snapshots, depreciation and mobile reflow
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
+//   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
+//                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -169,6 +171,48 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #254 / #261 / #263: Plan → Goals' editor on shared fields — labelled, validated, and keyboard-safe through its saves.
+  async goals(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "plan", "data-plan-sub", "goals");
+    const toggle = "#savingsGoalsBody [data-goal-toggle]";
+    const focusIs = sel => page.evaluate(s => !!document.activeElement && document.activeElement.matches(s), sel);
+    // Opened from the keyboard: the redraw keeps focus on the toggle.
+    await page.locator(toggle).first().focus(); await page.keyboard.press("Enter");
+    await page.locator('#savingsGoalsBody [data-goal-field="name"]').waitFor({ state: "visible" });
+    check(await focusIs(toggle), "opening a goal by keyboard lost focus");
+    // Every field labelled, its help described.
+    const fields = await page.evaluate(() => [...document.querySelectorAll("#savingsGoalsBody .sgl.is-open [data-goal-field]")].map(el => ({ f: el.getAttribute("data-goal-field"),
+      label: el.labels && el.labels[0] ? el.labels[0].textContent.trim() : "", described: (el.getAttribute("aria-describedby") || "").split(" ").filter(id => document.getElementById(id) && document.getElementById(id).textContent.trim()).length })));
+    check(JSON.stringify(fields.map(x => x.label)) === JSON.stringify(["Goal name", "Target", "Reach it by"]), "goal fields aren't labelled: " + JSON.stringify(fields));
+    check(fields.find(x => x.f === "target").described && fields.find(x => x.f === "by").described, "goal help isn't tied to its field");
+    const name = '#savingsGoalsBody [data-goal-field="name"]', target = '#savingsGoalsBody [data-goal-field="target"]', by = '#savingsGoalsBody [data-goal-field="by"]';
+    const savedGoal = k => stored(page, "state.savingsGoals[0]." + k);
+    // Renamed and tabbed on: saved, the card says so, and focus is on the next field — not the page body.
+    await page.fill(name, "Deposit fund"); await page.press(name, "Tab");
+    await until(page, () => /Deposit fund/.test(document.querySelector("#savingsGoalsBody [data-goal-toggle]").textContent));
+    check(await savedGoal("name") === "Deposit fund", "the goal's new name didn't save");
+    check(await focusIs(target), "Tab out of the goal's name lost focus");
+    // A blank or negative target saves nothing and says why; Tab still moves on.
+    const before = await savedGoal("target");
+    for(const bad of ["", "-500"]){
+      await page.fill(target, bad); await page.press(target, "Tab");
+      check(await savedGoal("target") === before, "a target of '" + bad + "' saved " + await savedGoal("target"));
+      check(await page.evaluate(t => document.querySelector(t).getAttribute("aria-invalid") === "true", target), "a target of '" + bad + "' isn't marked invalid");
+      check(await focusIs(by), "Tab out of an invalid target lost focus");
+    }
+    await page.fill(target, "15000"); await page.press(target, "Tab");
+    await eventually(async () => await savedGoal("target") === 15000);
+    check(await savedGoal("target") === 15000, "a valid target didn't save");
+    check(await page.evaluate(t => !document.querySelector(t).hasAttribute("aria-invalid"), target), "the target's message stayed after a valid one");
+    // Home → Benchmarks: the paste box has a visible label, and each price field says what it is.
+    await go(page, "dashboard", "data-dashboard-sub", "benchmarks");
+    await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details.bm-prices").forEach(d => d.open = true));
+    const bm = await page.evaluate(() => { const t = document.querySelector("[data-bm-paste]"), p = document.querySelector("[data-bm-price]");
+      return { paste: t && t.labels && t.labels.length ? t.labels[0].textContent.trim() : "", price: p ? p.getAttribute("aria-label") || "" : "" }; });
+    check(/^Paste .+ prices/.test(bm.paste), "the price paste box has no label");
+    check(/close, /.test(bm.price), "a benchmark price field doesn't say what it is: " + bm.price);
+  },
   // #263: a row editor's numbers are saved only when they read — never cleared into $0, never clamped into range.
   async validation(page){
     const row = '[data-line-id="demo-groceries"]', amt = row + " .f-amount", pct = row + " .f-deductpct";

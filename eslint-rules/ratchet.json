@@ -4,7 +4,7 @@
   "stateWrites": 1
  },
  "src/components/accountswiring.js": {
-  "persist": 9,
+  "persist": 1,
   "stateWrites": 6
  },
  "src/components/assets.js": {

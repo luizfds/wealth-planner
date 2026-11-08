@@ -192,13 +192,18 @@ export function investmentsHtml(d){
   var missing = d.index && d.index.missing ? d.index.missing : [];
   var prices = '<details class="tax-advanced bm-prices"' + (missing.length ? " open" : "") + '><summary>' + esc(d.symbol) + ' prices — ' +
       (missing.length ? missing.length + " of " + (d.dates.length + 1) + " still needed" : "all " + (d.dates.length + 1) + " in") + '</summary>' +
-    '<p class="ledger-note help" style="margin:8px 0">The close on each date you bought or sold, and today. Type them, or copy the Google Sheets formulas, paste them into a sheet, and paste the Symbol and Price columns back below.</p>' +
+    '<p class="ledger-note help" id="bmPricesHelp" style="margin:8px 0">The close on each date you bought or sold, and today. Type them, or copy the Google Sheets formulas, paste them into a sheet, and paste the Symbol and Price columns back below.</p>' +
     '<div class="bm-price-grid">' + d.dates.concat(["now"]).map(function(dt){
       var v = d.prices[dt];
-      return '<label><span>' + (dt === "now" ? "Today" + (d.prices.nowDate ? " (" + esc(fmtDate(d.prices.nowDate)) + ")" : "") : esc(fmtDate(dt))) + '</span><input type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price"></label>';
+      // #261: named for what it is — the visible date alone ("30 Jun 2025") didn't say it's the index's close (and
+      // the name still contains it, WCAG 2.5.3).
+      var when = dt === "now" ? "Today" + (d.prices.nowDate ? " (" + fmtDate(d.prices.nowDate) + ")" : "") : fmtDate(dt);
+      return '<label><span>' + esc(when) + '</span><input type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price" aria-label="' + esc(d.symbol + " close, " + when) + '" aria-describedby="bmPricesHelp"></label>';
     }).join("") + '</div>' +
     '<div class="bm-paste"><button type="button" class="btn btn-sm btn-ghost" data-bm-copy>⧉ Copy Google Sheets formulas</button>' +
-    '<textarea data-bm-paste rows="3" placeholder="' + esc(d.symbol) + '@2024-03-01&#9;31.42"></textarea>' +
+    // #261: a visible label tied to the box — it had a placeholder only, which goes once you type.
+    '<label class="field-label" for="bmPaste">Paste ' + esc(d.symbol) + ' prices (the Symbol and Price columns)</label>' +
+    '<textarea id="bmPaste" data-bm-paste rows="3" aria-describedby="bmPricesHelp" placeholder="' + esc(d.symbol) + '@2024-03-01&#9;31.42"></textarea>' +
     '<button type="button" class="btn btn-sm" data-bm-paste-apply>Use pasted prices</button></div></details>';
   return controls +
     '<p class="bm-verdict">' + fmtCurrency0.format(d.invested) + ' put in since ' + esc(fmtDate(d.firstDate)) + (d.withdrawn ? ', ' + fmtCurrency0.format(d.withdrawn) + ' taken out' : '') + ', worth ' + fmtCurrency0.format(d.value) + ' today.</p>' +

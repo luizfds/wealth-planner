@@ -2,6 +2,7 @@ import { state } from "../state.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { fmtCurrency0, fmtPercent0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { fieldHtml } from "../lib/field.js";
 
 // ---------------- Accounts → Savings goals (v3.65.0) ----------------
 export var goalOpen = {};
@@ -39,10 +40,17 @@ export function goalCardHtml(g, i, opts){
       ? money(g.over) + " over — " + (g.surplusTo.finishes ? money(g.surplusTo.amount) + " of it would finish " : "it could go toward ") + g.surplusTo.name
       : money(g.over) + " over — in " + g.surplusTo.name + " it would cut the loan's interest") + '</p>' : '') + '</div>';
   var accts = (state.accounts || []).filter(function(a){ return a.name; });
+  var gid = "sgl-" + String(g.id || i).replace(/[^A-Za-z0-9_-]/g, "");
   var edit = open ? '<div class="sgl-edit">' +
-      '<label class="cf-filter"><span>Name</span><input type="text" data-goal-field="name" data-goal-index="' + i + '" value="' + escapeAttr(g.name) + '"></label>' +
-      '<label class="cf-filter"><span>Target $</span><input type="number" min="0" step="100" data-goal-field="target" data-goal-index="' + i + '" value="' + (g.target || "") + '"></label>' +
-      '<label class="cf-filter"><span>By</span><input type="date" data-goal-field="by" data-goal-index="' + i + '" value="' + escapeAttr(g.by) + '"></label>' +
+      // #254 / #261: shared fields — a label tied to each control, named for the goal it belongs to when several are
+      // open, and help where a rule isn't obvious. The data-goal-* attributes are what accountswiring.js reads.
+      fieldHtml({ id: gid + "-name", label: "Goal name", value: g.name, attrs: { "data-goal-field": "name", "data-goal-index": i } }) +
+      fieldHtml({ id: gid + "-target", label: "Target", type: "number", unit: "$", value: g.target == null ? "" : g.target,
+        help: "The amount the goal is for, measured on the accounts below.",
+        attrs: { "data-goal-field": "target", "data-goal-index": i, min: "0", step: "100", inputmode: "decimal" } }) +
+      fieldHtml({ id: gid + "-by", label: "Reach it by", type: "date", value: g.by || "",
+        help: "Optional. Without a date, it shows its pace instead of what's needed each month.",
+        attrs: { "data-goal-field": "by", "data-goal-index": i } }) +
       '<fieldset class="sgl-accts"><legend>Counts the balance of</legend>' + (accts.length ? accts.map(function(a){
         return '<label><input type="checkbox" data-goal-acct="' + escapeAttr(a.name) + '" data-goal-index="' + i + '"' + (g.accounts.indexOf(a.name) !== -1 ? " checked" : "") + '> ' + escapeAttr(a.name) + '</label>';
       }).join("") : '<p class="ledger-note" style="margin:0">Add an account first.</p>') + '</fieldset>' +

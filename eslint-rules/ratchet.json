@@ -13,7 +13,7 @@
  },
  "src/components/assetswiring.js": {
   "persist": 26,
-  "stateWrites": 22
+  "stateWrites": 21
  },
  "src/components/bank-import.js": {
   "persist": 0,

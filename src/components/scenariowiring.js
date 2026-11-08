@@ -1,3 +1,4 @@
+import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Plan → Scenarios, wired (v3.200.0, item 230) ----------------
 //
 // The event wiring for a scenario's changes, the "start from a question" sheet, a scenario on its own page
@@ -124,12 +125,12 @@ export function wireScenarioEditor(){
     afterScenarioChange();
     return name;
   }
-  startSheetRoot.addEventListener("click", function(e){
+  startSheetRoot.addEventListener("click", async function(e){
     if(e.target.closest("[data-sq-close]") || e.target === e.target.closest("[data-sq-backdrop]")){ requestCloseActiveOverlay(); return; }
     var pick = e.target.closest("[data-sq-pick]");
     if(pick){ startQ.key = pick.getAttribute("data-sq-pick"); renderStartSheet(); return; }
     if(e.target.closest("[data-sq-back]")){ startQ.key = null; renderStartSheet(); return; }
-    if(e.target.closest("[data-sq-blank]")){ requestCloseActiveOverlay(); setTimeout(function(){ var n = state.scenarios.length; addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); }, 50); return; }
+    if(e.target.closest("[data-sq-blank]")){ if(!await requestCloseActiveOverlay()) return; var n = state.scenarios.length; await addScenario(); if(state.scenarios.length > n) openScenarioEditor(state.scenarios[state.scenarios.length - 1]); return; }
     if(e.target.closest("[data-sq-make]")){
       var answers = {};
       startSheetRoot.querySelectorAll("[data-sq]").forEach(function(el){ answers[el.getAttribute("data-sq")] = el.value; });
@@ -166,7 +167,7 @@ export function wireScenarioEditor(){
     showPlanSubpage("scenarios", { replace: true });
     if(saved) showToast('Saved "' + name + '"');
   }
-  document.addEventListener("click", function(e){
+  document.addEventListener("click", async function(e){
     if(!e.target.closest) return;
     if(e.target.closest("[data-sc-save]")){
       if(!editing.name) return;
@@ -176,7 +177,7 @@ export function wireScenarioEditor(){
     }
     if(e.target.closest("[data-sc-cancel]")){
       if(!editing.name) return;
-      if(editing.key !== editing.name && draftChanged(editing.name) && !confirm('Discard the changes to "' + editing.name + '"?')) return;
+      if(editing.key !== editing.name && draftChanged(editing.name) && !(await confirmDialog('Discard the changes to "' + editing.name + '"?', {"title":"Discard changes","accept":"Discard changes","danger":true}))) return;
       if(editing.key !== editing.name) discardDraft(editing.name);
       closeScenarioEditor(false);
     }
@@ -250,7 +251,7 @@ export function wireScenarioEditor(){
   onPendingWork(function(){ return unsavedDraft() || !!(editing.name && document.body.getAttribute("data-current-page") === "scenario"); });
   setLeaveGuard(function(){
     if(!unsavedDraft()) return true;
-    return confirm('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)');
+    return confirmDialog('"' + editing.name + '" has unsaved changes. Leave and keep them as a draft for later? (Cancel stays here.)', {"title":"Leave scenario","accept":"Keep draft and leave"});
   });
   window.addEventListener("beforeunload", function(e){ if(unsavedDraft()){ e.preventDefault(); e.returnValue = ""; } });
   document.addEventListener("keydown", function(e){

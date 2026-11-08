@@ -1,33 +1,81 @@
-// ---------------- The overlay Back closes (v3.206.2, item 237b — from app.js) ----------------
-//
-// Any full-page-feeling overlay in this app (a row's edit modal, cross-page search, expense review)
-// pushes exactly one history entry for as long as it's open, and every one of its on-screen close
-// affordances (tap outside, an explicit X, Escape) routes through requestCloseActiveOverlay() rather
-// than tearing itself down immediately. That makes the same single entry what a device/browser
-// back-button press naturally pops too — app.js's popstate handler is the one place that actually runs
-// the close callback (closeActiveOverlayNow), whichever way it was triggered. Without this, opening one
-// of these silently occupied no space in the browser's back-history, so pressing back while one was
-// open fell through to whatever the *page* underneath was doing there instead — another page, or
-// leaving the app — rather than just closing the thing in front of you.
-var activeOverlayClose = null; // the pure cleanup function for whichever overlay is open, if any
-
+// One page-like editor plus a question above it. Wiring owns popstate listeners; these functions
+// own only history entries and cleanup. Every close waiter belongs to its particular editor.
+var activeOverlay = null, pendingBack = null, nextId = 0;
+function settle(overlay, closed){
+  clearTimeout(overlay.timer);
+  overlay.waiters.splice(0).forEach(function(done){ done(closed); });
+}
 export function pushActiveOverlay(onClose, replace){
-  activeOverlayClose = onClose;
-  try{ history[replace ? "replaceState" : "pushState"]({ overlayOpen: true }, "", location.href); }catch(e){}
+  if(activeOverlay) settle(activeOverlay, false);
+  var overlay = { id: "editor-" + (++nextId) + "-" + Math.random().toString(36).slice(2), close: onClose, waiters: [], closing: false, entry: false,
+    previous: history.state, url: location.href };
+  activeOverlay = overlay;
+  try{
+    history[replace ? "replaceState" : "pushState"]({ overlayOpen: true, overlayId: overlay.id }, "", location.href);
+    overlay.entry = true;
+  }catch(e){}
 }
 export function requestCloseActiveOverlay(){
-  if(!activeOverlayClose) return;
-  history.back();
+  var overlay = activeOverlay;
+  if(!overlay) return Promise.resolve(true);
+  return new Promise(function(resolve){
+    overlay.waiters.push(resolve);
+    if(!overlay.entry){ closeActiveOverlayNow(); return; }
+    if(overlay.closing) return;
+    overlay.closing = true; pendingBack = overlay;
+    // History can be unavailable in an embedded browser. Never leave a caller waiting forever.
+    overlay.timer = setTimeout(function(){
+      if(activeOverlay !== overlay) return;
+      pendingBack = null;
+      if(history.state && history.state.overlayId === overlay.id){
+        try{ history.replaceState(overlay.previous, "", overlay.url); }catch(e){}
+      }
+      closeActiveOverlayNow(false); // Cancel the continuation when history could not confirm closure.
+    }, 1000);
+    try{ history.back(); }catch(e){ pendingBack = null; closeActiveOverlayNow(); }
+  });
 }
-// Whether an overlay is open.
-export function overlayOpen(){ return !!activeOverlayClose; }
-// An overlay that closed itself some other way (its history entry already gone): nothing to run.
-export function forgetActiveOverlay(){ activeOverlayClose = null; }
-// Run the open overlay's close callback now (popstate, nav.js's cleanup); false when none was open.
-export function closeActiveOverlayNow(){
-  if(!activeOverlayClose) return false;
-  var closeOverlay = activeOverlayClose;
-  activeOverlayClose = null;
-  closeOverlay();
+export function overlayOpen(){ return !!activeOverlay; }
+export function forgetActiveOverlay(){
+  var overlay = activeOverlay; activeOverlay = null;
+  if(overlay) settle(overlay, true);
+}
+export function closeActiveOverlayNow(closed){
+  var overlay = activeOverlay;
+  if(!overlay) return false;
+  activeOverlay = null;
+  try{ overlay.close(); }finally{ settle(overlay, closed !== false); }
   return true;
+}
+export function handleOverlayHistory(e){
+  if(pendingBack){
+    var owner = pendingBack; pendingBack = null;
+    if(activeOverlay === owner) closeActiveOverlayNow();
+    else if(activeOverlay && activeOverlay.entry){
+      // A different editor replaced one while its Back was in flight. That Back must not close it.
+      try{ history.replaceState({ overlayOpen: true, overlayId: activeOverlay.id }, "", activeOverlay.url); }catch(err){}
+    }
+    return true;
+  }
+  if(activeOverlay && activeOverlay.entry && (!e.state || e.state.overlayId !== activeOverlay.id)) return closeActiveOverlayNow();
+  return false;
+}
+
+var modalClose = null, skippingModalReturn = false;
+export function handleModalHistory(e){
+  if(skippingModalReturn){ skippingModalReturn = false; e.stopImmediatePropagation(); return; }
+  if(modalClose){
+    e.stopImmediatePropagation();
+    var close = modalClose; modalClose = null; close();
+  } else if(e.state && e.state.appDialog){
+    // Forward can revisit a dismissed question. Step back over its inert entry without closing
+    // the editor below it, and consume the return event too.
+    e.stopImmediatePropagation(); skippingModalReturn = true; history.back();
+  }
+}
+export function pushModalOverlay(onClose){
+  var closing = false; modalClose = onClose;
+  try{ history.pushState({ appDialog: true }, "", location.href); }
+  catch(e){ modalClose = null; return onClose; }
+  return function(){ if(!closing){ closing = true; history.back(); } };
 }

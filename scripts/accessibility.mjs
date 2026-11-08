@@ -59,7 +59,7 @@ for(const width of widths)for(const scheme of schemes){
   const nativeTree = await cdp.send('Accessibility.getFullAXTree');
   const accessibilityTree = nativeTree.nodes.filter(n=>!n.ignored).map(n=>({id:n.nodeId,role:n.role?.value,name:n.name?.value,description:n.description?.value,children:n.childIds}));
   results.push({name,width,scheme,...result,accessibilityTree,layout});
-  if(process.env.A11Y_DIR && ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name)){
+  if(process.env.A11Y_DIR && (name.startsWith('app-dialog/') || ['onboarding','plan/scenarios','reports/networth','setup/1','setup/2'].includes(name))){
    fs.mkdirSync(process.env.A11Y_DIR,{recursive:true});
    await page.screenshot({path:path.join(process.env.A11Y_DIR, width+'-'+scheme+'-'+name.replaceAll('/','-')+'.png'),fullPage:true});
   }
@@ -75,6 +75,23 @@ for(const width of widths)for(const scheme of schemes){
    await page.locator('#recurringRuleForm').evaluate(f=>{f.closest('details').open=true;});
    await scan('recurring-rule-form');
   }
+ }
+
+ // Shared questions: names, password/error states and explicit three-way cancellation (#256).
+ for(const kind of ['text','password','unlock','error','confirm','choice']){
+  await page.evaluate(async kind=>{
+   const d=await import('/src/lib/dialogs.js');
+   if(kind==='text')d.textDialog('Name this example scenario.','',{title:'Scenario name',required:true});
+   else if(kind==='password'||kind==='error')d.textDialog('Keep this passphrase somewhere safe.','',{title:'Protect your data',label:'Passphrase',password:true,repeat:true,required:true});
+   else if(kind==='unlock')d.textDialog('Enter the passphrase for the existing synced copy.','',{title:'Unlock synced copy',label:'Passphrase',accept:'Unlock sync',password:true,required:true});
+   else if(kind==='choice')d.choiceDialog('Choose which copy to keep.',{title:'Choose copy',accept:'Load saved copy',alternative:'Use this copy'});
+   else d.confirmDialog('This replaces the example household.',{title:'Replace household',accept:'Replace household',danger:true});
+  },kind);
+  await page.locator('.app-dialog').waitFor();
+  if(kind==='error')await page.locator('[data-dialog-submit]').click();
+  await scan('app-dialog/'+kind);
+  await page.locator('[data-dialog-cancel]').click();
+  await page.locator('.app-dialog').waitFor({state:'detached'});
  }
  await page.evaluate(async()=>{
   const s=await import('/src/state.js');s.setState(s.defaultState());

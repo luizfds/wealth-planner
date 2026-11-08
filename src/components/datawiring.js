@@ -1,3 +1,4 @@
+import { confirmDialog, textDialog } from "../lib/dialogs.js";
 // ---------------- Your data, wired (v3.206.1, item 237) ----------------
 //
 // Export, share, import and backups, a tax year file, Reset, sample data, the setup checklist, the theme and the
@@ -48,11 +49,11 @@ export function hasRealUserData(){
     Object.values(state.purchase || {}).some(function(p){ return p.enabled; }) || !!state.firstRunDone || (state.scenarios || []).length > 1;
 }
 // v3.40.0: a tax year file merges one year into the plan — see calc/taxyear.js mergeTaxYearFile().
-function applyTaxYearFile(parsed){
+async function applyTaxYearFile(parsed){
   var people = getTaxPeople();
   var names = Object.keys(parsed.people || {});
-  if(!confirm("Merge " + fyLabel(Number(parsed.fy)) + " figures for " + (names.join(" and ") || "nobody") +
-    " into this plan? That year's income statements, interest, deductions and rental schedule are replaced by the file's; nothing else changes.")) return;
+  if(!(await confirmDialog("Merge " + fyLabel(Number(parsed.fy)) + " figures for " + (names.join(" and ") || "nobody") +
+    " into this plan? That year's income statements, interest, deductions and rental schedule are replaced by the file's; nothing else changes.", {"title":"Import tax year","accept":"Merge tax year"}))) return;
   var report;
   try{ report = mergeTaxYearFile(parsed, people, { genId: genId }); }
   catch(err){ showToast(err.message || "That file couldn't be read"); return; }
@@ -80,11 +81,11 @@ function applyTaxYearFile(parsed){
     renderTaxYear();
   });
 }
-function applyImportedBackupJson(jsonStr){
+async function applyImportedBackupJson(jsonStr){
   try{
     var parsed = JSON.parse(jsonStr);
     // A tax year file picked from the main Import merges instead of replacing everything.
-    if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ applyTaxYearFile(parsed); return; }
+    if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ return await applyTaxYearFile(parsed); }
     if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
     // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an
     // older copy over a newer one.
@@ -96,7 +97,7 @@ function applyImportedBackupJson(jsonStr){
         : cmp === "incoming"
         ? "Replace this device's copy (last changed " + when(state.savedAt) + ") with this backup (last changed " + when(parsed.savedAt) + ")?"
         : "You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?";
-      if(!confirm(msg)) return;
+      if(!(await confirmDialog(msg, {"title":"Restore backup","accept":"Replace household","danger":true}))) return;
     }
     // v3.170.0: the receipts' files the backup carries go back into this device's store.
     unpackReceipts(takeReceiptFiles(parsed)).catch(function(){ showToast("The backup's receipts couldn't be stored on this device"); });
@@ -109,18 +110,18 @@ function applyImportedBackupJson(jsonStr){
   }
 }
 // A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
-function importBackupText(raw){
+async function importBackupText(raw){
   var envelope;
   try{ envelope = JSON.parse(raw); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
   if(envelope && envelope.wealthPlannerEncrypted){
-    var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+    var passphrase = (await textDialog("This backup is encrypted. Enter its passphrase to unlock it:", "", {"title":"Unlock backup","label":"Passphrase","accept":"Unlock backup","password":true}));
     if(passphrase == null) return;
-    decryptBackup(envelope, passphrase).then(function(plainStr){ applyImportedBackupJson(plainStr); })
+    return decryptBackup(envelope, passphrase).then(function(plainStr){ return applyImportedBackupJson(plainStr); })
       .catch(function(){ showToast("Wrong passphrase, or this backup is corrupted."); });
-  } else applyImportedBackupJson(raw);
+  } else return applyImportedBackupJson(raw);
 }
-function loadSampleData(){
-  if(!confirm("Fill in a sample household so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
+async function loadSampleData(){
+  if(!(await confirmDialog("Fill in a sample household so you can try the tool? This replaces everything currently entered — export a backup first if you want to keep it.", {"title":"Use sample data","accept":"Replace with sample","danger":true}))) return;
   buildDemoState();
   renderAll();
   persist();
@@ -165,10 +166,10 @@ export function wireData(){
       banner.className = "storage-conflict";
       banner.setAttribute("role", "alert");
       document.getElementById("appContent").prepend(banner);
-      banner.addEventListener("click", function(e){
+      banner.addEventListener("click", async function(e){
         if(e.target.closest("[data-storage-copy]")) downloadBackupCopy();
-        if(e.target.closest("[data-storage-reload]") && confirm("Reload the saved household? Changes made in this tab will be replaced. Download this tab’s copy first if you need them.")) location.reload();
-        if(e.target.closest("[data-storage-keep]") && confirm("Save this tab’s version over the household another tab saved? That tab’s changes since will be lost.")){
+        if(e.target.closest("[data-storage-reload]") && (await confirmDialog("Reload the saved household? Changes made in this tab will be replaced. Download this tab’s copy first if you need them.", {"title":"Reload latest household","accept":"Reload latest"}))) location.reload();
+        if(e.target.closest("[data-storage-keep]") && (await confirmDialog("Save this tab’s version over the household another tab saved? That tab’s changes since will be lost.", {"title":"Replace saved household","accept":"Keep this version","danger":true}))){
           if(keepThisTabsCopy()){ banner.remove(); showToast("Saved this tab’s version"); }
         }
       });
@@ -248,11 +249,11 @@ export function wireData(){
     e.target.value = "";
     if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(){
+    reader.onload = async function(){
       var parsed;
       try{ parsed = JSON.parse(reader.result); }catch(err){ showToast("That file isn't JSON"); return; }
       if(!parsed || parsed.kind !== TAX_YEAR_FILE_KIND){ showToast("That isn't a tax year file — a full backup goes through Import backup"); return; }
-      applyTaxYearFile(parsed);
+      try{ await applyTaxYearFile(parsed); }catch(err){ showToast("That tax year file could not be imported. Check it and try again."); }
     };
     reader.readAsText(file);
   });
@@ -264,8 +265,8 @@ export function wireData(){
     reader.readAsText(file);
     e.target.value = "";
   });
-  document.getElementById("resetBtn").addEventListener("click", function(){
-    if(!confirm("Clear everything back to a blank slate? This replaces everything currently entered — export a backup first if you want to keep it.")) return;
+  document.getElementById("resetBtn").addEventListener("click", async function(){
+    if(!(await confirmDialog("Clear everything back to a blank slate? This replaces everything currently entered — export a backup first if you want to keep it.", {"title":"Reset household","accept":"Clear household","danger":true}))) return;
     setState(defaultState());
     renderAll();
     persist();

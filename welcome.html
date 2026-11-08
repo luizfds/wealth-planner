@@ -89,10 +89,14 @@
   </main>
   <div class="toast-wrap" id="toastWrap" role="status" aria-live="polite" aria-atomic="false"></div>
   <script type="module">
+    import { wireModalHistory } from "./src/components/overlays.js";
+    import { textDialog, confirmDialog } from "./src/lib/dialogs.js";
     import { STORAGE_KEY } from "./src/constants.js";
     import { migrateState } from "./src/state.js";
     import { decryptBackup } from "./src/lib/backup.js";
     import { showToast } from "./src/lib/toast.js";
+
+    wireModalHistory();
 
     // Landing here at all (share recipient or not) means the generic first-time-visitor
     // onboarding tutorial isn't the right thing to show if they later open the bare app —
@@ -120,11 +124,11 @@
       reader.readAsText(file);
     });
 
-    function handleImportedText(raw){
+    async function handleImportedText(raw){
       var envelope;
       try{ envelope = JSON.parse(raw); }catch(err){ setStatus(""); showToast("That file doesn't look like a valid backup"); return; }
       if(envelope && envelope.wealthPlannerEncrypted){
-        var passphrase = prompt("This backup is encrypted. Enter its passphrase to unlock it:");
+        var passphrase = await textDialog("Enter the passphrase for this encrypted backup.", "", {title:"Unlock backup",label:"Passphrase",password:true,accept:"Unlock backup"});
         if(passphrase == null){ setStatus(""); return; }
         setStatus("Decrypting…");
         decryptBackup(envelope, passphrase).then(function(plainStr){
@@ -138,7 +142,7 @@
       }
     }
 
-    function finishImport(jsonStr){
+    async function finishImport(jsonStr){
       var parsed;
       try{
         parsed = JSON.parse(jsonStr);
@@ -164,7 +168,7 @@
         ));
       }catch(e){}
       if(hasExistingData){
-        var ok = confirm("You already have data saved in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?");
+        var ok = await confirmDialog("You already have data saved on this device. Importing replaces it. Export a backup first if you need to keep it.", {title:"Restore backup",accept:"Replace household",danger:true});
         if(!ok){ setStatus(""); return; }
       }
       try{

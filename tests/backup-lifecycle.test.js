@@ -14,7 +14,12 @@ function backup(code){
     const timeout=globalThis.setTimeout; globalThis.setTimeout=(fn,ms)=>{const t=timeout(fn,ms);t.unref();return t;};
     let payload=null;
     globalThis.window={claude:{use:async()=>({save:async data=>{payload=data;}})}};
-    globalThis.prompt=()=>'';
+    globalThis.dialogAnswer='';
+    const {registerHooks}=await import('node:module');
+    registerHooks({load(url,context,next){
+      if(url.endsWith('/lib/dialogs.js'))return {format:'module',shortCircuit:true,source:'export async function textDialog(){return globalThis.dialogAnswer;}'};
+      return next(url,context);
+    }});
     const m=await import('./src/state.js');
     const b=await import('./src/lib/backup.js');
   `;
@@ -23,7 +28,7 @@ function backup(code){
 }
 
 test("cancelling backup does not change its reminder or produce a file",()=>backup(`
-  globalThis.prompt=()=>null;
+  globalThis.dialogAnswer=null;
   await b.doExport(); assert.equal(payload,null); assert.ok(!m.state.lastBackupDate);
 `));
 
@@ -40,7 +45,7 @@ test("a successful plain backup records completion in the file and saved househo
 `));
 
 test("a successful encrypted backup round-trips and records completion",()=>backup(`
-  globalThis.prompt=()=> 'invented-regression-passphrase';
+  globalThis.dialogAnswer='invented-regression-passphrase';
   assert.equal(await b.doExport(),true);
   const envelope=JSON.parse(payload.data); assert.equal(envelope.wealthPlannerEncrypted,true);
   const restored=JSON.parse(await b.decryptBackup(envelope,'invented-regression-passphrase'));
@@ -48,7 +53,7 @@ test("a successful encrypted backup round-trips and records completion",()=>back
 `));
 
 test("an encryption failure does not clear the reminder or attempt a download",()=>backup(`
-  globalThis.prompt=()=> 'invented-regression-passphrase';
+  globalThis.dialogAnswer='invented-regression-passphrase';
   crypto.subtle.encrypt=async()=>{throw new Error('Synthetic encryption failure')};
   assert.equal(await b.doExport(),false); assert.equal(payload,null); assert.ok(!m.state.lastBackupDate);
 `));

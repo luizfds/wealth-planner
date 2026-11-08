@@ -1,3 +1,4 @@
+import { textDialog } from "./dialogs.js";
 import { state, commit } from "../state.js";
 import { sacrificeModeToLabel, MARKET_CURRENCY } from "../constants.js";
 import { showToast, showPersistentToast } from "./toast.js";
@@ -86,8 +87,8 @@ function markBackedUp(){
   commit(["lastBackupDate"]);
 }
 
-export function doExport(){
-  var passphrase = prompt("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.");
+export async function doExport(){
+  var passphrase = (await textDialog("Optional: encrypt this backup with a passphrase (leave blank for a plain, unencrypted backup as before). You'll need this exact passphrase to import it again — it can't be recovered if you forget it.", "", {"title":"Protect your data","label":"Passphrase","accept":"Download backup","password":true,"repeat":true,"required":false}));
   if(passphrase === null) return;
   var filename = "wealth-planner-backup-" + isoDateStamp() + (passphrase ? "-encrypted" : "") + ".json";
   return preparedBackup().then(function(payload){
@@ -133,12 +134,12 @@ function appRootUrl(){
 function welcomeUrl(){
   return appRootUrl() + "welcome.html";
 }
-export function doShare(){
+export async function doShare(){
   if(!canShareFiles()){
     showToast("Sharing files isn't supported in this browser — use Export instead, then send the file yourself.");
     return;
   }
-  var passphrase = prompt("Set a passphrase to protect this share (required — whoever you send this to will need it to open it). Choose one you can tell them separately, e.g. in person or by text.");
+  var passphrase = (await textDialog("Set a passphrase to protect this share (required — whoever you send this to will need it to open it). Choose one you can tell them separately, e.g. in person or by text.", "", {"title":"Protect your data","label":"Passphrase","accept":"Prepare share","password":true,"repeat":true,"required":true}));
   if(!passphrase){
     if(passphrase !== null) showToast("A passphrase is required to share — nothing was sent.");
     return;
@@ -154,7 +155,7 @@ export function doShare(){
   // is valid JSON, never the filename or MIME type.
   var filename = "wealth-planner-backup-" + isoDateStamp() + "-encrypted.txt";
   var text = "My Wealth Planner data (password-protected). Open " + welcomeUrl() + " for how to load it, or go straight to Import and enter the passphrase I gave you.";
-  preparedBackup().then(function(payload){ return encryptBackup(payload, passphrase); }).then(function(encPayload){
+  return preparedBackup().then(function(payload){ return encryptBackup(payload, passphrase); }).then(function(encPayload){
     var file = new File([encPayload], filename, { type: "text/plain" });
     // navigator.share() only works when it's the direct, synchronous result of a user gesture —
     // encryption above is async (Web Crypto), so by the time it resolves, the click that started

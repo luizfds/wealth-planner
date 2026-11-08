@@ -299,21 +299,43 @@ export function updateQuickFab(pageId){
 var overlayCleanup = null;
 export function setOverlayCleanup(fn){ overlayCleanup = fn; }
 var leaveGuard = null;
+var leavePending = null;
+function afterNavigation(result, next){
+  if(result && typeof result.then === "function") return result.then(function(ok){ return ok ? next() : false; });
+  return result ? next() : false;
+}
+function afterPendingPage(page, next){
+  return afterNavigation(leavePending, function(){ return currentPage === page ? next() : false; });
+}
 export function setLeaveGuard(fn){ leaveGuard = fn; }
 export function showPage(id, opts){
   opts = opts || {};
   if(ALIASES[id]){
     var to = ALIASES[id];
-    showPage(to[0], opts);
-    if(to[0] === "expenses") showExpensesSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
-    if(to[0] === "plan") showPlanSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
-    return;
+    return afterNavigation(showPage(to[0], opts), function(){
+      if(to[0] === "expenses") showExpensesSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+      if(to[0] === "plan") showPlanSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+      return true;
+    });
   }
   if(!PAGES.some(function(p){ return p.id === id; })) id = "dashboard";
   // v3.188.0 (item 219): leaving a scenario with unsaved changes asks first (its calculators aside).
-  if(currentPage === "scenario" && id !== "scenario" && id !== "calc" && leaveGuard && !leaveGuard(id)){
-    if(opts.skipUrl) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search); // the back button had already left
-    return;
+  if(!opts.guardApproved && currentPage === "scenario" && id !== "scenario" && id !== "calc" && leaveGuard){
+    if(leavePending) return false;
+    var allowed = leaveGuard(id);
+    if(allowed && typeof allowed.then === "function"){
+      leavePending = allowed.then(function(ok){
+        leavePending = null;
+        if(ok) return showPage(id, Object.assign({}, opts, { guardApproved: true }));
+        if(opts.skipUrl && location.pathname !== buildRoutePath("scenario")) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search);
+        return false;
+      });
+      return leavePending;
+    }
+    if(!allowed){
+      if(opts.skipUrl && location.pathname !== buildRoutePath("scenario")) history.pushState({ page: "scenario" }, "", buildRoutePath("scenario") + location.search);
+      return false;
+    }
   }
   currentPage = id;
 
@@ -381,9 +403,11 @@ export function showPage(id, opts){
     // Handle that expected cancellation without hiding failures in applyPageChange.
     transition.ready.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
     transition.finished.catch(function(err){ if(err.name !== "AbortError") console.error(err); });
+    return transition.updateCallbackDone.then(function(){ return currentPage === id; });
   } else {
     applyPageChange();
   }
+  return true;
 }
 
 // Now that a subnav scrolls instead of wrapping, the active tab can be off-screen when a page is
@@ -401,6 +425,7 @@ function scrollActiveSubnavIntoView(railId){
 }
 export function showAssetsSubpage(id, opts){
   opts = opts || {};
+  if(leavePending) return afterPendingPage("assets", function(){ return showAssetsSubpage(id, Object.assign({}, opts, { replace: true })); });
   currentAssetsSub = id;
   document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = el.id !== "assetsSub-" + id; });
   document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){
@@ -420,20 +445,18 @@ export function showAssetsSubpage(id, opts){
 // whichever page holds that tab.
 export function showAccountsSubpage(id, opts){
   opts = opts || {};
+  if(leavePending) return afterNavigation(leavePending, function(){ return showAccountsSubpage(id, Object.assign({}, opts, { replace: true })); });
   if(MOVED_SETTINGS[id]){
     var to = MOVED_SETTINGS[id];
-    showPage(to[0], opts);
-    if(to[0] === "tax") showTaxSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
-    else { showDashboardSubpage(to[1]); setTimeout(function(){ var c = document.getElementById("checksCard"); if(c && c.scrollIntoView) c.scrollIntoView({ block: "start", behavior: "smooth" }); }, 250); }
-    return;
+    return afterNavigation(showPage(to[0], opts), function(){
+      if(to[0] === "tax") showTaxSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
+      else { showDashboardSubpage(to[1]); setTimeout(function(){ var c = document.getElementById("checksCard"); if(c && c.scrollIntoView) c.scrollIntoView({ block: "start", behavior: "smooth" }); }, 250); }
+      return true;
+    });
   }
-  if(id === "accounts" || SETTINGS_SUBS.indexOf(id) === -1){
-    if(currentPage !== "accounts") showPage("accounts", opts);
-    return;
-  }
+  if(id === "accounts" || SETTINGS_SUBS.indexOf(id) === -1) return currentPage === "accounts" ? true : showPage("accounts", opts);
+  if(currentPage !== "settings") return afterNavigation(showPage("settings", Object.assign({}, opts, { skipUrl: true })), function(){ return showAccountsSubpage(id, opts); });
   currentSettingsSub = id;
-  var arriving = currentPage !== "settings";
-  if(arriving) showPage("settings", Object.assign({}, opts, { skipUrl: true }));
   document.querySelectorAll("#page-settings .accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
   document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);
@@ -441,11 +464,13 @@ export function showAccountsSubpage(id, opts){
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("settings");
   if(!opts.skipUrl) syncUrl("settings", !!opts.replace);
+  return true;
 }
 export function settingsSubpage(){ return currentSettingsSub; }
 
 export function showPlanSubpage(id, opts){
   opts = opts || {};
+  if(leavePending) return afterPendingPage("plan", function(){ return showPlanSubpage(id, Object.assign({}, opts, { replace: true })); });
   if(PLAN_SUBS.indexOf(id) === -1) id = "scenarios";
   currentPlanSub = id;
   document.querySelectorAll(".plan-subpage").forEach(function(el){ el.hidden = el.id !== "planSub-" + id; });
@@ -460,6 +485,7 @@ export function showPlanSubpage(id, opts){
 
 export function showTaxSubpage(id, opts){
   opts = opts || {};
+  if(leavePending) return afterPendingPage("tax", function(){ return showTaxSubpage(id, Object.assign({}, opts, { replace: true })); });
   if(TAX_SUBS.indexOf(id) === -1) id = currentTaxSub || defaultTaxSub();
   currentTaxSub = id;
   document.querySelectorAll(".tax-subpage").forEach(function(el){ el.hidden = el.id !== "taxSub-" + id; });
@@ -480,6 +506,7 @@ export function taxSubpage(){ return currentTaxSub || defaultTaxSub(); }
 // on one page made the everyday half the one you had to scroll past the other to reach.
 export function showExpensesSubpage(id, opts){
   opts = opts || {};
+  if(leavePending) return afterPendingPage("expenses", function(){ return showExpensesSubpage(id, Object.assign({}, opts, { replace: true })); });
   if(EXPENSES_SUBS.indexOf(id) === -1) id = "budget";
   currentExpensesSub = id;
   document.querySelectorAll(".expenses-subpage").forEach(function(el){ el.hidden = el.id !== "expensesSub-" + id; });
@@ -499,6 +526,7 @@ export function showExpensesSubpage(id, opts){
 // this stays a lighter, session-only split; navigating away and back to Dashboard keeps whichever
 // tab was last open rather than resetting, since the two subpage <div>s are never destroyed.
 export function showDashboardSubpage(id){
+  if(leavePending) return afterPendingPage("dashboard", function(){ return showDashboardSubpage(id); });
   document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
   document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
     btn.classList.toggle("active", btn.getAttribute("data-dashboard-sub") === id);

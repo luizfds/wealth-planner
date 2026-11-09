@@ -4885,6 +4885,12 @@ cleared field saved 0, and a negative one was quietly clamped to 0.
 
 ## Calculators: no blank figure saved — issue #263
 
-`[~]` Calculators → property purchase (price, deposit, rates, term, stamp duty, LMI quote, growth, purchase costs) and
+`[x]` Shipped (PR #294). Calculators → property purchase (price, deposit, rates, term, stamp duty, LMI quote, growth, purchase costs) and
 investment (initial amount, growth, monthly contribution). A cleared field saved 0 (a $0 price, a 0% rate), and a
 deposit outside 0–100% or a term under a year was quietly clamped.
+
+## Plan: projection assumptions and life events, no blank figure saved — issue #263
+
+`[~]` Plan → Projection: horizon, return, growth, inflation and income-growth rates, the rate shock, volatility, and
+life events' year, length and amount. A cleared rate saved 0% (redrawing the whole plan on it), a horizon outside 1–50
+or a negative shock or volatility was quietly clamped, and a life event's cleared amount saved $0.

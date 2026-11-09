@@ -47,6 +47,6 @@ export function tripsCardHtml(){
       '<label class="fr-field"><span>From</span><input type="date" data-trip-from></label>' +
       '<label class="fr-field"><span>To</span><input type="date" data-trip-to></label>' +
       '<label class="fr-field"><span>Line</span><select data-trip-line><option value="">Pick a line…</option>' + budgetLineOptgroupsHtml(defaultTripLine()) + '</select></label>' +
-      '<button type="button" class="btn btn-sm btn-primary" data-trip-add>Add trip</button>' +
+      '<button type="button" class="btn btn-sm" data-trip-add>Add trip</button>' +
     '</div>';
 }

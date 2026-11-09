@@ -163,6 +163,14 @@ function compareHtml(person, fy, r){
   return '<div class="ty-cmp"><div class="ty-cmp-row ty-head-row"><span></span><span>' + fyLabel(fy - 1) + '</span><span>' + fyLabel(fy) + '</span><span>Change</span></div>' + rows + '</div>';
 }
 
+// #255: Returns has one primary, the open year's next step. While the year is still running that is opening the
+// year being lodged (if anyone in it is still to lodge); once it is over, it is marking the first person not yet lodged.
+function lodgedFor(fy, person){ var rec = taxYearRecord(fy, false); return !!(rec && rec.lodged && rec.lodged[person]); }
+function nextToLodge(fy){
+  var people = getTaxPeople();
+  for(var i = 0; i < people.length; i++){ if(!lodgedFor(fy, people[i])) return people[i]; }
+  return null;
+}
 function personCardHtml(person, fy){
   var py = personYear(fy, person, false) || { incomeStatements: [], interest: [], deductions: [] };
   var grossRows = (state.income || []).filter(function(i){ return i.person === person && i.incomeType === "Gross" && i.id; });
@@ -213,7 +221,7 @@ function personCardHtml(person, fy){
     '<details class="row-more-options"><summary>Compared with ' + fyLabel(fy - 1) + '</summary>' + compareHtml(person, fy, r) + '</details>' +
     '<div class="m-edit-actions">' +
       '<button type="button" class="btn btn-sm btn-ghost" data-ty-copy="' + escapeAttr(person) + '">Copy worksheet</button>' +
-      '<button type="button" class="btn btn-sm ' + (isLodged ? "btn-ghost" : "btn-primary") + '" data-ty-lodge="' + escapeAttr(person) + '">' + (isLodged ? "Lodged ✓ — update" : "Mark as lodged") + '</button>' +
+      '<button type="button" class="btn btn-sm' + (isLodged ? " btn-ghost" : fy < todayTaxFy() && nextToLodge(fy) === person ? " btn-primary" : "") + '" data-ty-lodge="' + escapeAttr(person) + '">' + (isLodged ? "Lodged ✓ — update" : "Mark as lodged") + '</button>' +
     '</div>' +
   '</div>';
 }
@@ -290,19 +298,20 @@ export function renderTaxYear(){
   if(docs) docs.innerHTML = taxDocumentsHtml();
 }
 // Which year this is, and — while it's still running — a one-tap way to the year being lodged.
-function yearSelectHtml(id, fy, today){
+function yearSelectHtml(id, fy, today, primary){
   var nowFy = todayTaxFy(today);
   var running = fy >= nowFy;
+  primary = primary && nextToLodge(nowFy - 1) != null;
   return '<div class="ty-yearnote" id="' + id + '"><b>' + fyLabel(fy) + '</b>' +
     (running ? '<span class="ledger-note" style="margin:0">still running — figures so far, an estimate.</span>' +
-        '<button type="button" class="btn btn-sm btn-primary" data-ty-year="' + (nowFy - 1) + '">Open ' + fyLabel(nowFy - 1) + '</button>'
+        '<button type="button" class="btn btn-sm' + (primary ? " btn-primary" : "") + '" data-ty-year="' + (nowFy - 1) + '">Open ' + fyLabel(nowFy - 1) + '</button>'
       : '<span class="ledger-note" style="margin:0">change the year with the period beside the page title.</span>') + '</div>';
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
   if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a worksheet.</p>';
   var fy = taxYearSelected();
-  return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy) +
+  return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy, undefined, true) +
       (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
       '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
     rentHtml(fy) +
@@ -342,7 +351,7 @@ export function closeYearHtml(fy, today){
     '<p class="ledger-note" style="margin-left:0">Ticked lines become next year\'s plan: each row is set to what the year actually came to (the old amount stays in its history). Rows a line\'s figure comes from are scaled together.</p>' +
     '<div class="cy-cols" aria-hidden="true"><span></span><span></span><span>Planned</span><span>Actual</span><span>Change</span></div>' +
     sections.join("") +
-    '<button type="button" class="btn btn-sm btn-primary" data-cy-apply="' + fy + '">Use the ticked lines as the plan</button></details>';
+    '<button type="button" class="btn btn-sm' + (nextToLodge(fy) == null ? " btn-primary" : "") + '" data-cy-apply="' + fy + '">Use the ticked lines as the plan</button></details>';
 }
 // Documents (v3.43.0): the papers a year's return is built from, and the one-step import of a
 // whole year's figures — the checklist used to sit under the last person's card on the worksheet.

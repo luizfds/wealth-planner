@@ -287,6 +287,9 @@ export function updateQuickFab(pageId){
     headerBtn.setAttribute("aria-label", label || "Quick actions");
     headerBtn.title = label || "Quick actions";
     headerBtn.setAttribute("aria-haspopup", label ? "false" : "dialog");
+    // #255: it is the view's primary only when it is the page's own action and the page shows no primary
+    // of its own — lib/help.js's updatePageHelp() settles that as the page changes.
+    headerBtn.toggleAttribute("data-page-action", !!label);
   }
   if(!label){
     fab.setAttribute("data-fab-mode", "menu");

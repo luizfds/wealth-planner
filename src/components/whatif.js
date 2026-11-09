@@ -50,6 +50,6 @@ export function whatIfStripHtml(){
   };
   return '<div class="wi-head"><b>What if…</b><span class="wi-hint">Drag — the chart redraws against your saved plan (dashed). Nothing is saved until you keep it.</span></div>' +
     '<div class="wi-grid">' + WI_SLIDERS.map(row).join("") + '</div>' +
-    '<div class="wi-actions"><button type="button" class="btn btn-sm btn-primary" data-wi-keep' + (moved ? '' : ' disabled') + '>Keep this as a scenario</button>' +
+    '<div class="wi-actions"><button type="button" class="btn btn-sm' + (moved ? ' btn-primary' : '') + '" data-wi-keep' + (moved ? '' : ' disabled') + '>Keep this as a scenario</button>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-wi-reset' + (moved ? '' : ' disabled') + '>Back to the plan</button></div>';
 }

@@ -97,7 +97,7 @@ export function priceSheetCardHtml(){
       '<li><b>Share it.</b> In Google Sheets: Share → General access → <i>Anyone with the link</i>, Viewer. Copy the link.</li>' +
       '<li><b>Paste the link here.</b>' +
         '<div class="ps-actions"><input type="url" class="ps-url" data-ps-url placeholder="https://docs.google.com/spreadsheets/d/…" value="' + escapeAttr(sh.url || "") + '" aria-label="Google Sheet link">' +
-        '<button type="button" class="btn btn-sm btn-primary" data-ps-read>' + (sh.url ? "Read now" : "Save and read") + '</button>' +
+        '<button type="button" class="btn btn-sm" data-ps-read>' + (sh.url ? "Read now" : "Save and read") + '</button>' +
         (sh.url ? '<button type="button" class="btn btn-sm btn-ghost" data-ps-forget>Forget link</button>' : '') + '</div></li>' +
     '</ol>' + status +
     '<p class="ledger-note ps-note help">Holdings without purchase lots are filled in as if you held today\'s units the whole time. Add lots (open a holding → Purchase lots) and copy the template again for exact figures. Prices you\'ve already recorded are never changed — only weeks before the first one are filled in.</p>' +

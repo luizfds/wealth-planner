@@ -230,6 +230,8 @@ export function wireWhatIfs(){
     if(lab) lab.textContent = wiValueText(k, w[k], w);
     var moved = whatIfMoved(w);
     whatIfStrip.querySelectorAll("[data-wi-keep], [data-wi-reset]").forEach(function(b){ b.disabled = !moved; });
+    // #255: the view's one primary, and only while there is something to keep.
+    whatIfStrip.querySelectorAll("[data-wi-keep]").forEach(function(b){ b.classList.toggle("btn-primary", moved); });
     if(wiFrame) return;
     wiFrame = requestAnimationFrame(function(){ wiFrame = 0; renderWhatIfDrag(); });
   });  // Let go: the table, milestones and the rest catch up.

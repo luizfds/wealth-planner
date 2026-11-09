@@ -396,6 +396,9 @@
 
 /* v3.138.0: on Home the first card is net worth — the header pill would say it twice. */
 body[data-current-page="dashboard"] .global-metrics{ display:none; }
+/* #255: the period chip shows only where something on the page follows it. Net worth and Accounts are
+   balances as of today, and Settings and Calculators have no dates at all. */
+body:is([data-current-page="networth"], [data-current-page="accounts"], [data-current-page="settings"], [data-current-page="calc"]) .period-wrap{ display:none; }
 
 /* v3.138.0: the keyboard shortcuts list (press ?). */
 .shortcuts-dialog{ border:1px solid var(--border); border-radius:14px; padding:18px 20px; background: var(--paper-raised); color: var(--ink); box-shadow: var(--shadow); min-width:300px; }

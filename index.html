@@ -172,7 +172,7 @@
       <div class="actions">
         <!-- #304: on a desktop the page's action sits here, not floating over the figures. It clicks the
              floating button (nav.js's updateQuickFab() labels both), so there is one behaviour to keep. -->
-        <button type="button" class="btn btn-sm btn-primary header-add" id="headerAddBtn" hidden>
+        <button type="button" class="btn btn-sm header-add" id="headerAddBtn" hidden>
           <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 3v14M3 10h14"/></svg>
           <span id="headerAddLabel"></span>
         </button>
@@ -475,7 +475,7 @@
         <div class="page-intro-row">
           <p class="page-intro help">What you actually spent. Log it here and the Budget tab becomes a live picture of the month.</p>
           <div class="page-intro-actions">
-            <button type="button" class="btn btn-sm btn-primary review-cta" id="reviewExpensesBtn" hidden title="Go through budget lines that are overdue (or never logged) one at a time and record what you actually spent">Catch up</button>
+            <button type="button" class="btn btn-sm review-cta" id="reviewExpensesBtn" hidden title="Go through budget lines that are overdue (or never logged) one at a time and record what you actually spent">Catch up</button>
           </div>
         </div>
         <div class="ledgers">
@@ -961,6 +961,7 @@
             <div class="ledger-body"><div id="retirementBody"></div></div></details></div>
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
+        <div class="page-intro-row"><p class="page-intro help">Each scenario is your current situation with a list of changes — a purchase, a move, a pay rise. Open one to edit it, pick the one to plan against, or compare them side by side.</p></div>
         <div id="adviceStrip-plan"></div>
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- v3.175.0 (item 210): side by side. -->

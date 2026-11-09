@@ -53,7 +53,7 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
     '<label>Starts <input name="startDate" type="date" required value="' + safe(r.startDate) + '"></label> ' +
     '<label>Ends (optional) <input name="endDate" type="date" value="' + safe(r.endDate) + '"></label> ' +
     '<label>Category <input name="category" maxlength="80" value="' + safe(r.category) + '"></label> ' +
-    '<button class="btn btn-sm btn-primary" type="submit">Save rule</button></form></details></div>';
+    '<button class="btn btn-sm" type="submit">Save rule</button></form></details></div>';
   return html;
 }
 

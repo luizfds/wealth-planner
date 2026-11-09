@@ -347,9 +347,11 @@ test("wide scenario comparisons expose keyboard-focusable horizontal scrolling a
   assert.match(html, /role="region" aria-label="Scenario comparison table; scroll horizontally to see all columns" tabindex="0" style="overflow-x:auto"/);
   assert.match(html, /<caption>Normal-month cash flow and spending/);
   assert.match(html, /<th scope="col">Scenario<\/th>/);
-  assert.match(html, /<th scope="row">Rent<\/th>/);
-  assert.match(html, /<th scope="row">Buy<\/th>/);
+  assert.match(html, /<th scope="row"><button type="button" class="link-btn" data-edit-scenario="Rent">Rent<\/button><\/th>/);
+  assert.match(html, /<th scope="row"><button type="button" class="link-btn" data-edit-scenario="Buy">Buy<\/button><\/th>/);
   assert.match(html, /<summary>Compare monthly trade-offs<\/summary>/);
+  // #266: the outcomes link to their assumptions — each scenario's page (above) and Projections.
+  assert.match(html, /data-dashboard-jump="projections"/);
 });
 
 test("comparison data-quality notes flag negative cash flow and contradictory inputs", async () => {

@@ -24,6 +24,7 @@ import { staleAssetNamesList } from "../lib/notifications.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
 import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
+import { keepUi } from "../lib/keepui.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
 // Items 252, 253: on each card, a normal month if rates rise, and — for a scenario that buys its home — the price
@@ -313,10 +314,15 @@ export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
   return '<details class="scenario-tradeoffs"><summary>Compare monthly trade-offs</summary>' +
     scenarioTradeoffHighlightsHtml(rows, baseline) + '<div class="ledger-note" role="region" aria-label="Scenario comparison table; scroll horizontally to see all columns" tabindex="0" style="overflow-x:auto"><table><caption>Normal-month cash flow and spending, compared with ' + escapeAttr(baseline) + '</caption>' +
     '<thead><tr><th scope="col">Scenario</th><th scope="col">Net / mo</th><th scope="col">Difference / mo</th><th scope="col">Home / mo</th><th scope="col">Costs difference / mo</th>' + (hasProjection ? '<th scope="col">Projected net worth (' + horizonYears + ' yr)</th>' : '') + (hasProjectedDifference ? '<th scope="col">Projected difference vs baseline</th>' : '') + (hasFunding ? '<th scope="col">Upfront cash</th><th scope="col">Funding gap</th>' : '') + (hasReserve ? '<th scope="col">Essential / mo</th><th scope="col">Cash + offsets</th><th scope="col">Essential runway</th>' : '') + (hasReserveGap ? '<th scope="col">Reserve target gap</th>' : '') + '</tr></thead><tbody>' +
-    rows.map(function(r){ return '<tr><th scope="row">' + escapeAttr(r.name) + '</th><td>' + money(r.monthly) +
+    // #266: each outcome links to what makes it — the scenario's own page, where its changes are edited. The button is
+    // named by the scenario alone: it's also the row's header, which every cell in the row is read with.
+    rows.map(function(r){ return '<tr><th scope="row"><button type="button" class="link-btn" data-edit-scenario="' + escapeAttr(r.name) + '">' + escapeAttr(r.name) + '</button></th><td>' + money(r.monthly) +
       '</td><td>' + money(r.monthlyDifference) + '</td><td>' + fmtCurrency0.format(r.homeMonthly) +
       '</td><td>' + money(r.expenseDifference) + '</td>' + (hasProjection ? '<td>' + fmtCurrency0.format(r.projectedNetWorth) + '</td>' : '') + (hasProjectedDifference ? '<td>' + money(r.projectedDifference) + '</td>' : '') + (hasFunding ? '<td>' + fmtCurrency0.format(r.upfrontCash) + '</td><td>' + (r.fundingShortfall > 0 ? fmtCurrency0.format(r.fundingShortfall) + ' short' : '—') + '</td>' : '') + (hasReserve ? '<td>' + fmtCurrency0.format(r.reserve.essentialMonthly) + '</td><td>' + fmtCurrency0.format(r.reserve.available) + '</td><td>' + coverage(r) + (r.reserve.unclassified ? ' (check classifications)' : '') + '</td>' : '') + (hasReserveGap ? '<td>' + (r.reserve.targetGap > 0 ? fmtCurrency0.format(r.reserve.targetGap) + ' short' : '—') + '</td>' : '') + '</tr>'; }).join('') +
-    '</tbody></table></div>' + scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected difference compares each scenario with the baseline at the same horizon, not with today’s net worth. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway and reserve target gap use the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. Reserve target gap is the difference between the scenario’s essential-reserve target and those current balances; it is not the same as an upfront funding gap. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
+    '</tbody></table></div>' +
+    '<p class="ledger-note sc-tradeoff-links">Change a scenario: tap its name. The horizon' + (hasProjection ? ' (' + horizonYears + ' yr)' : '') + ', returns and rates: ' +
+      '<button type="button" class="link-btn" data-dashboard-jump="projections">Plan → Projections</button>.</p>' +
+    scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected difference compares each scenario with the baseline at the same horizon, not with today’s net worth. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway and reserve target gap use the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. Reserve target gap is the difference between the scenario’s essential-reserve target and those current balances; it is not the same as an upfront funding gap. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
 export function renderDashboardStats(){
   var el = document.getElementById("dashboardStats");
@@ -365,7 +371,7 @@ export function renderDashboardStats(){
     renderSavingsBreakdown(active);
     return;
   }
-  el.innerHTML =
+  var statsHtml =
     '<div class="stat-tile" data-home-card="savings"><span>Planned monthly surplus</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
       '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
     '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
@@ -373,7 +379,9 @@ export function renderDashboardStats(){
     fiTileHtml(t) +
     taxTileHtml() +
     lastTile;
-  applyHomeLayout();
+  // #266: through keepUi — Home's tiles redraw on edits elsewhere and on the app's own price and cash-rate reads, and a
+  // plain swap closed an open "Compare monthly trade-offs" and dropped focus to the page body.
+  keepUi(function(){ el.innerHTML = statsHtml; applyHomeLayout(); });
   renderSavingsBreakdown(active);
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);

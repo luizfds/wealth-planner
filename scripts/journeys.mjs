@@ -41,6 +41,8 @@
 //                 rate and a goal's target — out of range is said, not dropped, ignored or clamped
 //   tabkeys     — #262: a property's tabs by keyboard (arrows, Home/End, one Tab stop, each tied to its panel); Reports'
 //                 picker keeps focus through a redraw and Tab moves on from it; page subtabs say which is current
+//   homecompare — #266: Home's open scenario comparison takes the whole row (no stretched neighbour), keeps its risk
+//                 notes, matches the projected tile, reads a long name at 320px, and links to its assumptions
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -227,6 +229,76 @@ const JOURNEYS = {
     check(kept.value === taken && kept.invalid === "true" && /already/.test(kept.message) && kept.focused && kept.caret === taken.length,
       "a redraw mid-typing lost the draft (" + JSON.stringify(kept) + ")");
   },
+  // #266: Home's scenario comparison, opened — the whole row (at 390px it was a 174px column 2.6 screens tall, and the
+  // Tax tile beside it stretched to match), its risk notes kept, the same figures as the projection, a long name read
+  // at 320px, and each outcome a way to its assumptions.
+  async homecompare(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    // A long scenario name (invented), to check it wraps rather than widening anything.
+    const longName = "Buy the place near the park with the bigger yard and a granny flat";
+    await page.evaluate(async n => { const sc = await import("/src/components/scenarios.js"); const m = await import("/src/state.js");
+      const other = m.state.scenarios.find(x => x !== m.state.baselineScenario); sc.renameScenarioTo(other, n); m.commit(["scenarios", "home", "purchase", "invest", "activeScenario", "baselineScenario"]); }, longName);
+    await go(page, "dashboard", "data-dashboard-sub", "overview");
+    const tile = '#dashboardStats [data-home-card="scenarios"]';
+    await page.locator(tile + " summary").waitFor({ state: "visible" });
+    const measure = () => page.evaluate(t => { const el = document.querySelector(t), r = el.getBoundingClientRect(), g = el.parentElement.getBoundingClientRect();
+      const mates = [...el.parentElement.children].filter(x => x !== el && x.getClientRects().length && Math.abs(x.getBoundingClientRect().top - r.top) < 2);
+      return { w: Math.round(r.width), grid: Math.round(g.width), mates: mates.length, doc: document.documentElement.scrollWidth, vw: innerWidth }; }, tile);
+    const closed = await measure();
+    // Opened from the keyboard: the whole row, nothing beside it, focus still on the summary.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    const open = await measure();
+    check(open.w === open.grid && open.mates === 0, "the open comparison doesn't take the whole row: " + JSON.stringify({ closed, open }));
+    check(open.doc <= open.vw, "the open comparison widened the page to " + open.doc + "px");
+    check(await page.evaluate(t => document.activeElement === document.querySelector(t + " summary"), tile), "opening the comparison lost focus");
+    // A redraw while it's open (an edit elsewhere, the app's own price read — it landed here on CI) keeps it open and
+    // focused: Home's tiles redraw through keepUi, and arranging them doesn't move cards already in order.
+    for(const how of ["renderAll", "commit", "renderDashboardStats"]){
+      await page.evaluate(async h => {
+        if(h === "renderAll") (await import("/src/components/redraw.js")).renderAll();
+        else if(h === "commit") (await import("/src/state.js")).commit(["shared"]);
+        else (await import("/src/components/dashboard.js")).renderDashboardStats();
+      }, how);
+      await settle(page);
+      const kept = await page.evaluate(t => { const s = document.querySelector(t + " summary"); return { focused: document.activeElement === s, open: !!s && s.parentElement.open }; }, tile);
+      check(kept.focused && kept.open, "a redraw (" + how + ") closed the comparison or lost its focus: " + JSON.stringify(kept));
+    }
+    // Its risk notes are all still there.
+    const text = await page.evaluate(t => document.querySelector(t + " details").innerText, tile);
+    for(const must of ["not a guaranteed outcome", "funding gap", "These are estimates, not guarantees", "Projected net worth"]){
+      check(text.includes(must), "the open comparison dropped \"" + must + "\"");
+    }
+    // The same figure as Home's projected tile, for the scenario shown.
+    const same = await page.evaluate(t => {
+      const active = document.querySelector('#dashboardStats [data-home-card="projected"] b');
+      const rows = [...document.querySelectorAll(t + " tbody tr")];
+      const head = [...document.querySelectorAll(t + " thead th")].map(h => h.textContent);
+      const col = head.findIndex(h => /^Projected net worth/.test(h));
+      return { tile: active && active.getAttribute("title"), table: rows.map(r => r.children[col] && r.children[col].textContent), col };
+    }, tile);
+    check(same.col > 0 && same.table.includes(same.tile), "the comparison's projected net worth doesn't match Home's: " + JSON.stringify(same));
+    // A long name at 320px: it wraps, the page doesn't scroll sideways.
+    await page.setViewportSize({ width: 320, height: 844 }); await settle(page);
+    const narrow = await measure();
+    check(narrow.doc <= 320 && narrow.w === narrow.grid, "at 320px the comparison with a long name overflows: " + JSON.stringify(narrow));
+    await page.setViewportSize({ width: 390, height: 844 }); await settle(page);
+    // Closed again: back in its cell.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    const again = await measure();
+    check(again.w === closed.w && again.mates === closed.mates, "closing the comparison didn't put the tile back: " + JSON.stringify({ closed, again }));
+    // Outcomes link to their assumptions: a scenario's page, and Projections.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    await click(page, tile + ' [data-dashboard-jump="projections"]');
+    await until(page, () => document.body.getAttribute("data-current-page") === "plan" && !!document.querySelector('[data-plan-sub="projections"][aria-current="page"]'));
+    check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "plan" && !!document.querySelector('[data-plan-sub="projections"][aria-current="page"]')), "the Projections link didn't open Plan → Projections");
+    await go(page, "dashboard", "data-dashboard-sub", "overview");
+    await page.evaluate(t => { const d = document.querySelector(t + " details"); if(d) d.open = true; }, tile);
+    await click(page, tile + ' [data-edit-scenario="' + longName + '"]');
+    await until(page, () => document.body.getAttribute("data-current-page") === "scenario");
+    check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "a scenario's name in the comparison didn't open its page");
+    check(await page.evaluate(n => { const pg = document.querySelector(".app-page:not([hidden])"); return pg.innerText.includes(n) || [...pg.querySelectorAll("input")].some(i => i.value === n); }, longName),
+      "the scenario page opened isn't the one tapped");
+  },
   // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
   // chooser that keeps focus when it redraws; page subtabs say which one is showing.
   async tabkeys(page){
@@ -286,8 +358,10 @@ const JOURNEYS = {
     await page.waitForLoadState("networkidle"); await settle(page);
     const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
       return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    // No separate scroll: fill scrolls the field into view itself, and finds it again if a redraw has just replaced it
+    // (a valid save redraws its panel — on CI a scroll landed mid-redraw, on an element no longer in the page).
     const tryField = async (sel, typed, expr, how) => {
-      await page.locator(sel).scrollIntoViewIfNeeded();
+      await page.locator(sel).waitFor({ state: "visible" });
       const was = await stored(page, expr);
       await page.fill(sel, typed); await page.press(sel, "Tab");
       check(await stored(page, expr) === was, how + " typed as " + JSON.stringify(typed) + " saved " + JSON.stringify(await stored(page, expr)) + " (was " + JSON.stringify(was) + ")");
@@ -309,6 +383,7 @@ const JOURNEYS = {
     await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
     await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
     await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
+    await settle(page); // the save's own redraw of the panel, done before the next field is tried
     await tryField("#fireCurrentAge", "120", "(state.fire || {}).currentAge", "an age");
     // Home → Benchmarks: the fixed rate, and a goal's target.
     await go(page, "dashboard", "data-dashboard-sub", "benchmarks");

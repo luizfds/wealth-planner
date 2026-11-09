@@ -1,7 +1,8 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, the calculators, Plan and Cash flow.** Every other
-family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
+**Status: every family is done** — the budget and income row editors, goals, debts, category names, Investments,
+Property, Tax and people, the calculators, Plan, Cash flow and the rest (below). What's left is the open questions at
+the end. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
 
@@ -185,24 +186,32 @@ forces a redraw mid-typing to check it).
 `rows.js`'s table of saved values is made on first use: `spendingwiring.js` registers into it while loading, before
 `rows.js` has run in the import cycle.
 
-## What's left: every other place a number is read the same way
+## The rest (Accounts, Home → Insights and Benchmarks, a property's suburb figures, strategy and sale)
 
-`parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
-v3.229.0:
+These already took blank as "none". What they did with a figure out of range was the problem: drop it, ignore it, or
+clamp it, without a word. Reproduced on main (the `restvalidation` journey fails there: a cycle day of 31 saved 28).
+`readNumberField` gained `whole` for a day of the month or an age.
 
-| Where | Reads |
-|---|---|
-| ~~`propertieswiring.js`, `properties.js`~~ | ~~29~~ done (Property, above) |
-| ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
-| ~~`taxwiring.js`, `taxyear.js`, `people.js`~~ | ~~15~~ done (Tax and people, above) |
-| ~~`calcwiring.js` (calculators)~~ | ~~11~~ done (Calculators, above) |
-| ~~`planwiring.js`~~ | ~~6~~ done (Plan, above) |
-| ~~`spendingwiring.js`, `cashflowwiring.js`~~ | ~~5~~ done (Cash flow, above) |
-| `dashboard.js`, `accountswiring.js`, `accounts.js`, `benchmarks.js`, `investreturn.js`, `detail.js` | 8 |
+| Field | Blank | Out of range | Before #263 |
+|---|---|---|---|
+| A card's cycle start day (`.acct-mgmt-day`) | Error | Not 1–28, or a fraction: said | 31 saved `28`; blank saved `1` |
+| A card's repayment day (`.acct-mgmt-payday`) | None, as before | Not 1–31: said | 40 removed the day that was set |
+| A card's limit (`.acct-mgmt-limit`) | None, as before | Negative: said | Negative removed the limit that was set |
+| Retirement ages (`#fireCurrentAge`, `#fireRetireAge`) | Not set, as before | Not 16–99, or a fraction: said | 120 saved `99`, 10 saved `16` |
+| Benchmark's fixed rate (`[data-bm-rate]`) | Error | Not 0–30: said | Ignored: the field showed it, the comparison didn't use it |
+| A goal's target (Home → Benchmarks) | No target, as before | Negative, or a share over 100%: said | Negative erased the target |
+| A suburb's yield and weekly rent | Cleared, as before | Negative: said (growth may be negative) | Saved |
+| A loan's strategy figures | None, as before | Negative: said | Saved, and ran the what-if backwards |
+| "If you sold": price, agent %, other costs | The estimate, as before | Negative, or a fee over 10%: said | Saved |
 
-There are also 7 `Math.max(0, Math.min(100, …))` clamps in `components/`. Some of these are display or filter readings
-rather than saves; each family's PR sorts them, sets the field's rules in the table above, and reproduces the problem
-before changing it.
+## Checked and left: the reads that aren't input
+
+The inventory at v3.229.0 counted 93 `parseFloat(…) || 0` / `Number(…) || 0` reads in `components/`, and 7
+`Math.max(0, Math.min(100, …))` clamps. Every one that reads a field someone types into is in a table above. The rest are
+display and chart calculations (a history point's value, a progress bar's width), a session-only what-if that's never
+saved (Plan's stress test, the fixed-rate what-if, the target mix's next amount), or a form that already refuses a
+blank with a message (Quick log, a pay change, Record a rate change). "Vary by scenario" is unreachable since item 207
+and is left for a cleanup.
 
 ## Open questions
 

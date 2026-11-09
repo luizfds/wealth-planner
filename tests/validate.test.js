@@ -28,6 +28,15 @@ test("zero and negatives read as themselves; a range is checked, never clamped",
   assert.match(readNumberField("101", { min: 0, max: 100 }).message, /from 0 to 100/);
 });
 
+test("a whole-number field (a day of the month) says so for a fraction, and reads a whole one", () => {
+  const day = { min: 1, max: 31, whole: true, range: "Enter a day from 1 to 31." };
+  assert.deepEqual(readNumberField("15", day), { ok: true, value: 15 });
+  assert.deepEqual(readNumberField("15.5", day), { ok: false, message: "Enter a day from 1 to 31." });
+  assert.equal(readNumberField("0", day).ok, false);
+  assert.equal(readNumberField("32", day).ok, false);
+  assert.deepEqual(readNumberField("", day), { ok: true, value: null });
+});
+
 // A tiny stand-in for the DOM markField touches: elements with attributes, children and the two queries it makes.
 function fakeDom(){
   const byId = new Map();

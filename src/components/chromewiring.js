@@ -34,6 +34,7 @@ import { runSync, initialSync } from "./safekeepingwiring.js";
 import { openSearchOverlay } from "./searchwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
 import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
+import { readInput } from "../lib/validate.js";
 
 var navMenuToggle, quickFabMore, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
@@ -243,9 +244,10 @@ export function wireNavigation(){
     var isRetire = e.target.id === "fireRetireAge";
     if(!isCurrent && !isRetire) return;
     if(!state.fire) state.fire = {};
-    var raw = e.target.value === "" ? null : Number(e.target.value);
-    var value = raw == null || isNaN(raw) ? null : Math.max(16, Math.min(99, Math.round(raw)));
-    state.fire[isCurrent ? "currentAge" : "retireAge"] = value;
+    // #263: blank is "not set"; an age outside 16–99 is said, not quietly made 16 or 99.
+    var age = readInput(e.target, { min: 16, max: 99, whole: true, range: "Enter an age from 16 to 99, in whole years." });
+    if(!age) return;
+    state.fire[isCurrent ? "currentAge" : "retireAge"] = age.value;
     renderDetail();
     persist();
   });

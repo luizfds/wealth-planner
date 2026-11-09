@@ -37,6 +37,8 @@
 //   planvalidation — Plan → Projections (#263): a cleared return or inflation rate isn't 0%, a horizon of 80 isn't
 //                 clamped to 50, the slider stays with the saved figure, and a life event's cleared amount isn't $0
 //   cashvalidation — Cash flow → Spending (#263): a transaction's cleared amount isn't $0, and closing it cancels the draft
+//   restvalidation — the last of #263: a card's limit, repayment day and cycle day, a retirement age, the benchmark's
+//                 rate and a goal's target — out of range is said, not dropped, ignored or clamped
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -222,6 +224,44 @@ const JOURNEYS = {
       return { value: el.value, invalid: el.getAttribute("aria-invalid"), message: m ? m.textContent : "", focused: document.activeElement === el, caret: el.selectionStart }; }, field);
     check(kept.value === taken && kept.invalid === "true" && /already/.test(kept.message) && kept.focused && kept.caret === taken.length,
       "a redraw mid-typing lost the draft (" + JSON.stringify(kept) + ")");
+  },
+  // #263, the last family: fields where blank already meant "none", but a figure out of range was dropped (a negative
+  // goal target erased the target), ignored, or clamped (a cycle day of 31 became 28) without a word.
+  async restvalidation(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    const tryField = async (sel, typed, expr, how) => {
+      await page.locator(sel).scrollIntoViewIfNeeded();
+      const was = await stored(page, expr);
+      await page.fill(sel, typed); await page.press(sel, "Tab");
+      check(await stored(page, expr) === was, how + " typed as " + JSON.stringify(typed) + " saved " + JSON.stringify(await stored(page, expr)) + " (was " + JSON.stringify(was) + ")");
+      check(await marked(sel), how + " typed as " + JSON.stringify(typed) + " isn't marked with a message");
+    };
+    // Accounts: a credit card's cycle day, repayment day and limit.
+    await go(page, "accounts");
+    const card = await stored(page, "state.accounts.findIndex(function(a){ return a.type === 'credit'; })");
+    check(card >= 0, "the demo household has no credit card");
+    const A = '#accountsTable [data-acct-index="' + card + '"]';
+    const cardId = await stored(page, "state.accounts[" + card + "].id");
+    await click(page, '#accountsTable [data-acct-toggle="' + cardId + '"]');
+    await page.locator(A + ".acct-mgmt-day").waitFor({ state: "visible" });
+    await tryField(A + ".acct-mgmt-day", "31", "state.accounts[" + card + "].statementStartDay", "a cycle day");
+    await tryField(A + ".acct-mgmt-payday", "40", "state.accounts[" + card + "].payDay", "a repayment day");
+    await tryField(A + ".acct-mgmt-limit", "-500", "state.accounts[" + card + "].limit", "a card limit");
+    // Home → Insights: a retirement age.
+    await go(page, "dashboard", "data-dashboard-sub", "insights");
+    await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
+    await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
+    await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
+    await tryField("#fireCurrentAge", "120", "(state.fire || {}).currentAge", "an age");
+    // Home → Benchmarks: the fixed rate, and a goal's target.
+    await go(page, "dashboard", "data-dashboard-sub", "benchmarks");
+    await page.locator("[data-bm-rate]").waitFor({ state: "visible" });
+    await tryField("[data-bm-rate]", "", "state.benchmark.fixedRate", "the benchmark's rate");
+    await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.goals = [{ kind: "emergencyFund", target: 6 }]; m.commit(["goals"]); (await import("/src/components/benchmarks.js")).renderBenchmarks(); });
+    await page.locator("[data-goal-target]").waitFor({ state: "visible" });
+    await tryField("[data-goal-target]", "-3", "state.goals[0].target", "a goal's target");
   },
   // #263: Cash flow → Spending — a transaction's cleared amount isn't saved as $0, and closing the row cancels it.
   async cashvalidation(page){

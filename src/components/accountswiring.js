@@ -11,7 +11,7 @@ import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { addSavingsGoal } from "../calc/savegoals.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { readNumberField, markField } from "../lib/validate.js";
+import { readNumberField, markField, readInput } from "../lib/validate.js";
 import { redraw } from "../lib/views.js";
 import { state, persist, commit, genId } from "../state.js";
 import { openAccounts, balanceEditing } from "./accounts.js";
@@ -153,18 +153,24 @@ export function wireAccounts(){  // ---------------- Accounts: named money sourc
       return;
     }
     else if(e.target.classList.contains("acct-mgmt-day")){
-      a.statementStartDay = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
+      // #263: said, not clamped — 31 isn't quietly the 28th, and blank isn't quietly the 1st.
+      var sd = readInput(e.target, { empty: "Enter the day the statement starts, 1 to 28.", min: 1, max: 28, whole: true, range: "Enter a day from 1 to 28." });
+      if(!sd) return;
+      a.statementStartDay = sd.value;
     }
     else if(e.target.classList.contains("acct-mgmt-autopay")){
       if(e.target.value) a.autoPayFrom = e.target.value; else delete a.autoPayFrom;
     }
     else if(e.target.classList.contains("acct-mgmt-payday")){
-      var pd = parseInt(e.target.value, 10);
-      if(pd >= 1 && pd <= 31) a.payDay = pd; else delete a.payDay;
+      // Blank is none; a day outside 1–31 is said rather than quietly removing the one that was set.
+      var pd = readInput(e.target, { min: 1, max: 31, whole: true, range: "Enter a day from 1 to 31, or leave it blank." });
+      if(!pd) return;
+      if(pd.value == null) delete a.payDay; else a.payDay = pd.value;
     }
     else if(e.target.classList.contains("acct-mgmt-limit")){
-      var lim = e.target.value === "" ? null : Number(e.target.value);
-      if(lim == null || !(lim >= 0)) delete a.limit; else a.limit = lim;
+      var lim = readInput(e.target, { min: 0, range: "A limit can't be negative — leave it blank for none." });
+      if(!lim) return;
+      if(lim.value == null) delete a.limit; else a.limit = lim.value;
     }
     else if(e.target.classList.contains("acct-mgmt-link")){
       a.link = e.target.value;

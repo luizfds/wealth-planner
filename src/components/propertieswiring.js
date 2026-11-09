@@ -770,6 +770,8 @@ export function wirePropertyExtras(){  // v3.41.0: Loan strategy on a property c
     if(!prop) return;
     if(e.target.matches("[data-strategy-pick]")){ prop.strategyLoan = Number(e.target.value) || 0; persist(); patchLoanStrategy(prop); return; }
     if(e.target.matches("[data-strategy-field]")){
+      // #263: blank is none; a negative extra repayment or offset was saved and ran the what-if backwards.
+      if(!readInput(e.target, { min: 0, range: "Can't be negative — leave it blank for none." })) return;
       setLoanStrategyField(prop, Number(e.target.getAttribute("data-strategy-loan")), e.target.getAttribute("data-strategy-field"), e.target.value);
       patchLoanStrategy(prop);
     }
@@ -779,7 +781,12 @@ export function wirePropertyExtras(){  // v3.41.0: Loan strategy on a property c
     var host = e.target.closest("[data-sale-property]");
     var prop = host && findProperty(host.getAttribute("data-sale-property"));
     if(!prop) return;
-    setSaleWhatIfField(prop, e.target.getAttribute("data-sale-field"), e.target.value);
+    var saleField = e.target.getAttribute("data-sale-field");
+    // Blank goes back to the estimate; a negative price or cost, or an agent's fee outside 0–10%, is said.
+    var saleRule = { price: { min: 0, range: "A price can't be negative — leave it blank for the estimate." }, agentPct: { min: 0, max: 10, range: "Enter a fee from 0 to 10%." },
+      otherCosts: { min: 0, range: "Costs can't be negative — leave it blank for none." } }[saleField];
+    if(saleRule && !readInput(e.target, saleRule)) return;
+    setSaleWhatIfField(prop, saleField, e.target.value);
     patchSaleWhatIf(prop);
   });
 }

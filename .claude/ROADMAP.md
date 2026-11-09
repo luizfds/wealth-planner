@@ -4909,3 +4909,10 @@ separate cleanup.)
 goal targets, a property's suburb figures, a loan's strategy and "If you sold". Blank already meant "none" for each;
 what's left is a figure out of range, which was dropped (a negative goal target erased the target), ignored (the field
 kept it, the plan didn't) or clamped (an age of 120 became 99) without a word.
+
+## Tabs and choosers: keyboard and focus — issue #262
+
+`[~]` A property card's tabs get the full ARIA tab pattern (arrow keys, Home/End, one tab in the Tab order, each tied to
+its panel). Reports' 21-report picker isn't tabs (it has group headings a tablist can't hold): it becomes a labelled
+chooser whose shown report is `aria-current`, and switching a report or its period keeps focus (its redraw goes
+through `keepUi`). Page subtabs say which is current (`aria-current`), not only by colour.

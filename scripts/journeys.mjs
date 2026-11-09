@@ -251,6 +251,18 @@ const JOURNEYS = {
     check(open.w === open.grid && open.mates === 0, "the open comparison doesn't take the whole row: " + JSON.stringify({ closed, open }));
     check(open.doc <= open.vw, "the open comparison widened the page to " + open.doc + "px");
     check(await page.evaluate(t => document.activeElement === document.querySelector(t + " summary"), tile), "opening the comparison lost focus");
+    // A redraw while it's open (an edit elsewhere, the app's own price read — it landed here on CI) keeps it open and
+    // focused: Home's tiles redraw through keepUi, and arranging them doesn't move cards already in order.
+    for(const how of ["renderAll", "commit", "renderDashboardStats"]){
+      await page.evaluate(async h => {
+        if(h === "renderAll") (await import("/src/components/redraw.js")).renderAll();
+        else if(h === "commit") (await import("/src/state.js")).commit(["shared"]);
+        else (await import("/src/components/dashboard.js")).renderDashboardStats();
+      }, how);
+      await settle(page);
+      const kept = await page.evaluate(t => { const s = document.querySelector(t + " summary"); return { focused: document.activeElement === s, open: !!s && s.parentElement.open }; }, tile);
+      check(kept.focused && kept.open, "a redraw (" + how + ") closed the comparison or lost its focus: " + JSON.stringify(kept));
+    }
     // Its risk notes are all still there.
     const text = await page.evaluate(t => document.querySelector(t + " details").innerText, tile);
     for(const must of ["not a guaranteed outcome", "funding gap", "These are estimates, not guarantees", "Projected net worth"]){

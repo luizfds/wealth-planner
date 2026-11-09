@@ -76,7 +76,15 @@ export function applyHomeLayout(){
   var l = loadHomeLayout();
   [document.querySelector("#homeSummary .home-grid"), document.getElementById("dashboardStats")].forEach(function(box){
     if(!box) return;
-    l.order.forEach(function(k){ var el = box.querySelector(':scope > [data-home-card="' + k + '"]'); if(el) box.appendChild(el); });
+    // Only when the order differs, and focus put back after: re-appending a card takes it out of the page for a moment,
+    // which drops focus from anything inside it — after every redraw of Home, an open "Compare monthly trade-offs"
+    // summary lost focus to the page body (#266).
+    var cards = l.order.map(function(k){ return box.querySelector(':scope > [data-home-card="' + k + '"]'); }).filter(Boolean);
+    var now = Array.prototype.filter.call(box.children, function(el){ return cards.indexOf(el) !== -1; });
+    if(now.every(function(el, i){ return el === cards[i]; })) return;
+    var focused = document.activeElement && box.contains(document.activeElement) ? document.activeElement : null;
+    cards.forEach(function(el){ box.appendChild(el); });
+    if(focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
   });
   document.querySelectorAll("[data-home-card]").forEach(function(el){ el.hidden = !!l.hidden[el.getAttribute("data-home-card")]; });
   var home = document.getElementById("homePinned");

@@ -24,6 +24,7 @@ import { staleAssetNamesList } from "../lib/notifications.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
 import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
+import { keepUi } from "../lib/keepui.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
 // Items 252, 253: on each card, a normal month if rates rise, and — for a scenario that buys its home — the price
@@ -370,7 +371,7 @@ export function renderDashboardStats(){
     renderSavingsBreakdown(active);
     return;
   }
-  el.innerHTML =
+  var statsHtml =
     '<div class="stat-tile" data-home-card="savings"><span>Planned monthly surplus</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
       '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
     '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
@@ -378,7 +379,9 @@ export function renderDashboardStats(){
     fiTileHtml(t) +
     taxTileHtml() +
     lastTile;
-  applyHomeLayout();
+  // #266: through keepUi — Home's tiles redraw on edits elsewhere and on the app's own price and cash-rate reads, and a
+  // plain swap closed an open "Compare monthly trade-offs" and dropped focus to the page body.
+  keepUi(function(){ el.innerHTML = statsHtml; applyHomeLayout(); });
   renderSavingsBreakdown(active);
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);

@@ -1709,3 +1709,18 @@
 .el-msg small{ display:block; color: var(--ink-soft); font-size:var(--fs-xs); }
 .el-actions{ display:flex; gap:8px; }
 @media (max-width:560px){ .el-list li{ grid-template-columns: 1fr; gap:2px; } }
+
+/* #261: an inline-name field — a name edited in place in its row (fields.md's "inline rename" variant). Borderless until
+   hovered, so the row reads as a list; on focus it shows the shared focus ring, which an inline all:unset had removed. */
+.inline-name { box-sizing:border-box; width:100%; min-height:40px; padding:0 6px; margin-left:-6px; font:inherit; color:inherit; background:transparent; border:1px solid transparent; border-radius:var(--field-radius); }
+.inline-name:hover { border-color: var(--border); }
+.inline-name:focus-visible { outline:none; border-color: var(--field-focus); box-shadow: var(--focus-ring); }
+/* A fixed width, so a message under the balance wraps inside it rather than squeezing the name to nothing. */
+.debt-bal { flex:0 0 110px; min-width:0; }
+/* On a phone, a debt's name takes its own line (it was cut to a few letters); the balance and its actions sit under it. */
+@media (max-width: 520px){
+  .debt-row .m-row-summary { flex-wrap:wrap; row-gap:6px; }
+  .debt-row .m-row-summary > div:first-child { flex-basis:100%; }
+  .debt-bal { flex:1 1 auto; }
+}
+.debt-bal .debt-balance { width:110px; min-height:40px; text-align:right; font-family:var(--font-num); border:1px solid transparent; background:transparent; color:inherit; padding:5px 6px; border-radius:6px; box-sizing:border-box; }

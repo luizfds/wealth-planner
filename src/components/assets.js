@@ -1776,11 +1776,15 @@ export function renderDebts(){
     return;
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){
-    return '<div class="m-row computed" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
-      '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name" style="all:unset;box-sizing:border-box;width:100%;min-height:40px;font:inherit;color:inherit">' + historyTrendHtml(d) + '</div>' +
-      '<input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-label="Balance" style="width:110px;min-height:40px;text-align:right;font-family:var(--font-num);border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+    return '<div class="m-row computed debt-row" data-debt-index="' + idx + '"><div class="m-row-summary" style="cursor:default">' +
+      // #261: the name is an inline-name field (ledger.css) — borderless until hovered, with a visible focus ring; an
+      // inline all:unset had removed its focus indicator. The balance and delete are named for their debt through
+      // aria-labelledby, which reads the name field's current value, so renaming keeps them right without a redraw.
+      '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what inline-name" id="debt-name-' + idx + '" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name">' + historyTrendHtml(d) + '</div>' +
+      '<span class="visually-hidden" id="debt-bal-' + idx + '-lbl">Balance of</span><span class="visually-hidden" id="debt-del-' + idx + '-lbl">Delete</span>' +
+      '<div class="field debt-bal"><input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-labelledby="debt-bal-' + idx + '-lbl debt-name-' + idx + '"></div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Record the balance above as of today">Update balance</button>' +
-      '<button type="button" class="btn btn-danger btn-sm row-del" data-debt-del="' + idx + '" aria-label="Delete debt">✕</button>' +
+      '<button type="button" class="btn btn-danger btn-sm row-del" data-debt-del="' + idx + '" aria-labelledby="debt-del-' + idx + '-lbl debt-name-' + idx + '">✕</button>' +
     '</div></div>';
   }).join("") + '</div>';
 }

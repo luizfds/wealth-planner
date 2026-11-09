@@ -24,6 +24,8 @@
 //   holdings    — Investments → Shares: a holding's editor named from its labels, help on screen, and it still saves (#261)
 //   property    — Net worth → Property, editing, every tab: fields named from their labels, no tooltip-only help, and a
 //                 label reaches its field; land value and purchase price still save (#261)
+//   debts       — Net worth's debts: visible focus on the inline name, fields named for their debt, no $0 from a cleared
+//                 balance (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -175,6 +177,33 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #261 / #263: Net worth → Investments → Summary's debts — a visible focus indicator on the inline name, fields named
+  // for their debt (and kept right when it's renamed), and a cleared balance that isn't saved as $0.
+  async debts(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.debts = [{ what: "Card one", balance: 1200 }, { what: "Personal loan", balance: 8000 }]; m.commit(["debts"]); });
+    await go(page, "assets", "data-assets-sub", "summary");
+    await page.evaluate(() => { const d = document.getElementById("debtsTable").closest("details"); if(d) d.open = true; });
+    const name = "#debtsTable .debt-what >> nth=0", bal = "#debtsTable .debt-balance >> nth=0";
+    await page.locator(name).waitFor({ state: "visible" });
+    // Reached from the keyboard, the name field shows it: a ring or an outline, not nothing.
+    await page.focus(bal); await page.keyboard.press("Shift+Tab");
+    const ring = await page.evaluate(() => { const a = document.activeElement, c = getComputedStyle(a); return { name: a.classList.contains("debt-what"), shown: c.boxShadow !== "none" || (c.outlineStyle !== "none" && parseFloat(c.outlineWidth) > 0) }; });
+    check(ring.name && ring.shown, "a debt's name field shows no keyboard focus");
+    // Named for their debt, and still right after a rename.
+    check(await page.getByRole("spinbutton", { name: "Balance of Card one" }).count() === 1, "a debt's balance isn't named for its debt");
+    check(await page.getByRole("button", { name: "Delete Personal loan" }).count() === 1, "a debt's delete isn't named for its debt");
+    await page.fill(name, "Card two");
+    check(await page.getByRole("spinbutton", { name: "Balance of Card two" }).count() === 1, "renaming a debt left its balance's name stale");
+    // A cleared balance isn't saved as $0; a valid one is.
+    const savedBal = () => stored(page, "state.debts[0].balance");
+    await page.fill(bal, "");
+    check(await savedBal() === 1200, "clearing a debt's balance saved " + await savedBal());
+    check(await page.evaluate(() => document.querySelector("#debtsTable .debt-balance").getAttribute("aria-invalid") === "true"), "a cleared balance isn't marked invalid");
+    await page.fill(bal, "950");
+    await eventually(async () => await savedBal() === 950);
+    check(await savedBal() === 950, "a valid balance didn't save");
+  },
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.

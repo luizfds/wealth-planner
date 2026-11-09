@@ -4945,8 +4945,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - `[x]` **Issue #304**: a desktop has no floating button; the page's action is a button in the header (its plus
      sign below 1500px, labelled above), and Quick actions is in the avatar menu. A phone has one 56px round button
      where there was a 147×96px labelled pill with a second button above it. The smoke run fails a floating button on
-     a desktop, or anything bigger than the one circle on a phone. Known cost: on pages without a "⋯" (Plan, Tax,
-     Reports, Settings) the header wraps to two rows up to about 1130px wide, where it used to stop at about 1090px.
+     a desktop, or anything bigger than the one circle on a phone. Below 1500px the header's gaps and the net worth pill's
+     padding are tighter by the 48px the button takes, so the header wraps no sooner than it did.
    - `[ ]` Issue #255 step 1 (header and one primary per view), then step 2 (add/delete wording).
 2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.

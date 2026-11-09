@@ -300,6 +300,13 @@
   /* Below 1500px the header has no room for the label beside the net worth pill (it wrapped the
      actions onto a second row at 1280px), so the button is its plus sign, named by aria-label. */
   @media (max-width: 1499px){ .header-add{ width:40px; padding:0; justify-content:center; } .header-add span{ display:none; } }
+  /* The button still takes 48px the header didn't spend before, and with the web font loaded the
+     net worth pill is wide enough for that to wrap the actions at 1280px (the assessmentux journey
+     caught it in CI). The left side gives the same 48px back from its gaps and the pill's padding. */
+  @media (min-width: 881px) and (max-width: 1499px){
+    .app-topbar-left{ gap:12px; }
+    .global-metrics{ gap:10px; padding:6px 10px; }
+  }
   @media (max-width: 880px){ .header-add{ display:none; } }
   @media (min-width: 881px){ .quick-fab-wrap{ display:none; } }
 

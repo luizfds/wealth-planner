@@ -30,6 +30,8 @@
 //                 share outside 0–100 is said beside the field and nothing is saved; closing the editor cancels it
 //   propvalidation — Property's number fields (#263): a cleared value, land value or loan balance, a negative price, an
 //                 ownership or investment share outside 0–100 is said beside the field and nothing is saved
+//   taxvalidation — Tax's number fields (#263): a cleared HELP balance, SG rate, sacrifice or statement figure isn't
+//                 saved as 0; hours over 168 aren't clamped; an interest account's share left blank is 100%, not 0%
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -208,6 +210,58 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
+  // #263: Tax's number fields — a cleared figure is said beside the field and nothing is saved (before, a cleared SG rate
+  // saved 0 and an interest account's share left blank saved 0%, though its placeholder says 100).
+  async taxvalidation(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    // People: a cleared HELP balance isn't $0 owed; hours a week over 168 aren't clamped to 168.
+    await go(page, "tax", "data-tax-sub", "people");
+    const help = "#peopleTable .pp-help", week = "#peopleTable .pp-week";
+    await page.locator(help).first().waitFor({ state: "visible" });
+    const person = await page.evaluate(h => document.querySelector(h).getAttribute("data-pp-person"), help);
+    const setting = k => stored(page, "(state.tax.settings[" + JSON.stringify(person) + "] || {})." + k);
+    await page.fill(help, "15000"); await page.press(help, "Tab");
+    await eventually(async () => await setting("helpBalance") === 15000);
+    const owed = await setting("helpBalance");
+    check(owed === 15000, "a HELP balance didn't save");
+    await page.fill(help, ""); await page.press(help, "Tab");
+    check(await setting("helpBalance") === owed, "clearing a HELP balance saved " + await setting("helpBalance"));
+    check(await marked(help), "a cleared HELP balance isn't marked with a message");
+    const hours = await setting("hoursPerWeek");
+    await page.fill(week, "200"); await page.press(week, "Tab");
+    check(await setting("hoursPerWeek") === hours, "200 hours a week saved " + await setting("hoursPerWeek"));
+    check(await marked(week), "200 hours a week isn't marked with a message");
+    // The year's household settings and this year's sacrifice.
+    await go(page, "tax", "data-tax-sub", "year");
+    await page.evaluate(() => document.querySelectorAll("#taxSuperBody details").forEach(d => { d.open = true; }));
+    const sg = await stored(page, "state.tax.sgRate");
+    await page.fill("#taxSgRate", "");
+    check(await stored(page, "state.tax.sgRate") === sg, "clearing the SG rate saved " + await stored(page, "state.tax.sgRate"));
+    check(await marked("#taxSgRate"), "a cleared SG rate isn't marked with a message");
+    const sac = '#taxSuperBody [data-tax-person="' + person + '"] .tax-sacrifice';
+    const sacWas = await setting("superSacrificeAnnual");
+    await page.fill(sac, "-500");
+    check(await setting("superSacrificeAnnual") === sacWas, "a negative sacrifice saved " + await setting("superSacrificeAnnual"));
+    check(await marked(sac), "a negative sacrifice isn't marked with a message");
+    // The year's return: a statement's gross, cleared, isn't $0; an interest account's share left blank is all of it.
+    await go(page, "tax", "data-tax-sub", "returns");
+    await click(page, '[data-ty-add="int"][data-ty-person="' + person + '"]');
+    const yearRows = "(function(){ var y = state.taxYears || {}; var k = Object.keys(y).sort().pop(); return y[k].people[" + JSON.stringify(person) + "].interest; })()";
+    const share = '.ty-row-int [data-ty-key="sharePct"]', gross = '.ty-row-int [data-ty-key="gross"]';
+    await page.locator(gross).last().waitFor({ state: "visible" });
+    await page.locator(gross).last().fill("120"); await page.locator(gross).last().press("Tab");
+    await eventually(async () => (await stored(page, yearRows + ".slice(-1)[0].gross")) === 120);
+    await page.locator(gross).last().fill(""); await page.locator(gross).last().press("Tab");
+    check(await stored(page, yearRows + ".slice(-1)[0].gross") === 120, "clearing a return's gross saved " + await stored(page, yearRows + ".slice(-1)[0].gross"));
+    check(await page.locator(gross).last().getAttribute("aria-invalid") === "true", "a cleared gross isn't marked");
+    await page.locator(share).last().fill("40"); await page.locator(share).last().press("Tab");
+    await eventually(async () => (await stored(page, yearRows + ".slice(-1)[0].sharePct")) === 40);
+    await page.locator(share).last().fill(""); await page.locator(share).last().press("Tab");
+    await eventually(async () => (await stored(page, yearRows + ".slice(-1)[0].sharePct")) == null);
+    check(await stored(page, yearRows + ".slice(-1)[0].sharePct") == null, "a blank share saved " + await stored(page, yearRows + ".slice(-1)[0].sharePct") + "%, not all of it");
   },
   // #263: Property's number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
   // (before, a cleared value saved $0 and an ownership share of 150% saved 100); closing a loan cancels its draft.

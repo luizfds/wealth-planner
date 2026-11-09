@@ -391,7 +391,11 @@ export function taxYearSetField(kind, person, index, key, value){
   var p = personYear(taxYearSelected(), person, true);
   var row = p[KIND_ARRAY[kind]][index];
   if(!row) return;
-  row[key] = (key === "payer" || key === "account" || key === "what" || key === "label" || key === "incomeId") ? value : (parseFloat(value) || 0);
+  if(key === "payer" || key === "account" || key === "what" || key === "label" || key === "incomeId"){ row[key] = value; return; }
+  // A number, already read by its field (#263). An interest account's share left blank is all of it, as its placeholder
+  // says, not 0%.
+  if(value === "" || value == null){ if(key === "sharePct") delete row.sharePct; else row[key] = 0; return; }
+  row[key] = parseFloat(value) || 0;
 }
 // One statement per Gross income row, gross from its pay history; withholding left for the real
 // statement (v3.47.0).

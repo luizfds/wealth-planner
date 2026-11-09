@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments and Property.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, and Tax and people.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -97,6 +97,29 @@ ownership, depreciation) redraw the card only once they read, so the message sta
 Not changed: the fixed-rate what-if (never saved); "Record change" and "Add interest charge" already refuse a missing
 figure with a message; the reads in `properties.js` are display calculations.
 
+## Tax and people (Tax → People, Tax → This year, Tax → Returns)
+
+Reproduced on main before the change (the `taxvalidation` journey fails there: a cleared HELP balance saved 0). The
+Tax panel's handler also read date of birth, HELP, caps, losses and home hours — dead since v3.44.0 moved those fields
+to Tax → People; those branches are removed rather than validated.
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| HELP owing, carry-forward, capital losses (`.pp-help`, `.pp-carry`, `.pp-losses`) | Error: "0 if none" | Error | — | Blank saved `0`; negative clamped |
+| Concessional cap (`.pp-cap`) | Error | Error | — | Blank saved a $0 cap |
+| Hours worked a week (`.pp-week`) | Counts as 38, as before | Error | 0–168 | 200 saved `168` |
+| Hours from home in a year (`.pp-wfh`) | None, as before | Error | — | Negative clamped |
+| Manual sacrifice (`.tax-sacrifice`) | Error: "0 for none" | Error | — | Blank saved `0`; negative saved |
+| Super top-up (`.tax-topup-amt`) | None (`0`, the cap room is shown), as before | Error | — | Negative clamped |
+| Payslip gross and withheld so far (`.tax-ytd-*`) | None (`0`), as before — shown blank | Error | — | Negative clamped |
+| Super guarantee % (`#taxSgRate`) | Error | Error | 0–30 | Blank saved `0` |
+| Health premiums (`#taxPhiPremiums`) | Error: "0 if none" | Error | — | Blank saved `0` |
+| A return's figures (gross, allowances, withheld, RESC, RFBA, a deduction's amount) | Error: "0 if none" | Error | — | Blank saved `0` |
+| An interest account's share (`sharePct`) | All of it (100%), as its placeholder says | Error | 0–100 | **Blank saved 0%** — the account's interest left out |
+
+In a return's grid the message spans the row under its fields, like a lot's. Not changed: the rental schedule's
+actuals (blank already means "use the plan's figure").
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -106,7 +129,7 @@ v3.229.0:
 |---|---|
 | ~~`propertieswiring.js`, `properties.js`~~ | ~~29~~ done (Property, above) |
 | ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
-| `taxwiring.js`, `taxyear.js`, `people.js` | 15 |
+| ~~`taxwiring.js`, `taxyear.js`, `people.js`~~ | ~~15~~ done (Tax and people, above) |
 | `calcwiring.js` (calculators) | 11 |
 | `planwiring.js` | 6 |
 | `spendingwiring.js`, `cashflowwiring.js` | 5 |

@@ -12,6 +12,7 @@
 //            empty     the message when it's blank; leave it out and blank is allowed (value null)
 //            min, max  the range, when there is one, and `range` the message for outside it
 // markField(input, result) shows or clears the message and aria-invalid; returns result.ok.
+// readInput(input, rule) reads an <input> by its rule and marks it: the result when it reads, null when it doesn't.
 
 export function readNumberField(raw, rule){
   rule = rule || {};
@@ -62,4 +63,9 @@ export function markField(input, result){
   }
   input.setAttribute("aria-invalid", "true");
   return false;
+}
+
+export function readInput(input, rule){
+  var r = readNumberField(input.value, Object.assign({ badInput: !!(input.validity && input.validity.badInput) }, rule));
+  return markField(input, r) ? r : null;
 }

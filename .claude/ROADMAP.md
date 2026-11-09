@@ -4867,6 +4867,12 @@ category ("Delete Groceries", not "Delete category" on all 15), and the name fie
 
 ## Investments: no blank or out-of-range figure saved — issue #263
 
-`[~]` Net worth → Investments: asset amounts, holdings (units, price, average cost, dividend, franking), lots,
+`[x]` Shipped (PR #291). Net worth → Investments: asset amounts, holdings (units, price, average cost, dividend, franking), lots,
 payouts, tax statements, vehicles, offset balances and the target mix. A cleared field saved 0, and franking or a
 target share outside 0–100 was quietly clamped; each now says what's wrong beside the field and saves nothing.
+
+## Property: no blank or out-of-range figure saved — issue #263
+
+`[~]` Net worth → Property: value, loans (balance, rate, term, repayment, investment share, borrowing costs, offset),
+management fee, ownership shares, depreciation schedule, construction and plant values, land value, purchase price and
+purchase costs. A cleared field saved 0, and an ownership or investment share outside 0–100 was quietly clamped.

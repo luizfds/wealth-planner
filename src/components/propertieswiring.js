@@ -21,7 +21,7 @@ import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper } from
 import { renderProjectionOutputs } from "./projections.js";
 import { modernPropRowOpen, renderProperties, patchPropertyCardComputed, logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing, fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues } from "./properties.js";
 import { renderTotals, withUndo, renderAll } from "./redraw.js";
-import { findProperty, rerenderTableFor, openNewRowModal } from "./rows.js";
+import { findProperty, rerenderTableFor, openNewRowModal, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { renderPropListModern } from "./properties.js";
@@ -29,6 +29,7 @@ import { renderSharedGroups } from "./expenses.js";
 import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
 import { recordCashRateMove, setCashRateMoveAside } from "../calc/cashrate.js";
+import { readInput } from "../lib/validate.js";
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
 // "propinc:<id>" and "propexp:<id>": a property's income and costs; "loan:<id>": its loans (edited by their own
 // handlers here — the generic row code only discards an untouched new one).
@@ -69,6 +70,45 @@ defineSection("loan", {
   discardRows: function(id){ var p = findProperty(id); return p ? p.loans : null; },
   discard: function(){ renderProperties(); renderProjectionOutputs(); persist(); }
 });
+
+// ---------------- Reading Property's number fields (#263) ----------------
+// Each field is saved only when it reads as a value its rule allows (lib/validate.js, docs/design/validation.md): a
+// cleared field isn't saved as 0, and a share outside 0–100 is said, not clamped into range.
+function money(empty, what){ return { empty: empty, min: 0, range: what + " can't be negative." }; }
+var PROPERTY_RULES = {
+  "loan-balance": money("Enter the balance — 0 if it's paid off.", "A loan balance"),
+  "loan-rate": money("Enter the interest rate — 0 if it's interest-free.", "A rate"),
+  "loan-term": money("Enter the years left on the loan.", "A term"),
+  "loan-manual-amount": money("Enter the repayment — 0 if none.", "A repayment"),
+  "loan-revert-rate": { min: 0, range: "A rate can't be negative — or leave it blank to keep today's." },
+  "loan-invest-pct": { min: 0, max: 100, range: "Enter a share from 0 to 100%, or leave it blank for all of it." },
+  "loan-borrowing": money("Enter the borrowing costs — 0 if none.", "Borrowing costs"),
+  "loan-borrowing-term": { min: 0, range: "A term can't be negative — or leave it blank for five years." },
+  "loan-offset": money("Enter the offset balance — 0 if it's empty.", "An offset balance"),
+  "prop-pmfee-percent": { empty: "Enter the fee — 0 if none.", min: 0, max: 100, range: "Enter a fee from 0 to 100% of the rent." },
+  "prop-pmfee-flat": money("Enter the fee — 0 if none.", "A fee"),
+  "prop-value": money("Enter the value.", "A value"),
+  "prop-ownership": { min: 0, max: 100, range: "Enter a share from 0 to 100% — blank means none." },
+  "dep-sched-cw": money("Enter the capital works — 0 if none.", "Capital works"),
+  "dep-sched-plant": money("Enter the plant and equipment — 0 if none.", "Plant and equipment"),
+  "prop-construction-cost": money("Enter the construction cost — 0 if none.", "A construction cost"),
+  "prop-plant-value": money("Enter the plant and equipment value — 0 if none.", "A value"),
+  "prop-plant-life": { empty: "Enter the effective life in years.", min: 1, range: "An effective life is at least 1 year." },
+  "prop-land-value": money("Enter the land value — 0 if you don't have it.", "A land value"),
+  "prop-purchase-price": { min: 0, range: "A purchase price can't be negative — or leave it blank if unknown." },
+  "cc-amount": { empty: "Enter the amount — 0 if there isn't one." }
+};
+function readProp(input, cls){ return readInput(input, PROPERTY_RULES[cls]); }
+// A loan is a row editor: closing it cancels a draft (rows.js restoreInvalidFields).
+defineSavedValue("loan-balance", function(l){ return Number(l.balance) || 0; });
+defineSavedValue("loan-rate", function(l){ return l.rate; });
+defineSavedValue("loan-term", function(l){ return Number(l.termYears) || 0; });
+defineSavedValue("loan-manual-amount", function(l){ return Number(l.manualRepaymentAmount) || 0; });
+defineSavedValue("loan-revert-rate", function(l){ return l.revertRate; });
+defineSavedValue("loan-invest-pct", function(l){ return l.investPct != null && l.investPct !== "" ? l.investPct : null; });
+defineSavedValue("loan-borrowing", function(l){ return Number(l.borrowingCosts) || 0; });
+defineSavedValue("loan-borrowing-term", function(l){ return Number(l.borrowingTermYears) || null; });
+defineSavedValue("loan-offset", function(l){ return Number(l.offsetBalance) || 0; });
 
 // Depreciation changes the property's taxable result, which changes each owner's taxable income,
 // their synthetic net-income row, and every total derived from it — and the depreciation
@@ -225,25 +265,45 @@ export function wireProperties(){
       else if(e.target.classList.contains("loan-fixed-until") || e.target.classList.contains("loan-revert-rate")){
         // v3.72.0: the fixed period's end and the rate after — only the "when fixed rates end" panel reads them.
         if(e.target.classList.contains("loan-fixed-until")) loan.fixedUntil = e.target.value || "";
-        else loan.revertRate = e.target.value === "" ? null : Number(e.target.value);
+        else{
+          var revert = readProp(e.target, "loan-revert-rate");
+          if(!revert) return;
+          loan.revertRate = revert.value;
+        }
         var fxp = card.querySelector("[data-fixed-panel]");
         if(fxp) fxp.innerHTML = fixedExpiryHtml(property);
         persist();
         return;
       }
-      else if(e.target.classList.contains("loan-balance")){ loan.balance = parseFloat(e.target.value) || 0; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
-      else if(e.target.classList.contains("loan-rate")) loan.rate = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-term")) loan.termYears = parseFloat(e.target.value) || 0;
-      else if(e.target.classList.contains("loan-manual-amount")) loan.manualRepaymentAmount = parseFloat(e.target.value) || 0;
+      else if(["loan-balance", "loan-rate", "loan-term", "loan-manual-amount"].some(function(c){ return e.target.classList.contains(c); })){
+        var loanCls = ["loan-balance", "loan-rate", "loan-term", "loan-manual-amount"].find(function(c){ return e.target.classList.contains(c); });
+        var loanRead = readProp(e.target, loanCls);
+        if(!loanRead) return;
+        if(loanCls === "loan-balance"){ loan.balance = loanRead.value; recordLoanSnapshot(loan, "balanceHistory", loan.balance); }
+        else if(loanCls === "loan-rate") loan.rate = loanRead.value;
+        else if(loanCls === "loan-term") loan.termYears = loanRead.value;
+        else loan.manualRepaymentAmount = loanRead.value;
+      }
       else if(e.target.classList.contains("loan-settled") || e.target.classList.contains("loan-borrowing") || e.target.classList.contains("loan-borrowing-term") || e.target.classList.contains("loan-ended") || e.target.classList.contains("loan-invest-pct")){
         if(e.target.classList.contains("loan-settled")) loan.settlementDate = e.target.value || "";
         else if(e.target.classList.contains("loan-invest-pct")){
-          if(e.target.value === "") delete loan.investPct;
-          else loan.investPct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+          var investRead = readProp(e.target, "loan-invest-pct");
+          if(!investRead) return;
+          if(investRead.value == null) delete loan.investPct;
+          else loan.investPct = investRead.value;
         }
         else if(e.target.classList.contains("loan-ended")) loan.endedOn = e.target.value || "";
-        else if(e.target.classList.contains("loan-borrowing")) loan.borrowingCosts = Math.max(0, parseFloat(e.target.value) || 0);
-        else loan.borrowingTermYears = Math.max(0, parseFloat(e.target.value) || 0);
+        else if(e.target.classList.contains("loan-borrowing")){
+          var borrowRead = readProp(e.target, "loan-borrowing");
+          if(!borrowRead) return;
+          loan.borrowingCosts = borrowRead.value;
+        }
+        else{
+          // Blank is the five-year default (0 to the calculation), as before.
+          var bTermRead = readProp(e.target, "loan-borrowing-term");
+          if(!bTermRead) return;
+          loan.borrowingTermYears = bTermRead.value == null ? 0 : bTermRead.value;
+        }
         var borrowNote = loanTr.querySelector('[data-computed="borrow"]');
         if(borrowNote) borrowNote.textContent = borrowingNoteText(loan);
         // Moves taxable income, not cash: the tax card is what has to catch up.
@@ -253,7 +313,9 @@ export function wireProperties(){
         patchIncomeGroupTotals();
       }
       else if(e.target.classList.contains("loan-offset")){
-        loan.offsetBalance = parseFloat(e.target.value) || 0;
+        var offRead = readProp(e.target, "loan-offset");
+        if(!offRead) return;
+        loan.offsetBalance = offRead.value;
         recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
         // The mirror of this file's own offset-balance-input handler — without it, editing the
         // offset from here would leave the Assets → Offsets tab showing a stale figure until the
@@ -268,8 +330,11 @@ export function wireProperties(){
       return;
     }
     if(e.target.classList.contains("prop-pmfee-percent") || e.target.classList.contains("prop-pmfee-flat")){
-      if(e.target.classList.contains("prop-pmfee-percent")) property.pmFee.percent = parseFloat(e.target.value) || 0;
-      else property.pmFee.flat = parseFloat(e.target.value) || 0;
+      var feeCls = e.target.classList.contains("prop-pmfee-percent") ? "prop-pmfee-percent" : "prop-pmfee-flat";
+      var feeRead = readProp(e.target, feeCls);
+      if(!feeRead) return;
+      if(feeCls === "prop-pmfee-percent") property.pmFee.percent = feeRead.value;
+      else property.pmFee.flat = feeRead.value;
       recalcComputedItems();
       rerenderTableFor("propexp:" + property.id);
       patchPropertyCardComputed(property);
@@ -278,7 +343,12 @@ export function wireProperties(){
       return;
     }
     if(e.target.classList.contains("prop-what")) property.what = e.target.value;
-    else if(e.target.classList.contains("prop-value")){ property.value = parseFloat(e.target.value) || 0; patchPropertyCardComputed(property); }
+    else if(e.target.classList.contains("prop-value")){
+      var valRead = readProp(e.target, "prop-value");
+      if(!valRead) return;
+      property.value = valRead.value;
+      patchPropertyCardComputed(property);
+    }
     else return;
     renderProjectionOutputs();
     persist();
@@ -319,7 +389,9 @@ export function wireProperties(){
     if(e.target.classList.contains("prop-ownership")){
       var ownershipPerson = e.target.getAttribute("data-ownership-person");
       if(!property.ownership) property.ownership = {};
-      property.ownership[ownershipPerson] = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+      var ownRead = readProp(e.target, "prop-ownership");
+      if(!ownRead) return;
+      property.ownership[ownershipPerson] = ownRead.value == null ? 0 : ownRead.value;
       renderProperties();
       // Same downstream set as depreciation: whose taxable income carries this property's result
       // is exactly what just changed.
@@ -337,8 +409,11 @@ export function wireProperties(){
       var schedRow = property.depreciationSchedule[Number(e.target.getAttribute("data-dep-sched-index"))];
       if(!schedRow) return;
       if(e.target.classList.contains("dep-sched-fy")) schedRow.fy = Number(e.target.value);
-      else if(e.target.classList.contains("dep-sched-cw")) schedRow.capitalWorks = Math.max(0, parseFloat(e.target.value) || 0);
-      else if(e.target.classList.contains("dep-sched-plant")) schedRow.plant = Math.max(0, parseFloat(e.target.value) || 0);
+      else if(e.target.classList.contains("dep-sched-cw") || e.target.classList.contains("dep-sched-plant")){
+        var isCw = e.target.classList.contains("dep-sched-cw"), schedRead = readProp(e.target, isCw ? "dep-sched-cw" : "dep-sched-plant");
+        if(!schedRead) return;
+        if(isCw) schedRow.capitalWorks = schedRead.value; else schedRow.plant = schedRead.value;
+      }
       else return;
       refreshAfterDepreciationChange();
       return;
@@ -350,10 +425,14 @@ export function wireProperties(){
        e.target.classList.contains("prop-plant-value") || e.target.classList.contains("prop-plant-life") ||
        e.target.classList.contains("prop-plant-secondhand")){
       if(e.target.classList.contains("prop-plant-secondhand")) property.plantSecondHand = e.target.checked;
-      else if(e.target.classList.contains("prop-construction-cost")) property.constructionCost = Math.max(0, parseFloat(e.target.value) || 0);
       else if(e.target.classList.contains("prop-construction-date")) property.constructionDate = e.target.value;
-      else if(e.target.classList.contains("prop-plant-value")) property.plantValue = Math.max(0, parseFloat(e.target.value) || 0);
-      else property.plantEffectiveLife = Math.max(1, parseFloat(e.target.value) || 10);
+      else{
+        var depKey = { "prop-construction-cost": "constructionCost", "prop-plant-value": "plantValue", "prop-plant-life": "plantEffectiveLife" };
+        var depCls = Object.keys(depKey).find(function(c){ return e.target.classList.contains(c); });
+        var depRead = readProp(e.target, depCls);
+        if(!depRead) return;
+        property[depKey[depCls]] = depRead.value;
+      }
       refreshAfterDepreciationChange();
       return;
     }
@@ -363,7 +442,11 @@ export function wireProperties(){
       // property's land value or state changes what every other property in that state owes, and
       // the explanatory note under each of them. recalcComputedItems() (called by renderAll's
       // chain) is what turns that into each property's "Land Tax" expense row.
-      if(e.target.classList.contains("prop-land-value")) property.landValue = parseFloat(e.target.value) || 0;
+      if(e.target.classList.contains("prop-land-value")){
+        var landRead = readProp(e.target, "prop-land-value");
+        if(!landRead) return;
+        property.landValue = landRead.value;
+      }
       else property.state = e.target.value;
       renderAll();
       persist();
@@ -373,7 +456,11 @@ export function wireProperties(){
       // Full re-render (like prop-kind above), not a patch — Capital gain and the yield-on-cost
       // badge only exist in the DOM once purchasePrice is set, so a patch here could be patching
       // an element that was never rendered in the first place (going from unset to set).
-      if(e.target.classList.contains("prop-purchase-price")) property.purchasePrice = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+      if(e.target.classList.contains("prop-purchase-price")){
+        var paidRead = readProp(e.target, "prop-purchase-price");
+        if(!paidRead) return;
+        property.purchasePrice = paidRead.value;
+      }
       else property.purchaseDate = e.target.value;
       renderProperties();
       persist();
@@ -390,7 +477,11 @@ export function wireProperties(){
       var costItem = property.acquisitionCosts[acqIdx];
       if(!costItem) return;
       if(e.target.classList.contains("cc-what")) costItem.what = e.target.value;
-      else costItem.amount = parseFloat(e.target.value) || 0;
+      else{
+        var costRead = readProp(e.target, "cc-amount");
+        if(!costRead) return;
+        costItem.amount = costRead.value;
+      }
       patchPropertyCardComputed(property);
       persist();
       return;

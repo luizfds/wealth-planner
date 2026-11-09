@@ -459,6 +459,8 @@
   .m-edit-field.span2{ grid-column: span 2; }
   .m-edit-field.span3{ grid-column: span 3; }
   .m-edit-field label:not(.field-label){ display:block; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin-bottom:4px; }
+  /* #261: the rate-changes group's heading — it names a group, not one field, so it's a span that looks like a label. */
+  .m-edit-field .rh-label{ display:block; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin-bottom:4px; }
   /* "(optional)" next to a field label — deliberately quieter than the label itself (normal
      weight, no uppercase) so a form scans as "these are the fields" first and "this one you can
      skip" second, rather than every label competing at the same visual weight. */

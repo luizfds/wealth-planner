@@ -17,6 +17,7 @@ import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { statementTotals, statementsForFy, waterRatesLine, latestStatement } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { labelFields } from "../lib/labelfields.js";
 import { detailLinkHtml } from "./detail.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
 import { propertyEstimate } from "../calc/estimates.js";
@@ -219,7 +220,9 @@ export function rateHistoryHtml(loan, today){
     return '<span class="rh-item">' + (Math.round(Number(h.rate) * 100) / 100) + '% ' + (h.date ? 'from ' + escapeAttr(h.date) : 'at the start') +
       '<button type="button" class="icon-btn" data-rate-del="' + i + '" aria-label="Remove this rate change">✕</button></span>';
   }).join("");
-  return '<div class="m-edit-field span3 rh-wrap"><label>Rate changes</label>' +
+  // #261: a heading over a list and two fields isn't one field's label — it names the group; each field keeps its name.
+  var gid = "rh-" + String(loan.id || loan.what || "loan").replace(/[^A-Za-z0-9_-]/g, "_");
+  return '<div class="m-edit-field span3 rh-wrap" role="group" aria-labelledby="' + gid + '"><span class="rh-label" id="' + gid + '">Rate changes</span>' +
     (hist.length ? '<div class="rh-list">' + list + '</div>' + (rateChangeNote(loan) ? '<span class="computed-note">' + rateChangeNote(loan) + '</span>' : '') : '<span class="computed-note">No changes recorded. When the lender moves the rate, record it here with the date — past years\' interest then follows it.</span>') +
     '<div class="rh-record"><input type="date" class="loan-rate-date" value="' + today + '" aria-label="Date the new rate applies from"><input type="number" step="0.01" min="0" class="loan-rate-new" placeholder="New rate %" aria-label="New rate percent">' +
     '<button type="button" class="btn btn-sm btn-ghost" data-rate-record>Record change</button></div></div>';
@@ -463,7 +466,9 @@ export function saleWhatIfHtml(p, d){
       '<label>Sell on <input type="date" data-sale-field="date" value="' + escapeAttr(i.date) + '"></label>' +
       '<label>Sale price <input type="number" step="1000" min="0" data-sale-field="price" value="' + escapeAttr(i.price) + '" placeholder="' + r.salePrice + '"></label>' +
       '<label>Agent % <input type="number" step="0.1" min="0" max="10" data-sale-field="agentPct" value="' + i.agentPct + '"></label>' +
-      '<label>Other costs $ <input type="number" step="100" min="0" data-sale-field="otherCosts" value="' + i.otherCosts + '" title="Conveyancing, marketing, styling, any break costs"></label>' +
+      // #261: what counts was a title tooltip; it shows, and describes the field.
+      '<label>Other costs $ <input type="number" step="100" min="0" data-sale-field="otherCosts" value="' + i.otherCosts + '" aria-describedby="sale-other-help-' + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") + '">' +
+        '<small class="field-help" id="sale-other-help-' + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") + '">Conveyancing, marketing, styling, any break costs.</small></label>' +
     '</div>' +
     (i.price ? '' : '<p class="ledger-note" style="margin:0 0 8px">Sale price left blank: today\'s value grown at ' + d.growthPct + '% a year (Projections) to the sale date.</p>') +
     '<div class="sale-grid"><div class="sale-col">' +
@@ -597,7 +602,12 @@ function agentStatementHtml(p, win){
     return '<li><span>' + escapeAttr(r.date) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
       ' <button type="button" class="btn btn-danger btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
   }).join("");
-  var field = function(key, label, extra){ return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" data-as="' + key + '"' + (extra || "") + '></label>'; };
+  // #261: help shows in the field, described — it was a title tooltip.
+  var field = function(key, label, help){
+    var hid = help ? "as-" + key + "-help-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") : "";
+    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" data-as="' + key + '"' + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
+      (help ? '<small class="field-help" id="' + hid + '">' + escapeAttr(help) + '</small>' : "") + '</label>';
+  };
   var accounts = (state.accounts || []).map(function(a){ return a.name; });
   var defAcct = (p.income && p.income[0] && p.income[0].account) || "";
   return '<details class="agent-stmt"' + (agentStatementUi.open[p.id] ? ' open' : '') + ' data-as-panel="' + escapeAttr(p.id) + '"><summary>Log a property manager statement</summary>' +
@@ -606,7 +616,7 @@ function agentStatementHtml(p, win){
     '<div class="agent-grid">' +
       '<label class="fr-field"><span>Statement date</span><input type="date" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
       field("rent", "Rent collected $") + field("water", "Water usage recovered $") +
-      field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? '' : ' title="No water line on this property — it will be logged without one"') +
+      field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? "" : "No water line on this property — it will be logged without one.") +
       field("otherAmount", "Other cost paid $") +
       '<label class="fr-field"><span>Other cost is for</span><select data-as="otherLine">' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '">' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
       '<label class="fr-field"><span>Paid into</span><select data-as="account"><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
@@ -735,7 +745,13 @@ export function propertyActualHtml(p, today){
     '<div class="ptx-row ptx-act ptx-total"><span>' + (a.net < 0 ? "Net rental loss" : "Net rental income") + '</span><b>' + money(a.net) + '</b><b class="ptx-plan">' + money(a.planNet) + '</b></div>' +
     '<p class="ledger-note" style="margin:6px 0 0">' + note + '</p></div>';
 }
+// #261: the card's labels tied to their fields and its title-tooltip help shown under them (lib/labelfields.js) —
+// the state and land value (land tax), construction cost and completion date (capital works), purchase price, a
+// loan's settlement date, the PM fee. One pass over the card, so every section and loan row in it is covered.
 function propertyCardHtml(p, colorIdx){
+  return labelFields(propertyCardBodyHtml(p, colorIdx), "pc-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_"));
+}
+function propertyCardBodyHtml(p, colorIdx){
   var equity = propertyEquityToday(p);
   var hasPmFee = p.kind === "IP";
   var pmFeePanel = hasPmFee
@@ -752,10 +768,11 @@ function propertyCardHtml(p, colorIdx){
   // unconditionally, even with no income rows yet, rather than gated on p.income.length — adding
   // the first row goes through rerenderTableFor's partial rebuild of just the row list, which
   // wouldn't retroactively reveal a panel that lives outside that container.
-  var incomePaidPanel =
+  // #261: drawn outside the card's labelFields pass below, so tied here too.
+  var incomePaidPanel = labelFields(
     '<div class="proj-controls prop-income-paid-panel">' +
       '<div class="proj-field" title="Doesn\'t change any calculation below — the amount/frequency on each row is still the rate used for planning. This just notes when the money actually lands, e.g. a property manager batching weekly-quoted rent into one monthly payout."><label>Actually received</label><select class="prop-income-paid-freq" aria-label="How often income from this property actually arrives">' + optionsHtml(PAYMENT_FREQS, p.incomePaidFreq || "Monthly") + '</select></div>' +
-    '</div>';
+    '</div>', "pip-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_"));
   var gearingBadge = "";
   var yieldBadge = "";
   var lvrBadge = "";

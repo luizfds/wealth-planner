@@ -30,7 +30,8 @@ function todayStr(){ return localDateStr(); }
 // line — which is now the quick-log sheet's job (expenses.js), where amount comes first and the
 // budget line is picked from chips instead of being fixed by whichever row you happened to open.
 export function logControlsHtml(section, idx, item){
-  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under" title="Date to log this under — defaults to today, can be backdated">' +
+  // #261: no title tooltip — it said what the field already shows (today's date) and its name says.
+  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under">' +
     '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' +
       ' title="Record the amount above under the date to the left">Record change</button>';
 }

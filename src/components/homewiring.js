@@ -26,6 +26,7 @@ import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { scenarioActions } from "./scenariowiring.js";
+import { readInput } from "../lib/validate.js";
 
 var monthReviewBody, benchmarksBody, homeArrangeRoot, homeArrangeOpen;
 
@@ -185,7 +186,11 @@ export function wireBenchmarks(){  // v3.35.0: Dashboard → Benchmarks controls
       if(t.value === "__other"){ renderBenchmarksOther(); return; }
       setBenchmarkField("symbol", null, t.value);
     } else if(t.matches("[data-bm-other]")) setBenchmarkField("symbol", null, t.value);
-    else if(t.matches("[data-bm-rate]")) setBenchmarkField("rate", null, t.value);
+    else if(t.matches("[data-bm-rate]")){
+      // #263: a blank or out-of-range rate was ignored without a word — the field showed it, the comparison didn't use it.
+      if(!readInput(t, { empty: "Enter a rate — 0 for none.", min: 0, max: 30, range: "Enter a rate from 0 to 30%." })) return;
+      setBenchmarkField("rate", null, t.value);
+    }
     else if(t.matches("[data-bm-price]")) setBenchmarkField("price", t.getAttribute("data-bm-price"), t.value);
     // v3.36.0: targets.
     else if(t.matches("[data-goal-kind]")){
@@ -194,10 +199,21 @@ export function wireBenchmarks(){  // v3.35.0: Dashboard → Benchmarks controls
       return;
     }
     else if(t.matches("[data-goal-category]")) return;
-    else if(t.matches("[data-goal-target]")) setGoalField(Number(t.getAttribute("data-goal-target")), "target", t.value);
+    else if(t.matches("[data-goal-target]")){
+      // Blank is no target; a negative one erased the target that was there.
+      var pct = /%/.test(t.getAttribute("aria-label") || "");
+      if(!readInput(t, pct ? { min: 0, max: 100, range: "Enter a share from 0 to 100%, or leave it blank." } : { min: 0, range: "A target can't be negative — leave it blank for none." })) return;
+      setGoalField(Number(t.getAttribute("data-goal-target")), "target", t.value);
+    }
     else if(t.matches("[data-goal-by]")) setGoalField(Number(t.getAttribute("data-goal-by")), "by", t.value);
     // v3.37.0: suburb figures.
-    else if(t.matches("[data-pm-field]")) setPropertyMarketField(t.getAttribute("data-pm-id"), t.getAttribute("data-pm-field"), t.value);
+    else if(t.matches("[data-pm-field]")){
+      // A suburb's yield and rent can't be negative (its growth can); blank clears the figure, as before.
+      var pmField = t.getAttribute("data-pm-field");
+      if((pmField === "yield" || pmField === "rentWeekly") && !readInput(t, { min: 0, range: (pmField === "yield" ? "A yield" : "Rent") + " can't be negative — leave it blank if you don't have it." })) return;
+      if(pmField === "growthPa" && !readInput(t, {})) return;
+      setPropertyMarketField(t.getAttribute("data-pm-id"), pmField, t.value);
+    }
     else return;
     renderBenchmarks();
   });

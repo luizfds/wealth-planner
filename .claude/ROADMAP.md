@@ -4897,6 +4897,13 @@ or a negative shock or volatility was quietly clamped, and a life event's cleare
 
 ## Cash flow: a transaction's amount and per-scenario amounts, no blank figure saved — issue #263
 
-`[~]` Cash flow → Spending: a transaction's cleared amount saved $0. (The "Vary by scenario" override panel also reads
+`[x]` Shipped (PR #296). Cash flow → Spending: a transaction's cleared amount saved $0. (The "Vary by scenario" override panel also reads
 with `|| 0`, but nothing has opened it since item 207 replaced per-row Vary with Plan's changes — dead code, left for a
 separate cleanup.)
+
+## The rest: fields that dropped or clamped a figure without saying — issue #263
+
+`[~]` The last family. Accounts' card limit and repayment day, the retirement ages, the benchmark's fixed rate, Home's
+goal targets, a property's suburb figures, a loan's strategy and "If you sold". Blank already meant "none" for each;
+what's left is a figure out of range, which was dropped (a negative goal target erased the target), ignored (the field
+kept it, the plan didn't) or clamped (an age of 120 became 99) without a word.

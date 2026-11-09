@@ -11,6 +11,7 @@
 //            badInput  the input's validity.badInput — "" because it couldn't be read, not because it's empty
 //            empty     the message when it's blank; leave it out and blank is allowed (value null)
 //            min, max  the range, when there is one, and `range` the message for outside it
+//            whole     a whole number only (a day of the month, an age); a fraction gets the `range` message
 // markField(input, result) shows or clears the message and aria-invalid; returns result.ok.
 // readInput(input, rule) reads an <input> by its rule and marks it: the result when it reads, null when it doesn't.
 
@@ -24,7 +25,7 @@ export function readNumberField(raw, rule){
   }
   var n = Number(s);
   if(!isFinite(n)) return { ok: false, message: "That isn't a number — use digits and a full stop, like 1250.50." };
-  if((rule.min != null && n < rule.min) || (rule.max != null && n > rule.max)){
+  if((rule.min != null && n < rule.min) || (rule.max != null && n > rule.max) || (rule.whole && !Number.isInteger(n))){
     return { ok: false, message: rule.range || ("Enter a number from " + rule.min + " to " + rule.max + ".") };
   }
   return { ok: true, value: n };

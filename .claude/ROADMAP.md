@@ -4854,6 +4854,13 @@ string pass over the card (lib/labelfields.js) ties each label to its control, s
 
 ## Debts: focus, names, validation — issues #261 / #263
 
-`[~]` Net worth → Investments → Summary → debts. The debt's name field had no visible keyboard focus (an inline all:unset
+`[x]` Shipped (PR #289). Net worth → Investments → Summary → debts. The debt's name field had no visible keyboard focus (an inline all:unset
 removed it); fields are named for their debt ("Balance of Card one"), not all alike; clearing a balance saved $0 — now
 it says so and saves nothing, with #263's readNumberField. A negative balance (a credit) is still allowed.
+
+## Category names: no lost categories, deletes that say which — issues #261 / #263
+
+`[~]` Settings → Categories. A rename ran on every keystroke, so clearing a name to retype it left every line in that
+category uncategorised — and the renamed category with none. A blank name, or one another category has, is now said
+and not applied (the lines keep their category until a valid name renames them). Each row's delete is named for its
+category ("Delete Groceries", not "Delete category" on all 15), and the name field is described by its usage.

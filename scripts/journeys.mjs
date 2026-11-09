@@ -26,6 +26,8 @@
 //                 label reaches its field; land value and purchase price still save (#261)
 //   debts       — Net worth's debts: visible focus on the inline name, fields named for their debt, no $0 from a cleared
 //                 balance (#261 / #263)
+//   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
+//                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -177,6 +179,32 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
+  // doesn't merge two categories, and each delete says which category it removes.
+  async categories(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.shared[1].category = ""; m.commit(["shared"]); });
+    const before = await stored(page, "({ cat: state.shared[0].category, other: state.shared[1].category, i: state.categories.indexOf(state.shared[0].category), n: state.categories.length })");
+    await go(page, "settings", "data-accounts-sub", "categories");
+    const field = '#categoriesTable .cat-mgmt-name[data-cat-index="' + before.i + '"]';
+    await page.locator(field).waitFor({ state: "visible" });
+    check(await page.getByRole("button", { name: "Delete " + before.cat, exact: true }).count() === 1, "a category's delete isn't named for it");
+    check(await page.getByRole("button", { name: "Delete category", exact: true }).count() === 0, "deletes are still all named alike");
+    // Cleared to retype: the lines keep their category until a new name renames them.
+    await page.click(field, { clickCount: 3 }); await page.keyboard.press("Backspace");
+    check(await stored(page, "state.shared[0].category") === before.cat, "clearing a category's name uncategorised its lines");
+    check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a blank category name isn't marked");
+    await page.keyboard.type("Food shop", { delay: 10 });
+    await eventually(async () => await stored(page, "state.shared[0].category") === "Food shop");
+    check(await stored(page, "state.shared[0].category") === "Food shop", "the lines didn't follow the rename");
+    check(await stored(page, "state.shared[1].category") === before.other, "the rename took in an uncategorised line");
+    check(await page.getByRole("button", { name: "Delete Food shop", exact: true }).count() === 1, "a renamed category's delete kept its old name");
+    // A name another category has: not applied, so nothing merges.
+    const taken = await stored(page, "state.categories.find(function(c, k){ return k !== " + before.i + " && c; })");
+    await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
+    check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
+    check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
   // #261 / #263: Net worth → Investments → Summary's debts — a visible focus indicator on the inline name, fields named
   // for their debt (and kept right when it's renamed), and a cleared balance that isn't saved as $0.
   async debts(page){

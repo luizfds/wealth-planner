@@ -4,6 +4,7 @@
 // problems the app hit.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
+import { markField } from "../lib/validate.js";
 import { undoEntry } from "../calc/activity.js";
 import { normaliseDescription } from "../calc/bank-import.js";
 import { recalcComputedItems } from "../calc/engine.js";
@@ -200,6 +201,13 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     var catIdx = Number(e.target.getAttribute("data-cat-index"));
     var oldCatName = state.categories[catIdx];
     if(oldCatName == null) return;
+    // #263: a rename runs as it's typed, so a blank name — clearing it to retype — renamed the category to nothing and
+    // left every line in it uncategorised, and typing through another category's name would merge the two. Neither is
+    // applied now: the field says why and the lines keep the last good name until a valid one renames them.
+    var typed = e.target.value.trim();
+    var clash = typed && state.categories.some(function(c, i){ return i !== catIdx && String(c).trim().toLowerCase() === typed.toLowerCase(); });
+    if(!markField(e.target, !typed ? { ok: false, message: "Enter a name — a category can't be blank." }
+        : clash ? { ok: false, message: "There's already a category called “" + typed + "”." } : { ok: true })) return;
     state.categories[catIdx] = e.target.value;
     renameCategoryEverywhere(oldCatName, e.target.value);
     refreshCategoryUi();

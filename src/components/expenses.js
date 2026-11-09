@@ -1827,9 +1827,12 @@ function categoryRowHtml(name, idx){
   // costs carry categories too, and a manager that reported "unused" for a category three of them
   // sit on would be actively misleading about what deleting it costs.
   var usedBy = budgetLineItems().filter(function(item){ return (item.category || "") === name; }).length;
-  var nameInput = '<input type="text" class="cat-mgmt-name" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name">';
-  var usage = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
-  var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-cat-del="' + idx + '" aria-label="Delete category">✕</button>';
+  // #261: each row's delete is named for its category — 15 alike "Delete category"s didn't say which one a delete removes
+  // — through aria-labelledby on hidden "Delete" plus the name field, so a rename keeps it right as it's typed. The name
+  // field is described by its usage: what a rename retargets.
+  var nameInput = '<input type="text" class="cat-mgmt-name" id="cat-name-' + idx + '" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name" aria-describedby="cat-used-' + idx + '">';
+  var usage = '<span class="cat-mgmt-count" id="cat-used-' + idx + '">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
+  var delBtn = '<span class="visually-hidden" id="cat-del-' + idx + '-lbl">Delete</span><button type="button" class="btn btn-danger btn-sm row-del" data-cat-del="' + idx + '" aria-labelledby="cat-del-' + idx + '-lbl cat-name-' + idx + '">✕</button>';
   return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
     '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + categoryLookPickerHtml(name, idx) + nameInput + usage + delBtn + '</div>' +
   '</div>';

@@ -4860,7 +4860,13 @@ it says so and saves nothing, with #263's readNumberField. A negative balance (a
 
 ## Category names: no lost categories, deletes that say which — issues #261 / #263
 
-`[~]` Settings → Categories. A rename ran on every keystroke, so clearing a name to retype it left every line in that
+`[x]` Shipped (PR #290). Settings → Categories. A rename ran on every keystroke, so clearing a name to retype it left every line in that
 category uncategorised — and the renamed category with none. A blank name, or one another category has, is now said
 and not applied (the lines keep their category until a valid name renames them). Each row's delete is named for its
 category ("Delete Groceries", not "Delete category" on all 15), and the name field is described by its usage.
+
+## Investments: no blank or out-of-range figure saved — issue #263
+
+`[~]` Net worth → Investments: asset amounts, holdings (units, price, average cost, dividend, franking), lots,
+payouts, tax statements, vehicles, offset balances and the target mix. A cleared field saved 0, and franking or a
+target share outside 0–100 was quietly clamped; each now says what's wrong beside the field and saves nothing.

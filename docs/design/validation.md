@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, the calculators and Plan.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, the calculators, Plan and Cash flow.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -159,6 +159,32 @@ above its slider.
 | A life event's length in years | Error | — | At least 1 | Blank saved `null`, counted as 1 year |
 | A life event's amount | Error: "0 if none" | Saved (money coming in) | — | Blank saved `0` |
 
+## Cash flow (Cash flow → Spending)
+
+Reproduced on main before the change (the `cashvalidation` journey fails there: a cleared amount saved $0).
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| A transaction's amount (`.tx-amount`) | Error: "negative for a refund" | Saved (a refund) | — | Blank saved `$0` |
+
+Closing a transaction cancels a draft amount; the refund toggle and picking a budget line (which fills a blank amount)
+write the saved figure back and clear the message.
+
+Not changed, each for a reason:
+- **Quick log, a pay change, a new row typed straight into the grid**: already refuse a blank amount with a message (or,
+  for the grid, take the linked line's amount, or a $0 note when it has a description).
+- **Bills to confirm**: a blank or 0 amount confirms at the bill's own amount — the field's purpose.
+- **"Vary by scenario"** (`.scen-override-input`): reads with `|| 0` too, but nothing has opened its panel since item 207
+  replaced per-row Vary with Plan's "Changes from today" — dead code, for a separate cleanup.
+
+**A redraw while someone is typing** (the app's own price or cash-rate read can land then) used to replace the field
+with one drawn from what's saved — the last valid value, no message, the caret at the start. `keepUi` now carries the
+typed text, the message and the caret to the replacement (found by the categories journey on CI; that journey now
+forces a redraw mid-typing to check it).
+
+`rows.js`'s table of saved values is made on first use: `spendingwiring.js` registers into it while loading, before
+`rows.js` has run in the import cycle.
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -171,7 +197,7 @@ v3.229.0:
 | ~~`taxwiring.js`, `taxyear.js`, `people.js`~~ | ~~15~~ done (Tax and people, above) |
 | ~~`calcwiring.js` (calculators)~~ | ~~11~~ done (Calculators, above) |
 | ~~`planwiring.js`~~ | ~~6~~ done (Plan, above) |
-| `spendingwiring.js`, `cashflowwiring.js` | 5 |
+| ~~`spendingwiring.js`, `cashflowwiring.js`~~ | ~~5~~ done (Cash flow, above) |
 | `dashboard.js`, `accountswiring.js`, `accounts.js`, `benchmarks.js`, `investreturn.js`, `detail.js` | 8 |
 
 There are also 7 `Math.max(0, Math.min(100, …))` clamps in `components/`. Some of these are display or filter readings

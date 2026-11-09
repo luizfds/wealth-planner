@@ -177,6 +177,11 @@ Not changed, each for a reason:
 - **"Vary by scenario"** (`.scen-override-input`): reads with `|| 0` too, but nothing has opened its panel since item 207
   replaced per-row Vary with Plan's "Changes from today" — dead code, for a separate cleanup.
 
+**A redraw while someone is typing** (the app's own price or cash-rate read can land then) used to replace the field
+with one drawn from what's saved — the last valid value, no message, the caret at the start. `keepUi` now carries the
+typed text, the message and the caret to the replacement (found by the categories journey on CI; that journey now
+forces a redraw mid-typing to check it).
+
 `rows.js`'s table of saved values is made on first use: `spendingwiring.js` registers into it while loading, before
 `rows.js` has run in the import cycle.
 

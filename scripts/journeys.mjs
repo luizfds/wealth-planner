@@ -215,6 +215,13 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+    // A redraw while it's being typed (the app's own price or cash-rate read can land then — it did on CI) keeps the
+    // draft, its message and the caret: the replacement field is drawn from what's saved.
+    await page.evaluate(async () => (await import("/src/components/redraw.js")).renderAll());
+    const kept = await page.evaluate(f => { const el = document.querySelector(f), m = el && document.getElementById(el.id + "-error");
+      return { value: el.value, invalid: el.getAttribute("aria-invalid"), message: m ? m.textContent : "", focused: document.activeElement === el, caret: el.selectionStart }; }, field);
+    check(kept.value === taken && kept.invalid === "true" && /already/.test(kept.message) && kept.focused && kept.caret === taken.length,
+      "a redraw mid-typing lost the draft (" + JSON.stringify(kept) + ")");
   },
   // #263: Cash flow → Spending — a transaction's cleared amount isn't saved as $0, and closing the row cancels it.
   async cashvalidation(page){
@@ -225,6 +232,8 @@ const JOURNEYS = {
     const row = "#transactionsTable .m-row.open", amt = row + " .tx-amount";
     await page.locator(amt).waitFor({ state: "visible" });
     const idx = Number(await page.evaluate(a => document.querySelector(a).getAttribute("data-tx-index"), amt));
+    // The row itself, by its index — the amount field (and its data-tx-index) only exists while the editor is open.
+    const txRow = '#transactionsTable .m-row[data-section="tx"][data-index="' + idx + '"]';
     const saved = () => stored(page, "state.transactions[" + idx + "].amount");
     const was = await saved();
     await page.fill(amt, "");
@@ -233,7 +242,7 @@ const JOURNEYS = {
     await page.evaluate(() => document.querySelector("#transactionsTable .m-row.open [data-row-toggle]").click());
     await until(page, () => !document.querySelector("#transactionsTable .m-row.open"));
     check(await page.evaluate(() => !document.querySelector("#transactionsTable .m-row.open")), "the transaction didn't close");
-    await page.evaluate(i => document.querySelector('#transactionsTable [data-tx-index="' + i + '"]').closest(".m-row").querySelector("[data-row-toggle]").click(), idx);
+    await page.evaluate(r => document.querySelector(r + " [data-row-toggle]").click(), txRow);
     await page.locator(amt).waitFor({ state: "visible" });
     const back = await page.evaluate(a => { const f = document.querySelector(a); return { v: f.value, bad: f.getAttribute("aria-invalid") }; }, amt);
     check(Number(back.v) === was && back.bad !== "true", "closing the transaction kept the cleared amount (" + JSON.stringify(back) + ")");
@@ -358,7 +367,11 @@ const JOURNEYS = {
     await go(page, "tax", "data-tax-sub", "returns");
     await click(page, '[data-ty-add="int"][data-ty-person="' + person + '"]');
     const yearRows = "(function(){ var y = state.taxYears || {}; var k = Object.keys(y).sort().pop(); return y[k].people[" + JSON.stringify(person) + "].interest; })()";
-    const share = '.ty-row-int [data-ty-key="sharePct"]', gross = '.ty-row-int [data-ty-key="gross"]';
+    // This person's interest rows only (another's can be in a closed section), in a section opened to show them.
+    const mine = '.ty-row-int [data-ty-person="' + person + '"]';
+    const share = mine + '[data-ty-key="sharePct"]', gross = mine + '[data-ty-key="gross"]';
+    await until(page, g => document.querySelector(g), gross);
+    await page.evaluate(g => { const el = [...document.querySelectorAll(g)].pop(); for(let d = el && el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true; }, gross);
     await page.locator(gross).last().waitFor({ state: "visible" });
     await page.locator(gross).last().fill("120"); await page.locator(gross).last().press("Tab");
     await eventually(async () => (await stored(page, yearRows + ".slice(-1)[0].gross")) === 120);

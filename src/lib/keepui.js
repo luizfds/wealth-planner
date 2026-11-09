@@ -10,6 +10,8 @@
 // almost nothing unless the draw removed the focused element or an open section, so a redraw costs what it did. It
 // never takes focus from where something else deliberately put it: only when focus fell to the page body.
 
+import { markField } from "./validate.js";
+
 function uiKey(el){
   var parts = [];
   for(var n = el, depth = 0; n && n.nodeType === 1 && n !== document.body && depth < 8; n = n.parentElement, depth++){
@@ -36,7 +38,7 @@ export function keepUi(draw){
   if(typeof document === "undefined" || !document.body || typeof document.querySelectorAll !== "function") return draw();
   // Keys are taken now, while the elements are still in the page — once removed, their ancestors are gone.
   var focused = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
-  var focusedKey = focused ? uiKey(focused) : null;
+  var focusedKey = focused ? uiKey(focused) : null, typing = typingOf(focused);
   var open = Array.prototype.map.call(document.querySelectorAll("details[open]"), function(d){ return { el: d, key: uiKey(d) }; });
   try { return draw(); }
   finally {
@@ -48,7 +50,24 @@ export function keepUi(draw){
     });
     if(focused && !focused.isConnected && (!document.activeElement || document.activeElement === document.body)){
       var to = findByKey(focused.tagName.toLowerCase(), focusedKey, visible);
-      if(to) to.focus({ preventScroll: true });
+      if(to){ keepTyping(typing, to); to.focus({ preventScroll: true }); }
     }
   }
+}
+
+// What was being typed goes across too: the replacement is drawn from what's saved, and a field that doesn't read yet
+// (#263) saves nothing — so without this, a redraw mid-typing put the last saved value back, dropped the message saying
+// what's wrong, and left the caret at the start for the next key. (Found by the categories journey on CI.)
+function typingOf(el){
+  if(!el || (el.tagName !== "INPUT" && el.tagName !== "TEXTAREA") || /^(checkbox|radio|file|range)$/.test(el.type)) return null;
+  var msg = el.getAttribute("aria-invalid") === "true" && el.id ? document.getElementById(el.id + "-error") : null;
+  var sel = null;
+  try { sel = [el.selectionStart, el.selectionEnd]; } catch(e){ /* number, date: no selection API */ }
+  return { value: el.value, message: msg && msg.textContent ? msg.textContent : null, sel: sel };
+}
+function keepTyping(t, to){
+  if(!t || to.tagName === "SELECT") return;
+  if(t.value !== to.value) to.value = t.value;
+  if(t.message) markField(to, { ok: false, message: t.message });
+  if(t.sel && t.sel[0] != null){ try { to.setSelectionRange(t.sel[0], t.sel[1]); } catch(e){ /* no selection API */ } }
 }

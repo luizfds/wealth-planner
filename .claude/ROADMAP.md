@@ -4891,6 +4891,11 @@ deposit outside 0–100% or a term under a year was quietly clamped.
 
 ## Plan: projection assumptions and life events, no blank figure saved — issue #263
 
-`[~]` Plan → Projection: horizon, return, growth, inflation and income-growth rates, the rate shock, volatility, and
+`[x]` Shipped (PR #295). Plan → Projection: horizon, return, growth, inflation and income-growth rates, the rate shock, volatility, and
 life events' year, length and amount. A cleared rate saved 0% (redrawing the whole plan on it), a horizon outside 1–50
 or a negative shock or volatility was quietly clamped, and a life event's cleared amount saved $0.
+
+## Cash flow: a transaction's amount and per-scenario amounts, no blank figure saved — issue #263
+
+`[~]` Cash flow → Spending: a transaction's cleared amount saved $0. "Vary by scenario": a cleared amount saved a $0
+override for that scenario instead of going back to the shared amount, and a negative one saved despite min="0".

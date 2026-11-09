@@ -4912,7 +4912,13 @@ kept it, the plan didn't) or clamped (an age of 120 became 99) without a word.
 
 ## Tabs and choosers: keyboard and focus — issue #262
 
-`[~]` A property card's tabs get the full ARIA tab pattern (arrow keys, Home/End, one tab in the Tab order, each tied to
+`[x]` Shipped (PR #302). A property card's tabs get the full ARIA tab pattern (arrow keys, Home/End, one tab in the Tab order, each tied to
 its panel). Reports' 21-report picker isn't tabs (it has group headings a tablist can't hold): it becomes a labelled
 chooser whose shown report is `aria-current`, and switching a report or its period keeps focus (its redraw goes
 through `keepUi`). Page subtabs say which is current (`aria-current`), not only by colour.
+
+## Home's scenario comparison, opened — issue #266
+
+`[~]` Opened, "Compare monthly trade-offs" takes the whole row of Home's tiles instead of a 174px column 2.6 screens tall
+at 390px (with the Tax tile beside it stretched to match); its risk notes stay; each scenario's name opens its page and
+a link goes to Projections for the horizon and rates.

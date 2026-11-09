@@ -32,6 +32,8 @@
 //                 ownership or investment share outside 0–100 is said beside the field and nothing is saved
 //   taxvalidation — Tax's number fields (#263): a cleared HELP balance, SG rate, sacrifice or statement figure isn't
 //                 saved as 0; hours over 168 aren't clamped; an interest account's share left blank is 100%, not 0%
+//   calcvalidation — the purchase and invest calculators (#263): a cleared price, rate or initial amount isn't 0, and a
+//                 deposit over 100% or a term of 0 years is said, not clamped
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -210,6 +212,44 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
+  // #263: the purchase and invest calculators — a cleared or out-of-range figure is said beside the field and the
+  // scenario's draft doesn't change (before, a cleared price became $0 and a 150% deposit became 100%).
+  async calcvalidation(page){
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))
+      .find(n => { const c = document.querySelector('#cards [data-edit-scenario="' + n + '"]').closest(".card"); return c && /buy/i.test(c.innerText); }));
+    check(!!name, "no buying scenario in the demo household");
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
+    await click(page, "[data-sc-calc]"); await until(page, () => document.body.getAttribute("data-current-page") === "calc"); await settle(page);
+    const cfg = (kind, k) => page.evaluate(async a => { const m = await import("/src/state.js"); const c = await import("/src/components/calculators.js"); return m.state[a[0]][c.calcFor.key][a[1]]; }, [kind, k]);
+    const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    const P = "#calcScenarioBody [data-calc-scenario] ", I = "#calcScenarioBody [data-invest-scenario] ";
+    await page.locator(P + ".calc-price").waitFor({ state: "visible" });
+    // A valid figure goes through.
+    await page.fill(P + ".calc-price", "750000");
+    await eventually(async () => await cfg("purchase", "price") === 750000);
+    check(await cfg("purchase", "price") === 750000, "a valid price didn't save to the draft");
+    const tries = [
+      [P + ".calc-price", "", "purchase", "price"],
+      [P + ".calc-depositPct", "150", "purchase", "depositPct"],
+      [P + ".calc-term", "0", "purchase", "termYears"],
+      [P + ".calc-rate", "", "purchase", "rate"],
+      [I + ".invest-initial", "-100", "invest", "initialAmount"]
+    ];
+    for(const [sel, typed, kind, key] of tries){
+      // The invest calculator's fields show once it's on (in the scenario's draft, instead of buying).
+      if(kind === "invest" && !await page.locator(sel).count()){ await page.evaluate(s => document.querySelector(s).click(), I + ".invest-enabled"); await page.locator(sel).waitFor({ state: "visible" }); }
+      if(!await page.locator(sel).count()) { check(false, sel + " isn't on the calculators page"); }
+      await page.locator(sel).scrollIntoViewIfNeeded();
+      const was = await cfg(kind, key);
+      await page.fill(sel, typed);
+      check(await cfg(kind, key) === was, key + " typed as " + JSON.stringify(typed) + " saved " + await cfg(kind, key) + " (was " + was + ")");
+      check(await marked(sel), key + " typed as " + JSON.stringify(typed) + " isn't marked with a message");
+      await page.fill(sel, String(was));
+      check(await page.evaluate(s => !document.querySelector(s).hasAttribute("aria-invalid"), sel), key + " still marked once it reads");
+    }
   },
   // #263: Tax's number fields — a cleared figure is said beside the field and nothing is saved (before, a cleared SG rate
   // saved 0 and an interest account's share left blank saved 0%, though its placeholder says 100).

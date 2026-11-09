@@ -33,7 +33,8 @@ export function readNumberField(raw, rule){
 var seq = 0;
 export function markField(input, result){
   if(!input) return !!(result && result.ok);
-  var box = input.closest(".m-edit-field, .field, label") || input.parentElement;
+  // The field's own box — the whole .calc-field or .proj-field, not a "$" prefix wrapper inside it.
+  var box = input.closest(".m-edit-field, .field, .calc-field, .proj-field, label") || input.parentElement;
   // This field's own message: a box can hold several fields (a purchase lot's row), each with its message.
   var msg = box && input.id ? Array.from(box.querySelectorAll(".field-error[data-for-input]")).find(function(m){ return m.getAttribute("data-for-input") === input.id; }) : null;
   // Shared fields reserve an error element and already describe it. Reuse it so

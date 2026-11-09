@@ -152,6 +152,8 @@
   .lot-row .icon-btn{ width:32px; height:32px; }
   .lot-row .icon-btn[disabled]{ opacity:.35; cursor:not-allowed; }
   .lot-sold{ grid-column: 2 / -1; font-size:var(--fs-xs); color:var(--ink-soft); }
+  /* #263: a lot's or payout's message spans the row, under its fields — each names the field it's about. */
+  .lot-row .field-error{ grid-column: 1 / -1; margin:0; }
   /* Annual tax statements (v3.22.0): one bordered card per year, the year select and delete in a
      head row, then the labelled fields on the shared edit grid. */
   .stmt-card{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 2px; margin-bottom:8px; }

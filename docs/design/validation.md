@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped, and the first family uses it: the budget and income row editors.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names and Investments.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -45,6 +45,32 @@ Each was reproduced in the browser before the change, against what's saved in st
 Whether a negative budget or income line is ever meant (an offset, a reimbursement) is a rules decision, and #263 says
 not to blanket-ban negatives. It's an open question below, not a change made here.
 
+## Investments (Net worth → Investments)
+
+Each was reproduced in the browser on main before the change (the `investvalidation` journey fails there: a cleared
+quantity saved 0 units). A field inside a list (a lot, a payout, a statement) gets its own message; in a lot's or
+payout's grid the message spans the row under its fields. Closing the holding's editor cancels a draft
+(`defineSavedValue` in `rows.js` tells the shared close code each field's saved value).
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| Asset value (`.a-amount`) | Error: "0 if there's none" | Saved, as for budget amounts | — | Blank saved `0` |
+| Units (`.h-qty`), price (`.h-price`) | Error | Error | — | Blank saved `0` (the holding's value fell to $0) |
+| Average cost (`.h-avgcost`) | Saved as unknown (`null`), as before | Error | — | Unreadable saved `0` |
+| Dividend per unit (`.h-dividend`) | Error: "0 if it pays none" | Error | — | Blank saved `0`; negative clamped to `0` |
+| Franked % (`.h-franked`) | Error | Error | 0–100, error outside it | 150 saved `100`, blank saved `0` |
+| Payout cash and franking credit (`.po-cash`, `.po-credit`) | Error: "0 if none" | Error | — | Blank saved `0`; negative clamped to `0` |
+| Lot units (`.lot-units`) | Error | Error | Not below the units sold from it | Blank or too few quietly raised to the sold count |
+| Lot price, brokerage (`.lot-price`, `.lot-brokerage`) | Error | Error | — | Blank saved `0`; negative clamped |
+| Tax statement figures (`.stmt-field`) | Error: "0 if it isn't on the statement" | Saved (a statement can carry a negative adjustment) | — | Blank saved `0` |
+| Vehicle purchase price (`.v-purchaseprice`) | Error | Error | — | Blank saved `0` |
+| Vehicle depreciation (`.v-deprate`) | Saved as `null` (none), as before | Error | 0–100 | Over 100 saved |
+| Offset balance (`.offset-balance-input`) | Error: "0 if it's empty" | Error | — | Blank saved `0` |
+| Target mix share (`[data-mix-target]`) | No target for that kind, as before | Error | 0–100 | 150 saved `100`; unreadable deleted the target |
+
+Not changed: the target mix's "next amount" (`bench.nextAmount`) is a what-if reading that's never saved, and the two
+reads in `assets.js` are chart calculations, not input.
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -53,7 +79,7 @@ v3.229.0:
 | Where | Reads |
 |---|---|
 | `propertieswiring.js`, `properties.js` | 29 |
-| `assetswiring.js`, `assets.js` | 19 |
+| ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
 | `taxwiring.js`, `taxyear.js`, `people.js` | 15 |
 | `calcwiring.js` (calculators) | 11 |
 | `planwiring.js` | 6 |

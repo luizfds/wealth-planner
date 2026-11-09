@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readNumberField } from "../src/lib/validate.js";
+import { readNumberField, markField } from "../src/lib/validate.js";
 
 // #263: a field reads as a value its rule allows, or says why — it never turns blank into 0 or clamps.
 test("blank is an error when the field needs a value, and allowed (null) when it doesn't", () => {
@@ -26,4 +26,45 @@ test("zero and negatives read as themselves; a range is checked, never clamped",
   assert.deepEqual(readNumberField("100", share), { ok: true, value: 100 });
   assert.deepEqual(readNumberField("0", share), { ok: true, value: 0 });
   assert.match(readNumberField("101", { min: 0, max: 100 }).message, /from 0 to 100/);
+});
+
+// A tiny stand-in for the DOM markField touches: elements with attributes, children and the two queries it makes.
+function fakeDom(){
+  const byId = new Map();
+  class El {
+    constructor(tag){ this.tag = tag; this.attrs = {}; this.children = []; this.className = ""; this.textContent = ""; this._id = ""; }
+    get id(){ return this._id; }
+    set id(v){ this._id = v; byId.set(v, this); }
+    setAttribute(k, v){ if(k === "id") this.id = v; else this.attrs[k] = String(v); }
+    getAttribute(k){ return k === "id" ? this._id || null : (k in this.attrs ? this.attrs[k] : null); }
+    removeAttribute(k){ delete this.attrs[k]; }
+    appendChild(c){ c.parent = this; this.children.push(c); return c; }
+    contains(c){ for(let x = c; x; x = x.parent) if(x === this) return true; return false; }
+    all(){ return this.children.flatMap(c => [c, ...c.all()]); }
+    querySelectorAll(){ return this.all().filter(e => e.className === "field-error" && e.getAttribute("data-for-input") != null); }
+    querySelector(){ return this.querySelectorAll()[0] || null; }
+    closest(){ return null; }
+    get parentElement(){ return this.parent || null; }
+  }
+  globalThis.document = { createElement: t => new El(t), getElementById: id => byId.get(id) || null };
+  return { El };
+}
+
+test("two fields in one box (a purchase lot's row) each keep their own message", () => {
+  const prev = globalThis.document;
+  try {
+    const { El } = fakeDom();
+    const row = new El("div"), units = row.appendChild(new El("input")), brokerage = row.appendChild(new El("input"));
+    units.id = "lot-units"; brokerage.id = "lot-brokerage";
+    markField(brokerage, { ok: false, message: "Brokerage can't be negative." });
+    markField(units, { ok: false, message: "Enter the units bought." });
+    const msgs = row.querySelectorAll();
+    assert.equal(msgs.length, 2);
+    assert.equal(document.getElementById("lot-brokerage-error").textContent, "Brokerage can't be negative.");
+    assert.equal(document.getElementById("lot-units-error").textContent, "Enter the units bought.");
+    assert.equal(units.getAttribute("aria-describedby"), "lot-units-error");
+    markField(units, { ok: true });
+    assert.equal(units.getAttribute("aria-invalid"), null);
+    assert.equal(document.getElementById("lot-brokerage-error").textContent, "Brokerage can't be negative.");
+  } finally { globalThis.document = prev; }
 });

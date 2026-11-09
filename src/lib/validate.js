@@ -33,7 +33,8 @@ var seq = 0;
 export function markField(input, result){
   if(!input) return !!(result && result.ok);
   var box = input.closest(".m-edit-field, .field, label") || input.parentElement;
-  var msg = box && box.querySelector(".field-error[data-for-input]");
+  // This field's own message: a box can hold several fields (a purchase lot's row), each with its message.
+  var msg = box && input.id ? Array.from(box.querySelectorAll(".field-error[data-for-input]")).find(function(m){ return m.getAttribute("data-for-input") === input.id; }) : null;
   // Shared fields reserve an error element and already describe it. Reuse it so
   // validation never creates a second message with the same id.
   if(!msg && box && input.id){

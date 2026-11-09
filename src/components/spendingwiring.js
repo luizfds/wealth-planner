@@ -28,16 +28,19 @@ import { showPage, showExpensesSubpage } from "./nav.js";
 import { receiptHolder } from "./receipts.js";
 import { withUndo } from "./redraw.js";
 import { txReview, txReviewHtml, reviewBannerHtml } from "./reviewqueue.js";
-import { rerenderTableFor, closeActiveModernRow, wireModernRowToggle, openNewRowModal } from "./rows.js";
+import { rerenderTableFor, closeActiveModernRow, wireModernRowToggle, openNewRowModal, defineSavedValue } from "./rows.js";
 import { renderTaxYear } from "./taxyear.js";
 import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./trips.js";
 import { defineSection } from "../lib/sections.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { readInput, markField } from "../lib/validate.js";
 
 var txTable, cfSearchTimer, txGridWide, txGridTimer, firstRunRoot, txReviewRoot, receiptInput, receiptFor;
 
 // ---------------- Spending's list, registered (v3.206.2, item 237b) ----------------
 // "tx": a transaction, edited by Spending's own handlers — the generic row code only discards an untouched new one.
+// Closing a transaction cancels a draft amount (rows.js restoreInvalidFields).
+defineSavedValue("tx-amount", function(t){ return t.amount; });
 defineSection("tx", {
   discardRows: function(){ return state.transactions; },
   discard: function(){ renderTransactions(); renderActualVsPlannedPanel(); persist(); }
@@ -407,7 +410,8 @@ export function wireSpending(){
       signT.amount = -(Number(signT.amount) || 0);
       var signRow = txSignBtn.closest(".m-row");
       var signField = signRow && signRow.querySelector(".tx-amount");
-      if(signField) signField.value = signT.amount;
+      // The field shows the saved figure, flipped — so a message about a draft it held no longer applies.
+      if(signField){ signField.value = signT.amount; markField(signField, { ok: true }); }
       var negative = signT.amount < 0;
       txSignBtn.textContent = negative ? "+" : "\u2212";
       txSignBtn.setAttribute("aria-label", negative ? "Currently a refund — make it a spend" : "Make this a refund");
@@ -467,7 +471,10 @@ export function wireSpending(){
       if(txRow) patchTransactionRowHeader(txRow, t);
     }
     else if(e.target.classList.contains("tx-amount")){
-      t.amount = parseFloat(e.target.value) || 0;
+      // #263: a cleared amount isn't $0 — said beside the field, nothing saved until it reads. Negative is a refund.
+      var txRead = readInput(e.target, { empty: "Enter the amount — negative for a refund." });
+      if(!txRead) return;
+      t.amount = txRead.value;
       var totalEl = document.getElementById("totalTransactionsAmount");
       if(totalEl) totalEl.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));
       // The −/+ button says what the next press will do, so typing a minus by hand (or pasting
@@ -503,6 +510,7 @@ export function wireSpending(){
           var amtField = txRow.querySelector(".tx-amount");
           if(amtField && (parseFloat(amtField.value) || 0) === 0){
             amtField.value = linkedItem.amount;
+            markField(amtField, { ok: true });
             t.amount = Number(linkedItem.amount) || 0;
             var totalEl2 = document.getElementById("totalTransactionsAmount");
             if(totalEl2) totalEl2.textContent = fmtCurrency0.format(state.transactions.reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0));

@@ -98,20 +98,27 @@ function readField(input, rule){
 }
 // Closing a row is cancelling what couldn't be saved: a field left invalid shows its saved value again (the item's,
 // not the value it was first drawn with — a valid edit earlier in this sitting may have moved it) and loses its message.
-var SAVED_VALUE = {
-  "f-amount": function(it){ return it.amount; },
-  "f-sacrificevalue": function(it){ return it.sacrificeValue; },
-  "f-deductpct": function(it){ return it.deductiblePct == null ? 100 : it.deductiblePct; }
-};
+// Made on first use, not as a module-level literal: a page module that registers its fields (defineSavedValue) can run
+// before this one does in the import cycle, when a `var` here would still be undefined.
+var SAVED_VALUE;
+function savedValues(){
+  if(!SAVED_VALUE) SAVED_VALUE = {
+    "f-amount": function(it){ return it.amount; },
+    "f-sacrificevalue": function(it){ return it.sacrificeValue; },
+    "f-deductpct": function(it){ return it.deductiblePct == null ? 100 : it.deductiblePct; }
+  };
+  return SAVED_VALUE;
+}
 // Another page's row editor (Investments' holdings, lots, payouts…) registers its own fields' saved values here, so
 // closing one of its rows cancels a draft the same way. get(item, input) — the input, for a field inside a list (a
 // lot, a payout) that its data-* attributes locate.
-export function defineSavedValue(cls, get){ SAVED_VALUE[cls] = get; }
+export function defineSavedValue(cls, get){ savedValues()[cls] = get; }
 function restoreInvalidFields(row, item){
   row.querySelectorAll('[aria-invalid="true"]').forEach(function(input){
-    Object.keys(SAVED_VALUE).forEach(function(cls){
+    var saved = savedValues();
+    Object.keys(saved).forEach(function(cls){
       if(!input.classList.contains(cls)) return;
-      var v = item ? SAVED_VALUE[cls](item, input) : null;
+      var v = item ? saved[cls](item, input) : null;
       input.value = v == null ? "" : v;
       // This is the saved baseline after cancellation, not a draft. The pending-work
       // tracker compares defaultValue, which may predate valid edits in this sitting.

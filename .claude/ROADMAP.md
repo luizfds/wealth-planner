@@ -4897,5 +4897,6 @@ or a negative shock or volatility was quietly clamped, and a life event's cleare
 
 ## Cash flow: a transaction's amount and per-scenario amounts, no blank figure saved — issue #263
 
-`[~]` Cash flow → Spending: a transaction's cleared amount saved $0. "Vary by scenario": a cleared amount saved a $0
-override for that scenario instead of going back to the shared amount, and a negative one saved despite min="0".
+`[~]` Cash flow → Spending: a transaction's cleared amount saved $0. (The "Vary by scenario" override panel also reads
+with `|| 0`, but nothing has opened it since item 207 replaced per-row Vary with Plan's changes — dead code, left for a
+separate cleanup.)

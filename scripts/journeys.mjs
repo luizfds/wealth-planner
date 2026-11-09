@@ -26,6 +26,8 @@
 //                 label reaches its field; land value and purchase price still save (#261)
 //   debts       — Net worth's debts: visible focus on the inline name, fields named for their debt, no $0 from a cleared
 //                 balance (#261 / #263)
+//   investvalidation — Investments' number fields (#263): a cleared quantity, price or brokerage, franking or a target
+//                 share outside 0–100 is said beside the field and nothing is saved; closing the editor cancels it
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -204,6 +206,67 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
+  // #263: Investments' number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
+  // (before, a cleared quantity saved 0 units and franking of 150% saved 100); closing the editor cancels the draft.
+  async investvalidation(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "assets", "data-assets-sub", "Shares");
+    await page.evaluate(() => [...document.querySelectorAll(".m-asset-rows [data-row-toggle]")].find(t => t.getClientRects().length).click());
+    const row = ".m-row.open";
+    await page.locator(row + " .h-qty").waitFor({ state: "visible" });
+    const idx = Number(await page.evaluate(r => document.querySelector(r).getAttribute("data-index"), row));
+    await page.evaluate(r => document.querySelectorAll(r + " details").forEach(d => { d.open = true; }), row);
+    const saved = expr => stored(page, "state.assets[" + idx + "]." + expr);
+    const invalid = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    const before = { qty: await saved("quantity"), price: await saved("price"), franked: await saved("frankedPct == null ? 100 : state.assets[" + idx + "].frankedPct") };
+    // Cleared quantity and price: not saved as 0.
+    await page.fill(row + " .h-qty", "");
+    check(await saved("quantity") === before.qty, "clearing a holding's quantity saved " + await saved("quantity"));
+    check(await invalid(row + " .h-qty"), "a cleared quantity isn't marked with a message");
+    await page.fill(row + " .h-price", "-3");
+    check(await saved("price") === before.price, "a negative price saved " + await saved("price"));
+    check(await invalid(row + " .h-price"), "a negative price isn't marked with a message");
+    // Franking outside 0–100 isn't clamped into range; a valid share saves and clears the message.
+    await page.fill(row + " .h-franked", "150");
+    check(await saved("frankedPct == null ? 100 : state.assets[" + idx + "].frankedPct") === before.franked, "franking of 150% saved " + await saved("frankedPct"));
+    check(await invalid(row + " .h-franked"), "franking of 150% isn't marked with a message");
+    await page.fill(row + " .h-franked", "50");
+    await eventually(async () => await saved("frankedPct") === 50);
+    check(await saved("frankedPct") === 50, "a valid franked share didn't save");
+    check(await page.evaluate(r => !document.querySelector(r + " .h-franked").hasAttribute("aria-invalid"), row), "a valid franked share is still marked");
+    // A lot's brokerage, cleared: not saved as 0. A lot can't hold fewer units than were sold from it (before, it was
+    // quietly raised to the sold count).
+    check(await page.locator(row + " .lot-brokerage").count() > 0, "the demo holding has no purchase lots to edit");
+    const brk = await saved("lots[0].brokerage"), units = await saved("lots[0].units");
+    await page.fill(row + " .lot-brokerage >> nth=0", "");
+    check(await saved("lots[0].brokerage") === brk, "clearing a lot's brokerage saved " + await saved("lots[0].brokerage"));
+    await page.evaluate(async i => { const m = await import("/src/state.js"); m.state.assets[i].lots[0].soldUnits = 5; }, idx);
+    await page.fill(row + " .lot-units >> nth=0", "2");
+    check(await saved("lots[0].units") === units, "a lot cut below its sold units saved " + await saved("lots[0].units"));
+    check(await page.evaluate(r => /sold/.test((document.getElementById(document.querySelector(r + " .lot-units").id + "-error") || {}).textContent || ""), row), "a lot cut below its sold units doesn't say why");
+    // Closing the editor cancels the drafts: reopened, the quantity shows what's saved, with no message.
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(i => !document.querySelector('.m-asset-rows .m-row.open[data-index="' + i + '"]'), idx);
+    await page.evaluate(i => document.querySelector('.m-asset-rows [data-index="' + i + '"] [data-row-toggle]').click(), idx);
+    await page.locator(row + " .h-qty").waitFor({ state: "visible" });
+    const back = await page.evaluate(r => { const q = document.querySelector(r + " .h-qty"); return { v: q.value, bad: q.getAttribute("aria-invalid") }; }, row);
+    check(Number(back.v) === before.qty && back.bad !== "true", "closing the editor kept the cleared quantity (" + JSON.stringify(back) + ")");
+    await page.keyboard.press("Escape");
+    // Target mix: 150% isn't clamped to 100; blank still means no target.
+    const mix = "[data-mix-target] >> nth=0";
+    check(await page.locator(mix).count() > 0, "Shares has no target mix to edit");
+    {
+      const cls = await page.evaluate(() => document.querySelector("[data-mix-target]").getAttribute("data-mix-target"));
+      const was = await stored(page, "(state.targetMix || {})[" + JSON.stringify(cls) + "]");
+      await page.fill(mix, "150"); await page.press(mix, "Tab");
+      check(await stored(page, "(state.targetMix || {})[" + JSON.stringify(cls) + "]") === was, "a target share of 150% saved " + await stored(page, "(state.targetMix || {})[" + JSON.stringify(cls) + "]"));
+      check(await invalid("[data-mix-target]"), "a target share of 150% isn't marked with a message");
+      await page.fill(mix, "40"); await page.press(mix, "Tab");
+      await eventually(async () => await stored(page, "(state.targetMix || {})[" + JSON.stringify(cls) + "]") === 40);
+      check(await stored(page, "(state.targetMix || {})[" + JSON.stringify(cls) + "]") === 40, "a valid target share didn't save");
+    }
   },
   // #261 / #263: Net worth → Investments → Summary's debts — a visible focus indicator on the inline name, fields named
   // for their debt (and kept right when it's renamed), and a cleared balance that isn't saved as $0.
@@ -548,8 +611,11 @@ const JOURNEYS = {
     check(/Current value/.test(await row.locator('.v-value-cell').textContent()),'Live value update removed its label');
     await row.getByLabel('Purchase date',{exact:true}).fill('');
     check(await saved('computed')===false && await saved('amount')===depreciated,'Clearing the date did not keep the stored value');
+    // #263: a cleared purchase price isn't saved as 0 any more — it's said beside the field, and the price and value stay.
     await row.getByLabel('Purchase price',{exact:true}).fill('');
-    check(await saved('purchasePrice')===0 && await saved('amount')===depreciated,'Clearing the price changed its existing fallback');
+    check(await saved('purchasePrice')===20000 && await saved('amount')===depreciated,'Clearing the price saved '+await saved('purchasePrice'));
+    check(await row.locator('.v-purchaseprice').getAttribute('aria-invalid')==='true','A cleared purchase price is not marked');
+    await row.getByLabel('Purchase price',{exact:true}).fill('20000');
     await row.getByLabel('Person',{exact:true}).fill('Sam');
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});

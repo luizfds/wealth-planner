@@ -27,7 +27,7 @@ import { refreshPriceSheet, priceSheetResultText, defaultBackfillFrom, priceShee
 import { renderProjectionOutputs } from "./projections.js";
 import { patchPropertyCardComputed } from "./properties.js";
 import { renderTotals, withUndo, renderAll, updatePersonSuggestions } from "./redraw.js";
-import { findProperty, refreshAfterLedgerChange } from "./rows.js";
+import { findProperty, refreshAfterLedgerChange, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { openNewRowModal } from "./rows.js";
@@ -211,6 +211,52 @@ function afterTradesRead(parsed){
   if(!parsed.trades.length) showToast("No trades found in that file");
 }
 
+// ---------------- Reading Investments' number fields (#263) ----------------
+// Each field is saved only when it reads as a value its rule allows (lib/validate.js, docs/design/validation.md): a
+// cleared field isn't saved as 0, and franking or a target share outside 0–100 is said, not clamped into range.
+var NOT_NEGATIVE = { min: 0 };
+var FIELD_RULES = {
+  "a-amount": { empty: "Enter the value — 0 if there's none." },
+  "h-qty": Object.assign({ empty: "Enter how many units — 0 if none are held.", range: "Units can't be negative." }, NOT_NEGATIVE),
+  "h-price": Object.assign({ empty: "Enter the price per unit.", range: "A price can't be negative." }, NOT_NEGATIVE),
+  "h-avgcost": Object.assign({ range: "An average cost can't be negative." }, NOT_NEGATIVE),
+  "h-dividend": Object.assign({ empty: "Enter the dividend per unit — 0 if it pays none.", range: "A dividend can't be negative." }, NOT_NEGATIVE),
+  "h-franked": { empty: "Enter the franked share, from 0 to 100%.", min: 0, max: 100, range: "Enter the franked share, from 0 to 100%." },
+  "po-cash": Object.assign({ empty: "Enter the cash received — 0 if none.", range: "Cash received can't be negative." }, NOT_NEGATIVE),
+  "po-credit": Object.assign({ empty: "Enter the franking credit — 0 if none.", range: "A franking credit can't be negative." }, NOT_NEGATIVE),
+  "lot-price": Object.assign({ empty: "Enter the price paid per unit.", range: "A price can't be negative." }, NOT_NEGATIVE),
+  "lot-brokerage": Object.assign({ empty: "Enter the brokerage — 0 if none.", range: "Brokerage can't be negative." }, NOT_NEGATIVE),
+  "stmt-field": { empty: "Enter the figure — 0 if it isn't on the statement." },
+  "v-purchaseprice": Object.assign({ empty: "Enter the purchase price.", range: "A purchase price can't be negative." }, NOT_NEGATIVE),
+  "v-deprate": { min: 0, max: 100, range: "Enter a rate from 0 to 100% a year, or leave it blank." }
+};
+function readIn(input, rule){
+  var r = readNumberField(input.value, Object.assign({ badInput: !!(input.validity && input.validity.badInput) }, rule));
+  return markField(input, r) ? r : null;
+}
+function readAs(input, cls){ return readIn(input, FIELD_RULES[cls]); }
+// A lot can't hold fewer units than have been sold from it.
+function lotUnitsRule(lot){
+  var sold = Number(lot.soldUnits) || 0;
+  return { empty: "Enter the units bought.", min: sold, range: sold > 0 ? sold + " units of this lot are sold — it can't hold fewer." : "Units can't be negative." };
+}
+function listEntry(list, input, attr){ return (list || [])[Number(input.getAttribute(attr))] || {}; }
+// Closing a row cancels a draft: each field shows its saved value again (rows.js restoreInvalidFields).
+defineSavedValue("a-amount", function(it){ return it.amount; });
+defineSavedValue("h-qty", function(it){ return it.quantity; });
+defineSavedValue("h-price", function(it){ return it.price; });
+defineSavedValue("h-avgcost", function(it){ return it.avgCost; });
+defineSavedValue("h-dividend", function(it){ return Number(it.dividendPerUnit) || 0; });
+defineSavedValue("h-franked", function(it){ return it.frankedPct == null ? 100 : it.frankedPct; });
+defineSavedValue("po-cash", function(it, el){ return listEntry(it.payouts, el, "data-payout-index").cash; });
+defineSavedValue("po-credit", function(it, el){ return listEntry(it.payouts, el, "data-payout-index").credit; });
+defineSavedValue("lot-units", function(it, el){ return listEntry(it.lots, el, "data-lot-index").units || 0; });
+defineSavedValue("lot-price", function(it, el){ return listEntry(it.lots, el, "data-lot-index").price; });
+defineSavedValue("lot-brokerage", function(it, el){ return listEntry(it.lots, el, "data-lot-index").brokerage; });
+defineSavedValue("stmt-field", function(it, el){ return listEntry(it.taxStatements, el, "data-stmt-index")[el.getAttribute("data-stmt-key")] || 0; });
+defineSavedValue("v-purchaseprice", function(it){ return it.purchasePrice; });
+defineSavedValue("v-deprate", function(it){ return it.depreciationRate; });
+
 export function wireAssets(){
   document.addEventListener("input", function(e){
     if(e.target.closest(".m-asset-rows")){
@@ -220,12 +266,18 @@ export function wireAssets(){
       var item = state.assets[idx];
       if(!item) return;
       if(e.target.classList.contains("a-what")) item.what = e.target.value;
-      else if(e.target.classList.contains("a-amount")) item.amount = parseFloat(e.target.value) || 0;
+      else if(e.target.classList.contains("a-amount")){
+        var amt = readAs(e.target, "a-amount");
+        if(!amt) return;
+        item.amount = amt.value;
+      }
       else if(e.target.classList.contains("a-person")) item.person = e.target.value;
       else if(e.target.classList.contains("h-what")) item.what = e.target.value;
       else if(e.target.classList.contains("h-symbol")) item.symbol = e.target.value;
       else if(e.target.classList.contains("h-qty")){
-        item.quantity = parseFloat(e.target.value) || 0;
+        var qty = readAs(e.target, "h-qty");
+        if(!qty) return;
+        item.quantity = qty.value;
         item.amount = Math.round(item.quantity * (Number(item.price) || 0) * 100) / 100;
         patchHoldingRow(tr, item);
         patchSharesGlance();
@@ -233,8 +285,10 @@ export function wireAssets(){
       // A dividend change moves that person's taxable income, so it has to re-run the tax chain —
       // unlike price/qty, which only move the holding's value.
       else if(e.target.classList.contains("h-dividend") || e.target.classList.contains("h-franked")){
-        if(e.target.classList.contains("h-dividend")) item.dividendPerUnit = Math.max(0, parseFloat(e.target.value) || 0);
-        else item.frankedPct = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+        var isDiv = e.target.classList.contains("h-dividend"), div = readAs(e.target, isDiv ? "h-dividend" : "h-franked");
+        if(!div) return;
+        if(isDiv) item.dividendPerUnit = div.value;
+        else item.frankedPct = div.value;
         var divNote = tr.querySelector(".h-div-note");
         if(divNote) divNote.textContent = dividendNoteText(item);
         recalcComputedItems();
@@ -249,8 +303,13 @@ export function wireAssets(){
         var po = (item.payouts || [])[Number(e.target.getAttribute("data-payout-index"))];
         if(!po) return;
         if(e.target.classList.contains("po-date")) po.date = e.target.value;
-        else if(e.target.classList.contains("po-cash")) po.cash = Math.max(0, parseFloat(e.target.value) || 0);
-        else if(e.target.classList.contains("po-credit")) po.credit = Math.max(0, parseFloat(e.target.value) || 0);
+        else{
+          var poKey = e.target.classList.contains("po-cash") ? "cash" : e.target.classList.contains("po-credit") ? "credit" : null;
+          if(!poKey) return;
+          var poRead = readAs(e.target, "po-" + poKey);
+          if(!poRead) return;
+          po[poKey] = poRead.value;
+        }
         var poNote = tr.querySelector(".payouts-note");
         if(poNote) poNote.textContent = payoutsNoteText(item);
         afterPayoutChange();
@@ -261,9 +320,13 @@ export function wireAssets(){
         var lot = (item.lots || [])[Number(e.target.getAttribute("data-lot-index"))];
         if(!lot) return;
         if(e.target.classList.contains("lot-date")) lot.date = e.target.value;
-        else if(e.target.classList.contains("lot-units")) lot.units = Math.max(Number(lot.soldUnits) || 0, parseFloat(e.target.value) || 0);
-        else if(e.target.classList.contains("lot-price")) lot.price = Math.max(0, parseFloat(e.target.value) || 0);
-        else if(e.target.classList.contains("lot-brokerage")) lot.brokerage = Math.max(0, parseFloat(e.target.value) || 0);
+        else{
+          var lotKey = ["units", "price", "brokerage"].find(function(k){ return e.target.classList.contains("lot-" + k); });
+          if(!lotKey) return;
+          var lotRead = readIn(e.target, lotKey === "units" ? lotUnitsRule(lot) : FIELD_RULES["lot-" + lotKey]);
+          if(!lotRead) return;
+          lot[lotKey] = lotRead.value;
+        }
         syncAvgCostFromLots(item);
         var lotsNote = tr.querySelector(".lots-note");
         if(lotsNote) lotsNote.textContent = lotsNoteText(item);
@@ -277,7 +340,11 @@ export function wireAssets(){
         var st = (item.taxStatements || [])[Number(e.target.getAttribute("data-stmt-index"))];
         if(!st) return;
         if(e.target.classList.contains("stmt-fy")) st.fy = Number(e.target.value);
-        else st[e.target.getAttribute("data-stmt-key")] = parseFloat(e.target.value) || 0;
+        else{
+          var stRead = readAs(e.target, "stmt-field");
+          if(!stRead) return;
+          st[e.target.getAttribute("data-stmt-key")] = stRead.value;
+        }
         recalcComputedItems();
         renderTaxSuper();
         patchSyntheticIncomeRows();
@@ -286,12 +353,16 @@ export function wireAssets(){
         renderProjectionOutputs();
       }
       else if(e.target.classList.contains("h-avgcost")){
-        item.avgCost = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+        var avg = readAs(e.target, "h-avgcost");
+        if(!avg) return;
+        item.avgCost = avg.value;
         patchHoldingRow(tr, item);
         patchSharesGlance();
       }
       else if(e.target.classList.contains("h-price")){
-        item.price = parseFloat(e.target.value) || 0;
+        var price = readAs(e.target, "h-price");
+        if(!price) return;
+        item.price = price.value;
         item.priceUpdated = localDateStr();
         item.amount = Math.round((Number(item.quantity) || 0) * item.price * 100) / 100;
         patchHoldingRow(tr, item);
@@ -300,7 +371,9 @@ export function wireAssets(){
       else if(e.target.classList.contains("h-person")) item.person = e.target.value;
       else if(e.target.classList.contains("v-what")) item.what = e.target.value;
       else if(e.target.classList.contains("v-purchaseprice")){
-        item.purchasePrice = parseFloat(e.target.value) || 0;
+        var paid = readAs(e.target, "v-purchaseprice");
+        if(!paid) return;
+        item.purchasePrice = paid.value;
         recalcComputedItems();
         patchVehicleRow(tr, item);
       }
@@ -310,7 +383,9 @@ export function wireAssets(){
         patchVehicleRow(tr, item);
       }
       else if(e.target.classList.contains("v-deprate")){
-        item.depreciationRate = e.target.value === "" ? null : (parseFloat(e.target.value) || 0);
+        var rate = readAs(e.target, "v-deprate");
+        if(!rate) return;
+        item.depreciationRate = rate.value;
         recalcComputedItems();
         patchVehicleRow(tr, item);
       }
@@ -645,7 +720,9 @@ export function wireAssets(){
     var loanIdx = Number(e.target.getAttribute("data-offset-loan"));
     var loan = property && property.loans[loanIdx];
     if(!loan) return;
-    loan.offsetBalance = parseFloat(e.target.value) || 0;
+    var bal = readIn(e.target, { empty: "Enter the offset balance — 0 if it's empty.", min: 0, range: "An offset balance can't be negative." });
+    if(!bal) return;
+    loan.offsetBalance = bal.value;
     recordLoanSnapshot(loan, "offsetHistory", loan.offsetBalance);
     patchOffsetsRow(property.id, loanIdx, loan.offsetBalance);
     patchPropertyCardComputed(property);
@@ -721,9 +798,12 @@ export function wireMarket(){  document.addEventListener("click", function(e){
   document.addEventListener("change", function(e){
     if(!e.target.matches) return;
     if(e.target.matches("[data-mix-target]")){
-      var c = e.target.getAttribute("data-mix-target"), v = e.target.value.trim();
+      // Blank means no target for that class; anything else must read as a share from 0 to 100.
+      var c = e.target.getAttribute("data-mix-target");
+      var share = readIn(e.target, { min: 0, max: 100, range: "Enter a share from 0 to 100%, or leave it blank for none." });
+      if(!share) return;
       if(!state.targetMix || typeof state.targetMix !== "object") state.targetMix = {};
-      if(v === "" || isNaN(Number(v))) delete state.targetMix[c]; else state.targetMix[c] = Math.max(0, Math.min(100, Number(v)));
+      if(share.value == null) delete state.targetMix[c]; else state.targetMix[c] = share.value;
       persist();
       redrawCard("mixCard", targetMixCardHtml());
       var again = document.querySelector('[data-mix-target="' + c + '"]');

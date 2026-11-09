@@ -103,11 +103,15 @@ var SAVED_VALUE = {
   "f-sacrificevalue": function(it){ return it.sacrificeValue; },
   "f-deductpct": function(it){ return it.deductiblePct == null ? 100 : it.deductiblePct; }
 };
+// Another page's row editor (Investments' holdings, lots, payouts…) registers its own fields' saved values here, so
+// closing one of its rows cancels a draft the same way. get(item, input) — the input, for a field inside a list (a
+// lot, a payout) that its data-* attributes locate.
+export function defineSavedValue(cls, get){ SAVED_VALUE[cls] = get; }
 function restoreInvalidFields(row, item){
   row.querySelectorAll('[aria-invalid="true"]').forEach(function(input){
     Object.keys(SAVED_VALUE).forEach(function(cls){
       if(!input.classList.contains(cls)) return;
-      var v = item ? SAVED_VALUE[cls](item) : null;
+      var v = item ? SAVED_VALUE[cls](item, input) : null;
       input.value = v == null ? "" : v;
       // This is the saved baseline after cancellation, not a draft. The pending-work
       // tracker compares defaultValue, which may predate valid edits in this sitting.
@@ -385,7 +389,9 @@ function closeActiveModernRowUI(){
   var row = findModernRowElement(activeModernRow.section, activeModernRow.idx, activeModernRow.containerId);
   if(row){
     row.classList.remove("open");
-    var rowsOf = getArrayForSection(activeModernRow.section);
+    // A kind the generic edit code leaves alone (an asset) still says where its rows are, through discardRows.
+    var closingSec = sectionOf(activeModernRow.section);
+    var rowsOf = getArrayForSection(activeModernRow.section) || (closingSec && closingSec.def.discardRows ? closingSec.def.discardRows(closingSec.arg) : null);
     restoreInvalidFields(row, rowsOf && rowsOf[activeModernRow.idx]);
   }
   activeModernRow.openState[activeModernRow.key] = false;

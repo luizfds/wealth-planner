@@ -34,6 +34,7 @@ import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow
 import { rentalLogged } from "../calc/propertyactuals.js";
 import { claimItems } from "../calc/claims.js";
 import { withUndo } from "./redraw.js";
+import { readInput } from "../lib/validate.js";
 
 var peopleTable, taxYearBody, taxDocsBody;
 
@@ -145,6 +146,37 @@ function printStatic(html){
   window.addEventListener("afterprint", done);
   window.print();
 }
+// ---------------- Reading Tax's number fields (#263) ----------------
+// Each field is saved only when it reads as a value its rule allows (lib/validate.js, docs/design/validation.md): a
+// cleared field isn't saved as 0, and a negative one is said rather than clamped. Blank keeps its meaning where it
+// has one: a payslip's figures and the top-up show blank for none; hours a week blank is 38; a year's home hours blank
+// is none; an interest account's share blank is 100%.
+function money(empty, what){ return { empty: empty, min: 0, range: what + " can't be negative." }; }
+// Each figure as it's asked for, and as the subject of "can't be negative".
+var TY_NAMES = { gross: ["the gross", "Gross"], allowances: ["the allowances", "Allowances"], withheld: ["the tax withheld", "Tax withheld"],
+  resc: ["the RESC", "RESC"], rfba: ["the RFBA", "RFBA"], amount: ["the amount", "An amount"] };
+function taxYearRule(key){
+  if(key === "sharePct") return { min: 0, max: 100, range: "Enter your share from 0 to 100% — blank is all of it." };
+  var name = TY_NAMES[key] || ["the figure", "A figure"];
+  return money("Enter " + name[0] + " — 0 if none.", name[1]);
+}
+var PEOPLE_RULES = {
+  "pp-help": money("Enter what's owed — 0 if nothing.", "A HELP balance"),
+  "pp-cap": money("Enter the cap.", "A cap"),
+  "pp-carry": money("Enter the carry-forward — 0 if none.", "A carry-forward"),
+  "pp-losses": money("Enter the losses — 0 if none.", "Losses"),
+  "pp-week": { min: 0, max: 168, range: "Enter hours from 0 to 168 — blank counts as 38." },
+  "pp-wfh": { min: 0, range: "Hours can't be negative — leave it blank for none." }
+};
+var TAX_RULES = {
+  "tax-sacrifice": money("Enter the sacrifice — 0 for none.", "A sacrifice"),
+  "tax-ytd-gross": { min: 0, range: "Gross pay can't be negative." },
+  "tax-ytd-withheld": { min: 0, range: "Tax withheld can't be negative." },
+  "tax-topup-amt": { min: 0, range: "A contribution can't be negative." },
+  taxSgRate: { empty: "Enter the super guarantee rate.", min: 0, max: 30, range: "Enter a rate from 0 to 30%." },
+  taxPhiPremiums: money("Enter the premiums — 0 if none.", "Premiums")
+};
+
 function onTaxYearChange(e){
   var t = e.target;
   if(t.hasAttribute("data-ty-evidence")){
@@ -172,6 +204,8 @@ function onTaxYearChange(e){
     return;
   }
   if(t.hasAttribute("data-ty-kind")){
+    var tyKey = t.getAttribute("data-ty-key");
+    if(t.type === "number" && !readInput(t, taxYearRule(tyKey))) return;
     taxYearSetField(t.getAttribute("data-ty-kind"), t.getAttribute("data-ty-person"), Number(t.getAttribute("data-ty-index")), t.getAttribute("data-ty-key"), t.value);
     afterTaxYearEdit();
   }
@@ -183,6 +217,7 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     if(!person) return;
     if(t.classList.contains("pp-name")){ renameTaxPerson(person, t.value); return; }
     var cls = ["pp-dob", "pp-help", "pp-cap", "pp-carry", "pp-losses", "pp-wfh", "pp-week", "pp-var"].find(function(c){ return t.classList.contains(c); });
+    if(cls && PEOPLE_RULES[cls] && !readInput(t, PEOPLE_RULES[cls])) return;
     if(!cls || !setPersonField(person, cls, t.type === "checkbox" ? t.checked : t.value, t.getAttribute("data-fy"))) return;
     afterPeopleChange();
   });
@@ -247,35 +282,35 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
       var person = panel.getAttribute("data-tax-person");
       var settings = personTaxSettings(person);
       var t = e.target;
-      if(t.classList.contains("tax-sacrifice")) settings.superSacrificeAnnual = parseFloat(t.value) || 0;
-      else if(t.classList.contains("tax-cap")) settings.concessionalCap = parseFloat(t.value) || 0;
-      else if(t.classList.contains("tax-carryforward")) settings.carryForward = parseFloat(t.value) || 0;
-      else if(t.classList.contains("tax-help")) settings.helpBalance = Math.max(0, parseFloat(t.value) || 0);
-      else if(t.classList.contains("tax-cgt-losses")) settings.capitalLossCarriedForward = Math.max(0, parseFloat(t.value) || 0);
-      else if(t.classList.contains("tax-topup-amt")) settings.topUpAmount = Math.max(0, parseFloat(t.value) || 0);
-      else if(t.classList.contains("tax-ytd-asof") || t.classList.contains("tax-ytd-gross") || t.classList.contains("tax-ytd-withheld")){
+      // v3.44.0 moved date of birth, HELP, caps, losses and home hours to Tax → People (setPersonField); what's left
+      // here is this year's sacrifice and the payslip check.
+      var taxCls = ["tax-sacrifice", "tax-topup-amt", "tax-ytd-gross", "tax-ytd-withheld"].find(function(c){ return t.classList.contains(c); });
+      var taxRead = taxCls ? readInput(t, TAX_RULES[taxCls]) : null;
+      if(taxCls && !taxRead) return;
+      if(taxCls === "tax-sacrifice") settings.superSacrificeAnnual = taxRead.value;
+      else if(taxCls === "tax-topup-amt") settings.topUpAmount = taxRead.value || 0;
+      else if(taxCls || t.classList.contains("tax-ytd-asof")){
         if(!settings.ytd || typeof settings.ytd !== "object") settings.ytd = {};
         if(t.classList.contains("tax-ytd-asof")) settings.ytd.asOf = t.value || "";
-        else settings.ytd[t.classList.contains("tax-ytd-gross") ? "gross" : "withheld"] = Math.max(0, parseFloat(t.value) || 0);
+        else settings.ytd[taxCls === "tax-ytd-gross" ? "gross" : "withheld"] = taxRead.value || 0;
         var ytdOut = panel.querySelector(".tax-ytd-out");
         if(ytdOut) ytdOut.innerHTML = withholdingCheckText(person);
         persist();
         return;
       }
-      else if(t.classList.contains("tax-dob")){ settings.dateOfBirth = t.value || ""; patchPhiNote(); }
-      else if(t.classList.contains("tax-wfh-hours")){
-        if(!settings.wfhHours) settings.wfhHours = {};
-        settings.wfhHours[t.getAttribute("data-fy")] = Math.max(0, parseFloat(t.value) || 0);
-      }
       else return;
     } else if(e.target.id === "taxSgRate"){
-      state.tax.sgRate = parseFloat(e.target.value) || 0;
+      var sg = readInput(e.target, TAX_RULES.taxSgRate);
+      if(!sg) return;
+      state.tax.sgRate = sg.value;
     } else if(e.target.id === "taxPrivateCover"){
       state.tax.privateHospitalCover = e.target.checked;
     } else if(e.target.id === "taxFamilyThresholds"){
       state.tax.familyThresholds = e.target.checked;
     } else if(e.target.id === "taxPhiPremiums"){
-      state.tax.phiPremiums = Math.max(0, parseFloat(e.target.value) || 0);
+      var phi = readInput(e.target, TAX_RULES.taxPhiPremiums);
+      if(!phi) return;
+      state.tax.phiPremiums = phi.value;
     } else if(e.target.id === "taxPhiTier"){
       state.tax.phiTierClaimed = Number(e.target.value);
       var premEl = document.getElementById("taxPhiPremiums");

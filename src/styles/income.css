@@ -126,6 +126,8 @@
 .ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
 .ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
 .ty-head-row{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
+/* #263: a figure's message spans the row under its fields — each names the figure it's about. */
+.ty-row .field-error{ grid-column: 1 / -1; margin:0; }
 .ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; font-size:var(--fs-sm); padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
 .ty-row input[type="number"], .ty-rent-in{ font-family:var(--font-num); text-align:right; }
 .ty-row .icon-btn{ width:32px; height:32px; }
@@ -201,6 +203,7 @@
   .tax-topup{ margin:10px 0 4px; padding:10px 12px; border:1px dashed var(--border); border-radius:10px; }
   .tax-topup[hidden]{ display:none; }
   .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .tax-topup-field .field-error{ flex-basis:100%; text-transform:none; letter-spacing:normal; font-weight:400; }
   .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
   .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:right; text-transform:none; letter-spacing:0; }
   .tax-topup-out{ margin:8px 0 0; font-size:var(--fs-sm); line-height:1.5; }

@@ -28,6 +28,8 @@
 //                 balance (#261 / #263)
 //   investvalidation — Investments' number fields (#263): a cleared quantity, price or brokerage, franking or a target
 //                 share outside 0–100 is said beside the field and nothing is saved; closing the editor cancels it
+//   propvalidation — Property's number fields (#263): a cleared value, land value or loan balance, a negative price, an
+//                 ownership or investment share outside 0–100 is said beside the field and nothing is saved
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -206,6 +208,75 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
+  // #263: Property's number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
+  // (before, a cleared value saved $0 and an ownership share of 150% saved 100); closing a loan cancels its draft.
+  async propvalidation(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "properties");
+    await click(page, "[data-prop-edit]");
+    const P = "state.properties[0].";
+    const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    const tab = async t => { await page.evaluate(t => document.querySelector('[data-prop-tab][data-tab="' + t + '"]').click(), t);
+      await page.waitForFunction(t => { const x = document.querySelector('[data-prop-panel="' + t + '"]'); return x && !x.hidden; }, t);
+      // One at a time: expanding a section redraws the card, so the rest of a list taken before it are stale.
+      for(let n = 0; n < 20 && await page.evaluate(() => { const x = document.querySelector('.prop-tab-panel:not([hidden]) [data-prop-section-toggle][aria-expanded="false"]'); if(x) x.click(); return !!x; }); n++) await settle(page);
+      await page.evaluate(() => document.querySelectorAll(".prop-tab-panel:not([hidden]) details").forEach(d => { d.open = true; }));
+      await settle(page); };
+    const panel = '.prop-tab-panel:not([hidden]) ';
+    await tab("overview");
+    // Current value (saved as typed): cleared isn't $0.
+    const value = await stored(page, P + "value");
+    await page.fill(panel + ".prop-value", "");
+    check(await stored(page, P + "value") === value, "clearing a property's value saved " + await stored(page, P + "value"));
+    check(await marked(panel + ".prop-value"), "a cleared property value isn't marked with a message");
+    await page.fill(panel + ".prop-value", String(value));
+    // Land value and purchase price (saved on change).
+    const land = await stored(page, P + "landValue");
+    await page.fill(panel + ".prop-land-value", ""); await page.press(panel + ".prop-land-value", "Tab");
+    check(await stored(page, P + "landValue") === land, "clearing the land value saved " + await stored(page, P + "landValue"));
+    check(await marked(panel + ".prop-land-value"), "a cleared land value isn't marked with a message");
+    const paid = await stored(page, P + "purchasePrice");
+    await page.fill(panel + ".prop-purchase-price", "-5"); await page.press(panel + ".prop-purchase-price", "Tab");
+    check(await stored(page, P + "purchasePrice") === paid, "a negative purchase price saved " + await stored(page, P + "purchasePrice"));
+    check(await marked(panel + ".prop-purchase-price"), "a negative purchase price isn't marked with a message");
+    // Ownership: 150% isn't clamped to 100; a valid share saves.
+    const own = panel + ".prop-ownership >> nth=0";
+    const person = await page.evaluate(s => document.querySelector(s).getAttribute("data-ownership-person"), panel + ".prop-ownership");
+    const ownWas = await stored(page, P + "ownership && " + P + "ownership[" + JSON.stringify(person) + "]");
+    await page.fill(own, "150"); await page.press(own, "Tab");
+    check(await stored(page, P + "ownership && " + P + "ownership[" + JSON.stringify(person) + "]") === ownWas, "an ownership share of 150% saved " + await stored(page, P + "ownership[" + JSON.stringify(person) + "]"));
+    check(await marked(panel + ".prop-ownership"), "an ownership share of 150% isn't marked with a message");
+    // A loan: a cleared balance and an investment share of 150% aren't saved; closing the loan cancels the draft.
+    await tab("loans");
+    await page.evaluate(() => [...document.querySelectorAll('.prop-tab-panel:not([hidden]) [data-loan-index] [data-row-toggle]')].find(t => t.getClientRects().length).click());
+    const loan = ".m-row.open[data-loan-index]";
+    await page.locator(loan + " .loan-balance").waitFor({ state: "visible" });
+    const bal = await stored(page, P + "loans[0].balance");
+    await page.fill(loan + " .loan-balance", "");
+    check(await stored(page, P + "loans[0].balance") === bal, "clearing a loan's balance saved " + await stored(page, P + "loans[0].balance"));
+    check(await marked(loan + " .loan-balance"), "a cleared loan balance isn't marked with a message");
+    const inv = await stored(page, P + "loans[0].investPct");
+    await page.fill(loan + " .loan-invest-pct", "150");
+    check(await stored(page, P + "loans[0].investPct") === inv, "an investment share of 150% saved " + await stored(page, P + "loans[0].investPct"));
+    check(await marked(loan + " .loan-invest-pct"), "an investment share of 150% isn't marked with a message");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector(".m-row.open[data-loan-index]"));
+    await page.evaluate(() => [...document.querySelectorAll('.prop-tab-panel:not([hidden]) [data-loan-index] [data-row-toggle]')].find(t => t.getClientRects().length).click());
+    await page.locator(loan + " .loan-balance").waitFor({ state: "visible" });
+    const back = await page.evaluate(l => { const b = document.querySelector(l + " .loan-balance"); return { v: b.value, bad: b.getAttribute("aria-invalid") }; }, loan);
+    check(Number(back.v) === bal && back.bad !== "true", "closing the loan kept the cleared balance (" + JSON.stringify(back) + ")");
+    await page.fill(loan + " .loan-balance", String(bal - 1000));
+    await eventually(async () => await stored(page, P + "loans[0].balance") === bal - 1000);
+    check(await stored(page, P + "loans[0].balance") === bal - 1000, "a valid loan balance didn't save");
+    await page.keyboard.press("Escape");
+    // The manager's fee, cleared: not saved as 0%.
+    await tab("income");
+    const fee = await stored(page, P + "pmFee.percent");
+    await page.fill(panel + ".prop-pmfee-percent", "");
+    check(await stored(page, P + "pmFee.percent") === fee, "clearing the manager's fee saved " + await stored(page, P + "pmFee.percent"));
+    check(await marked(panel + ".prop-pmfee-percent"), "a cleared manager's fee isn't marked with a message");
   },
   // #263: Investments' number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
   // (before, a cleared quantity saved 0 units and franking of 150% saved 100); closing the editor cancels the draft.

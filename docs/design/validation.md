@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names and Investments.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments and Property.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -71,6 +71,32 @@ payout's grid the message spans the row under its fields. Closing the holding's 
 Not changed: the target mix's "next amount" (`bench.nextAmount`) is a what-if reading that's never saved, and the two
 reads in `assets.js` are chart calculations, not input.
 
+## Property (Net worth → Property)
+
+Reproduced on main before the change (the `propvalidation` journey fails there: a cleared value saved $0). A loan is a
+row editor, so closing it cancels a draft, as with a holding. Fields saved on `change` (land value, purchase price,
+ownership, depreciation) redraw the card only once they read, so the message stays until then.
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| Current value (`.prop-value`) | Error | Error | — | Blank saved `0` |
+| Land value (`.prop-land-value`) | Error: "0 if you don't have it" | Error | — | Blank saved `0` |
+| Purchase price (`.prop-purchase-price`) | Unknown (`null`), as before | Error | — | Negative saved |
+| Purchase costs (`.cc-amount`) | Error: "0 if there isn't one" | Saved (a settlement credit) | — | Blank saved `0` |
+| Ownership share (`.prop-ownership`) | `0`, as before (owned by the others) | Error | 0–100 | 150 saved `100` |
+| Loan balance, rate, term, manual repayment | Error | Error | — | Blank saved `0` |
+| Rate after the fixed period (`.loan-revert-rate`) | Keeps today's (`null`), as before | Error | — | — |
+| Used to invest % (`.loan-invest-pct`) | All of it (no value), as before | Error | 0–100 | 150 saved `100` |
+| Borrowing costs (`.loan-borrowing`) | Error: "0 if none" | Error | — | Blank saved `0`; negative clamped |
+| Borrowing-cost term (`.loan-borrowing-term`) | Five years (`0`), as before | Error | — | Negative clamped |
+| Offset (`.loan-offset`) | Error: "0 if it's empty" | Error | — | Blank saved `0` |
+| Manager's fee % and flat (`.prop-pmfee-*`) | Error: "0 if none" | Error | % is 0–100 | Blank saved `0` |
+| Depreciation schedule, construction cost, plant value | Error: "0 if none" | Error | — | Blank saved `0`; negative clamped |
+| Plant effective life (`.prop-plant-life`) | Error | — | At least 1 year | Blank saved `10`, below 1 raised to `1` |
+
+Not changed: the fixed-rate what-if (never saved); "Record change" and "Add interest charge" already refuse a missing
+figure with a message; the reads in `properties.js` are display calculations.
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -78,7 +104,7 @@ v3.229.0:
 
 | Where | Reads |
 |---|---|
-| `propertieswiring.js`, `properties.js` | 29 |
+| ~~`propertieswiring.js`, `properties.js`~~ | ~~29~~ done (Property, above) |
 | ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
 | `taxwiring.js`, `taxyear.js`, `people.js` | 15 |
 | `calcwiring.js` (calculators) | 11 |

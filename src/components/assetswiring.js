@@ -11,7 +11,7 @@ import { parseCsvGrid } from "../calc/pricesheet.js";
 import { saleCapitalGain, lotsUnitsAvailable } from "../calc/tax.js";
 import { exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate } from "../lib/backup.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
-import { readNumberField, markField } from "../lib/validate.js";
+import { readNumberField, markField, readInput as readIn } from "../lib/validate.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, genId, normalizeShareAsset } from "../state.js";
@@ -230,10 +230,6 @@ var FIELD_RULES = {
   "v-purchaseprice": Object.assign({ empty: "Enter the purchase price.", range: "A purchase price can't be negative." }, NOT_NEGATIVE),
   "v-deprate": { min: 0, max: 100, range: "Enter a rate from 0 to 100% a year, or leave it blank." }
 };
-function readIn(input, rule){
-  var r = readNumberField(input.value, Object.assign({ badInput: !!(input.validity && input.validity.badInput) }, rule));
-  return markField(input, r) ? r : null;
-}
 function readAs(input, cls){ return readIn(input, FIELD_RULES[cls]); }
 // A lot can't hold fewer units than have been sold from it.
 function lotUnitsRule(lot){

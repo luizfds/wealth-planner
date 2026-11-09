@@ -458,7 +458,7 @@
   .sc-savebar .sc-edit-state{ flex:1 1 auto; }
   .sc-edit-head .sc-edit-actions, .sc-edit-head .sc-edit-state{ display:none; }
   #page-scenario{ padding-bottom:72px; }
-  body[data-current-page="scenario"] .quick-fab-wrap{ display:none; }
+  body[data-current-page="scenario"] :is(.quick-fab-wrap, .header-add){ display:none; }
   body[data-current-page="scenario"] .toast-wrap{ bottom: calc(18px + 62px + env(safe-area-inset-bottom)); }
   .sc-edit-layout{ grid-template-columns: minmax(0,1fr); gap:6px; }
   .sc-edit-aside{ order:-1; position:static; max-height:none; overflow:visible; }

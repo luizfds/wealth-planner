@@ -4937,11 +4937,17 @@ corner radii, three text sizes and six heights at 1280px (issue #254 is not fini
 
 Each step is its own reviewable PR or small series, in this order. Issue #267 (regression coverage) goes with every one.
 
-1. `[ ]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
+1. `[~]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
    and one primary per view; add/delete wording), since the page's add action moves into the header slot. The four
    review questions in `docs/design/pages.md` are answered (its "Decisions from review"): the period chip is hidden where
    nothing follows it; Net worth's rail becomes a back link on Investments; Tax → Returns' primary is the open year's
    next step; "+ Add" always names the thing.
+   - `[x]` **Issue #304**: a desktop has no floating button; the page's action is a button in the header (its plus
+     sign below 1500px, labelled above), and Quick actions is in the avatar menu. A phone has one 56px round button
+     where there was a 147×96px labelled pill with a second button above it. The smoke run fails a floating button on
+     a desktop, or anything bigger than the one circle on a phone. Below 1500px the header's gaps and the net worth pill's
+     padding are tighter by the 48px the button takes, so the header wraps no sooner than it did.
+   - `[ ]` Issue #255 step 1 (header and one primary per view), then step 2 (add/delete wording).
 2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways

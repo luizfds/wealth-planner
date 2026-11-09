@@ -766,7 +766,7 @@
     @media (prefers-reduced-motion: reduce){ .qlog-panel, .qfab-panel{ animation:none; } }
   }
 
-  /* ---------------- Quick actions menu (the fab's chevron) ---------------- */
+  /* ---------------- Quick actions menu (the avatar menu, #304) ---------------- */
   /* Reuses .review-backdrop/.review-panel for the shell, same as the quick-log sheet above. */
   .qfab-panel{ max-width:400px; text-align:left; }
   .qfab-actions{ display:flex; flex-direction:column; gap:2px; }

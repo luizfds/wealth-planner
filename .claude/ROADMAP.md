@@ -4776,8 +4776,10 @@ or a small series; no merge or deployment until reviewed. Issue #267 (regression
    `<dialog>`/`showModal()` already in `safekeepingwiring.js`.
 3. `[x]` **Issue #254: a shared-field foundation** (foundation shipped, PR #272; families migrate later), kept tight: the field, its label/help/error states and
    tokens, so issue #263 isn't held behind a large redesign.
-4. `[~]` **Issue #263: inline validation before persisting financial inputs**, then page migrations, one feature
-   family per PR: issues #255, #261, #258/#259/#260 (shared mobile patterns) and #266.
+4. `[x]` **Issue #263: inline validation before persisting financial inputs** — every family shipped (PRs #274,
+   #285–#297); rules and what was left alone in `docs/design/validation.md`.
+   `[~]` Then page migrations: issue #255 (page structure — design pass first, as the issue asks), #261,
+   #258/#259/#260 (shared mobile patterns) and #266.
 5. `[ ]` **Issues #264 (search) and #265 (import)**: a separate design pass each, agreed before implementation.
 
 Also tracked in issue #267: the Transfer journey that failed once under concurrent load and passed alone. Find
@@ -4903,7 +4905,7 @@ separate cleanup.)
 
 ## The rest: fields that dropped or clamped a figure without saying — issue #263
 
-`[~]` The last family. Accounts' card limit and repayment day, the retirement ages, the benchmark's fixed rate, Home's
+`[x]` Shipped (PR #297). The last family. Accounts' card limit and repayment day, the retirement ages, the benchmark's fixed rate, Home's
 goal targets, a property's suburb figures, a loan's strategy and "If you sold". Blank already meant "none" for each;
 what's left is a figure out of range, which was dropped (a negative goal target erased the target), ignored (the field
 kept it, the plan didn't) or clamped (an age of 120 became 99) without a word.

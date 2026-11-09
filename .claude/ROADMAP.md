@@ -4838,8 +4838,16 @@ these tabs and Plan → Goals; it found the June moves' person headings skipping
 
 ## Holdings and purchase lots: labels and help — issue #261
 
-`[~]` Investments → Shares. A holding's editor and its sale form on the shared field adapter (ledgerFields): labels tied to
+`[x]` Shipped v3.235.2 (PR #287). Investments → Shares. A holding's editor and its sale form on the shared field adapter (ledgerFields): labels tied to
 their fields and names that start with them ("Qty" was named "Quantity", "Sold on" "Sale date"); help that was title-only
 shows under its field — dividend per unit, franked %, proceeds after brokerage, the 12-month CGT discount on Acquired on,
 cost base. Purchase lots and distributions keep their compact grid, with each lot numbered in its fields' names and the
 title help in the notes they're described by. The price paste box gets a visible label (placeholder only).
+
+## Property and loan editors: labels and help — issue #261
+
+`[~]` Net worth → Property, editing. 35 visible labels aren't tied to their fields (purchase price and ownership have no
+accessible name at all), and the most consequential tax help is in title tooltips: the state (land tax), land value
+(not market value), construction cost and completion date (capital works), plant and equipment (the 2017 rule),
+effective life, purchase price, a loan's settlement date (the five-year borrowing-cost clock), the PM fee. One pure
+string pass over the card (lib/labelfields.js) ties each label to its control, shows the help under it, described.

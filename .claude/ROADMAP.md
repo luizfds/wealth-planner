@@ -4846,8 +4846,14 @@ title help in the notes they're described by. The price paste box gets a visible
 
 ## Property and loan editors: labels and help — issue #261
 
-`[~]` Net worth → Property, editing. 35 visible labels aren't tied to their fields (purchase price and ownership have no
+`[x]` Shipped v3.235.3 (PR #288). Net worth → Property, editing. 35 visible labels aren't tied to their fields (purchase price and ownership have no
 accessible name at all), and the most consequential tax help is in title tooltips: the state (land tax), land value
 (not market value), construction cost and completion date (capital works), plant and equipment (the 2017 rule),
 effective life, purchase price, a loan's settlement date (the five-year borrowing-cost clock), the PM fee. One pure
 string pass over the card (lib/labelfields.js) ties each label to its control, shows the help under it, described.
+
+## Debts: focus, names, validation — issues #261 / #263
+
+`[~]` Net worth → Investments → Summary → debts. The debt's name field had no visible keyboard focus (an inline all:unset
+removed it); fields are named for their debt ("Balance of Card one"), not all alike; clearing a balance saved $0 — now
+it says so and saves nothing, with #263's readNumberField. A negative balance (a credit) is still allowed.

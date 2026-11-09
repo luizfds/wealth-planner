@@ -11,6 +11,7 @@ import { parseCsvGrid } from "../calc/pricesheet.js";
 import { saleCapitalGain, lotsUnitsAvailable } from "../calc/tax.js";
 import { exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate } from "../lib/backup.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { readNumberField, markField } from "../lib/validate.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, genId, normalizeShareAsset } from "../state.js";
@@ -622,7 +623,13 @@ export function wireAssets(){
     var debt = state.debts[idx];
     if(!debt) return;
     if(e.target.classList.contains("debt-what")) debt.what = e.target.value;
-    else debt.balance = parseFloat(e.target.value) || 0;
+    else {
+      // #263: saved only when it reads — cleared to retype, it was saved as $0 and the debt dropped out of the totals.
+      // A negative (a credit) is allowed, as before.
+      var read = readNumberField(e.target.value, { badInput: !!(e.target.validity && e.target.validity.badInput), empty: "Enter the balance — 0 if it's paid off." });
+      if(!markField(e.target, read)) return;
+      debt.balance = read.value;
+    }
     var totalEl = document.getElementById("totalDebtsAmount");
     if(totalEl) totalEl.textContent = fmtCurrency0.format(totalDebtsValue());
     renderDashboardStats();

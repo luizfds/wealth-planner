@@ -4873,6 +4873,12 @@ target share outside 0–100 was quietly clamped; each now says what's wrong bes
 
 ## Property: no blank or out-of-range figure saved — issue #263
 
-`[~]` Net worth → Property: value, loans (balance, rate, term, repayment, investment share, borrowing costs, offset),
+`[x]` Shipped (PR #292). Net worth → Property: value, loans (balance, rate, term, repayment, investment share, borrowing costs, offset),
 management fee, ownership shares, depreciation schedule, construction and plant values, land value, purchase price and
 purchase costs. A cleared field saved 0, and an ownership or investment share outside 0–100 was quietly clamped.
+
+## Tax and people: no blank figure saved — issue #263
+
+`[~]` Tax → people's settings (salary sacrifice, concessional cap and carry-forward, HELP balance, capital losses,
+top-up, year-to-date pay, work-from-home hours, private health premiums), the SG rate and the tax year's rows. A
+cleared field saved 0, and a negative one was quietly clamped to 0.

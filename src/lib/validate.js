@@ -55,7 +55,10 @@ export function markField(input, result){
     msg.setAttribute("data-for-input", input.id);
     msg.setAttribute("aria-live", "polite");
     msg.id = input.id + "-error";
-    box.appendChild(msg);
+    // Under the field it's about: a slider paired with the field (Plan's assumptions) would otherwise sit between them.
+    var next = input.nextElementSibling;
+    if(next && next.type === "range" && input.parentElement === box) box.insertBefore(msg, next);
+    else box.appendChild(msg);
   }
   if(msg){
     msg.textContent = result.message;

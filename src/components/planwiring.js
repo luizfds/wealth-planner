@@ -22,6 +22,7 @@ import { defineSection } from "../lib/sections.js";
 import { renderHomeListModern, modernHomeRowOpen } from "./scenarios.js";
 import { renderSharedGroups } from "./expenses.js";
 import { scenarioActions } from "./scenariowiring.js";
+import { readInput } from "../lib/validate.js";
 
 var leBody, whatIfStrip, wiFrame, retireBody, RT_FMT;
 
@@ -46,6 +47,27 @@ defineSection("home", {
 // writes into the number input and fires its native "input" event so the existing
 // handler above stays the single source of truth for updating state; typing in the
 // number input keeps the slider's thumb in sync going the other way.
+// ---------------- Reading the projection's number fields (#263) ----------------
+// Each assumption is saved only when it reads as a value its rule allows (lib/validate.js, docs/design/validation.md):
+// a cleared rate isn't 0%, and a horizon outside 1–50 or a negative shock is said, not clamped. Rates may be negative.
+var PROJ_RULES = {
+  projHorizon: { empty: "Enter how many years to project.", min: 1, max: 50, range: "Enter from 1 to 50 years." },
+  projInvestRate: { empty: "Enter a return — 0 for none." },
+  projPropertyRate: { empty: "Enter a growth rate — 0 for none." },
+  projInflationRate: { empty: "Enter an inflation rate — 0 for none." },
+  projIncomeGrowth: { empty: "Enter a growth rate — 0 for none." },
+  projRateShock: { empty: "Enter the shock — 0 for none.", min: 0, range: "A shock can't be negative." },
+  projInvestVol: { empty: "Enter the spread — 0 for none.", min: 0, range: "A spread can't be negative." },
+  projPropertyVol: { empty: "Enter the spread — 0 for none.", min: 0, range: "A spread can't be negative." }
+};
+function readProj(input){ return readInput(input, PROJ_RULES[input.id]); }
+// A life event's figures: the year it starts and how many years it runs are needed; the amount may be negative.
+var LIFE_RULES = {
+  year: { empty: "Enter the year it starts." },
+  years: { empty: "Enter how many years — at least 1.", min: 1, range: "At least 1 year." },
+  amount: { empty: "Enter the amount — 0 if none." }
+};
+
 function pairSlider(numberId, sliderId){
   var numberInput = document.getElementById(numberId);
   var slider = document.getElementById(sliderId);
@@ -55,8 +77,9 @@ function pairSlider(numberId, sliderId){
     numberInput.value = slider.value;
     numberInput.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  // The slider follows only a figure that's saved: one that doesn't read leaves it where the saved value is.
   numberInput.addEventListener("input", function(){
-    slider.value = numberInput.value || 0;
+    if(numberInput.getAttribute("aria-invalid") !== "true") slider.value = numberInput.value;
   });
 }
 // v3.126.0: life events under the projection's assumptions.
@@ -91,29 +114,39 @@ function renderRetirement(){
 export function wireProjections(){
   // ---------------- Long-term projection ----------------
   document.getElementById("projHorizon").addEventListener("input", function(e){
-    state.projection.horizonYears = Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1));
+    var h = readProj(e.target);
+    if(!h) return;
+    state.projection.horizonYears = Math.floor(h.value);
     renderProjectionOutputs();
     persist();
   });
   document.getElementById("projInvestRate").addEventListener("input", function(e){
-    state.projection.investReturnRate = parseFloat(e.target.value) || 0;
+    var r = readProj(e.target);
+    if(!r) return;
+    state.projection.investReturnRate = r.value;
     renderProjectionOutputs();
     persist();
   });
   document.getElementById("projPropertyRate").addEventListener("input", function(e){
-    state.projection.propertyAppreciationRate = parseFloat(e.target.value) || 0;
+    var r = readProj(e.target);
+    if(!r) return;
+    state.projection.propertyAppreciationRate = r.value;
     renderProjectionOutputs();
     persist();
   });
   document.getElementById("projInflationRate").addEventListener("input", function(e){
-    state.projection.inflationRate = parseFloat(e.target.value) || 0;
+    var r = readProj(e.target);
+    if(!r) return;
+    state.projection.inflationRate = r.value;
     // The basis note quotes this rate ("deflated by 3% a year"), so it goes stale otherwise.
     syncProjBasisControl();
     renderProjectionOutputs();
     persist();
   });
   document.getElementById("projIncomeGrowth").addEventListener("input", function(e){
-    state.projection.incomeGrowthRate = parseFloat(e.target.value) || 0;
+    var r = readProj(e.target);
+    if(!r) return;
+    state.projection.incomeGrowthRate = r.value;
     renderProjectionOutputs();
     persist();
   });  // Not an assumption but a unit — it doesn't change the plan, only which dollars it's reported
@@ -135,7 +168,9 @@ export function wireProjections(){
     persist();
   });
   document.getElementById("projRateShock").addEventListener("input", function(e){
-    state.projection.rateShockPct = Math.max(0, parseFloat(e.target.value) || 0);
+    var r = readProj(e.target);
+    if(!r) return;
+    state.projection.rateShockPct = r.value;
     renderProjectionOutputs();
     persist();
   });
@@ -155,6 +190,7 @@ export function wireProjections(){
   leBody.addEventListener("change", function(e){
     var k = e.target.getAttribute("data-le-field"), row = e.target.closest("[data-le-id]");
     if(!k || !row) return;
+    if(LIFE_RULES[k] && !readInput(e.target, LIFE_RULES[k])) return;
     if(setLifeEventField(row.getAttribute("data-le-id"), k, e.target.value)){
       persist(); renderProjectionOutputs();
       // Re-sorted by year — after this event finishes, since a click elsewhere can fire this change
@@ -166,7 +202,9 @@ export function wireProjections(){
   pairSlider("projPropertyVol", "projPropertyVolRange");  // v3.125.0: the spread of returns behind the shaded range.
   ["projInvestVol", "projPropertyVol"].forEach(function(id){
     document.getElementById(id).addEventListener("input", function(e){
-      state.projection[id === "projInvestVol" ? "investVolatility" : "propertyVolatility"] = Math.max(0, parseFloat(e.target.value) || 0);
+      var r = readProj(e.target);
+      if(!r) return;
+      state.projection[id === "projInvestVol" ? "investVolatility" : "propertyVolatility"] = r.value;
       renderProjectionOutputs(); renderRetirement();
       persist();
     });

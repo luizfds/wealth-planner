@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, and the calculators.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, the calculators and Plan.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -143,6 +143,22 @@ which pushed the prefix down. A cost row's message gets its own line under the r
 Found while checking that at 320px: a cost row's amount had no width of its own, so it took an input's natural width
 (259px) and overflowed its 165px column past the row's left edge, on main too. It now fills its column.
 
+## Plan (Plan → Projections)
+
+Reproduced on main before the change (the `planvalidation` journey fails there: a cleared return saved 0%, redrawing
+the whole plan on it). Each assumption's slider follows only a saved figure; the message goes straight under the field,
+above its slider.
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| Horizon (`#projHorizon`) | Error | — | 1–50 years | 80 saved `50`; blank saved `1` |
+| Investment return, property growth, inflation, income growth | Error: "0 for none" | Saved (a fall, deflation) | — | Blank saved `0%` |
+| Rate shock (`#projRateShock`) | Error: "0 for none" | Error | — | Blank saved `0`; negative clamped |
+| Investment and property ups and downs (`#projInvestVol`, `#projPropertyVol`) | Error: "0 for none" | Error | — | Blank saved `0`; negative clamped |
+| A life event's year | Error | — | — | Blank saved `null`, counted as this year |
+| A life event's length in years | Error | — | At least 1 | Blank saved `null`, counted as 1 year |
+| A life event's amount | Error: "0 if none" | Saved (money coming in) | — | Blank saved `0` |
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -154,7 +170,7 @@ v3.229.0:
 | ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
 | ~~`taxwiring.js`, `taxyear.js`, `people.js`~~ | ~~15~~ done (Tax and people, above) |
 | ~~`calcwiring.js` (calculators)~~ | ~~11~~ done (Calculators, above) |
-| `planwiring.js` | 6 |
+| ~~`planwiring.js`~~ | ~~6~~ done (Plan, above) |
 | `spendingwiring.js`, `cashflowwiring.js` | 5 |
 | `dashboard.js`, `accountswiring.js`, `accounts.js`, `benchmarks.js`, `investreturn.js`, `detail.js` | 8 |
 

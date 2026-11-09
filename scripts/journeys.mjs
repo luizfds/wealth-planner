@@ -34,6 +34,8 @@
 //                 saved as 0; hours over 168 aren't clamped; an interest account's share left blank is 100%, not 0%
 //   calcvalidation — the purchase and invest calculators (#263): a cleared price, rate or initial amount isn't 0, and a
 //                 deposit over 100% or a term of 0 years is said, not clamped
+//   planvalidation — Plan → Projections (#263): a cleared return or inflation rate isn't 0%, a horizon of 80 isn't
+//                 clamped to 50, the slider stays with the saved figure, and a life event's cleared amount isn't $0
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -212,6 +214,41 @@ const JOURNEYS = {
     await page.click(field, { clickCount: 3 }); await page.keyboard.type(taken, { delay: 10 });
     check(await stored(page, "state.categories.filter(function(c){ return c === " + JSON.stringify(taken) + "; }).length") === 1, "typing a taken name merged two categories");
     check(await page.evaluate(f => document.querySelector(f).getAttribute("aria-invalid") === "true", field), "a taken category name isn't marked");
+  },
+  // #263: Plan → Projections — a cleared or out-of-range assumption is said beside the field and nothing is saved
+  // (before, a cleared return saved 0% and redrew the plan on it; a horizon of 80 saved 50).
+  async planvalidation(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "plan", "data-plan-sub", "projections");
+    await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
+    const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
+      return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    const proj = k => stored(page, "state.projection." + k);
+    for(const [id, typed, key] of [["#projInvestRate", "", "investReturnRate"], ["#projInflationRate", "", "inflationRate"], ["#projHorizon", "80", "horizonYears"], ["#projRateShock", "-1", "rateShockPct"]]){
+      await page.locator(id).scrollIntoViewIfNeeded();
+      const was = await proj(key);
+      await page.fill(id, typed);
+      check(await proj(key) === was, key + " typed as " + JSON.stringify(typed) + " saved " + await proj(key) + " (was " + was + ")");
+      check(await marked(id), key + " typed as " + JSON.stringify(typed) + " isn't marked with a message");
+      if(id === "#projInvestRate") check(Number(await page.inputValue("#projInvestRateRange")) === was, "the return's slider moved to a figure that wasn't saved");
+      await page.fill(id, String(was));
+      check(await page.evaluate(s => !document.querySelector(s).hasAttribute("aria-invalid"), id), key + " still marked once it reads");
+    }
+    // A valid rate saves, and the slider follows it.
+    await page.fill("#projInvestRate", "6.5");
+    await eventually(async () => await proj("investReturnRate") === 6.5);
+    check(await proj("investReturnRate") === 6.5 && Number(await page.inputValue("#projInvestRateRange")) === 6.5, "a valid return didn't save, or its slider didn't follow");
+    // A life event: its cleared amount isn't $0.
+    await page.evaluate(() => document.querySelector("[data-le-add]").click());
+    const amt = '#lifeEventsBody [data-le-id] [data-le-field="amount"]';
+    await page.locator(amt).first().waitFor({ state: "visible" });
+    await page.locator(amt).first().fill("12000"); await page.locator(amt).first().press("Tab");
+    const evId = await page.evaluate(a => document.querySelector(a).closest("[data-le-id]").getAttribute("data-le-id"), amt);
+    const evAmt = () => stored(page, "(state.lifeEvents || []).find(function(e){ return e.id === " + JSON.stringify(evId) + "; }).amount");
+    await eventually(async () => await evAmt() === 12000);
+    await page.locator(amt).first().fill(""); await page.locator(amt).first().press("Tab");
+    check(await evAmt() === 12000, "clearing a life event's amount saved " + await evAmt());
+    check(await page.locator(amt).first().getAttribute("aria-invalid") === "true", "a life event's cleared amount isn't marked");
   },
   // #263: the purchase and invest calculators — a cleared or out-of-range figure is said beside the field and the
   // scenario's draft doesn't change (before, a cleared price became $0 and a 150% deposit became 100%).

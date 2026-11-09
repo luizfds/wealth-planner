@@ -4937,7 +4937,7 @@ corner radii, three text sizes and six heights at 1280px (issue #254 is not fini
 
 Each step is its own reviewable PR or small series, in this order. Issue #267 (regression coverage) goes with every one.
 
-1. `[ ]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
+1. `[~]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
    and one primary per view; add/delete wording), since the page's add action moves into the header slot. The four
    review questions in `docs/design/pages.md` are answered (its "Decisions from review"): the period chip is hidden where
    nothing follows it; Net worth's rail becomes a back link on Investments; Tax → Returns' primary is the open year's

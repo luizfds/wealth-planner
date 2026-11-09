@@ -17,6 +17,13 @@ import { detailTarget, renderDetailPage } from "./detail.js";
 import { renderNetWorthPage } from "./networth.js";
 import { state } from "../state.js";
 
+// #262: a subtab says which one is showing to a screen reader too (aria-current), not only by its colour. The rails are
+// choosers that navigate (each has its own address), not ARIA tabs: buttons in a named group.
+function markCurrent(btn, on){
+  btn.classList.toggle("active", on);
+  if(on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
+}
+
 // ---------------- Page navigation ----------------
 // Organised by job since v3.57.0 — what you're doing, not which kind of record it is. The ids are
 // the old ones where a page carried on (so saved links, localStorage and every data-page attribute
@@ -361,7 +368,7 @@ export function showPage(id, opts){
         if(p.id === navId) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
       });
     });
-    document.querySelectorAll(".nw-rail-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-page") === id); });
+    document.querySelectorAll(".nw-rail-item").forEach(function(b){ markCurrent(b, b.getAttribute("data-page") === id); });
     var page = PAGES.find(function(p){ return p.id === id; });
     // v3.138.0: styles can tell which page is showing (Home hides the header's net worth pill — its
     // first card says the same thing a few pixels below).
@@ -428,7 +435,7 @@ export function showAssetsSubpage(id, opts){
   currentAssetsSub = id;
   document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = el.id !== "assetsSub-" + id; });
   document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-assets-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-assets-sub") === id);
   });
   updateQuickFab("assets");
   scrollActiveSubnavIntoView("assetsSubnav");
@@ -458,7 +465,7 @@ export function showAccountsSubpage(id, opts){
   currentSettingsSub = id;
   document.querySelectorAll("#page-settings .accounts-subpage").forEach(function(el){ el.hidden = el.id !== "accountsSub-" + id; });
   document.querySelectorAll("#accountsSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-accounts-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-accounts-sub") === id);
   });
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("settings");
@@ -474,7 +481,7 @@ export function showPlanSubpage(id, opts){
   currentPlanSub = id;
   document.querySelectorAll(".plan-subpage").forEach(function(el){ el.hidden = el.id !== "planSub-" + id; });
   document.querySelectorAll("#planSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-plan-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-plan-sub") === id);
   });
   scrollActiveSubnavIntoView("planSubnav");
   if(id === "projections") renderProjectionsIfStale();
@@ -489,7 +496,7 @@ export function showTaxSubpage(id, opts){
   currentTaxSub = id;
   document.querySelectorAll(".tax-subpage").forEach(function(el){ el.hidden = el.id !== "taxSub-" + id; });
   document.querySelectorAll("#taxSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-tax-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-tax-sub") === id);
   });
   scrollActiveSubnavIntoView("taxSubnav");
   updateQuickFab("tax");
@@ -510,7 +517,7 @@ export function showExpensesSubpage(id, opts){
   currentExpensesSub = id;
   document.querySelectorAll(".expenses-subpage").forEach(function(el){ el.hidden = el.id !== "expensesSub-" + id; });
   document.querySelectorAll("#expensesSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-expenses-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-expenses-sub") === id);
   });
   scrollActiveSubnavIntoView("expensesSubnav");
   if(id === "income") renderReceived();
@@ -528,7 +535,7 @@ export function showDashboardSubpage(id){
   if(leavePending) return afterPendingPage("dashboard", function(){ return showDashboardSubpage(id); });
   document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
   document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-dashboard-sub") === id);
+    markCurrent(btn, btn.getAttribute("data-dashboard-sub") === id);
   });
   scrollActiveSubnavIntoView("dashboardSubnav");
 }

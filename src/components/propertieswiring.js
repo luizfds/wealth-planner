@@ -30,6 +30,7 @@ import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
 import { recordCashRateMove, setCashRateMoveAside } from "../calc/cashrate.js";
 import { readInput } from "../lib/validate.js";
+import { onTabKey, selectTab } from "../lib/tabs.js";
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
 // "propinc:<id>" and "propexp:<id>": a property's income and costs; "loan:<id>": its loans (edited by their own
 // handlers here — the generic row code only discards an untouched new one).
@@ -508,6 +509,8 @@ export function wireProperties(){
     } else renderProperties();
   });  // A property's tabs (v3.61.0): every panel is already rendered, so switching is a visibility
   // toggle — no re-render, nothing typed in another tab is lost.
+  // #262: arrow keys, Home and End move between a property card's tabs (lib/tabs.js); the click handler below shows the panel.
+  document.getElementById("propertiesBody").addEventListener("keydown", onTabKey);
   document.getElementById("propertiesBody").addEventListener("click", function(e){
     // v3.208.0 (item 240): the Overview tab's "Log a statement" opens the form on Income & costs.
     var asOpen = e.target.closest("[data-as-open]");
@@ -517,7 +520,8 @@ export function wireProperties(){
     var pid = tab.getAttribute("data-prop-tab"), key = tab.getAttribute("data-tab");
     propertyTabs[pid] = key;
     var card = tab.closest(".property-card");
-    card.querySelectorAll("[data-prop-tab]").forEach(function(b){ var on = b === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    card.querySelectorAll("[data-prop-tab]").forEach(function(b){ b.classList.toggle("active", b === tab); });
+    selectTab(tab);
     card.querySelectorAll("[data-prop-panel]").forEach(function(pn){ pn.hidden = pn.getAttribute("data-prop-panel") !== key; });
   });
   document.getElementById("propertiesBody").addEventListener("click", function(e){

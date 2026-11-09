@@ -39,6 +39,8 @@
 //   cashvalidation — Cash flow → Spending (#263): a transaction's cleared amount isn't $0, and closing it cancels the draft
 //   restvalidation — the last of #263: a card's limit, repayment day and cycle day, a retirement age, the benchmark's
 //                 rate and a goal's target — out of range is said, not dropped, ignored or clamped
+//   tabkeys     — #262: a property's tabs by keyboard (arrows, Home/End, one Tab stop, each tied to its panel); Reports'
+//                 picker keeps focus through a redraw and Tab moves on from it; page subtabs say which is current
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -224,6 +226,59 @@ const JOURNEYS = {
       return { value: el.value, invalid: el.getAttribute("aria-invalid"), message: m ? m.textContent : "", focused: document.activeElement === el, caret: el.selectionStart }; }, field);
     check(kept.value === taken && kept.invalid === "true" && /already/.test(kept.message) && kept.focused && kept.caret === taken.length,
       "a redraw mid-typing lost the draft (" + JSON.stringify(kept) + ")");
+  },
+  // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
+  // chooser that keeps focus when it redraws; page subtabs say which one is showing.
+  async tabkeys(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    // Property tabs.
+    await go(page, "properties");
+    const list = '#propertiesBody [role="tablist"]';
+    await page.locator(list + ' [role="tab"]').first().waitFor({ state: "visible" });
+    const state = () => page.evaluate(l => {
+      const tabs = [...document.querySelector(l).querySelectorAll('[role="tab"]')].filter(t => t.getClientRects().length);
+      const a = document.activeElement, sel = tabs.find(t => t.getAttribute("aria-selected") === "true");
+      const panel = sel && document.getElementById(sel.getAttribute("aria-controls"));
+      return { n: tabs.length, stops: tabs.filter(t => t.tabIndex === 0).length, focused: tabs.indexOf(a), selected: tabs.indexOf(sel),
+        panelShown: !!panel && !panel.hidden && panel.getAttribute("role") === "tabpanel" && panel.getAttribute("aria-labelledby") === sel.id,
+        othersHidden: tabs.filter(t => t !== sel).every(t => { const p = document.getElementById(t.getAttribute("aria-controls")); return p && p.hidden; }) };
+    }, list);
+    await page.evaluate(l => document.querySelector(l + ' [role="tab"][aria-selected="true"]').focus(), list);
+    let s0 = await state();
+    check(s0.n >= 3 && s0.stops === 1 && s0.panelShown && s0.othersHidden, "a property's tabs aren't one Tab stop tied to their panels: " + JSON.stringify(s0));
+    const press = async (key, want, what) => {
+      await page.keyboard.press(key); await settle(page);
+      const st = await state();
+      check(st.focused === want && st.selected === want && st.stops === 1 && st.panelShown && st.othersHidden, what + ": " + JSON.stringify(st));
+    };
+    await press("Home", 0, "Home didn't go to the first tab");
+    await press("ArrowRight", 1, "ArrowRight didn't move to the next tab");
+    await press("End", s0.n - 1, "End didn't go to the last tab");
+    await press("ArrowRight", 0, "ArrowRight on the last tab didn't wrap to the first");
+    await press("ArrowLeft", s0.n - 1, "ArrowLeft on the first tab didn't wrap to the last");
+    await press("Home", 0, "Home didn't go back to the first tab");
+    // Reports: choosing a report, or changing its period, redraws the page — focus stays on the control used.
+    await go(page, "reports");
+    await page.locator('[data-report="categories"]').waitFor({ state: "visible" });
+    check(await page.locator('#reportsBody [role="tablist"], #reportsBody [role="tab"]').count() === 0, "Reports' picker still claims to be tabs");
+    await page.focus('[data-report="categories"]'); await page.keyboard.press("Enter"); await settle(page);
+    const rep = await page.evaluate(() => ({ key: document.activeElement.getAttribute("data-report"), current: document.querySelector('[data-report="categories"]').getAttribute("aria-current"),
+      others: document.querySelectorAll('[data-report][aria-current]').length }));
+    check(rep.key === "categories" && rep.current === "true" && rep.others === 1, "choosing a report lost focus or didn't mark it current: " + JSON.stringify(rep));
+    await page.keyboard.press("Tab");
+    check(await page.evaluate(() => document.activeElement && document.activeElement !== document.body && !!document.activeElement.closest("#reportsBody")), "Tab after choosing a report restarted at the page body");
+    const range = '#reportsBody [data-rf="range"]';
+    check(await page.locator(range).count() === 1, "the report has no period select to check");
+    {
+      const other = await page.evaluate(r => { const s = document.querySelector(r); return [...s.options].map(o => o.value).find(v => v !== s.value && v !== "custom"); }, range);
+      await page.focus(range); await page.selectOption(range, other); await settle(page);
+      check(await page.evaluate(r => document.activeElement === document.querySelector(r), range), "changing a report's period lost focus");
+    }
+    // Page subtabs: the current one says so.
+    await go(page, "tax", "data-tax-sub", "returns");
+    const cur = await page.evaluate(() => [...document.querySelectorAll("#taxSubnav [data-tax-sub]")].map(b => b.getAttribute("data-tax-sub") + ":" + (b.getAttribute("aria-current") || "")));
+    check(cur.join(",") === "year:,returns:page,documents:,people:", "Tax's subtabs don't say which is current: " + cur.join(","));
+    check(await page.evaluate(() => document.getElementById("taxSubnav").getAttribute("aria-label") === "Tax sections"), "Tax's subtabs aren't a named group");
   },
   // #263, the last family: fields where blank already meant "none", but a figure out of range was dropped (a negative
   // goal target erased the target), ignored, or clamped (a cycle day of 31 became 28) without a word.

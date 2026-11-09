@@ -689,10 +689,15 @@ export function propertyTabShown(p){
   var k = propertyTabs[p.id];
   return propertyTabsFor(p).some(function(t){ return t.key === k; }) ? k : "overview";
 }
+function propTabId(p, key){ return "proptab-" + escapeAttr(p.id) + "-" + key; }
+function propPanelId(p, key){ return "proppanel-" + escapeAttr(p.id) + "-" + key; }
 function propertyTabBarHtml(p, tabs, current){
+  // #262: real tabs — one stop in the Tab order (the selected tab), arrow keys between them (lib/tabs.js), each tied to
+  // its panel.
   return '<div class="subnav prop-tabs" role="tablist" aria-label="' + escapeAttr(p.what || "Property") + ' sections">' + tabs.map(function(t){
     var on = t.key === current;
-    return '<button type="button" class="subnav-item' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-prop-tab="' + escapeAttr(p.id) + '" data-tab="' + t.key + '">' + t.label + '</button>';
+    return '<button type="button" class="subnav-item' + (on ? " active" : "") + '" role="tab" id="' + propTabId(p, t.key) + '" aria-controls="' + propPanelId(p, t.key) + '"' +
+      ' aria-selected="' + on + '" tabindex="' + (on ? "0" : "-1") + '" data-prop-tab="' + escapeAttr(p.id) + '" data-tab="' + t.key + '">' + t.label + '</button>';
   }).join("") + '</div>';
 }
 // The Tax tab's lead: this year's rental result line by line, then each owner's share and roughly
@@ -840,7 +845,8 @@ function propertyCardBodyHtml(p, colorIdx){
   var allSectionsCollapsed = PROPERTY_SECTION_KEYS.every(function(k){ return !!(p.sectionsCollapsed && p.sectionsCollapsed[k]); });
   var tabs = propertyTabsFor(p);
   var current = propertyTabShown(p);
-  var panel = function(key, html){ return '<div class="prop-tab-panel" data-prop-panel="' + key + '"' + (key === current ? "" : " hidden") + ' role="tabpanel">' + html + '</div>'; };
+  var panel = function(key, html){ return '<div class="prop-tab-panel" data-prop-panel="' + key + '" id="' + propPanelId(p, key) + '" aria-labelledby="' + propTabId(p, key) + '"' +
+    (key === current ? "" : " hidden") + ' role="tabpanel">' + html + '</div>'; };
 
   var editing = !!propertyEditing[p.id];
   return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +

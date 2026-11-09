@@ -346,8 +346,10 @@ const JOURNEYS = {
     await page.waitForLoadState("networkidle"); await settle(page);
     const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
       return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
+    // No separate scroll: fill scrolls the field into view itself, and finds it again if a redraw has just replaced it
+    // (a valid save redraws its panel — on CI a scroll landed mid-redraw, on an element no longer in the page).
     const tryField = async (sel, typed, expr, how) => {
-      await page.locator(sel).scrollIntoViewIfNeeded();
+      await page.locator(sel).waitFor({ state: "visible" });
       const was = await stored(page, expr);
       await page.fill(sel, typed); await page.press(sel, "Tab");
       check(await stored(page, expr) === was, how + " typed as " + JSON.stringify(typed) + " saved " + JSON.stringify(await stored(page, expr)) + " (was " + JSON.stringify(was) + ")");
@@ -369,6 +371,7 @@ const JOURNEYS = {
     await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
     await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
     await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
+    await settle(page); // the save's own redraw of the panel, done before the next field is tried
     await tryField("#fireCurrentAge", "120", "(state.fire || {}).currentAge", "an age");
     // Home → Benchmarks: the fixed rate, and a goal's target.
     await go(page, "dashboard", "data-dashboard-sub", "benchmarks");

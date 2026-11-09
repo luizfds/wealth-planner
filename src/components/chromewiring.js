@@ -36,9 +36,9 @@ import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActive
 import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
 import { readInput } from "../lib/validate.js";
 
-var navMenuToggle, quickFabMore, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
+var navMenuToggle, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
-// ---------------- Quick actions menu (the fab's chevron) ----------------
+// ---------------- Quick actions menu (#304: opened from the avatar menu, or by the button on a page with no action of its own) ----------------
 function openQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = quickActionsSheetHtml();
   pushActiveOverlay(closeQuickActions);
@@ -188,8 +188,9 @@ export function wireNavigation(){
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     setTimeout(function(){ target.click(); }, 220);
   });
-  quickFabMore = document.getElementById("quickFabMore");
-  if(quickFabMore) quickFabMore.addEventListener("click", openQuickActions);
+  // #304: the header's button (desktop) is the same action; the menu of the others opens from the avatar menu.
+  document.getElementById("headerAddBtn").addEventListener("click", function(){ document.getElementById("quickFab").click(); });
+  document.getElementById("avatarQuickActions").addEventListener("click", openQuickActions);
   document.getElementById("quickFabRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qfab-close]") || e.target === e.target.closest("[data-qfab-backdrop]")){
       requestCloseActiveOverlay();

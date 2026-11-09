@@ -202,7 +202,7 @@ function groupedFabTarget(rootId){
     selector: '[data-add="' + CSS.escape(target.getAttribute("data-add")) + '"]' };
 }
 // Every "add or log something" the app can do, in one list, reachable from any page via the fab's
-// chevron. The point is the cross-page case: the fab itself can only trigger what's already on
+// chevron (#304: now the avatar menu's "Quick actions"). The point is the cross-page case: the fab itself can only trigger what's already on
 // screen, so adding a share from the Dashboard meant navigating to Assets, switching to the Shares
 // subpage and only then tapping the fab. These carry their own destination, so one tap gets there.
 //
@@ -256,7 +256,7 @@ export function updateQuickFab(pageId){
   var label = null, mode = null, selector = null;
   var grouped = null;
   if(pageId === "dashboard"){
-    label = "Log spending";
+    label = "Log spend";
     selector = "#quickLogBtn";
     mode = "spending";
   } else if(pageId === "accounts"){
@@ -276,13 +276,18 @@ export function updateQuickFab(pageId){
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
   }
   if(grouped){ label = grouped.label; selector = grouped.selector; }
-  var more = document.getElementById("quickFabMore");
-  // No single obvious action for this page (Projections): the big circle opens the quick-actions
-  // menu instead of hiding, and the chevron stands down rather than duplicating it.
+  // No single obvious action for this page (Projections): the button opens the quick-actions menu
+  // instead of hiding. #304: the same action is the header's button on a desktop, where it carries
+  // the label; on a phone the round button is named by its aria-label.
   fab.hidden = false;
-  if(more) more.hidden = !label;
-  var visibleLabel = document.getElementById("quickFabLabel");
-  if(visibleLabel) visibleLabel.textContent = label || "Quick actions";
+  var headerBtn = document.getElementById("headerAddBtn"), headerLabel = document.getElementById("headerAddLabel");
+  if(headerBtn) headerBtn.hidden = false;
+  if(headerLabel) headerLabel.textContent = label || "Quick actions";
+  if(headerBtn){
+    headerBtn.setAttribute("aria-label", label || "Quick actions");
+    headerBtn.title = label || "Quick actions";
+    headerBtn.setAttribute("aria-haspopup", label ? "false" : "dialog");
+  }
   if(!label){
     fab.setAttribute("data-fab-mode", "menu");
     fab.removeAttribute("data-fab-selector");

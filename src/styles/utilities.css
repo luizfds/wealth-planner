@@ -24,11 +24,8 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .home-plan-context { margin: 10px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); }
 .home-plan-context b { font-family: var(--font-num); color: var(--ink); }
 .wk-details > summary, .cmp-longterm > summary { padding: 12px 0; min-height: 44px; cursor: pointer; }
-.quick-fab { background: var(--action-fill); width: auto; padding: 0 16px; gap: 8px; border-radius: 28px; font-size: var(--fs-sm); font-weight: 600; }
-.quick-fab-wrap { align-items: flex-end; }
 .card-funding { margin: 8px 0; font-size: var(--fs-sm); }
 
-.quick-fab:hover { background: var(--action-fill); filter: brightness(1.08); }
 
 /* #263: every field that doesn't read shows it the same way, whichever family styles it — here in the utilities layer
    so it wins over a page's own border (and its focus border). The message is .field-error (base.css). */

@@ -7,6 +7,7 @@
 //   - NaN / undefined / [object Object] / Infinity in the rendered text
 //   - a %-width bar that measures 0 inside a parent that doesn't (the account bars never drew)
 //   - on a phone, a control smaller than 44px each way (v3.167.0)
+//   - a floating button on a desktop, or more than one 56px circle on a phone (#304)
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs
 // Not part of `npm test` on purpose — the suite stays dependency-free; CI runs this beside it.
@@ -107,12 +108,23 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
             if(h < 43.5 || wd < 43.5) small.push((t.className && typeof t.className === "string" ? t.tagName.toLowerCase() + "." + t.className.trim().split(/\s+/)[0] : t.tagName.toLowerCase()) + " " + Math.round(wd) + "×" + Math.round(h));
           }));
         }
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small };
+        // #304: nothing floats over the figures on a desktop (the page's action is the header's button), and a
+        // phone has one round button no bigger than 56px — not a labelled pill with a second button above it.
+        const fw = document.getElementById("quickFabWrap"), fr = fw ? fw.getBoundingClientRect() : { width: 0, height: 0 };
+        const hb = document.getElementById("headerAddBtn"), hr = hb ? hb.getBoundingClientRect() : { width: 0 };
+        let fab = "";
+        if(document.body.getAttribute("data-current-page") !== "scenario"){
+          if(w >= 881 && (fr.width || !hr.width)) fab = fr.width ? "a floating button shows on a desktop" : "the header has no action button";
+          if(w < 881 && (fr.width > 57 || fr.height > 57 || !fr.width || hr.width)) fab = "the floating button is " + Math.round(fr.width) + "×" + Math.round(fr.height) + " (one 56px circle expected)";
+          if(!fab && !((w >= 881 ? hb : document.getElementById("quickFab")).getAttribute("aria-label") || "").trim()) fab = "the page's action button has no name";
+        }
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
       if(r.zeroBars.length) failures.push(where + ": bars that don't draw: " + [...new Set(r.zeroBars)].join(", "));
+      if(r.fab) failures.push(where + ": " + r.fab);
       if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){

@@ -183,10 +183,9 @@
   .ty-yearnote{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .ty-yearnote b{ font-size:var(--fs-lg); }
   .app-content{ padding: 24px 28px 60px; width:100%; }
-  /* Room under the last element for the floating controls to sit in. The fab and the scroll-to-top
-     button are fixed to the bottom-right, so on a page too short to scroll they land on top of
-     whatever is there — most visibly the last Dashboard card on a first run, where there is no
-     scroll room to move it clear. 96px clears the fab (52px + its 24px offset) with a margin. */
+  /* Room under the last element for the phone's round button (#304) to sit in: it is fixed to the
+     bottom-right, so on a page too short to scroll it would land on whatever is last. 96px clears
+     it (56px + its offset) with a margin. A desktop has nothing floating and needs no such room. */
   /* Off-screen until focused, then pinned to the top-left over everything. Not display:none and
      not visibility:hidden — either would take it out of the tab order entirely, which is the one
      thing it must stay in. */
@@ -201,6 +200,7 @@
   .skip-link:focus, .skip-link:focus-visible{ top:12px; box-shadow: var(--focus-ring); }
 
   .app-page{ display:flex; flex-direction:column; gap:20px; padding-bottom:96px; }
+  @media (min-width: 881px){ .app-page{ padding-bottom:32px; } }
   .app-page[hidden]{ display:none; }
   .page-intro{ color: var(--ink-soft); font-size:var(--fs-md); max-width:70ch; margin:0; }
 
@@ -278,49 +278,30 @@
      via the [hidden] attribute (not a class) on pages with no single obvious action (Projections)
      or a currently-empty target (e.g. Assets' Summary subpage, which has no add button of its
      own) — see CLAUDE.md's [hidden] gotcha for why author CSS must repeat that rule explicitly. */
-  /* The fab is split in two: the big circle performs the single most useful action for whatever
-     page you're on (one tap, unchanged), and the small chevron above it opens a menu of the
-     actions that live on *other* pages. Turning the whole fab into a menu was the obvious move
-     and the wrong one — it would have put a second tap in front of logging spend, the thing you
-     do daily, to save one on adding a share, which you do monthly at most. When a page has no
-     single obvious action (Projections), the big circle opens the menu instead and the chevron
-     hides, so the fab is never a dead control. */
-  .quick-fab-wrap{
-    position:fixed; right:20px; bottom:24px; z-index:16;
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-  }
+  /* #304: the page's action. On a phone it is one round button above the tab bar, named by its
+     aria-label — one tap for logging a spend, the thing done daily. It used to be a labelled pill
+     with a second button above it, 150px by 96px over the column where every amount sits. On a
+     desktop nothing floats: the same action is the header's .header-add button, and this is hidden.
+     The other quick actions open from the avatar menu at both widths. A page with no single action
+     (Projections) opens that menu from the button instead, so it is never a dead control. */
+  .quick-fab-wrap{ position:fixed; right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); z-index:16; }
   .quick-fab{
     all:unset; box-sizing:border-box;
-    width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    background: var(--brass); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
-    transition: transform .12s ease, background-color .15s ease;
+    width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background: var(--action-fill); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
+    transition: transform .12s ease, filter .15s ease;
   }
   .quick-fab[hidden]{ display:none; }
-  .quick-fab:hover{ background: var(--brass-strong); }
+  .quick-fab:hover{ filter: brightness(1.08); }
   .quick-fab:active{ transform: scale(0.92); }
   .quick-fab:focus-visible{ outline:none; box-shadow: var(--focus-ring), 0 6px 18px rgba(0,0,0,0.28); }
-  /* Deliberately smaller and in the page's own surface colours rather than the brass of the main
-     fab: it's the secondary path, and two equally-loud circles would make neither read as primary. */
-  .quick-fab-more{
-    all:unset; box-sizing:border-box;
-    width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    background: var(--paper-raised); color: var(--ink-soft); border:1px solid var(--border);
-    box-shadow: 0 3px 10px rgba(0,0,0,0.18); cursor:pointer;
-    transition: transform .12s ease, color .15s ease, border-color .15s ease;
-  }
-  .quick-fab-more[hidden]{ display:none; }
-  .quick-fab-more:hover{ color: var(--ink); border-color: var(--brass); }
-  .quick-fab-more:active{ transform: scale(0.9); }
-  .quick-fab-more:focus-visible{ outline:none; box-shadow: var(--focus-ring), 0 3px 10px rgba(0,0,0,0.18); }
-  @media (max-width: 880px){
-    .quick-fab-wrap{ right:16px; bottom: calc(78px + env(safe-area-inset-bottom) + 14px); }
-  }
-  /* v3.32.1 — on a desktop the fab sat over the content column's right edge, which is exactly
-     where every total is right-aligned (monthly totals, the FI card's figures). A gutter the width
-     of the fab keeps the column clear of it; a phone keeps the usual overlap, as every app does. */
-  @media (min-width: 881px){
-    .app-content{ padding-right: 92px; }
-  }
+  .header-add{ gap:6px; white-space:nowrap; }
+  .header-add[hidden]{ display:none; }
+  /* Below 1500px the header has no room for the label beside the net worth pill (it wrapped the
+     actions onto a second row at 1280px), so the button is its plus sign, named by aria-label. */
+  @media (max-width: 1499px){ .header-add{ width:40px; padding:0; justify-content:center; } .header-add span{ display:none; } }
+  @media (max-width: 880px){ .header-add{ display:none; } }
+  @media (min-width: 881px){ .quick-fab-wrap{ display:none; } }
 
   /* ---------------- Modern-row edit modal backdrop ---------------- */
   /* Editing (or adding — see app.js's add handlers) any Modern-mode row used to expand its fields

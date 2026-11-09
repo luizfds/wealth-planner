@@ -4919,6 +4919,38 @@ through `keepUi`). Page subtabs say which is current (`aria-current`), not only 
 
 ## Home's scenario comparison, opened — issue #266
 
-`[~]` Opened, "Compare monthly trade-offs" takes the whole row of Home's tiles instead of a 174px column 2.6 screens tall
+`[x]` Shipped v3.236.10 (PR #303). Opened, "Compare monthly trade-offs" takes the whole row of Home's tiles instead of a 174px column 2.6 screens tall
 at 390px (with the Tax tile beside it stretched to match); its risk notes stay; each scenario's name opens its page and
 a link goes to Projections for the horizon and rates.
+
+## Simplify and finish — November 2026 review (v3.236.10)
+
+A review of main at v3.236.10 with the demo household, at 390×844 and 1280×800 in the default state (nothing forced
+open). The numbers below are **GitHub issues**. It re-orders what is still open from issue #253 and adds six issues
+(#304–#309) for what that backlog doesn't cover. The aim is fewer things on screen, not more features: nothing here
+changes a calculation or stored data.
+
+What the review measured: the floating buttons and the phone tab bar take the bottom 188px of an 844px screen, over the
+column where amounts sit; Shares' first holding starts at y=871 on a phone (below the first screen) behind two tab
+rails and six rows of tools; notices reach people through six separate surfaces; and text fields still come in three
+corner radii, three text sizes and six heights at 1280px (issue #254 is not finished).
+
+Each step is its own reviewable PR or small series, in this order. Issue #267 (regression coverage) goes with every one.
+
+1. `[ ]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
+   and one primary per view; add/delete wording), since the page's add action moves into the header slot. Needs the
+   four review questions in `docs/design/pages.md` answered first. Recommended answers: hide the period chip where
+   nothing follows it; Net worth's rail becomes a back link on Investments; Tax → Returns' primary is the open year's
+   next step; "+ Add" always names the thing.
+2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
+   line per page.
+3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
+   navigation) and #255's step 5.
+4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
+5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
+   #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
+6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
+
+Alongside, not blocking: #267 (the Transfer journey), #282 (setup focus — not reproduced; the trace from PR #284 is
+waiting for a failure), #299 (real screen readers and devices — needs a person with the devices), #300 (negative budget
+amounts — a decision for the owner).

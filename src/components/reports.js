@@ -13,6 +13,7 @@ import { yearEndHtml } from "./yearend.js";
 import { monthDetailHtml } from "./monthdetail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { keepUi } from "../lib/keepui.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 // One page, five statements (calc/reports.js), each following the header's period, printable
@@ -146,10 +147,13 @@ function pickerHtml(){
       return '<span class="rp-pin"><button type="button" class="period-chip" data-report-saved="' + escapeAttr(r.id) + '">' + escapeAttr(r.name) + '</button>' +
         '<button type="button" class="rp-unpin" data-report-unpin="' + escapeAttr(r.id) + '" aria-label="Unpin ' + escapeAttr(r.name) + '" title="Unpin">×</button></span>';
     }).join("") + '</div></div>' : '';
-  return pins + '<div class="rp-picker" role="tablist" aria-label="Reports">' + REPORT_GROUPS.map(function(g){
-    return '<div class="rp-group"><span class="rp-group-label">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key && (!r.part || partOn(r.part, state)); }).map(function(r){
+  // #262: a chooser, not ARIA tabs — 21 reports under group headings, which a tablist can't hold. Each group is named by
+  // its heading, and the report shown is aria-current.
+  return pins + '<div class="rp-picker" role="group" aria-label="Reports">' + REPORT_GROUPS.map(function(g){
+    var gid = "rp-group-" + g.key;
+    return '<div class="rp-group" role="group" aria-labelledby="' + gid + '"><span class="rp-group-label" id="' + gid + '">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key && (!r.part || partOn(r.part, state)); }).map(function(r){
       var on = r.key === reportShown.key;
-      return '<button type="button" class="period-chip' + (on ? " active" : "") + '" role="tab" aria-selected="' + on + '" data-report="' + r.key + '">' + r.label + '</button>';
+      return '<button type="button" class="period-chip' + (on ? " active" : "") + '"' + (on ? ' aria-current="true"' : '') + ' data-report="' + r.key + '">' + r.label + '</button>';
     }).join("") + '</div></div>';
   }).join("") + '</div>';
 }
@@ -191,7 +195,9 @@ export function reportsPageHtml(opts){
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");
-  if(el) el.innerHTML = reportsPageHtml(reportOpts());
+  // #262: through keepUi, so choosing a report or changing its period leaves focus on the control that replaced the one
+  // used, not on the page body.
+  if(el) keepUi(function(){ el.innerHTML = reportsPageHtml(reportOpts()); });
 }
 // The static copy printed on its own (the same #printRoot the tax worksheet uses).
 export function reportPrintHtml(){

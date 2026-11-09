@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-34gFjnzfKoCfwi/c4ZKXGqkUUzD7ljgV4mfijyF/Jrw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-QoeGo9lQlkQcLZQrFYmYzayLewggH7tYSeHyFerfa9s='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -222,8 +222,8 @@
              vs. expected, etc.) — a daily 5-second glance only needs the former; splitting them the
              same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
              adding to the scroll length of every single visit, not just the ones that want them. -->
-        <div class="subnav" id="dashboardSubnav">
-          <button type="button" class="subnav-item active" data-dashboard-sub="overview">Overview</button>
+        <div class="subnav" id="dashboardSubnav" role="group" aria-label="Home sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-dashboard-sub="overview">Overview</button>
           <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
           <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
           <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
@@ -299,8 +299,8 @@
 
 
       <section class="app-page" id="page-tax" hidden>
-        <div class="subnav" id="taxSubnav">
-          <button type="button" class="subnav-item active" data-tax-sub="year">This year</button>
+        <div class="subnav" id="taxSubnav" role="group" aria-label="Tax sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-tax-sub="year">This year</button>
           <button type="button" class="subnav-item" data-tax-sub="returns">Returns</button>
           <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
           <button type="button" class="subnav-item" data-tax-sub="people">People</button>
@@ -390,8 +390,8 @@
       </section>
 
       <section class="app-page" id="page-expenses" hidden>
-        <div class="subnav" id="expensesSubnav">
-          <button type="button" class="subnav-item active" data-expenses-sub="budget">Budget</button>
+        <div class="subnav" id="expensesSubnav" role="group" aria-label="Cash flow sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-expenses-sub="budget">Budget</button>
           <button type="button" class="subnav-item" data-expenses-sub="income">Income</button>
           <button type="button" class="subnav-item" data-expenses-sub="spending">Spending</button>
           <button type="button" class="subnav-item" data-expenses-sub="bills">Bills</button>
@@ -615,9 +615,9 @@
       </section>
 
       <section class="app-page" id="page-accounts" hidden>
-        <div class="subnav nw-rail" aria-label="Net worth">
+        <div class="subnav nw-rail" role="group" aria-label="Net worth">
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
-          <button type="button" class="subnav-item nw-rail-item active" data-page="accounts">Accounts</button>
+          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
@@ -644,8 +644,8 @@
       </section>
 
       <section class="app-page" id="page-settings" hidden>
-        <div class="subnav" id="accountsSubnav">
-          <button type="button" class="subnav-item active" data-accounts-sub="categories">Categories</button>
+        <div class="subnav" id="accountsSubnav" role="group" aria-label="Settings sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
           <button type="button" class="subnav-item" data-accounts-sub="rules">Import rules</button>
         </div>
@@ -741,11 +741,11 @@
       </section>
 
       <section class="app-page" id="page-properties" hidden>
-        <div class="subnav nw-rail" aria-label="Net worth">
+        <div class="subnav nw-rail" role="group" aria-label="Net worth">
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item active" data-page="properties" data-part="property">Property</button>
+          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
@@ -784,10 +784,10 @@
 
 
       <section class="app-page" id="page-assets" hidden>
-        <div class="subnav nw-rail" aria-label="Net worth">
+        <div class="subnav nw-rail" role="group" aria-label="Net worth">
           <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
-          <button type="button" class="subnav-item nw-rail-item active" data-page="assets">Investments</button>
+          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="assets">Investments</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="page-intro-row">
@@ -804,8 +804,8 @@
             <input type="file" id="assetsImportFile" accept=".csv,text/csv" hidden>
           </div>
         </div>
-        <div class="subnav" id="assetsSubnav">
-          <button type="button" class="subnav-item active" data-assets-sub="summary">Summary</button>
+        <div class="subnav" id="assetsSubnav" role="group" aria-label="Investments sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-assets-sub="summary">Summary</button>
           <button type="button" class="subnav-item" data-assets-sub="Cash">Cash</button>
           <button type="button" class="subnav-item" data-assets-sub="Shares" data-part="shares">Shares</button>
           <button type="button" class="subnav-item" data-assets-sub="Super">Super</button>
@@ -873,8 +873,8 @@
       </section>
 
       <section class="app-page" id="page-networth" hidden>
-        <div class="subnav nw-rail" aria-label="Net worth">
-          <button type="button" class="subnav-item nw-rail-item active" data-page="networth">Overview</button>
+        <div class="subnav nw-rail" role="group" aria-label="Net worth">
+          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="networth">Overview</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
           <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
@@ -910,8 +910,8 @@
       </section>
 
       <section class="app-page" id="page-plan" hidden>
-        <div class="subnav" id="planSubnav">
-          <button type="button" class="subnav-item active" data-plan-sub="scenarios">Scenarios</button>
+        <div class="subnav" id="planSubnav" role="group" aria-label="Plan sections">
+          <button type="button" class="subnav-item active" aria-current="page" data-plan-sub="scenarios">Scenarios</button>
           <button type="button" class="subnav-item" data-plan-sub="projections">Projections</button>
           <button type="button" class="subnav-item" data-plan-sub="goals">Goals</button>
           <button type="button" class="subnav-item" data-plan-sub="retirement">Retirement</button>
@@ -1306,6 +1306,7 @@
   "./src/lib/setup.js": "./src/lib/setup.js?v=3.236.8",
   "./src/lib/storageuse.js": "./src/lib/storageuse.js?v=3.236.8",
   "./src/lib/swipe.js": "./src/lib/swipe.js?v=3.236.8",
+  "./src/lib/tabs.js": "./src/lib/tabs.js?v=3.236.8",
   "./src/lib/theme.js": "./src/lib/theme.js?v=3.236.8",
   "./src/lib/timerange.js": "./src/lib/timerange.js?v=3.236.8",
   "./src/lib/toast.js": "./src/lib/toast.js?v=3.236.8",
@@ -1542,6 +1543,7 @@
 <link rel="modulepreload" href="./src/lib/setup.js?v=3.236.8">
 <link rel="modulepreload" href="./src/lib/storageuse.js?v=3.236.8">
 <link rel="modulepreload" href="./src/lib/swipe.js?v=3.236.8">
+<link rel="modulepreload" href="./src/lib/tabs.js?v=3.236.8">
 <link rel="modulepreload" href="./src/lib/theme.js?v=3.236.8">
 <link rel="modulepreload" href="./src/lib/timerange.js?v=3.236.8">
 <link rel="modulepreload" href="./src/lib/toast.js?v=3.236.8">

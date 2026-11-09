@@ -1,6 +1,6 @@
 # Page structure, actions, empty states and help (#255)
 
-**Status: proposed for review. Nothing here is implemented yet**, as #255 asks: the specification is agreed first, then
+**Status: agreed, with the decisions at the end. Nothing here is implemented yet**, as #255 asks: the specification is agreed first, then
 pages migrate in the PRs listed at the end. Part of #253. It builds on [0010](../decisions/0010-one-design-system.md)
 (tokens, buttons, cards), [fields.md](fields.md) (one field) and [validation.md](validation.md) (one way to say a field
 is wrong), and covers what those don't: how a page is put together.
@@ -97,8 +97,7 @@ Counts are from the audit; "390" is the demo household at 390px.
 
 - **What's in it:** title, ⓘ About this page, then up to two page actions in the slot, then the period chip.
 - **Page actions are about the page as a whole:** import/export, Arrange. A record's actions live on the record.
-- **The period chip shows only where something on the page follows it.** A page that doesn't follow it says so
-  instead, e.g. "Balances as of today".
+- **The period chip shows only where something on the page follows it.** Elsewhere it is hidden.
 - **Every page has About this page**, Plan included.
 
 ### 2. One primary action per view
@@ -175,7 +174,7 @@ Proposed primary task and changes per view. "Add" is the item 3 wording; "Empty"
 | Investments (7 tabs) | + Add … per tab ("+ Add cash account", "+ Add holding", "+ Add super fund") | One rail (item 6); Offsets' empty state links to Property; 7 tips on Summary |
 | Property | + Add property | Cash-rate "Record on the loans ticked" becomes `.btn`; 9 tips |
 | Tax → This year | — | 12 tips |
-| Tax → Returns | Mark as lodged (one person at a time) | "Open FY25/26" becomes `.btn`; empty state links to Income |
+| Tax → Returns | The open year's next step: open its worksheet, then Mark as lodged | One primary at a time; empty state links to Income |
 | Tax → Documents | — | Empty state links to Income |
 | Tax → People | + Add person | Remove from tax → `.btn-danger`, named |
 | Plan (all) | — | Gains About this page |
@@ -208,13 +207,16 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.
 
-## Questions for review
+## Decisions from review (9 November 2026)
 
-1. **The period chip.** Should it disappear where nothing follows it (Settings, Calculators), or stay with a note
-   ("Balances are today's")? Hiding it means the header changes between pages. For Accounts and Net worth, the history
-   charts need checking: does the period move them?
-2. **Investments' rail.** Should Net worth's rail move to a back link (item 6), or should Investments' seven tabs
-   become a select on a phone?
-3. **Tax → Returns.** Is "Mark as lodged" the page's main task, or is opening a year's worksheet?
-4. **"+ Add" wording.** The noun everywhere ("+ Add holding"), or the noun only where the list's name doesn't already
-   say it?
+The owner answered the four questions this document was waiting on.
+
+1. **The period chip is hidden where nothing follows it** (Settings, Calculators), not kept with a note. Still to
+   check before the PR: whether the period moves the history charts on Accounts and Net worth. If it does, the chip
+   stays there; if it doesn't, it goes there too.
+2. **Investments' rail: Net worth's rail becomes a back link** ("‹ Net worth") on a phone, and Investments' seven tabs
+   are the only rail (item 6, as written).
+3. **Tax → Returns' primary is the open year's next step.** One primary button that follows the year's state: open the
+   worksheet while it is being filled in, then "Mark as lodged" when it is ready. Never two at once.
+4. **"+ Add" always names the thing,** lower case: "+ Add holding", "+ Add goal", "+ Add cash account" (item 3, as
+   written).

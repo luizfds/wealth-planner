@@ -1,6 +1,6 @@
 # Reading a field before it's saved (#263)
 
-**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, and Tax and people.** Every other
+**Status: the contract has shipped. Families using it: the budget and income row editors, goals, debts, category names, Investments, Property, Tax and people, and the calculators.** Every other
 family follows in its own PR. Part of #253; builds on the shared field from #254 ([fields.md](fields.md)).
 
 ## The contract
@@ -120,6 +120,29 @@ to Tax → People; those branches are removed rather than validated.
 In a return's grid the message spans the row under its fields, like a lot's. Not changed: the rental schedule's
 actuals (blank already means "use the plan's figure").
 
+## Calculators (a scenario's purchase and invest calculators)
+
+Reproduced on main before the change (the `calcvalidation` journey fails there: a cleared price became $0). The
+calculators edit a scenario's draft; a field that doesn't read leaves the draft as it was.
+
+| Field | Blank | Negative | Range | Before #263 |
+|---|---|---|---|---|
+| Property price (`.calc-price`) | Error | Error | — | Blank saved `0` |
+| Deposit % (`.calc-depositPct`) | Error | Error | 0–100 | 150 saved `100` |
+| Rate, interest-only rate (`.calc-rate`, `.calc-iorate`) | Error: "0 if it's interest-free" | Error | — | Blank saved `0` |
+| Loan term (`.calc-term`) | Error | — | At least 1 year | 0 or blank saved `1` |
+| Stamp duty typed in (`.calc-manual-stampduty`) | Error: "0 if none" | Error | — | Blank saved `0` |
+| LMI quote (`.calc-lmi-quote`) | The estimate (`null`), as before | Error | — | Negative clamped |
+| Property growth (`.calc-growth-override`) | The plan's rate (`null`), as before | Saved (prices can fall) | — | Unreadable saved `0` |
+| A purchase cost (`.cc-amount`) | Error: "0 if there isn't one" | Saved (a credit), as for a property's costs | — | Blank saved `0` |
+| Invest: starting amount, monthly amount | Error: "0 if none" | Error | — | Blank saved `0`; negative clamped |
+| Invest: growth % (`.invest-growth`) | Error: "0 for none" | Saved (a fall) | — | Blank saved `0` |
+
+`markField` now puts the message in the whole `.calc-field` / `.proj-field`, not in a "$" prefix wrapper inside it,
+which pushed the prefix down. A cost row's message gets its own line under the row (`.m-cost-row`, on Property too).
+Found while checking that at 320px: a cost row's amount had no width of its own, so it took an input's natural width
+(259px) and overflowed its 165px column past the row's left edge, on main too. It now fills its column.
+
 ## What's left: every other place a number is read the same way
 
 `parseFloat(…value) || 0` (or `Number(…) || 0`), which turns blank and unreadable input into `0`. Counted on main at
@@ -130,7 +153,7 @@ v3.229.0:
 | ~~`propertieswiring.js`, `properties.js`~~ | ~~29~~ done (Property, above) |
 | ~~`assetswiring.js`, `assets.js`~~ | ~~19~~ done (Investments, above) |
 | ~~`taxwiring.js`, `taxyear.js`, `people.js`~~ | ~~15~~ done (Tax and people, above) |
-| `calcwiring.js` (calculators) | 11 |
+| ~~`calcwiring.js` (calculators)~~ | ~~11~~ done (Calculators, above) |
 | `planwiring.js` | 6 |
 | `spendingwiring.js`, `cashflowwiring.js` | 5 |
 | `dashboard.js`, `accountswiring.js`, `accounts.js`, `benchmarks.js`, `investreturn.js`, `detail.js` | 8 |

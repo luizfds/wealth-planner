@@ -5,10 +5,35 @@
 // added, so they're added in the same order.
 import { recalcComputedItems } from "../calc/engine.js";
 import { purchaseCostAmount } from "../calc/property.js";
+import { readInput } from "../lib/validate.js";
 import { state, persist, defaultInvestConfig } from "../state.js";
 import { renderAssets } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderHomeBody, patchHomeLoanRowIfSynced, patchCalcOutputs, afterCalcChange, patchInvestOutputs } from "./scenarios.js";
+
+// ---------------- Reading the calculators' number fields (#263) ----------------
+// Each field is saved only when it reads as a value its rule allows (lib/validate.js, docs/design/validation.md): a
+// cleared price or rate isn't saved as 0, and a deposit outside 0–100% or a term under a year is said, not clamped.
+// Blank keeps its meaning where it has one: an LMI quote blank is the estimate, a growth rate blank is the plan's.
+function money(empty, what){ return { empty: empty, min: 0, range: what + " can't be negative." }; }
+var CALC_RULES = {
+  "calc-price": money("Enter the price.", "A price"),
+  "calc-depositPct": { empty: "Enter the deposit, from 0 to 100% of the price.", min: 0, max: 100, range: "Enter the deposit, from 0 to 100% of the price." },
+  "calc-rate": money("Enter the rate — 0 if it's interest-free.", "A rate"),
+  "calc-iorate": money("Enter the rate — 0 if it's interest-free.", "A rate"),
+  "calc-term": { empty: "Enter the loan's term in years.", min: 1, range: "A loan's term is at least 1 year." },
+  "calc-manual-stampduty": money("Enter the stamp duty — 0 if none.", "Stamp duty"),
+  "calc-lmi-quote": { min: 0, range: "A quote can't be negative — or leave it blank for the estimate." },
+  "calc-growth-override": {},
+  "cc-amount": { empty: "Enter the amount — 0 if there isn't one." },
+  "invest-initial": money("Enter the amount — 0 if none.", "An amount"),
+  "invest-growth": { empty: "Enter the growth rate — 0 for none." },
+  "invest-manual-amount": money("Enter the amount — 0 if none.", "An amount")
+};
+function readCalc(t){
+  var cls = Object.keys(CALC_RULES).find(function(c){ return t.classList.contains(c); });
+  return readInput(t, CALC_RULES[cls]);
+}
 
 // ---------------- Purchase calculator: wiring ----------------
 
@@ -20,22 +45,27 @@ function onCalcInput(e){
   if(!cfg) return;
   var t = e.target;
   var matched = true;
-  if(t.classList.contains("calc-price")) cfg.price = parseFloat(t.value) || 0;
-  else if(t.classList.contains("calc-depositPct")) cfg.depositPct = Math.max(0, Math.min(100, parseFloat(t.value) || 0));
-  else if(t.classList.contains("calc-rate")) cfg.rate = parseFloat(t.value) || 0;
-  else if(t.classList.contains("calc-iorate")) cfg.ioRate = parseFloat(t.value) || 0;
-  else if(t.classList.contains("calc-term")) cfg.termYears = Math.max(1, parseFloat(t.value) || 1);
+  var NUM = { "calc-price": "price", "calc-depositPct": "depositPct", "calc-rate": "rate", "calc-iorate": "ioRate", "calc-term": "termYears",
+    "calc-manual-stampduty": "manualStampDuty", "calc-lmi-quote": "lmiQuote", "calc-growth-override": "propertyGrowthRate" };
+  var numCls = Object.keys(NUM).find(function(c){ return t.classList.contains(c); });
+  if(numCls){
+    var r = readCalc(t);
+    if(!r) return;
+    cfg[NUM[numCls]] = r.value;
+  }
   else if(t.classList.contains("calc-buy-month")) cfg.buyMonth = /^\d{4}-\d{2}$/.test(t.value) ? t.value : "";
-  else if(t.classList.contains("calc-manual-stampduty")) cfg.manualStampDuty = parseFloat(t.value) || 0;
-  else if(t.classList.contains("calc-lmi-quote")) cfg.lmiQuote = t.value === "" ? null : Math.max(0, parseFloat(t.value) || 0);
-  else if(t.classList.contains("calc-growth-override")) cfg.propertyGrowthRate = t.value === "" ? null : (parseFloat(t.value) || 0);
   else if(t.classList.contains("cc-what") || t.classList.contains("cc-amount")){
     var tr = t.closest(".cc-row");
     var idx = Array.prototype.indexOf.call(tr.parentNode.children, tr);
     var cost = (cfg.otherCosts || [])[idx];
     if(!cost) return;
     // Item 254: a figure typed over a government fee row makes it the person's own (it stops following the state).
-    if(t.classList.contains("cc-what")) cost.what = t.value; else { cost.amount = parseFloat(t.value) || 0; delete cost.fee; t.removeAttribute("data-cc-fee"); }
+    if(t.classList.contains("cc-what")) cost.what = t.value;
+    else {
+      var amt = readCalc(t);
+      if(!amt) return;
+      cost.amount = amt.value; delete cost.fee; t.removeAttribute("data-cc-fee");
+    }
   } else { matched = false; }
   if(!matched) return;
 
@@ -126,12 +156,12 @@ function onInvestInput(e){
   var cfg = state.invest[scenario];
   if(!cfg) return;
   var t = e.target;
-  var matched = true;
-  if(t.classList.contains("invest-initial")) cfg.initialAmount = Math.max(0, parseFloat(t.value) || 0);
-  else if(t.classList.contains("invest-growth")) cfg.growthRatePct = parseFloat(t.value) || 0;
-  else if(t.classList.contains("invest-manual-amount")) cfg.monthlyContribution = Math.max(0, parseFloat(t.value) || 0);
-  else { matched = false; }
-  if(!matched) return;
+  var INVEST = { "invest-initial": "initialAmount", "invest-growth": "growthRatePct", "invest-manual-amount": "monthlyContribution" };
+  var investCls = Object.keys(INVEST).find(function(c){ return t.classList.contains(c); });
+  if(!investCls) return;
+  var r = readCalc(t);
+  if(!r) return;
+  cfg[INVEST[investCls]] = r.value;
 
   patchInvestOutputs(panel, scenario);
   afterCalcChange(scenario);

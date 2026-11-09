@@ -250,12 +250,17 @@
     }
     .m-cost-row .m-row-dot{ grid-area:dot; align-self:start; margin-top:9px; }
     .m-cost-row input.cc-what{ grid-area:name; width:100%; }
-    .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; }
+    /* Its own width, or an <input>'s intrinsic one (259px at 320 wide) overflows its column out past the row's left edge. */
+    .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; width:100%; }
     .m-cost-row .row-del{ grid-area:del; }
     .m-cost-row.has-move.is-loan-cost{ grid-template-areas:"dot name name" "dot amount del" "dot move move"; }
     .m-cost-row.has-move:not(.is-loan-cost){ grid-template-columns:auto 1fr auto auto; grid-template-areas:"dot name name name" "dot amount move del"; }
     .m-cost-row .acq-move{ grid-area:move; justify-self:start; white-space:normal; text-align:left; }
   }
+  /* #263: a cost's or schedule year's message goes on its own line under the row — flex wraps to it, and in the phone
+     grid it spans every column below the areas above. */
+  .m-cost-row:has(> .field-error:not(:empty)){ flex-wrap:wrap; }
+  .m-cost-row > .field-error{ flex:0 0 100%; grid-column:1 / -1; margin:0; }
 
   /* ---------------- Portfolio-wide overview (above the property card list) ---------------- */
   /* One row per property — name, then a few key stats — that doubles as jump-nav to that

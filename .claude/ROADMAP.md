@@ -4830,8 +4830,16 @@ placeholder only), and each price field says what it is ("IOZ close on 30 Jun 20
 
 ## Tax forms: labels and help — issue #261
 
-`[~]` Tax → This year, Returns and People. The payslip paste boxes get visible labels (placeholder only). Help that lived
+`[x]` Shipped (PR #286). Tax → This year, Returns and People. The payslip paste boxes get visible labels (placeholder only). Help that lived
 in title tooltips (date of birth, HELP, carry-forward, capital losses, gross so far, manual sacrifice, a blank rental
 line, renaming a person) shows under its field and describes it. Visible labels become the labels, so a field's
 accessible name starts with what's on screen ("Payslip date", not "Payslip period end"). The accessibility scan covers
 these tabs and Plan → Goals; it found the June moves' person headings skipping a level (h4 under h2).
+
+## Holdings and purchase lots: labels and help — issue #261
+
+`[~]` Investments → Shares. A holding's editor and its sale form on the shared field adapter (ledgerFields): labels tied to
+their fields and names that start with them ("Qty" was named "Quantity", "Sold on" "Sale date"); help that was title-only
+shows under its field — dividend per unit, franked %, proceeds after brokerage, the 12-month CGT discount on Acquired on,
+cost base. Purchase lots and distributions keep their compact grid, with each lot numbered in its fields' names and the
+title help in the notes they're described by. The price paste box gets a visible label (placeholder only).

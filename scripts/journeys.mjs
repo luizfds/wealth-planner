@@ -21,6 +21,7 @@
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   taxlabels   — Tax's forms: every field named from its visible label, no help left in title tooltips (#261)
+//   holdings    — Investments → Shares: a holding's editor named from its labels, help on screen, and it still saves (#261)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -172,6 +173,52 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #261: Investments → Shares — a holding's editor named from its visible labels, its help on screen, and every field
+  // still saving through the shared-field markup.
+  async holdings(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "assets", "data-assets-sub", "Shares");
+    await page.evaluate(() => [...document.querySelectorAll(".m-asset-rows [data-row-toggle]")].find(t => t.getClientRects().length).click());
+    const row = ".m-row.open";
+    await page.locator(row + " .h-qty").waitFor({ state: "visible" });
+    const idx = Number(await page.evaluate(r => document.querySelector(r).getAttribute("data-index"), row));
+    await page.evaluate(r => document.querySelectorAll(r + " details").forEach(d => { d.open = true; }), row);
+    const bad = await page.evaluate(r => {
+      const out = [];
+      const text = el => { const c = el.cloneNode(true); c.querySelectorAll(".visually-hidden, input, select, textarea").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim(); };
+      document.querySelectorAll(r + " input:not([type=hidden]):not([type=file]), " + r + " select, " + r + " textarea, #sharesPasteArea").forEach(el => {
+        if(!el.getClientRects().length && el.id !== "sharesPasteArea") return;
+        const who = (el.className || el.id).split(" ")[0], label = el.labels && el.labels[0];
+        const name = el.getAttribute("aria-label") || (label ? label.textContent.replace(/\s+/g, " ").trim() : "");
+        if(!name) out.push(who + ": no name");
+        if(el.title) out.push(who + ": help in a title tooltip");
+        if(label && !el.getAttribute("aria-label") && !label.contains(el) && !name.startsWith(text(label))) out.push(who + ": name doesn't start with its label");
+      });
+      return out;
+    }, row);
+    check(!bad.length, "holding editor: " + bad.slice(0, 6).join("; "));
+    const saved = expr => stored(page, "state.assets[" + idx + "]." + expr);
+    await page.fill(row + " .h-qty", "123"); await page.press(row + " .h-qty", "Tab");
+    await eventually(async () => await saved("quantity") === 123);
+    check(await saved("quantity") === 123, "a holding's quantity didn't save");
+    await page.selectOption(row + " .h-market", "US");
+    await eventually(async () => await saved("market") === "US");
+    check(await saved("market") === "US", "a holding's market didn't save");
+    await page.fill(row + " .h-price", "77.5"); await page.press(row + " .h-price", "Tab");
+    await eventually(async () => await saved("price") === 77.5);
+    check(await saved("price") === 77.5, "a holding's price didn't save");
+    check(await page.locator(row + " .h-price-note").count() === 1 && await page.evaluate(r => !!document.querySelector(r + " .h-price").getAttribute("aria-describedby").match(/help/), row), "the price note isn't the price's described help");
+    if(await page.locator(row + " .lot-brokerage").count()){
+      await page.fill(row + " .lot-brokerage >> nth=0", "19.95"); await page.press(row + " .lot-brokerage >> nth=0", "Tab");
+      await eventually(async () => await saved("lots[0].brokerage") === 19.95);
+      check(await saved("lots[0].brokerage") === 19.95, "a lot's brokerage didn't save");
+    }
+    const sales = await stored(page, "(state.assets[" + idx + "].sales || []).length");
+    await page.fill(row + " .h-sale-units", "1"); await page.fill(row + " .h-sale-proceeds", "100"); await page.fill(row + " .h-sale-costbase", "80");
+    await click(page, row + " [data-asset-sale]");
+    await eventually(async () => await stored(page, "(state.assets[" + idx + "].sales || []).length") > sales);
+    check(await stored(page, "(state.assets[" + idx + "].sales || []).length") === sales + 1, "recording a sale through the new fields didn't save it");
+  },
   // #261: Tax's forms — every field named, its name starting with what's on screen (WCAG 2.5.3), no help left in a
   // title tooltip, and visible help tied to its field.
   async taxlabels(page){

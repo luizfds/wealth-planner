@@ -22,6 +22,8 @@
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   taxlabels   — Tax's forms: every field named from its visible label, no help left in title tooltips (#261)
 //   holdings    — Investments → Shares: a holding's editor named from its labels, help on screen, and it still saves (#261)
+//   property    — Net worth → Property, editing, every tab: fields named from their labels, no tooltip-only help, and a
+//                 label reaches its field; land value and purchase price still save (#261)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
@@ -173,6 +175,51 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
+  // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
+  // field, and fields still save.
+  async property(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    await go(page, "properties");
+    await click(page, "[data-prop-edit]");
+    const tabs = await page.evaluate(() => [...document.querySelectorAll("[data-prop-tab]")].map(t => t.getAttribute("data-tab")));
+    for(const tab of tabs){
+      await page.evaluate(t => document.querySelector('[data-prop-tab][data-tab="' + t + '"]').click(), tab);
+      await page.waitForFunction(t => { const p = document.querySelector('[data-prop-panel="' + t + '"]'); return p && !p.hidden; }, tab);
+      await page.evaluate(() => { document.querySelectorAll('[data-prop-section-toggle][aria-expanded="false"]').forEach(x => x.click()); document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }); });
+      await page.evaluate(() => { const t = [...document.querySelectorAll(".prop-tab-panel:not([hidden]) [data-row-toggle]")].find(x => x.getClientRects().length && !x.closest(".m-row.open")); if(t) t.click(); });
+      await settle(page);
+      const bad = await page.evaluate(() => {
+        const out = [];
+        const text = el => { const c = el.cloneNode(true); c.querySelectorAll(".visually-hidden, input, select, textarea").forEach(x => x.remove()); return c.textContent.replace(/\s+/g, " ").trim(); };
+        document.querySelectorAll(".app-page:not([hidden]) input:not([type=hidden]):not([type=file]), .app-page:not([hidden]) select, .app-page:not([hidden]) textarea, .m-row.open input, .m-row.open select").forEach(el => {
+          if(!el.getClientRects().length) return;
+          const who = String(el.className || el.type).split(" ")[0], label = el.labels && el.labels[0];
+          const name = el.getAttribute("aria-label") || (label ? label.textContent.replace(/\s+/g, " ").trim() : "");
+          if(!name) out.push(who + ": no name");
+          if(el.title || el.closest(".calc-field[title], .proj-field[title], .m-edit-field[title]")) out.push(who + ": help in a title tooltip");
+          if(label && !el.getAttribute("aria-label") && !label.contains(el) && !name.startsWith(text(label))) out.push(who + ": name doesn't start with its label");
+        });
+        document.querySelectorAll(".calc-field > label:not([for]), .proj-field > label:not([for]), .m-edit-field > label:not([for])").forEach(l => {
+          if(l.getClientRects().length && !l.querySelector("input,select,textarea") && l.parentElement.querySelector("input:not([type=checkbox]):not([type=radio]), select, textarea")) out.push("label '" + l.textContent.trim() + "' not tied to its field");
+        });
+        return [...new Set(out)];
+      });
+      check(!bad.length, "property " + tab + ": " + bad.slice(0, 6).join("; "));
+    }
+    // Clicking a visible label reaches its field; fields still save through the tied markup.
+    await page.evaluate(() => document.querySelector('[data-prop-tab][data-tab="overview"]').click());
+    await page.locator('.prop-tab-panel:not([hidden]) .prop-land-value').waitFor({ state: "visible" });
+    const landLabel = await page.evaluate(() => document.querySelector(".prop-tab-panel:not([hidden]) .prop-land-value").labels[0].htmlFor);
+    await page.click('label[for="' + landLabel + '"]');
+    check(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("prop-land-value")), "clicking Land value's label didn't reach its field");
+    await page.fill(".prop-tab-panel:not([hidden]) .prop-land-value", "412000"); await page.press(".prop-tab-panel:not([hidden]) .prop-land-value", "Tab");
+    await eventually(async () => await stored(page, "state.properties[0].landValue") === 412000);
+    check(await stored(page, "state.properties[0].landValue") === 412000, "land value didn't save");
+    await page.fill(".prop-tab-panel:not([hidden]) .prop-purchase-price", "655000"); await page.press(".prop-tab-panel:not([hidden]) .prop-purchase-price", "Tab");
+    await eventually(async () => await stored(page, "state.properties[0].purchasePrice") === 655000);
+    check(await stored(page, "state.properties[0].purchasePrice") === 655000, "purchase price didn't save");
+  },
   // #261: Investments → Shares — a holding's editor named from its visible labels, its help on screen, and every field
   // still saving through the shared-field markup.
   async holdings(page){

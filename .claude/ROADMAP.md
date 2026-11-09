@@ -4879,6 +4879,12 @@ purchase costs. A cleared field saved 0, and an ownership or investment share ou
 
 ## Tax and people: no blank figure saved — issue #263
 
-`[~]` Tax → people's settings (salary sacrifice, concessional cap and carry-forward, HELP balance, capital losses,
+`[x]` Shipped (PR #293). Tax → people's settings (salary sacrifice, concessional cap and carry-forward, HELP balance, capital losses,
 top-up, year-to-date pay, work-from-home hours, private health premiums), the SG rate and the tax year's rows. A
 cleared field saved 0, and a negative one was quietly clamped to 0.
+
+## Calculators: no blank figure saved — issue #263
+
+`[~]` Calculators → property purchase (price, deposit, rates, term, stamp duty, LMI quote, growth, purchase costs) and
+investment (initial amount, growth, monthly contribution). A cleared field saved 0 (a $0 price, a 0% rate), and a
+deposit outside 0–100% or a term under a year was quietly clamped.

@@ -31,6 +31,11 @@
     #dashboardStats.stat-row{ grid-template-columns: minmax(0,1fr); }
     #dashboardStats.stat-row .stat-tile:first-child{ grid-column: 1 / -1; }
   }
+  /* #266: an open "Compare monthly trade-offs" takes the whole row — at 390px it was a 174px column 2.6 screens tall,
+     and the tile beside it (Tax) stretched to the same height, mostly empty. Dense flow lets a later tile fill the cell
+     it leaves. After the rules above, which set the columns this spans. */
+  #dashboardStats.stat-row{ grid-auto-flow: row dense; }
+  #dashboardStats.stat-row .stat-tile:has(> details.scenario-tradeoffs[open]){ grid-column: 1 / -1; }
   .stat-tile{
     background: var(--paper-raised); border:1px solid var(--border); border-radius:var(--card-radius); padding: var(--card-py) var(--card-px);
     box-shadow: var(--shadow); display:flex; flex-direction:column; gap:4px; transition: transform .18s ease, box-shadow .18s ease;

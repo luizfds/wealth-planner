@@ -97,9 +97,13 @@ export function wireCards(){
   // one-tap bridge from the page everyone actually lands on first.
   document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });  // v3.33.0: tiles that open the panel behind them (FI → Insights, tax year → the worksheet).
   document.getElementById("dashboardStats").addEventListener("click", function(e){
+    // #266: the scenario comparison's outcomes link to their assumptions — a scenario's own page, or Projections.
+    var edit = e.target.closest("[data-edit-scenario]");
+    if(edit){ scenarioActions.openScenarioEditor(edit.getAttribute("data-edit-scenario")); return; }
     var jump = e.target.closest("[data-dashboard-jump]");
     if(!jump) return;
     var where = jump.getAttribute("data-dashboard-jump");
+    if(where === "projections"){ showPage("projections"); return; }
     if(where === "insights"){
       var tab = document.querySelector('[data-dashboard-sub="insights"]');
       if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }

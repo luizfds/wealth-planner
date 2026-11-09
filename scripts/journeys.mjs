@@ -41,6 +41,8 @@
 //                 rate and a goal's target — out of range is said, not dropped, ignored or clamped
 //   tabkeys     — #262: a property's tabs by keyboard (arrows, Home/End, one Tab stop, each tied to its panel); Reports'
 //                 picker keeps focus through a redraw and Tab moves on from it; page subtabs say which is current
+//   homecompare — #266: Home's open scenario comparison takes the whole row (no stretched neighbour), keeps its risk
+//                 notes, matches the projected tile, reads a long name at 320px, and links to its assumptions
 //   categories  — Settings → Categories: a rename cleared to retype keeps its lines, a taken name doesn't merge, and each
 //                 delete says which category (#261 / #263)
 //   validation  — a row editor's amount and claimable share save only when they read (#263): cleared, out of
@@ -226,6 +228,64 @@ const JOURNEYS = {
       return { value: el.value, invalid: el.getAttribute("aria-invalid"), message: m ? m.textContent : "", focused: document.activeElement === el, caret: el.selectionStart }; }, field);
     check(kept.value === taken && kept.invalid === "true" && /already/.test(kept.message) && kept.focused && kept.caret === taken.length,
       "a redraw mid-typing lost the draft (" + JSON.stringify(kept) + ")");
+  },
+  // #266: Home's scenario comparison, opened — the whole row (at 390px it was a 174px column 2.6 screens tall, and the
+  // Tax tile beside it stretched to match), its risk notes kept, the same figures as the projection, a long name read
+  // at 320px, and each outcome a way to its assumptions.
+  async homecompare(page){
+    await page.waitForLoadState("networkidle"); await settle(page);
+    // A long scenario name (invented), to check it wraps rather than widening anything.
+    const longName = "Buy the place near the park with the bigger yard and a granny flat";
+    await page.evaluate(async n => { const sc = await import("/src/components/scenarios.js"); const m = await import("/src/state.js");
+      const other = m.state.scenarios.find(x => x !== m.state.baselineScenario); sc.renameScenarioTo(other, n); m.commit(["scenarios", "home", "purchase", "invest", "activeScenario", "baselineScenario"]); }, longName);
+    await go(page, "dashboard", "data-dashboard-sub", "overview");
+    const tile = '#dashboardStats [data-home-card="scenarios"]';
+    await page.locator(tile + " summary").waitFor({ state: "visible" });
+    const measure = () => page.evaluate(t => { const el = document.querySelector(t), r = el.getBoundingClientRect(), g = el.parentElement.getBoundingClientRect();
+      const mates = [...el.parentElement.children].filter(x => x !== el && x.getClientRects().length && Math.abs(x.getBoundingClientRect().top - r.top) < 2);
+      return { w: Math.round(r.width), grid: Math.round(g.width), mates: mates.length, doc: document.documentElement.scrollWidth, vw: innerWidth }; }, tile);
+    const closed = await measure();
+    // Opened from the keyboard: the whole row, nothing beside it, focus still on the summary.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    const open = await measure();
+    check(open.w === open.grid && open.mates === 0, "the open comparison doesn't take the whole row: " + JSON.stringify({ closed, open }));
+    check(open.doc <= open.vw, "the open comparison widened the page to " + open.doc + "px");
+    check(await page.evaluate(t => document.activeElement === document.querySelector(t + " summary"), tile), "opening the comparison lost focus");
+    // Its risk notes are all still there.
+    const text = await page.evaluate(t => document.querySelector(t + " details").innerText, tile);
+    for(const must of ["not a guaranteed outcome", "funding gap", "These are estimates, not guarantees", "Projected net worth"]){
+      check(text.includes(must), "the open comparison dropped \"" + must + "\"");
+    }
+    // The same figure as Home's projected tile, for the scenario shown.
+    const same = await page.evaluate(t => {
+      const active = document.querySelector('#dashboardStats [data-home-card="projected"] b');
+      const rows = [...document.querySelectorAll(t + " tbody tr")];
+      const head = [...document.querySelectorAll(t + " thead th")].map(h => h.textContent);
+      const col = head.findIndex(h => /^Projected net worth/.test(h));
+      return { tile: active && active.getAttribute("title"), table: rows.map(r => r.children[col] && r.children[col].textContent), col };
+    }, tile);
+    check(same.col > 0 && same.table.includes(same.tile), "the comparison's projected net worth doesn't match Home's: " + JSON.stringify(same));
+    // A long name at 320px: it wraps, the page doesn't scroll sideways.
+    await page.setViewportSize({ width: 320, height: 844 }); await settle(page);
+    const narrow = await measure();
+    check(narrow.doc <= 320 && narrow.w === narrow.grid, "at 320px the comparison with a long name overflows: " + JSON.stringify(narrow));
+    await page.setViewportSize({ width: 390, height: 844 }); await settle(page);
+    // Closed again: back in its cell.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    const again = await measure();
+    check(again.w === closed.w && again.mates === closed.mates, "closing the comparison didn't put the tile back: " + JSON.stringify({ closed, again }));
+    // Outcomes link to their assumptions: a scenario's page, and Projections.
+    await page.focus(tile + " summary"); await page.keyboard.press("Enter"); await settle(page);
+    await click(page, tile + ' [data-dashboard-jump="projections"]');
+    await until(page, () => document.body.getAttribute("data-current-page") === "plan" && !!document.querySelector('[data-plan-sub="projections"][aria-current="page"]'));
+    check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "plan" && !!document.querySelector('[data-plan-sub="projections"][aria-current="page"]')), "the Projections link didn't open Plan → Projections");
+    await go(page, "dashboard", "data-dashboard-sub", "overview");
+    await page.evaluate(t => { const d = document.querySelector(t + " details"); if(d) d.open = true; }, tile);
+    await click(page, tile + ' [data-edit-scenario="' + longName + '"]');
+    await until(page, () => document.body.getAttribute("data-current-page") === "scenario");
+    check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "a scenario's name in the comparison didn't open its page");
+    check(await page.evaluate(n => { const pg = document.querySelector(".app-page:not([hidden])"); return pg.innerText.includes(n) || [...pg.querySelectorAll("input")].some(i => i.value === n); }, longName),
+      "the scenario page opened isn't the one tapped");
   },
   // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
   // chooser that keeps focus when it redraws; page subtabs say which one is showing.

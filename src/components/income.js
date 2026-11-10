@@ -779,7 +779,7 @@ function payslipReadHtml(person){
   // the button is only for when they weren't — the stored ones came from a later payslip.
   var stY = personTaxSettings(person).ytd || {};
   var inUse = stY.asOf === p.periodEnd && stY.gross === p.ytd.gross && stY.withheld === p.ytd.tax;
-  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd){ if(!inUse) actions.push('<button type="button" class="btn btn-sm btn-primary" data-slip-use="' + pid + '">Use the year-to-date figures</button>'); }
+  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd){ if(!inUse) actions.push('<button type="button" class="btn btn-sm" data-slip-use="' + pid + '">Use the year-to-date figures</button>'); }
   else out += '<p class="slip-out">' + (p.periodEnd ? "No year-to-date column found" : "No period dates found") + ' — type the figures above.</p>';
   var row = salaryRowFor(person);
   if(row && freq && p.gross > 0){
@@ -790,7 +790,7 @@ function payslipReadHtml(person){
   var chk = payslipCheck(person, p);
   if(chk){
     out += '<ul class="slip-check">' + chk.lines.map(function(l){ return '<li class="' + l.tone + '">' + escapeAttr(l.text) + '</li>'; }).join("") + '</ul>';
-    if(chk.loggable) actions.unshift('<button type="button" class="btn btn-sm btn-primary" data-slip-log="' + pid + '">Log ' + fmtCurrency2.format(chk.loggable.amount) + ' as received ' + escapeAttr(fmtDate(chk.loggable.date)) + '</button>');
+    if(chk.loggable) actions.unshift('<button type="button" class="btn btn-sm" data-slip-log="' + pid + '">Log ' + fmtCurrency2.format(chk.loggable.amount) + ' as received ' + escapeAttr(fmtDate(chk.loggable.date)) + '</button>');
   }
   return out + (actions.length ? '<div class="slip-actions">' + actions.join("") + '</div>' : '') + '</div>';
 }

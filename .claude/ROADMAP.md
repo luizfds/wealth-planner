@@ -4947,7 +4947,11 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      where there was a 147×96px labelled pill with a second button above it. The smoke run fails a floating button on
      a desktop, or anything bigger than the one circle on a phone. Below 1500px the header's gaps and the net worth pill's
      padding are tighter by the 48px the button takes, so the header wraps no sooner than it did.
-   - `[ ]` Issue #255 step 1 (header and one primary per view), then step 2 (add/delete wording).
+   - `[x]` **Issue #255 step 1**: one primary button per view (nine views had two to four); Tax → Returns' primary
+     follows the year (open the year being lodged, then mark each person lodged, then close the year); the header's
+     button is primary only when the page has none; the period chip is hidden on Net worth, Accounts, Settings and
+     Calculators; Plan → Scenarios has About this page. The smoke run fails a view with two primaries or no About.
+   - `[ ]` Issue #255 step 2 (add/delete wording).
 2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways

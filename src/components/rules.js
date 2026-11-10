@@ -56,7 +56,7 @@ export function rulesPageHtml(lines){
   var addHtml = '<div class="rl-add"><b>Add a rule</b><div class="rl-add-grid">' +
     '<label class="cf-filter"><span>When the description has</span><input type="text" data-rl-new="match" placeholder="e.g. fern cafe"></label>' +
     '<label class="cf-filter"><span>File under line</span><select data-rl-new="line">' + optionList(lineOpts, "", "— pick a line —") + '</select></label>' +
-    '<button type="button" class="btn btn-sm btn-primary" data-rl-add>Add rule</button></div></div>';
+    '<button type="button" class="btn btn-sm" data-rl-add>Add rule</button></div></div>';
   if(!rules.length){
     return testHtml + '<p class="ledger-note" style="margin:0 0 10px">No rules yet. Every row you confirm in a bank import teaches one, or add one here before your first import.</p>' + addHtml;
   }

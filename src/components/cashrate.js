@@ -46,7 +46,7 @@ export function cashRatePanelHtml(st, today){
           return '<label class="cr-loan"><input type="checkbox" data-cr-loan="' + escapeAttr(key) + '" checked> <span>' + escapeAttr(l.what) + '</span> <b>' + pct(l.from) + ' → ' + pct(l.to) + '</b></label>';
         }).join("") + '</div>' +
         '<div class="cr-actions"><label class="cr-date">From <input type="date" data-cr-date value="' + escapeAttr(date) + '"></label>' +
-        '<button type="button" class="btn btn-sm btn-primary" data-cr-record>Record on the loans ticked</button>' +
+        '<button type="button" class="btn btn-sm" data-cr-record>Record on the loans ticked</button>' +
         '<button type="button" class="btn btn-sm btn-ghost" data-cr-dismiss>Not now</button></div>'
       : '<div class="cr-actions"><button type="button" class="btn btn-sm btn-ghost" data-cr-dismiss>OK</button></div>') +
   '</div>';

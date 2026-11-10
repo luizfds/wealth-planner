@@ -78,7 +78,18 @@ function movePageActions(){
     slot.appendChild(el);
   });
 }
+// #255: one primary per view. The header's action button is it when it is the page's own action
+// (nav.js marks it data-page-action) and nothing on the page is — "Start the review", a year's
+// "Mark as lodged". Otherwise it is an ordinary button, so two never show at once.
+function updateHeaderAction(){
+  var add = document.getElementById("headerAddBtn");
+  if(!add) return;
+  var page = document.querySelector(".app-page:not([hidden])");
+  var own = !!page && Array.prototype.some.call(page.querySelectorAll(".btn-primary"), function(b){ return b.getClientRects().length > 0; });
+  add.classList.toggle("btn-primary", add.hasAttribute("data-page-action") && !own);
+}
 export function updatePageHelp(){
+  updateHeaderAction();
   movedActions.forEach(function(m){ m.el.hidden = !onScreen(m.home); });
   var btn = document.getElementById("pageHelpBtn");
   if(!btn) return;

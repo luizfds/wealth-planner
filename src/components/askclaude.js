@@ -114,7 +114,7 @@ export function askClaudeHtml(){
   var anyAi = '<div class="ai-any"><div class="ai-sub">Any AI — no key needed</div>' +
     '<p class="ledger-note help">Copies a fixed review prompt and aggregated financial figures without free-text questions. Review the preview before copying or sharing with any AI. Paste its answer back below and it\'s shown here, with your own names.</p>' +
     '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what's copied") + '</button>' +
-      '<button type="button" class="btn btn-sm btn-primary" data-ai-copy>Copy for any AI</button></div>' +
+      '<button type="button" class="btn btn-sm" data-ai-copy>Copy for any AI</button></div>' +
     (askUi.pasteOpen
       ? '<textarea class="ai-paste" rows="6" data-ai-paste placeholder="Paste the assistant\'s answer here" aria-label="The assistant\'s answer"></textarea>' +
         '<div class="ai-actions"><input type="text" class="ai-source" data-ai-source placeholder="Which AI? (optional)" aria-label="Which assistant wrote it"><button type="button" class="btn btn-sm" data-ai-save-paste>Save the answer</button><button type="button" class="link-btn" data-ai-paste-toggle>Cancel</button></div>'

@@ -1,6 +1,6 @@
 # Page structure, actions, empty states and help (#255)
 
-**Status: agreed, with the decisions at the end. Nothing here is implemented yet**, as #255 asks: the specification is agreed first, then
+**Status: agreed, with the decisions at the end. Step 1 (header and primaries) is implemented; the rest is not yet**, as #255 asks: the specification is agreed first, then
 pages migrate in the PRs listed at the end. Part of #253. It builds on [0010](../decisions/0010-one-design-system.md)
 (tokens, buttons, cards), [fields.md](fields.md) (one field) and [validation.md](validation.md) (one way to say a field
 is wrong), and covers what those don't: how a page is put together.
@@ -108,6 +108,9 @@ Counts are from the audit; "390" is the demo household at 390px.
 - **A form's submit is primary only inside a dialog or an open editor**, where it's the task in front of the person.
   On the page it's `.btn`.
 - **Some views have no primary.** A report, or a view that's only for reading (Net worth's overview), doesn't need one.
+- **The header's action button counts.** On a desktop it is the view's primary when it is the page's own add or log
+  action and the page shows no primary of its own; otherwise it is a plain button (`lib/help.js`). A phone's round
+  button is the same action and is not counted.
 
 ### 3. Add, edit, delete
 
@@ -211,9 +214,9 @@ No calculation, stored data or wording of risk information changes. Where a step
 
 The owner answered the four questions this document was waiting on.
 
-1. **The period chip is hidden where nothing follows it** (Settings, Calculators), not kept with a note. Still to
-   check before the PR: whether the period moves the history charts on Accounts and Net worth. If it does, the chip
-   stays there; if it doesn't, it goes there too.
+1. **The period chip is hidden where nothing follows it**, not kept with a note: Settings, Calculators, and also Net
+   worth and Accounts. Checked by driving the app: with the period moved two years back, neither page's text changes,
+   and neither module reads the period.
 2. **Investments' rail: Net worth's rail becomes a back link** ("‹ Net worth") on a phone, and Investments' seven tabs
    are the only rail (item 6, as written).
 3. **Tax → Returns' primary is the open year's next step.** One primary button that follows the year's state: open the

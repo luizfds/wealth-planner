@@ -2021,17 +2021,32 @@ const JOURNEYS = {
     // The site's file is read a moment after startup; the sample household has loans to record it on.
     for(let i = 0; i < 40 && !(await st(page, "!!state.cashRate")); i++) await page.waitForTimeout(250);
     check(await st(page, "!!(state.cashRate && state.cashRate.rate > 0)"), "the cash rate file wasn't read");
+    // #305: the move is a To do. Property shows no banner — one line of notices and the quiet rate line — and the
+    // form opens in a dialog from the To do.
     await go(page, "properties");
-    await page.waitForSelector("#cashRatePanel [data-cr-record]", { timeout: 5000 });
-    const picks = await page.evaluate(() => [...document.querySelectorAll("#cashRatePanel [data-cr-loan]:checked")].map(x => x.getAttribute("data-cr-loan")));
+    check(await page.locator("#page-properties [data-cr-record]").count() === 0, "Property still carries the cash-rate form");
+    check(/cash rate/.test(await page.locator("#attentionLine").innerText()), "Property's line doesn't mention the cash rate");
+    await page.locator("#attentionLine [data-attn-line]").click();
+    await page.locator('#notifPanel [data-notif-action="cashrate"]').click();
+    const dlg = page.getByRole("dialog", { name: "Record the cash rate change" });
+    await dlg.waitFor({ timeout: 5000 });
+    check(await page.evaluate(() => !!document.activeElement.closest("#cashRateRoot")), "focus is not in the cash-rate dialog");
+    // Closing it without answering leaves the To do.
+    await page.keyboard.press("Escape");
+    await until(page, () => !document.querySelector("#cashRateRoot [role=dialog]"));
+    check(await st(page, "state.cashRate.seen !== state.cashRate.effective"), "closing the dialog answered the move");
+    await page.locator("#attentionLine [data-attn-line]").click();
+    await page.locator('#notifPanel [data-notif-action="cashrate"]').click();
+    await dlg.waitFor({ timeout: 5000 });
+    const picks = await page.evaluate(() => [...document.querySelectorAll("#cashRateRoot [data-cr-loan]:checked")].map(x => x.getAttribute("data-cr-loan")));
     check(picks.length > 0, "no loans offered for the rate change");
-    await page.fill("#cashRatePanel [data-cr-date]", "2026-11-20");
-    await click(page, "#cashRatePanel [data-cr-record]"); await until(page, () => !document.querySelector("#cashRatePanel [data-cr-record]"));
+    await page.fill("#cashRateRoot [data-cr-date]", "2026-11-20");
+    await click(page, "#cashRateRoot [data-cr-record]"); await until(page, () => !document.querySelector("#cashRateRoot [data-cr-record]"));
     const r = await page.evaluate(async (key) => {
       const s = (await import("/src/state.js")).state, P = await import("/src/calc/property.js");
       const [pid, i] = key.split(":"), l = s.properties.find(p => p.id === pid).loans[Number(i)];
       return { before: P.loanRateOn(l, "2026-11-19"), after: P.loanRateOn(l, "2026-11-20"), change: s.cashRate.change, seen: s.cashRate.seen === s.cashRate.effective,
-        panel: !!document.querySelector("#cashRatePanel [data-cr-record]") };
+        panel: !!document.querySelector("#cashRateRoot [data-cr-record]") || /cash rate/.test((document.getElementById("attentionLine") || {}).innerText || "") };
     }, picks[0]);
     check(Math.abs(r.after - r.before - r.change) < 0.001, "the loan's rate moved " + (r.after - r.before) + ", the cash rate " + r.change);
     check(r.seen && !r.panel, "the move still asks to be recorded");

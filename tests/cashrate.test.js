@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseRbaCsv, rbaDate, cashRateFile, cashRateFromFile, cashRateMove, loansForMove, recordCashRateMove, applyCashRate } from "../src/calc/cashrate.js";
 import { loanRateOn } from "../src/calc/property.js";
-import { cashRatePanelHtml, cashRateLine } from "../src/components/cashrate.js";
+import { cashRatePanelHtml, cashRateFormHtml, cashRateLine } from "../src/components/cashrate.js";
 
 // Item 249. A table shaped like the RBA's CSVs: a title row, rows describing each column, then a row per date.
 const A2 = [
@@ -84,16 +84,20 @@ test("a scenario rate that follows the cash rate moves by as much; one typed sta
   assert.deepEqual([st.purchase.Other.rate, st.purchase.Other.rateCashAt], [6.5, 4.85], "following starts from the rate as it is");
 });
 
-test("the panel: the rate on its own, or the move with each loan and the date", () => {
+test("the page keeps one quiet line with the rate; the form (#305: in a dialog) has the move, each loan and the date", () => {
   const st = household();
-  assert.equal(cashRatePanelHtml(st, "2026-11-05"), "");
+  assert.equal(cashRatePanelHtml(st), "");
+  assert.equal(cashRateFormHtml(st, "2026-11-05"), "");
   st.cashRate = cashRateFromFile(FILE, null, "2026-11-05");
-  const html = cashRatePanelHtml(st, "2026-11-05");
+  assert.equal(cashRatePanelHtml(st), "", "unanswered: the page's line of notices says it, so nothing here");
+  const html = cashRateFormHtml(st, "2026-11-05");
   assert.match(html, /raised the cash rate 0\.25% to 4\.85%/);
   assert.match(html, /data-cr-loan="p1:0" checked/);
   assert.match(html, /Loan A<\/span> <b>6\.2% → 6\.45%/);
   assert.match(html, /data-cr-date value="2026-11-05"/);
   st.cashRate.seen = st.cashRate.effective;
-  assert.match(cashRatePanelHtml(st, "2026-11-05"), /RBA cash rate 4\.85% — up 0\.25% from/);
+  assert.equal(cashRateFormHtml(st, "2026-11-05"), "", "answered: nothing to ask");
+  assert.match(cashRatePanelHtml(st), /^<p class="cr-line">RBA cash rate 4\.85% — up 0\.25% from/);
+  assert.ok(!/data-cr-/.test(cashRatePanelHtml(st)), "no form on the page");
   assert.equal(cashRateLine(null), "");
 });

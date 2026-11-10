@@ -117,8 +117,10 @@ test("Insights: a dismissed observation moves to the Put away fold with Bring ba
   withState({ noticesDismissed: { w: "Wants were 18% of spending" } }, function(){
     var html = adviceHomeHtml(items), fold = html.slice(html.indexOf("data-adv-away"));
     assert.match(fold, /1 dismissed/);
-    assert.match(fold, /data-adv-id="w"[\s\S]*data-notice-restore="w">Bring back/);
+    assert.match(fold, /<div class="adv-row"><details class="adv-item adv-info" data-adv-id="w">[\s\S]*<\/details><button[^>]*data-notice-restore="w" aria-label="Bring back: Wants were 18% of spending">Bring back/);
     assert.ok(html.indexOf('data-adv-id="w"') > html.indexOf("data-adv-away"), "out of the main list");
-    assert.match(html, /data-notice-dismiss="o">Dismiss/);
+    // The control is beside the card, not inside it, and named for its notice.
+    assert.match(html, /<\/details><button type="button" class="icon-btn adv-dismiss" data-notice-dismiss="o" aria-label="Dismiss: Unused super room"/);
+    assert.ok(!/<details[^>]*data-adv-id="r"[\s\S]*?<\/details><button/.test(html.slice(0, html.indexOf('data-adv-id="o"'))), "a Watch has nothing beside it");
   });
 });

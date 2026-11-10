@@ -97,8 +97,12 @@ function openNotifPanel(triggerBtn, view){
 export function refreshNotifPanel(){ if(notifPanelOpen) renderNotifPanelContent(); }
 // Where a To do is done. One function for the bell's rows and Home's To do, which carry the same attributes.
 export function followNotification(el){
-  var page = el.getAttribute("data-notif-page"), sub = el.getAttribute("data-notif-sub"), action = el.getAttribute("data-notif-action"), fy = el.getAttribute("data-notif-fy");
-  markNotificationRead(el.getAttribute("data-notif-id"));
+  followItem({ id: el.getAttribute("data-notif-id"), page: el.getAttribute("data-notif-page"), sub: el.getAttribute("data-notif-sub"),
+    action: el.getAttribute("data-notif-action"), fy: el.getAttribute("data-notif-fy") });
+}
+function followItem(n){
+  var page = n.page, sub = n.sub, action = n.action, fy = n.fy;
+  markNotificationRead(n.id);
   renderNotifBadge();
   closeNotifPanel();
   if(action === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
@@ -157,6 +161,12 @@ export function wireNotifications(){
     var line = e.target.closest("[data-attn-line]");
     if(!line && !e.target.closest("[data-open-bell]")) return;
     e.stopPropagation();
+    // A line with one item that has its own action (the cash-rate dialog, the review queue) does it — the bell
+    // would only show that one row to tap again. Anything else opens the list, where its detail is.
+    if(line){
+      var here = viewItems(currentView()), only = here.todo.length === 1 && !here.know.length ? here.todo[0] : null;
+      if(only && only.action){ followItem(only); return; }
+    }
     var bell = Array.prototype.find.call(document.querySelectorAll(".notif-bell-btn"), function(b){ return b.getClientRects().length > 0; });
     if(bell){ openNotifPanel(bell, line ? currentView() : null); var first = document.querySelector("#notifPanel .notif-item"); if(first) first.focus(); }
   });

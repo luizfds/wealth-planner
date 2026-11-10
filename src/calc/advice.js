@@ -204,7 +204,7 @@ export function adviceFor(opts){
     else if(buys.some(function(c){ return c.left < ef.monthly * 6; })){
       var tight = buys.filter(function(c){ return c.left < ef.monthly * 6; }).map(function(c){ return c.scenario; });
       add({ id: "ef-after-buy", area: "plan", kind: "risk", title: "After buying, less than six months of essentials left",
-        detail: tight.join(", ") + " would leave less than " + money(ef.monthly * 6) + " in cash and offsets. Six months of essentials is a common floor with a mortgage.", impactYearly: null, go: { page: "accounts" } });
+        detail: tight.join(", ") + " would leave less than " + money(ef.monthly * 6) + " in cash and offsets. Six months of essentials is a common floor with a mortgage.", impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     } else add({ id: "ef-ok", area: "accounts", kind: "good", title: "Emergency fund: about " + (ef.coveredMonths >= 24 ? Math.round(ef.coveredMonths / 12) + " years" : Math.round(ef.coveredMonths) + " months") + " of essentials",
       detail: money(ef.available) + " in cash and offsets against " + money(ef.monthly) + " a month of essentials.", impactYearly: null, go: { page: "accounts" } });
   }

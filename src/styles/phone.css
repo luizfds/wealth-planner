@@ -25,6 +25,8 @@
   label:has(> input[type="checkbox"]), label:has(> input[type="radio"]){ min-height:44px !important; display:inline-flex; align-items:center; gap:8px; }
   :is(.help-btn, .icon-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn, .cat-icon-pick, .cat-swatch,
     .card-radio, .link-btn, .detail-link, .calc-hint-link, .md-bar, .tx-sign, .rp-unpin):not(details > .help-btn){ position:relative; }
+  /* Insights' dismiss ✕ sits in its card's corner (dashboard.css); positioned either way, so its catch area still works. */
+  .adv-row > .icon-btn.adv-dismiss{ position:absolute; }   /* (0,3,0), over the rule above's (0,2,1) */
   :is(.help-btn, .icon-btn, .page-overflow-btn, .period-btn, .notif-bell-btn, .avatar-btn, .cat-icon-pick, .cat-swatch,
     .card-radio, .link-btn, .detail-link, .calc-hint-link, .md-bar, .tx-sign, .rp-unpin)::before{
     content:""; position:absolute;

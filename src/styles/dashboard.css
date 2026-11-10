@@ -526,7 +526,13 @@
 @media (max-width: 560px){ .adv-item summary{ grid-template-columns: minmax(0,1fr) auto; } .adv-kind{ grid-column: 1 / -1; } }
 /* #305: a page's one line of notices, in place of the strip of cards. One row whatever it holds: the count,
    the first item (cut with an ellipsis), and a chevron. It opens the bell showing this view's items. */
-.adv-dismiss{ margin-left:14px; font-weight:400; color:var(--ink-soft); }
+/* #305: a card that can be put away has its ✕ in its top corner, so every card keeps the list's full width; in
+   the "put away" fold, "Bring back" sits beside the card. */
+.adv-row{ position:relative; display:flex; align-items:flex-start; gap:4px; }
+.adv-row > .adv-item{ flex:1 1 0; min-width:0; }
+.adv-row > .adv-restore{ flex:none; }
+.adv-row > .adv-dismiss{ position:absolute; top:2px; right:2px; }
+.adv-row:has(> .adv-dismiss) > .adv-item > summary{ padding-right:44px; }
 .attn-line-wrap{ margin:0 0 14px; }
 .attn-line-wrap[hidden]{ display:none; }
 .attn-line{ all:unset; box-sizing:border-box; width:100%; min-height:44px; display:flex; align-items:center; gap:10px; padding:6px 12px;

@@ -63,6 +63,8 @@ Everything that asks for attention is one list of items of one shape, built in o
   no tab belongs to the page's first tab. So Tax's pay notices count on People only.
 - **What the page already shows in full stays off its line**, as today (`SHOWN_ON_PAGE`: a person's super room on Tax).
 - **No line when there is nothing**, so most views show none.
+- **A line with one item that has its own action does it.** Property's line opens the cash-rate dialog itself when
+  that is all it holds; otherwise a line opens the bell, where each item's detail is.
 
 ### The bell's count
 
@@ -76,8 +78,8 @@ Everything that asks for attention is one list of items of one shape, built in o
 - **Watch can't be dismissed.** A scenario short of cash or a thin emergency fund goes when it is fixed.
 - **Dismissals are saved with the household** (a new `state` key, so they follow a backup and sync), not per device.
 - To do items aren't dismissed: they are done, or marked read.
-- **Where:** a ✕ beside the row in the bell; "Dismiss" inside the card on Insights, where a "Put away" fold lists
-  what is dismissed, each with "Bring back".
+- **Where:** a ✕ beside the row in the bell and beside the card on Insights, one tap in both. Insights' "Put away"
+  fold lists what is dismissed, each with "Bring back" beside it.
 
 ### A prompt that needs a decision
 

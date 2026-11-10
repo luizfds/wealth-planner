@@ -23,23 +23,24 @@ function impact(a){
   if(!a.impactYearly) return "";
   return '<span class="adv-impact' + (a.impactYearly < 0 ? ' neg' : '') + '">' + (a.kind === "risk" ? "" : a.impactYearly < 0 ? "−" : "≈ ") + fmtCurrency0.format(Math.abs(a.impactYearly)) + '/yr</span>';
 }
-// #305: an Opportunity or a Worth knowing can be put away (lib/attention.js canDismiss); in the "put away"
-// fold the same button brings it back.
+// #305: an Opportunity or a Worth knowing can be put away (lib/attention.js canDismiss). Its control sits beside
+// the card, as in the bell — one tap, the card needn't be open; in the "put away" fold it is "Bring back".
 function dismissBtn(a, away){
-  if(!canDismiss(a)) return "";
-  return '<button type="button" class="link-btn adv-dismiss" data-notice-' + (away ? "restore" : "dismiss") + '="' + escapeAttr(a.id) + '">' + (away ? "Bring back" : "Dismiss") + '</button>';
+  return away
+    ? '<button type="button" class="btn btn-sm btn-ghost adv-restore" data-notice-restore="' + escapeAttr(a.id) + '" aria-label="' + escapeAttr("Bring back: " + a.title) + '">Bring back</button>'
+    : '<button type="button" class="icon-btn adv-dismiss" data-notice-dismiss="' + escapeAttr(a.id) + '" aria-label="' + escapeAttr("Dismiss: " + a.title) + '" title="Dismiss — it comes back if its figures change">✕</button>';
 }
 function card(a, withGo, away){
   var open = !!adviceUi.open[a.id];
-  return '<details class="adv-item adv-' + a.kind + '" data-adv-id="' + escapeAttr(a.id) + '"' + (open ? ' open' : '') + '><summary>' +
+  var details = '<details class="adv-item adv-' + a.kind + '" data-adv-id="' + escapeAttr(a.id) + '"' + (open ? ' open' : '') + '><summary>' +
       '<span class="adv-kind">' + KIND[a.kind] + '</span><span class="adv-title">' + escapeAttr(a.title) + '</span>' + impact(a) + '</summary>' +
     '<p>' + escapeAttr(a.detail) + '</p>' +
     (withGo && a.go ? (a.go.filter
       // v3.168.0: a notice about spending opens Spending filtered to exactly what it counted.
       ? '<button type="button" class="link-btn adv-go" data-sv' + Object.keys(a.go.filter).map(function(k){ return ' data-sv-' + k + '="' + escapeAttr(a.go.filter[k]) + '"'; }).join("") + '>Show me in Spending →</button>'
       : '<button type="button" class="link-btn adv-go" data-adv-go="' + escapeAttr(a.go.page) + '"' + (a.go.sub ? ' data-adv-sub="' + escapeAttr(a.go.sub) + '"' : '') + '>See the figures →</button>') : '') +
-    (withGo ? dismissBtn(a, away) : '') +
   '</details>';
+  return withGo && canDismiss(a) ? '<div class="adv-row">' + details + dismissBtn(a, away) + '</div>' : details;
 }
 // v3.154.0: what's on track is worth knowing, not acting on — one fold under the rest, not a card each.
 export function adviceHomeHtml(items){

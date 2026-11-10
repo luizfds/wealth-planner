@@ -1,6 +1,6 @@
 # Page structure, actions, empty states and help (#255)
 
-**Status: agreed, with the decisions at the end. Step 1 (header and primaries) is implemented; the rest is not yet**, as #255 asks: the specification is agreed first, then
+**Status: agreed, with the decisions at the end. Steps 1 and 2 (header and primaries; add and delete wording) are implemented; the rest is not yet**, as #255 asks: the specification is agreed first, then
 pages migrate in the PRs listed at the end. Part of #253. It builds on [0010](../decisions/0010-one-design-system.md)
 (tokens, buttons, cards), [fields.md](fields.md) (one field) and [validation.md](validation.md) (one way to say a field
 is wrong), and covers what those don't: how a page is put together.
@@ -121,6 +121,7 @@ Counts are from the audit; "390" is the demo household at 390px.
 | Delete | `.btn.btn-sm.btn-danger` | "Delete", named for the record ("Delete Groceries") | Inside the editor, last, after Done |
 | Remove from | `.btn.btn-sm.btn-danger` if anything is lost, otherwise `.btn-ghost` | "Remove Alex from tax" | Inside the record |
 
+- **Each person's card on Income names its person:** "+ Add income for Alex", beside the page's own "+ Add income".
 - **Dense grids may use an icon-only ✕:** a purchase lot, a category, a statement line. It is still `.btn-danger`,
   with an aria-label naming what it deletes.
 - **Every delete is followed by an Undo toast.** Where Undo can't restore everything, the confirm dialog (#256) says

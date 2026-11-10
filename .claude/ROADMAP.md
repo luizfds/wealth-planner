@@ -4937,7 +4937,7 @@ corner radii, three text sizes and six heights at 1280px (issue #254 is not fini
 
 Each step is its own reviewable PR or small series, in this order. Issue #267 (regression coverage) goes with every one.
 
-1. `[~]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
+1. `[x]` **Clear the chrome.** Issue #304 (floating buttons cover figures) with issue #255's first two steps (header
    and one primary per view; add/delete wording), since the page's add action moves into the header slot. The four
    review questions in `docs/design/pages.md` are answered (its "Decisions from review"): the period chip is hidden where
    nothing follows it; Net worth's rail becomes a back link on Investments; Tax → Returns' primary is the open year's
@@ -4951,7 +4951,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      follows the year (open the year being lodged, then mark each person lodged, then close the year); the header's
      button is primary only when the page has none; the period chip is hidden on Net worth, Accounts, Settings and
      Calculators; Plan → Scenarios has About this page. The smoke run fails a view with two primaries or no About.
-   - `[ ]` Issue #255 step 2 (add/delete wording).
+   - `[x]` **Issue #255 step 2**: every add button reads "+ Add" and the thing, lower case ("+ Add cash account",
+     "+ Add holding", "+ Add goal"); every delete or remove is `.btn-danger`, the icon-only ones included (eleven
+     weren't), and named for what it removes. `tests/wording.test.js` reads the markup for both, and the smoke run
+     checks what is on each page.
 2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways

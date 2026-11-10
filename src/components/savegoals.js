@@ -61,10 +61,10 @@ export function goalCardHtml(g, i, opts){
 export function goalsSectionHtml(today, surplusMonthly){
   var ov = goalsOverview(today || localDateStr(), surplusMonthly);
   if(!ov.goals.length) return '<p class="ledger-note" style="margin:0 0 10px">No goals yet. A goal is a target by a date — a house deposit, an emergency fund — measured on the accounts you keep it in, so it moves whenever their balances do.</p>' +
-    '<button type="button" class="btn btn-sm" data-goal-add>+ Add a goal</button>';
+    '<button type="button" class="btn btn-sm" data-goal-add>+ Add goal</button>';
   var cover = ov.surplusMonthly == null || !ov.neededMonthly ? '' :
     '<p class="sgl-cover ' + (ov.covered ? "ok" : "warn") + '">Your goals need <b>' + money(ov.neededMonthly) + '/mo</b> together; the plan leaves <b>' + money(ov.surplusMonthly) + '/mo</b>' +
       (ov.covered ? ' — enough.' : ' — ' + money(ov.neededMonthly - ov.surplusMonthly) + '/mo short. Push a date out, lower a target, or find it in the budget.') + '</p>';
   return cover + '<div class="sgl-list">' + ov.goals.map(function(g, i){ return goalCardHtml(g, i); }).join("") + '</div>' +
-    '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-goal-add>+ Add a goal</button></div>';
+    '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-goal-add>+ Add goal</button></div>';
 }

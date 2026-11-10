@@ -151,6 +151,10 @@
   .icon-btn:hover{ background: var(--paper-sunken); color: var(--ink); }
   .icon-btn:focus-visible{ box-shadow: var(--focus-ring); }
   .icon-btn.icon-del:hover{ color: var(--bad-ink); }
+  /* #255: every delete is .btn-danger. An icon-only one in a dense grid (a lot, a statement line) keeps
+     .icon-btn's box; this gives it the colour back, which .icon-btn's all:unset drops. */
+  .icon-btn.btn-danger{ color: var(--bad-ink); flex:none; } /* flex:none — a squeezed row had Tax → People's at 23px wide on a phone */
+  .icon-btn.btn-danger:hover{ background: var(--bad-wash); color: var(--bad-ink); }
   /* A budget card's caret is an .icon-btn at its own size — after .icon-btn's all:unset, which it overrides
      (moved from ledger.css, item 238). */
   .m-card-caret{ width:18px; height:18px; margin-right:-2px; flex:0 0 auto; }

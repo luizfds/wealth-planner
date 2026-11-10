@@ -639,7 +639,7 @@ function bankImportAsideHtml(){
     maybeNote += '<div class="tax-cap-note warn bank-strays" style="margin:12px 0 0"><p style="margin:0">' + strays.length + (strays.length === 1 ? ' row' : ' rows') + ' (' + fmtCurrency2.format(strayTotal) + ') logged on ' + escapeAttr(bankImport.account) +
       ' between ' + shortDate(strays[0].date) + ' and ' + shortDate(strays[strays.length - 1].date) + (strays.length === 1 ? " isn't" : " aren't") + ' on this statement — posted later, paid another way, or logged twice?</p><ul class="bank-maybe-list">' +
       strays.slice(0, 12).map(function(t){
-        return '<li><span>' + escapeAttr(transactionDisplayName(t, loggableBudgetLineItems()) || "(no description)") + ' · ' + shortDate(t.date) + '</span> <b>' + fmtCurrency2.format(Number(t.amount) || 0) + '</b> <button type="button" class="calc-hint-link" data-bank-stray-del="' + escapeAttr(t.id) + '">Delete</button></li>';
+        return '<li><span>' + escapeAttr(transactionDisplayName(t, loggableBudgetLineItems()) || "(no description)") + ' · ' + shortDate(t.date) + '</span> <b>' + fmtCurrency2.format(Number(t.amount) || 0) + '</b> <button type="button" class="btn btn-sm btn-danger" data-bank-stray-del="' + escapeAttr(t.id) + '">Delete</button></li>';
       }).join("") + (strays.length > 12 ? '<li>…and ' + (strays.length - 12) + ' more</li>' : '') + '</ul></div>';
   }
   var bits = [];

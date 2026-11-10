@@ -37,7 +37,7 @@ export function tripsCardHtml(){
       '<div class="trip-main"><b>' + escapeAttr(t.name) + '</b><span>' + escapeAttr(shortRange(t)) + ' · ' + escapeAttr(lineName[t.lineId] || "no line") + '</span></div>' +
       '<div class="trip-side"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b>' +
         (plan.length ? '<button type="button" class="btn btn-sm" data-trip-move="' + escapeAttr(t.id) + '" title="Spending inside these dates that\'s on another line (bills excepted)">Move ' + plan.length + ' here</button>' : '') +
-        '<button type="button" class="icon-btn" data-trip-del="' + escapeAttr(t.id) + '" aria-label="Remove this trip">✕</button></div>' +
+        '<button type="button" class="icon-btn btn-danger" data-trip-del="' + escapeAttr(t.id) + '" aria-label="' + escapeAttr("Remove the trip " + (t.name || "")) + '">✕</button></div>' +
     '</li>';
   }).join("");
   return '<p class="ledger-note">Mark the dates you were away. Spending inside them is filed to the trip\'s line when you import a statement, and what\'s already logged can be moved there too. Regular bills that land on those days, rent and property costs stay where they are.</p>' +
@@ -47,6 +47,6 @@ export function tripsCardHtml(){
       '<label class="fr-field"><span>From</span><input type="date" data-trip-from></label>' +
       '<label class="fr-field"><span>To</span><input type="date" data-trip-to></label>' +
       '<label class="fr-field"><span>Line</span><select data-trip-line><option value="">Pick a line…</option>' + budgetLineOptgroupsHtml(defaultTripLine()) + '</select></label>' +
-      '<button type="button" class="btn btn-sm" data-trip-add>Add trip</button>' +
+      '<button type="button" class="btn btn-sm" data-trip-add>+ Add trip</button>' +
     '</div>';
 }

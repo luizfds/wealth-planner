@@ -218,7 +218,7 @@ export function rateHistoryHtml(loan, today){
   var hist = sortedRateHistory(loan);
   var list = hist.map(function(h, i){
     return '<span class="rh-item">' + (Math.round(Number(h.rate) * 100) / 100) + '% ' + (h.date ? 'from ' + escapeAttr(h.date) : 'at the start') +
-      '<button type="button" class="icon-btn" data-rate-del="' + i + '" aria-label="Remove this rate change">✕</button></span>';
+      '<button type="button" class="icon-btn btn-danger" data-rate-del="' + i + '" aria-label="Remove this rate change">✕</button></span>';
   }).join("");
   // #261: a heading over a list and two fields isn't one field's label — it names the group; each field keeps its name.
   var gid = "rh-" + String(loan.id || loan.what || "loan").replace(/[^A-Za-z0-9_-]/g, "_");
@@ -576,7 +576,7 @@ export function rentPanelHtml(p, today){
       (row ? '<div class="rentp-review"><label class="cf-filter"><span>Record a review — new rent ' + escapeAttr(String(row.freq || "").toLowerCase()) + '</span><input type="number" min="0" step="1" data-rent-new placeholder="' + (Number(row.amount) || 0) + '"></label>' +
         '<button type="button" class="btn btn-sm" data-rent-review>Record</button></div>' : '') +
       '<div class="rentp-vac"><span class="cf-filter-l">Vacancies</span>' + (vac ? '<ul>' + vac + '</ul>' : '<p class="ledger-note" style="margin:0">None recorded.</p>') +
-        '<div class="rentp-vac-add"><input type="date" data-vac-from aria-label="Vacant from"><input type="date" data-vac-to aria-label="Vacant until (blank if still vacant)"><button type="button" class="btn btn-sm btn-ghost" data-vac-add>Add</button></div></div>' +
+        '<div class="rentp-vac-add"><input type="date" data-vac-from aria-label="Vacant from"><input type="date" data-vac-to aria-label="Vacant until (blank if still vacant)"><button type="button" class="btn btn-sm btn-ghost" data-vac-add>+ Add vacancy</button></div></div>' +
     '</div>' + (reviews ? '<div class="rentp-reviews"><span class="cf-filter-l">Past reviews</span><ul>' + reviews + '</ul></div>' : '') +
     agentStatementHtml(p, win) + '</div>';
 }

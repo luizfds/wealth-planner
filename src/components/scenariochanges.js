@@ -203,7 +203,7 @@ export function scenarioChangesHtml(scenario){
     (real.length ? '' : '<div class="sc-empty"><p>Nothing differs from today yet. Start with one of these, or add anything else:</p><div class="sc-starters">' +
       starter("rent", "<b>Rent somewhere new</b><small>a bigger place, a cheaper one</small>") + starter("ip", "<b>Buy an investment property</b><small>its rent, costs, loan and tax</small>") +
       starter("cost", "<b>A new cost or saving</b><small>childcare, a car, a gym you'd stop</small>") + '</div></div>') +
-    '<div class="sc-adders"><button type="button" class="btn btn-sm" data-sc-addsheet="' + escapeAttr(scenario) + '">+ Add a change</button></div>' +
+    '<div class="sc-adders"><button type="button" class="btn btn-sm" data-sc-addsheet="' + escapeAttr(scenario) + '">+ Add change</button></div>' +
     '<div class="sc-add"><select data-sc-row="' + escapeAttr(scenario) + '" aria-label="A line that would be different in ' + escapeAttr(scenario) + '">' + rowOptionsHtml() + '</select>' +
       '<input type="number" step="0.01" min="0" data-sc-new-amount="' + escapeAttr(scenario) + '" placeholder="Amount, same frequency" aria-label="Its amount in ' + escapeAttr(scenario) + '">' +
       '<button type="button" class="btn btn-sm" data-sc-add="' + escapeAttr(scenario) + '">A line costs a different amount</button></div></div>';

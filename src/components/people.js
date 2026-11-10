@@ -52,7 +52,7 @@ export function personCardHtml(person, index, today){
     '<div class="pp-head"><span class="m-avatar series-color-' + (index % 8) + '" aria-hidden="true">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' +
       '<input type="text" class="pp-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
       (age != null ? '<span class="pp-age">' + age + '</span>' : '') +
-      '<button type="button" class="icon-btn icon-del" data-pp-remove="' + pid + '" aria-label="Remove ' + pid + ' from tax" title="Remove from tax — their income rows go back to Net">✕</button></div>' +
+      '<button type="button" class="icon-btn btn-danger" data-pp-remove="' + pid + '" aria-label="Remove ' + pid + ' from tax" title="Remove from tax — their income rows go back to Net">✕</button></div>' +
     // #261: what renaming does was a title tooltip on the name; it's said here, with what names them, and describes it.
     '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +

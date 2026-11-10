@@ -10,14 +10,21 @@ test("tax calendar: June shows super cap room per person, over $1,000 only", () 
   assert.match(r[0].title, /\$8,200 of super cap left/);
   assert.match(r[0].detail, /FY26\/27/);
 });
-test("tax calendar: July nudges the worksheet until it's started", () => {
-  assert.equal(taxCalendarReminders("2026-07-15", {})[0].id, "tyopen:2025");
-  assert.deepEqual(taxCalendarReminders("2026-07-15", { worksheetStarted: true }), []);
+test("tax calendar: July nudges the worksheet until it's started, then lodging takes over", () => {
+  const before = taxCalendarReminders("2026-07-15", {});
+  assert.deepEqual(before.map(r => r.id), ["tyopen:2025"]);
+  // #305: once there is a worksheet, the return is a quiet To do for the rest of the season.
+  const after = taxCalendarReminders("2026-07-15", { worksheetStarted: true });
+  assert.deepEqual(after.map(r => r.id + " " + r.severity), ["tydue:2025:season info"]);
+  assert.match(after[0].title, /^Lodge FY25\/26 — 108 days to 31 October$/);
+  assert.deepEqual(taxCalendarReminders("2026-08-20", { worksheetStarted: true, lodged: true }), []);
 });
 test("tax calendar: October counts down, louder in the last week, gone once lodged", () => {
   const early = taxCalendarReminders("2026-10-10", {});
   assert.equal(early[0].severity, "warn");
-  assert.match(early[0].title, /21 days left/);
+  assert.match(early[0].title, /^Lodge FY25\/26 — 21 days to 31 October$/);
+  assert.equal(early[0].sub, "returns");
+  assert.equal(early[0].fy, 2025);
   const late = taxCalendarReminders("2026-10-28", {});
   assert.equal(late[0].severity, "bad");
   assert.equal(late[0].id, "tydue:2025:week");

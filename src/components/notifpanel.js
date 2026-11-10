@@ -4,9 +4,12 @@
 // where its listeners used to be added.
 import { escapeAttr } from "../lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "../lib/notifications.js";
+import { attentionItems } from "../lib/attention.js";
 import { renderHealth } from "./health.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage } from "./nav.js";
+import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
+import { openTxReview } from "./spendingwiring.js";
+import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 
 var notifPanelOpen;
 
@@ -27,23 +30,35 @@ function closeNotifPanel(){
   if(root) root.innerHTML = "";
   document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", "false"); });
 }
+// #305: one row for every item — its label (Urgent, To do, Watch, Opportunity, Worth knowing), its title and a
+// line of detail. A To do goes where it is done; an observation goes to its figures.
+function goAttrs(n){
+  if(n.group === "know"){
+    if(n.go && n.go.filter) return ' data-sv' + Object.keys(n.go.filter).map(function(k){ return ' data-sv-' + k + '="' + escapeAttr(n.go.filter[k]) + '"'; }).join("");
+    return n.go ? ' data-adv-go="' + escapeAttr(n.go.page) + '"' + (n.go.sub ? ' data-adv-sub="' + escapeAttr(n.go.sub) + '"' : '') : '';
+  }
+  return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +
+    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '');
+}
 function notifItemHtml(n){
-  return '<button type="button" class="notif-item' + (n.read ? "" : " is-unread") + '" data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') + '>' +
-    '<span class="notif-dot ' + escapeAttr(n.severity) + '" aria-hidden="true"></span>' +
-    '<span class="notif-item-body"><span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
+  return '<button type="button" class="notif-item' + (n.group === "todo" && !n.read ? " is-unread" : "") + '"' + goAttrs(n) + '>' +
+    '<span class="notif-item-body"><span class="notif-label ' + escapeAttr(n.tone) + '">' + escapeAttr(n.label) + '</span>' +
+    '<span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
   '</button>';
+}
+function groupHtml(title, items, empty){
+  return '<section class="notif-group" aria-label="' + title + '"><h3 class="notif-group-title">' + title + (items.length ? ' <span>' + items.length + '</span>' : '') + '</h3>' +
+    (items.length ? '<div class="notif-list">' + items.map(notifItemHtml).join("") + '</div>' : '<p class="notif-empty">' + empty + '</p>') + '</section>';
 }
 function renderNotifPanelContent(){
   var root = document.getElementById("notifPanelRoot");
   if(!root) return;
-  var notifications = getNotifications();
-  var hasUnread = notifications.some(function(n){ return !n.read; });
-  var list = notifications.length
-    ? '<div class="notif-list">' + notifications.map(notifItemHtml).join("") + '</div>'
-    : '<p class="notif-empty">Nothing to flag right now — bills, review reminders, and budget alerts will show up here.</p>';
-  root.innerHTML = '<div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications">' +
-    '<div class="notif-panel-head"><h4>Notifications</h4><button type="button" class="notif-mark-all-btn" id="notifMarkAllBtn"' + (hasUnread ? "" : " disabled") + '>Mark all read</button></div>' +
-    list +
+  var all = attentionItems();
+  var hasUnread = all.todo.some(function(n){ return !n.read; });
+  root.innerHTML = '<div class="notif-panel" id="notifPanel" role="dialog" aria-label="What needs attention">' +
+    '<div class="notif-panel-head"><h2>What needs attention</h2><button type="button" class="notif-mark-all-btn" id="notifMarkAllBtn"' + (hasUnread ? "" : " disabled") + '>Mark all read</button></div>' +
+    groupHtml("To do", all.todo, "All done — nothing needs you right now.") +
+    (all.know.length ? groupHtml("Worth knowing", all.know, "") : "") +
   '</div>';
 }
 // Rendered into #notifPanelRoot (a position:fixed root outside any scrolling ancestor — see the
@@ -65,6 +80,21 @@ function openNotifPanel(triggerBtn){
   renderNotifPanelContent();
   positionNotifPanel(triggerBtn);
   document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", String(btn === triggerBtn)); });
+}
+
+// Where a To do is done. One function for the bell's rows and Home's To do, which carry the same attributes.
+export function followNotification(el){
+  var page = el.getAttribute("data-notif-page"), sub = el.getAttribute("data-notif-sub"), action = el.getAttribute("data-notif-action"), fy = el.getAttribute("data-notif-fy");
+  markNotificationRead(el.getAttribute("data-notif-id"));
+  renderNotifBadge();
+  closeNotifPanel();
+  if(action === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
+  if(action === "txreview"){ openTxReview(); return; }
+  if(page === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "year", { replace: true }); renderTaxYear(); return; }
+  showPage(page);
+  if(sub && page === "dashboard"){ showDashboardSubpage(sub); if(sub === "review") renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  if(sub && page === "accounts"){ showAccountsSubpage(sub); if(sub === "checks") renderHealth(); }
+  if(sub && page === "expenses") showExpensesSubpage(sub, { replace: true });
 }
 
 export function wireNotifications(){
@@ -101,16 +131,17 @@ export function wireNotifications(){
       return;
     }
     var item = e.target.closest("[data-notif-id]");
-    if(item){
-      markNotificationRead(item.getAttribute("data-notif-id"));
-      renderNotifBadge();
-      closeNotifPanel();
-      showPage(item.getAttribute("data-notif-page"));
-      var notifSub = item.getAttribute("data-notif-sub");
-      if(notifSub && item.getAttribute("data-notif-page") === "dashboard"){ showDashboardSubpage(notifSub); if(notifSub === "review") renderMonthReview(); }
-      if(notifSub && item.getAttribute("data-notif-page") === "accounts"){ showAccountsSubpage(notifSub); if(notifSub === "checks") renderHealth(); }
-      if(notifSub && item.getAttribute("data-notif-page") === "expenses") showExpensesSubpage(notifSub, { replace: true });
-    }
+    if(item){ followNotification(item); return; }
+    // An observation's own link (data-adv-go, or data-sv for Spending filtered) is followed by the page's
+    // handlers; the panel only gets out of the way.
+    if(e.target.closest("[data-adv-go], [data-sv]")) closeNotifPanel();
+  });
+  // Home's "All N to-dos" (and any other [data-open-bell]) opens the same list.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("[data-open-bell]")) return;
+    e.stopPropagation();
+    var bell = Array.prototype.find.call(document.querySelectorAll(".notif-bell-btn"), function(b){ return b.getClientRects().length > 0; });
+    if(bell){ openNotifPanel(bell); var first = document.querySelector("#notifPanel .notif-item"); if(first) first.focus(); }
   });
   // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local
   // data can change while the tab was backgrounded (e.g. a bill's due date rolling over at midnight)

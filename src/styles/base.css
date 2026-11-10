@@ -432,7 +432,7 @@
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding:12px 14px; border-bottom:1px solid var(--border); position:sticky; top:0; background: var(--paper-raised);
   }
-  .notif-panel-head h4{ margin:0; font-size:var(--fs-md); }
+  .notif-panel-head h2{ margin:0; font-size:var(--fs-md); font-weight:600; }
   .notif-mark-all-btn{ all:unset; cursor:pointer; font-size:var(--fs-xs); color: var(--brass-strong); flex:none; }
   .notif-mark-all-btn:hover{ text-decoration:underline; }
   .notif-mark-all-btn[disabled]{ color: var(--ink-soft); cursor:default; pointer-events:none; }
@@ -447,9 +447,15 @@
   .notif-item + .notif-item{ margin-top:1px; }
   .notif-item.is-unread{ background: var(--brass-wash); }
   .notif-item.is-unread:hover{ filter: brightness(0.97); }
-  .notif-dot{ width:7px; height:7px; border-radius:50%; flex:none; margin-top:5px; background: var(--ink-soft); }
-  .notif-dot.bad{ background: var(--bad); }
-  .notif-dot.warn{ background: var(--brass-strong); }
+  /* #305: one label for every item, in the bell, on Home and on Insights — Urgent and Watch in the bad ink,
+     To do in the warn ink, Opportunity in the good ink, Worth knowing quiet. */
+  .notif-label{ display:block; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:1px; }
+  .notif-label.urgent, .notif-label.risk{ color: var(--bad-ink); }
+  .notif-label.todo{ color: var(--warn-ink); } /* .reminder and .info keep the quiet ink */
+  .notif-label.opportunity{ color: var(--good-ink); }
+  .notif-group + .notif-group{ border-top:1px solid var(--border); }
+  .notif-group-title{ margin:0; padding:10px 14px 2px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .notif-group-title span{ font-family: var(--font-num); font-weight:400; }
   .notif-item-body{ min-width:0; flex:1 1 auto; text-align:left; }
   .notif-item-title{ display:block; font-size:var(--fs-sm); font-weight:600; }
   .notif-item-detail{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); margin-top:2px; }

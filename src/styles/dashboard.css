@@ -459,6 +459,7 @@
   font-size:var(--fs-sm); border-radius:8px; cursor:pointer; border-left:3px solid var(--border); margin-bottom:4px; background:var(--paper); }
 .home-todo-btn:hover{ background:var(--paper-sunken); }
 .home-todo-btn:focus-visible{ box-shadow:var(--focus-ring); }
+.home-todo-all{ margin-top:6px; font-size:var(--fs-xs); }
 .home-todo-btn.warn{ border-left-color:#d99a00; } .home-todo-btn.bad{ border-left-color:var(--bad); }
 .home-period-note{ margin:0 0 8px; font-size:var(--fs-sm); color:var(--brass-strong); }
 @media (max-width: 640px){ .home-grid{ grid-template-columns: 1fr; } }

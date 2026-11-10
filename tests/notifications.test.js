@@ -7,8 +7,8 @@ import { staleAssetNamesList, getLocalNotifications } from "../src/lib/notificat
 function findStaleAssetNotification(notifications){
   return notifications.find(function(n){ return n.type === "stale-asset"; });
 }
-// The "needs a fresh entry" nudge — not "<month>'s review is ready" (review:YYYY-MM), which also has type
-// "review" and rightly shows on the 1st–10th of every month, so a test run then found it instead.
+// The "needs a fresh entry" nudge — not "Review <month>" (review:YYYY-MM), which also has type
+// "review" and shows until that month is reviewed, so a test run found it instead.
 function findReviewNotification(notifications){
   return notifications.find(function(n){ return n.type === "review" && !/^review:\d{4}-\d{2}$/.test(n.id); });
 }

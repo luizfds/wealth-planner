@@ -4968,6 +4968,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      figures change; Insights lists what is put away, with Bring back.
    - `[x]` **The cash-rate prompt** is a To do whose form opens in a dialog; Property's 319px banner is gone (its
      first tile moved from y=545 to y=271 at 390px) and it keeps one quiet line with the rate once the move is answered.
+   - `[x]` **Follow-ups from review:** "After buying, less than six months of essentials left" counts on Plan →
+     Scenarios (it sent you to Accounts); Insights' Dismiss is a ✕ in the card's corner, one tap; a page's line with
+     one item that has its own action runs it (Property's opens the cash-rate dialog); and the journeys wait for the
+     day's price read before reading a saved figure (`quiet()`), after `investvalidation` failed once on PR #317.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.
 4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).

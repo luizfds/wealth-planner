@@ -156,6 +156,19 @@ async function settle(page){
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.waitForTimeout(150);
 }
+// The page at rest before a step reads a saved figure to compare against later. "networkidle" alone isn't that: the
+// day's price read starts 800ms after startup and, when it lands, legitimately changes a holding's saved price — a
+// journey that had already read its "before" then saw "a negative price saved 113.35" (PR #317, the price file's
+// figure, not the -3 it typed). So wait until the app has no price read left to do, then let it draw.
+async function quiet(page){
+  await page.waitForLoadState("networkidle");
+  await eventually(() => page.evaluate(async () => {
+    const s = (await import("/src/state.js")).state, a = await import("/src/components/autoprices.js");
+    return !s.assets.some(x => x.category === "Shares" && x.symbol) || !a.autoPricesNeeded();
+  }));
+  await page.waitForLoadState("networkidle");
+  await settle(page);
+}
 // Until fn (run in the page, with arg) is true, up to 10s. It doesn't fail by itself: the step's own check after it
 // says what was wrong.
 const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
@@ -200,7 +213,7 @@ const JOURNEYS = {
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
   async categories(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.shared[1].category = ""; m.commit(["shared"]); });
     const before = await stored(page, "({ cat: state.shared[0].category, other: state.shared[1].category, i: state.categories.indexOf(state.shared[0].category), n: state.categories.length })");
     await go(page, "settings", "data-accounts-sub", "categories");
@@ -234,7 +247,7 @@ const JOURNEYS = {
   // Tax tile beside it stretched to match), its risk notes kept, the same figures as the projection, a long name read
   // at 320px, and each outcome a way to its assumptions.
   async homecompare(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     // A long scenario name (invented), to check it wraps rather than widening anything.
     const longName = "Buy the place near the park with the bigger yard and a granny flat";
     await page.evaluate(async n => { const sc = await import("/src/components/scenarios.js"); const m = await import("/src/state.js");
@@ -319,25 +332,33 @@ const JOURNEYS = {
     check(await page.evaluate(() => { const l = document.getElementById('attentionLine'); return !l || l.hidden || !/Wants were/.test(l.innerText); }), 'the dismissed notice is still on Budget\'s line');
     await go(page, 'dashboard', 'data-dashboard-sub', 'insights');
     const home = page.locator('#adviceHome');
-    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 0, 'the dismissed notice is still in Insights\' list');
+    check(await home.locator('.adv-panel > .adv-list [data-adv-id="wants"]').count() === 0, 'the dismissed notice is still in Insights\' list');
     check(await home.locator('.adv-risk [data-notice-dismiss]').count() === 0, 'a Watch can be dismissed on Insights');
     const fold = home.locator('[data-adv-away]');
     check((await fold.locator('summary').first().innerText()).includes('1 dismissed'), 'Insights has no Put away fold');
     await fold.locator('summary').first().click();
-    await fold.locator('[data-adv-id="wants"] > summary').click();
-    await fold.locator('[data-notice-restore="wants"]').click();
+    await fold.locator('[data-notice-restore="wants"]').click();   // beside the card: no need to open it first
     await until(page, () => !document.querySelector('#adviceHome [data-adv-away]'));
     check(await stored(page, 'Object.keys(state.noticesDismissed).length') === 0, 'bringing it back was not saved');
-    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 1, 'brought back, it is not in the list');
+    check(await home.locator('.adv-panel > .adv-list [data-adv-id="wants"]').count() === 1, 'brought back, it is not in the list');
+    // One tap on Insights too: the ✕ beside the card, with the card still closed.
+    check(await home.locator('[data-adv-id="wants"]').evaluate(d => !d.open), 'the card is open');
+    await home.locator('.adv-row:has([data-adv-id="wants"]) [data-notice-dismiss="wants"]').click();
+    await until(page, () => !!document.querySelector('#adviceHome [data-adv-away]'));
+    check(await stored(page, 'state.noticesDismissed.wants') === title, 'dismissing from beside the card was not saved');
+    // The fold remembers it was open, so it comes back open; make sure either way.
+    await home.locator('[data-adv-away]').evaluate(d => { d.open = true; });
+    await home.locator('[data-notice-restore="wants"]').click();
+    await until(page, () => !document.querySelector('#adviceHome [data-adv-away]'));
     // Its figures move: what was dismissed was an older title, so it is shown again and the stale entry means nothing.
     await page.evaluate(() => import('/src/state.js').then(m => { m.state.noticesDismissed.wants = 'Wants were 99% of spending'; m.commit(['noticesDismissed']); }));
-    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 1, 'a notice whose figures changed since it was dismissed stays hidden');
+    check(await home.locator('.adv-panel > .adv-list [data-adv-id="wants"]').count() === 1, 'a notice whose figures changed since it was dismissed stays hidden');
     check(await home.locator('[data-adv-away]').count() === 0, 'a stale dismissal is counted as put away');
   },
   // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
   // chooser that keeps focus when it redraws; page subtabs say which one is showing.
   async tabkeys(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     // Property tabs.
     await go(page, "properties");
     const list = '#propertiesBody [role="tablist"]';
@@ -390,7 +411,7 @@ const JOURNEYS = {
   // #263, the last family: fields where blank already meant "none", but a figure out of range was dropped (a negative
   // goal target erased the target), ignored, or clamped (a cycle day of 31 became 28) without a word.
   async restvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
       return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
     // No separate scroll: fill scrolls the field into view itself, and finds it again if a redraw has just replaced it
@@ -430,7 +451,7 @@ const JOURNEYS = {
   },
   // #263: Cash flow → Spending — a transaction's cleared amount isn't saved as $0, and closing the row cancels it.
   async cashvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "expenses", "data-expenses-sub", "spending");
     await until(page, () => [...document.querySelectorAll("#transactionsTable [data-row-toggle]")].some(t => t.getClientRects().length));
     await page.evaluate(() => { const t = [...document.querySelectorAll("#transactionsTable [data-row-toggle]")].find(t => t.getClientRects().length); if(!t) throw new Error("no transaction to open"); t.click(); });
@@ -463,7 +484,7 @@ const JOURNEYS = {
   // #263: Plan → Projections — a cleared or out-of-range assumption is said beside the field and nothing is saved
   // (before, a cleared return saved 0% and redrew the plan on it; a horizon of 80 saved 50).
   async planvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "plan", "data-plan-sub", "projections");
     await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
     const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
@@ -536,7 +557,7 @@ const JOURNEYS = {
   // #263: Tax's number fields — a cleared figure is said beside the field and nothing is saved (before, a cleared SG rate
   // saved 0 and an interest account's share left blank saved 0%, though its placeholder says 100).
   async taxvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     const marked = sel => page.evaluate(s => { const el = document.querySelector(s); const msg = el && document.getElementById(el.id + "-error");
       return !!el && el.getAttribute("aria-invalid") === "true" && !!msg && !!msg.textContent.trim() && (el.getAttribute("aria-describedby") || "").split(" ").includes(msg.id); }, sel);
     // People: a cleared HELP balance isn't $0 owed; hours a week over 168 aren't clamped to 168.
@@ -592,7 +613,7 @@ const JOURNEYS = {
   // #263: Property's number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
   // (before, a cleared value saved $0 and an ownership share of 150% saved 100); closing a loan cancels its draft.
   async propvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "properties");
     await click(page, "[data-prop-edit]");
     const P = "state.properties[0].";
@@ -661,7 +682,7 @@ const JOURNEYS = {
   // #263: Investments' number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
   // (before, a cleared quantity saved 0 units and franking of 150% saved 100); closing the editor cancels the draft.
   async investvalidation(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "assets", "data-assets-sub", "Shares");
     await page.evaluate(() => [...document.querySelectorAll(".m-asset-rows [data-row-toggle]")].find(t => t.getClientRects().length).click());
     const row = ".m-row.open";
@@ -722,7 +743,7 @@ const JOURNEYS = {
   // #261 / #263: Net worth → Investments → Summary's debts — a visible focus indicator on the inline name, fields named
   // for their debt (and kept right when it's renamed), and a cleared balance that isn't saved as $0.
   async debts(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.debts = [{ what: "Card one", balance: 1200 }, { what: "Personal loan", balance: 8000 }]; m.commit(["debts"]); });
     await go(page, "assets", "data-assets-sub", "summary");
     await page.evaluate(() => { const d = document.getElementById("debtsTable").closest("details"); if(d) d.open = true; });
@@ -750,7 +771,7 @@ const JOURNEYS = {
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
   async property(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "properties");
     await click(page, "[data-prop-edit]");
     const tabs = await page.evaluate(() => [...document.querySelectorAll("[data-prop-tab]")].map(t => t.getAttribute("data-tab")));
@@ -794,7 +815,7 @@ const JOURNEYS = {
   // #261: Investments → Shares — a holding's editor named from its visible labels, its help on screen, and every field
   // still saving through the shared-field markup.
   async holdings(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "assets", "data-assets-sub", "Shares");
     await page.evaluate(() => [...document.querySelectorAll(".m-asset-rows [data-row-toggle]")].find(t => t.getClientRects().length).click());
     const row = ".m-row.open";
@@ -867,7 +888,7 @@ const JOURNEYS = {
   },
   // #254 / #261 / #263: Plan → Goals' editor on shared fields — labelled, validated, and keyboard-safe through its saves.
   async goals(page){
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     await go(page, "plan", "data-plan-sub", "goals");
     const toggle = "#savingsGoalsBody [data-goal-toggle]";
     const focusIs = sel => page.evaluate(s => !!document.activeElement && document.activeElement.matches(s), sel);
@@ -913,7 +934,7 @@ const JOURNEYS = {
     const saved = k => stored(page, "state.shared.find(x => x.id === 'demo-groceries')." + k);
     // The app's own startup reads (prices, then the cash rate) end in a full redraw, which closes an open editor's
     // sections; this journey runs first, so let them finish before it opens anything.
-    await page.waitForLoadState("networkidle"); await settle(page);
+    await quiet(page);
     const err = sel => page.evaluate(s => { const i = document.querySelector(s); const id = (i.getAttribute("aria-describedby") || "").split(" ").find(x => /-error$/.test(x)); const m = id && document.getElementById(id); return { invalid: i.getAttribute("aria-invalid") === "true", text: m ? m.textContent : "", border: getComputedStyle(i).borderTopColor }; }, sel);
     await typeLineName(page, "demo-groceries", await stored(page, "state.shared.find(x => x.id === 'demo-groceries').what"), false);
     const before = await saved("amount"), headline = await page.textContent(row + ' [data-computed="amt"]');
@@ -2026,16 +2047,20 @@ const JOURNEYS = {
     await go(page, "properties");
     check(await page.locator("#page-properties [data-cr-record]").count() === 0, "Property still carries the cash-rate form");
     check(/cash rate/.test(await page.locator("#attentionLine").innerText()), "Property's line doesn't mention the cash rate");
+    // One item on the line, and it has its own action: the line opens the dialog itself, with no stop at the bell.
+    check((await page.locator("#attentionLine .attn-count").innerText()).startsWith("1 "), "Property's line has more than the cash rate on it");
     await page.locator("#attentionLine [data-attn-line]").click();
-    await page.locator('#notifPanel [data-notif-action="cashrate"]').click();
     const dlg = page.getByRole("dialog", { name: "Record the cash rate change" });
     await dlg.waitFor({ timeout: 5000 });
+    check(await page.locator("#notifPanel").count() === 0, "the bell opened as well as the dialog");
     check(await page.evaluate(() => !!document.activeElement.closest("#cashRateRoot")), "focus is not in the cash-rate dialog");
-    // Closing it without answering leaves the To do.
+    // Closing it without answering leaves the To do, and puts focus back on the line.
     await page.keyboard.press("Escape");
     await until(page, () => !document.querySelector("#cashRateRoot [role=dialog]"));
     check(await st(page, "state.cashRate.seen !== state.cashRate.effective"), "closing the dialog answered the move");
-    await page.locator("#attentionLine [data-attn-line]").click();
+    check(await page.evaluate(() => !!document.activeElement.closest("#attentionLine")), "focus did not return to Property's line");
+    // The bell's item opens the same dialog.
+    await page.locator(".notif-bell-btn:visible").first().click();
     await page.locator('#notifPanel [data-notif-action="cashrate"]').click();
     await dlg.waitFor({ timeout: 5000 });
     const picks = await page.evaluate(() => [...document.querySelectorAll("#cashRateRoot [data-cr-loan]:checked")].map(x => x.getAttribute("data-cr-loan")));

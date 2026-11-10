@@ -386,10 +386,11 @@ function cashRateNotifications(){
   if(!move) return [];
   var pctOf = function(n){ return String(Number((Number(n) || 0).toFixed(2))) + "%"; };
   var hasLoans = (state.properties || []).some(function(p){ return (p.loans || []).length; });
+  // #305: the To do is where the move is answered — following it opens the dialog (components/cashrate.js).
   return [{ id: "cashrate:" + move.effective, type: "loan", severity: move.change > 0 ? "warn" : "info",
-    title: "RBA cash rate " + (move.change > 0 ? "up " : "down ") + pctOf(Math.abs(move.change)) + " to " + pctOf(move.rate),
-    detail: "From " + fmtDate(move.effective) + "." + (hasLoans ? " Variable loans usually follow within a few weeks — record it on yours in Net worth → Property." : ""),
-    date: move.effective, page: "properties" }];
+    title: "The RBA " + (move.change > 0 ? "raised" : "cut") + " the cash rate " + pctOf(Math.abs(move.change)) + " to " + pctOf(move.rate),
+    detail: "From " + fmtDate(move.effective) + "." + (hasLoans ? " Variable loans usually follow within a few weeks — record it on yours, or set it aside." : ""),
+    date: move.effective, page: "properties", action: "cashrate" }];
 }
 function rateChangeNotifications(){
   var today = todayStr();

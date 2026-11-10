@@ -9,6 +9,7 @@ import { renderHealth } from "./health.js";
 import { renderMonthReview } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
 import { openTxReview } from "./spendingwiring.js";
+import { openCashRateDialog } from "./cashrate.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 
 var notifPanelOpen;
@@ -102,6 +103,8 @@ export function followNotification(el){
   closeNotifPanel();
   if(action === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
   if(action === "txreview"){ openTxReview(); return; }
+  // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
+  if(action === "cashrate"){ openCashRateDialog(); return; }
   if(page === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "year", { replace: true }); renderTaxYear(); return; }
   showPage(page);
   if(sub && page === "dashboard"){ showDashboardSubpage(sub); if(sub === "review") renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); }

@@ -29,6 +29,7 @@ import { renderSharedGroups } from "./expenses.js";
 import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
 import { recordCashRateMove, setCashRateMoveAside } from "../calc/cashrate.js";
+import { requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { readInput } from "../lib/validate.js";
 import { onTabKey, selectTab } from "../lib/tabs.js";
 // ---------------- A property's lists, registered (v3.206.2, item 237b) ----------------
@@ -126,15 +127,28 @@ function refreshAfterDepreciationChange(){
 }
 
 export function wireProperties(){
-  // Item 249: the RBA moved the cash rate — record it on the loans ticked, or let it be.
-  document.getElementById("cashRatePanel").addEventListener("click", function(e){
+  // Item 249: the RBA moved the cash rate — record it on the loans ticked, or let it be. #305: in a dialog
+  // (components/cashrate.js openCashRateDialog), opened from the To do; closing it without answering leaves the To do.
+  // Escape closes it, and Tab stays inside it while it is open.
+  document.getElementById("cashRateRoot").addEventListener("keydown", function(e){
+    if(e.key === "Escape"){ e.preventDefault(); requestCloseActiveOverlay(); return; }
+    if(e.key !== "Tab") return;
+    var stops = Array.prototype.filter.call(e.currentTarget.querySelectorAll("button, input"), function(el){ return !el.disabled && el.getClientRects().length; });
+    if(!stops.length) return;
+    var first = stops[0], last = stops[stops.length - 1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  });
+  document.getElementById("cashRateRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-cr-close]") || e.target === e.target.closest("[data-cr-backdrop]")){ requestCloseActiveOverlay(); return; }
     var rec = e.target.closest("[data-cr-record]"), dis = e.target.closest("[data-cr-dismiss]");
     if(!rec && !dis) return;
-    if(dis){ setCashRateMoveAside(state); commit(["cashRate"]); renderNotifBadge(); return; }
+    if(dis){ setCashRateMoveAside(state); commit(["cashRate"]); renderNotifBadge(); requestCloseActiveOverlay(); return; }
     var panel = e.target.closest("[data-cr-panel]");
     var date = panel.querySelector("[data-cr-date]").value;
     if(!date){ showToast("Pick the date the new rate starts"); return; }
     var picks = Array.prototype.map.call(panel.querySelectorAll("[data-cr-loan]:checked"), function(x){ return x.getAttribute("data-cr-loan"); });
+    requestCloseActiveOverlay();
     withUndo(picks.length ? "Rate change recorded on " + picks.length + " loan" + (picks.length === 1 ? "" : "s") : "Rate change set aside", function(){
       recordCashRateMove(state, picks, date, localDateStr());
       recalcComputedItems();

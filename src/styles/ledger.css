@@ -756,8 +756,8 @@
      up shortens the sheet from the top rather than hiding its primary action. Placed after the
      base rules per the "responsive override goes last" gotcha in CLAUDE.md. */
   @media (max-width: 880px){
-    .review-backdrop:has(.qlog-panel), .review-backdrop:has(.qfab-panel){ align-items:flex-end; padding:0; }
-    .qlog-panel, .qfab-panel{
+    .review-backdrop:has(.qlog-panel), .review-backdrop:has(.qfab-panel), .review-backdrop:has(.cr-dialog){ align-items:flex-end; padding:0; }
+    .qlog-panel, .qfab-panel, .cr-dialog{
       max-width:none; border-radius:16px 16px 0 0; border-bottom:none;
       max-height:92vh; padding:16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
       animation: qlogSheetIn .2s ease;

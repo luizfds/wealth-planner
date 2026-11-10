@@ -4955,7 +4955,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      "+ Add holding", "+ Add goal"); every delete or remove is `.btn-danger`, the icon-only ones included (eleven
      weren't), and named for what it removes. `tests/wording.test.js` reads the markup for both, and the smoke run
      checks what is on each page.
-2. `[~]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
+2. `[x]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.
    Design and decisions: `docs/design/attention.md`. Four PRs:
    - `[x]` **One list**: `lib/attention.js` feeds the bell (two groups, To do and Worth knowing) and Home's To do
@@ -4966,8 +4966,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - `[x]` **Dismissing**: an Opportunity or a Worth knowing can be put away from the bell or Insights (a Watch
      can't); it is saved as `state.noticesDismissed` (migration step 27) by the title it had, so it returns when its
      figures change; Insights lists what is put away, with Bring back.
-   - `[ ]` The cash-rate prompt as a To do
-     with a dialog.
+   - `[x]` **The cash-rate prompt** is a To do whose form opens in a dialog; Property's 319px banner is gone (its
+     first tile moved from y=545 to y=271 at 390px) and it keeps one quiet line with the rate once the move is answered.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.
 4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).

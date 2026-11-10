@@ -594,6 +594,9 @@
   background: var(--paper-raised); border:1px solid var(--border); border-left:3px solid var(--warn-ink);
   border-radius:var(--card-radius); padding: var(--card-py) var(--card-px);
 }
+/* #305: the form is in a dialog now, so it has the sheet's frame and no card of its own. */
+.cr-dialog{ max-width:480px; text-align:left; }
+.cr-dialog .cr-panel{ background:none; border:0; border-radius:0; padding:0; }
 .cr-head{ margin:0; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; }
 .cr-head b{ font-weight:600; }
 .cr-head span{ font-size:var(--fs-sm); color: var(--ink-soft); }

@@ -4955,7 +4955,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      "+ Add holding", "+ Add goal"); every delete or remove is `.btn-danger`, the icon-only ones included (eleven
      weren't), and named for what it removes. `tests/wording.test.js` reads the markup for both, and the smoke run
      checks what is on each page.
-2. `[ ]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
+2. `[~]` **One place for what needs attention.** Issue #305: notifications, notices, to-dos and checks as one list, one
    line per page.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.

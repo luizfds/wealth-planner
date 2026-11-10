@@ -526,6 +526,7 @@
 @media (max-width: 560px){ .adv-item summary{ grid-template-columns: minmax(0,1fr) auto; } .adv-kind{ grid-column: 1 / -1; } }
 /* #305: a page's one line of notices, in place of the strip of cards. One row whatever it holds: the count,
    the first item (cut with an ellipsis), and a chevron. It opens the bell showing this view's items. */
+.adv-dismiss{ margin-left:14px; font-weight:400; color:var(--ink-soft); }
 .attn-line-wrap{ margin:0 0 14px; }
 .attn-line-wrap[hidden]{ display:none; }
 .attn-line{ all:unset; box-sizing:border-box; width:100%; min-height:44px; display:flex; align-items:center; gap:10px; padding:6px 12px;

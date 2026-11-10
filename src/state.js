@@ -103,6 +103,8 @@ export function defaultState(){
     // Dashboard → Review (v3.54.0): {ym: {statements: {account: amount}, done: date}}.
     monthReviews: {},
     weekRecaps: {},
+    // #305: observations put away — {adviceId: the title it had}. One comes back when its title (its figures) changes.
+    noticesDismissed: {},
     // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
@@ -794,6 +796,12 @@ export var MIGRATION_STEPS = [
         if(kind && OLD_DEFAULT_REG_FEES.indexOf(Math.round((Number(c.amount) || 0) * 100) / 100) !== -1) c.fee = kind;
       });
     });
+  } },
+  // #305: an Opportunity or a Worth knowing can be put away. Kept with the household so it follows a backup and sync.
+  { n: 27, name: "a place for the observations put away", run: function(s){
+    var d = s.noticesDismissed;
+    if(!d || typeof d !== "object" || Array.isArray(d)){ s.noticesDismissed = {}; return; }
+    Object.keys(d).forEach(function(id){ if(typeof d[id] !== "string" || !d[id]) delete d[id]; });
   } }
 ];
 

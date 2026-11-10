@@ -454,6 +454,10 @@
   .notif-label.todo{ color: var(--warn-ink); } /* .reminder and .info keep the quiet ink */
   .notif-label.opportunity{ color: var(--good-ink); }
   .notif-group + .notif-group{ border-top:1px solid var(--border); }
+  .notif-row{ display:flex; align-items:flex-start; gap:2px; }
+  .notif-row .notif-item{ flex:1 1 0; min-width:0; }
+  .notif-row + .notif-row, .notif-row + .notif-item, .notif-item + .notif-row{ margin-top:1px; }
+  .notif-dismiss{ flex:none; margin-top:4px; }
   .notif-scope{ margin:0; padding:8px 14px; display:flex; justify-content:space-between; gap:10px; font-size:var(--fs-xs); color: var(--ink-soft); border-bottom:1px solid var(--border); }
   .notif-group-title{ margin:0; padding:10px 14px 2px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .notif-group-title span{ font-family: var(--font-num); font-weight:400; }

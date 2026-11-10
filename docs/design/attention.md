@@ -1,6 +1,6 @@
 # One place for what needs attention (#305)
 
-**Status: agreed (decisions at the end). Steps 1 and 2 (one list; one line per page) are implemented; the rest is not yet.** Part of #253; step 2 of the November
+**Status: agreed (decisions at the end). Steps 1 to 3 (one list; one line per page; dismissing) are implemented; step 4 is not yet.** Part of #253; step 2 of the November
 roadmap. It builds on [pages.md](pages.md) (how a page is put together) and the shared dialogs from #256.
 
 ## What there is today
@@ -76,6 +76,8 @@ Everything that asks for attention is one list of items of one shape, built in o
 - **Watch can't be dismissed.** A scenario short of cash or a thin emergency fund goes when it is fixed.
 - **Dismissals are saved with the household** (a new `state` key, so they follow a backup and sync), not per device.
 - To do items aren't dismissed: they are done, or marked read.
+- **Where:** a ✕ beside the row in the bell; "Dismiss" inside the card on Insights, where a "Put away" fold lists
+  what is dismissed, each with "Bring back".
 
 ### A prompt that needs a decision
 

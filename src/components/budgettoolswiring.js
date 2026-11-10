@@ -15,6 +15,8 @@ import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
+import { setNoticeDismissed } from "../lib/attention.js";
+import { refreshNotifPanel } from "./notifpanel.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
@@ -64,6 +66,7 @@ export function wireAdvice(){
   document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-adv-id]")) adviceUi.open[e.target.getAttribute("data-adv-id")] = e.target.open;
     if(e.target.matches && e.target.matches("[data-adv-good]")) adviceUi.goodOpen = e.target.open;
+    if(e.target.matches && e.target.matches("[data-adv-away]")) adviceUi.awayOpen = e.target.open;
     if(e.target.matches && e.target.matches("[data-tax-household]")) taxUi.householdOpen = e.target.open;
   }, true);
   document.addEventListener("change", function(e){
@@ -74,6 +77,16 @@ export function wireAdvice(){
   });
   document.addEventListener("click", async function(e){
     if(!e.target.closest) return;
+    // #305: put an observation away, or bring it back — on Insights and in the bell. Its commit redraws the lists.
+    var put = e.target.closest("[data-notice-dismiss], [data-notice-restore]");
+    if(put){
+      var away = put.hasAttribute("data-notice-dismiss");
+      setNoticeDismissed(put.getAttribute(away ? "data-notice-dismiss" : "data-notice-restore"), away);
+      commit(["noticesDismissed"]);
+      refreshNotifPanel();
+      showToast(away ? "Put away — it comes back if its figures change" : "Back in the list");
+      return;
+    }
     var go = e.target.closest("[data-adv-go]");
     if(go){
       var pg = go.getAttribute("data-adv-go"), sub = go.getAttribute("data-adv-sub");

@@ -32,9 +32,36 @@ export function knowItems(today){
   var items;
   try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
   var order = { risk: 0, opportunity: 1, info: 2 };
-  return items.filter(function(a){ return a.kind !== "good" && partAllows(a.id, state); })
+  return items.filter(function(a){ return a.kind !== "good" && partAllows(a.id, state) && !isDismissed(a); })
     .map(function(a, i){ return Object.assign({}, a, { group: "know", tone: a.kind, label: ATTENTION_LABEL[a.kind], i: i }); })
     .sort(function(a, b){ return (order[a.kind] - order[b.kind]) || (a.i - b.i); });
+}
+// ---------------- Putting an observation away (#305, step 3) ----------------
+// An Opportunity or a Worth knowing can be dismissed; a Watch can't — a scenario short of cash goes when it is
+// fixed. A dismissed one is remembered by the title it had, so it comes back when its figures (its title) change.
+export function canDismiss(a){ return !!a && (a.kind === "opportunity" || a.kind === "info"); }
+export function isDismissed(a, st){
+  var d = (st || state).noticesDismissed;
+  return canDismiss(a) && !!d && d[a.id] === a.title;
+}
+// What is put away right now, for Insights' "put away" fold.
+export function dismissedItems(today){
+  var items;
+  try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
+  return items.filter(function(a){ return partAllows(a.id, state) && isDismissed(a); });
+}
+// The edit itself: the caller saves it with commit(["noticesDismissed"]). Entries for notices no longer raised,
+// or whose title has moved on, are dropped as it goes.
+export function setNoticeDismissed(id, on, today){
+  var items;
+  try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
+  var byId = {};
+  items.forEach(function(a){ byId[a.id] = a; });
+  var d = state.noticesDismissed;   // always an object: defaultState() and migration step 27
+  if(!d || typeof d !== "object") return {};
+  Object.keys(d).forEach(function(k){ if(!byId[k] || byId[k].title !== d[k]) delete d[k]; });
+  if(on && canDismiss(byId[id])) d[id] = byId[id].title; else delete d[id];
+  return d;
 }
 export function attentionItems(today){
   return { todo: todoItems(), know: knowItems(today) };

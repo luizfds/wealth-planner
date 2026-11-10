@@ -4,7 +4,7 @@
 // where its listeners used to be added.
 import { escapeAttr } from "../lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "../lib/notifications.js";
-import { attentionItems, viewItems } from "../lib/attention.js";
+import { attentionItems, viewItems, canDismiss } from "../lib/attention.js";
 import { renderHealth } from "./health.js";
 import { renderMonthReview } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
@@ -43,6 +43,12 @@ function goAttrs(n){
     (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '');
 }
 function notifItemHtml(n){
+  // An observation that can be put away gets a second button beside its row (a button can't hold a button).
+  if(n.group === "know" && canDismiss(n)) return '<div class="notif-row">' + rowButtonHtml(n) +
+    '<button type="button" class="icon-btn notif-dismiss" data-notice-dismiss="' + escapeAttr(n.id) + '" aria-label="' + escapeAttr("Dismiss: " + n.title) + '" title="Dismiss — it comes back if its figures change">✕</button></div>';
+  return rowButtonHtml(n);
+}
+function rowButtonHtml(n){
   return '<button type="button" class="notif-item' + (n.group === "todo" && !n.read ? " is-unread" : "") + '"' + goAttrs(n) + '>' +
     '<span class="notif-item-body"><span class="notif-label ' + escapeAttr(n.tone) + '">' + escapeAttr(n.label) + '</span>' +
     '<span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
@@ -86,6 +92,8 @@ function openNotifPanel(triggerBtn, view){
   document.querySelectorAll(".notif-bell-btn").forEach(function(btn){ btn.setAttribute("aria-expanded", String(btn === triggerBtn)); });
 }
 
+// After an observation is put away from somewhere else while the list is open.
+export function refreshNotifPanel(){ if(notifPanelOpen) renderNotifPanelContent(); }
 // Where a To do is done. One function for the bell's rows and Home's To do, which carry the same attributes.
 export function followNotification(el){
   var page = el.getAttribute("data-notif-page"), sub = el.getAttribute("data-notif-sub"), action = el.getAttribute("data-notif-action"), fy = el.getAttribute("data-notif-fy");

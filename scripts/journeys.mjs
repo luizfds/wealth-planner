@@ -1,6 +1,7 @@
 // Journeys and a speed budget (v3.203.1, item 234). The smoke script proves every page renders; this proves
 // the things people do work, end to end, in a real browser at a phone's width, on invented data:
 //
+//   dismissnotice — put an observation away from the bell, bring it back on Insights, and see it return by itself (#305)
 //   bills       — confirm the bills that fell due; each becomes a logged payment
 //   transfer    — save a transfer that moves both balances, then Undo puts them back
 //   autopay     — set up an automatic payment on an account, answer it on Home with a different amount
@@ -298,6 +299,40 @@ const JOURNEYS = {
     check(await page.evaluate(() => document.body.getAttribute("data-current-page") === "scenario"), "a scenario's name in the comparison didn't open its page");
     check(await page.evaluate(n => { const pg = document.querySelector(".app-page:not([hidden])"); return pg.innerText.includes(n) || [...pg.querySelectorAll("input")].some(i => i.value === n); }, longName),
       "the scenario page opened isn't the one tapped");
+  },
+  // #305: an observation put away from the bell is saved, leaves the bell, its page's line and Insights' list, and
+  // sits in Insights' "Put away" fold; a Watch can't be put away; it comes back when brought back, and by itself
+  // once its title is no longer the one that was dismissed (its figures moved).
+  async dismissnotice(page){
+    await go(page, 'dashboard');
+    await page.locator('.notif-bell-btn:visible').first().click();
+    const panel = page.locator('#notifPanel');
+    const title = await panel.locator('.notif-row:has([data-notice-dismiss="wants"]) .notif-item-title').innerText();
+    check(await panel.locator('.notif-label.risk').count() > 0 && await panel.locator('.notif-row:has(.notif-label.risk)').count() === 0, 'a Watch can be dismissed from the bell');
+    check(await panel.locator('[data-notice-dismiss="wants"]').getAttribute('aria-label') === 'Dismiss: ' + title, 'the dismiss button does not name its notice');
+    await panel.locator('[data-notice-dismiss="wants"]').click();
+    await until(page, () => !document.querySelector('#notifPanel [data-notice-dismiss="wants"]'));
+    check(await panel.count() === 1, 'dismissing closed the list');
+    check(await stored(page, 'state.noticesDismissed.wants') === title, 'the dismissal was not saved with its title');
+    await page.keyboard.press('Escape');
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    check(await page.evaluate(() => { const l = document.getElementById('attentionLine'); return !l || l.hidden || !/Wants were/.test(l.innerText); }), 'the dismissed notice is still on Budget\'s line');
+    await go(page, 'dashboard', 'data-dashboard-sub', 'insights');
+    const home = page.locator('#adviceHome');
+    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 0, 'the dismissed notice is still in Insights\' list');
+    check(await home.locator('.adv-risk [data-notice-dismiss]').count() === 0, 'a Watch can be dismissed on Insights');
+    const fold = home.locator('[data-adv-away]');
+    check((await fold.locator('summary').first().innerText()).includes('1 dismissed'), 'Insights has no Put away fold');
+    await fold.locator('summary').first().click();
+    await fold.locator('[data-adv-id="wants"] > summary').click();
+    await fold.locator('[data-notice-restore="wants"]').click();
+    await until(page, () => !document.querySelector('#adviceHome [data-adv-away]'));
+    check(await stored(page, 'Object.keys(state.noticesDismissed).length') === 0, 'bringing it back was not saved');
+    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 1, 'brought back, it is not in the list');
+    // Its figures move: what was dismissed was an older title, so it is shown again and the stale entry means nothing.
+    await page.evaluate(() => import('/src/state.js').then(m => { m.state.noticesDismissed.wants = 'Wants were 99% of spending'; m.commit(['noticesDismissed']); }));
+    check(await home.locator('.adv-panel > .adv-list > [data-adv-id="wants"]').count() === 1, 'a notice whose figures changed since it was dismissed stays hidden');
+    check(await home.locator('[data-adv-away]').count() === 0, 'a stale dismissal is counted as put away');
   },
   // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
   // chooser that keeps focus when it redraws; page subtabs say which one is showing.

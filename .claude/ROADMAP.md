@@ -4963,7 +4963,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      lodging are one item each; an empty household is asked for nothing; dates read "31 Oct".
    - `[x]` **One line per page** in place of the strips ("2 to look at" and the first item, 44px), only for what is
      about that tab; it opens the bell showing that view's items. The smoke run fails a strip or a taller line.
-   - `[ ]` Dismissing advice. `[ ]` The cash-rate prompt as a To do
+   - `[x]` **Dismissing**: an Opportunity or a Worth knowing can be put away from the bell or Insights (a Watch
+     can't); it is saved as `state.noticesDismissed` (migration step 27) by the title it had, so it returns when its
+     figures change; Insights lists what is put away, with Bring back.
+   - `[ ]` The cash-rate prompt as a To do
      with a dialog.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.

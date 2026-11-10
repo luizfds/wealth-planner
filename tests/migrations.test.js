@@ -276,3 +276,10 @@ test("step 26: a purchase's default government fee rows follow its state and pri
   assert.deepEqual(s.purchase.B.otherCosts.map(c => c.fee || null), [null, "mortgage"], "a fee someone typed in is kept as theirs");
   assert.deepEqual(run(26, {}), {});
 });
+
+test("step 27: a place for the observations put away; a kept one stays, anything that isn't a title goes", function(){
+  assert.deepEqual(run(27, {}).noticesDismissed, {});
+  assert.deepEqual(run(27, { noticesDismissed: ["wants"] }).noticesDismissed, {});
+  const s = run(27, { noticesDismissed: { wants: "Wants were 18% of spending", "payg:Alex": "", broken: 3 } });
+  assert.deepEqual(s.noticesDismissed, { wants: "Wants were 18% of spending" });
+});

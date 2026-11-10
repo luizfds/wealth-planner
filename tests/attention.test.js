@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { getLocalNotifications } from "../src/lib/notifications.js";
-import { todoItems, knowItems, homeTodoItems, ATTENTION_LABEL, belongsToView, attentionLineHtml } from "../src/lib/attention.js";
+import { todoItems, knowItems, homeTodoItems, ATTENTION_LABEL, belongsToView, attentionLineHtml, canDismiss, isDismissed } from "../src/lib/attention.js";
+import { adviceHomeHtml } from "../src/components/advice.js";
 
 // #305 (docs/design/attention.md): the bell and Home's To do are one list. Each fact makes one item.
 function withState(patch, fn){
@@ -88,4 +89,36 @@ test("the line is one button: the count, the first item, and louder when somethi
   assert.match(html, /^<button type="button" class="attn-line" data-attn-line aria-haspopup="dialog">/);
   assert.match(html, /<span class="attn-count">2 to look at<\/span><span class="attn-top">Update &lt;Everyday> balance<\/span>/);
   assert.match(attentionLineHtml({ todo: [], know: [{ tone: "risk", title: "Short of cash" }] }), /class="attn-line loud"/);
+});
+
+// Step 3: an Opportunity or a Worth knowing can be put away; a Watch can't; it comes back when its title changes.
+test("only an Opportunity or a Worth knowing can be dismissed, and only while its title is the one dismissed", function(){
+  assert.ok(canDismiss({ kind: "opportunity" }) && canDismiss({ kind: "info" }));
+  assert.ok(!canDismiss({ kind: "risk" }) && !canDismiss({ kind: "good" }) && !canDismiss(null));
+  var wants = { id: "wants", kind: "info", title: "Wants were 18% of spending" };
+  assert.ok(isDismissed(wants, { noticesDismissed: { wants: "Wants were 18% of spending" } }));
+  assert.ok(!isDismissed(Object.assign({}, wants, { title: "Wants were 24% of spending" }), { noticesDismissed: { wants: "Wants were 18% of spending" } }), "the figure moved, so it is back");
+  assert.ok(!isDismissed({ id: "ef-low", kind: "risk", title: "Cash covers 1.2 months of essentials" }, { noticesDismissed: { "ef-low": "Cash covers 1.2 months of essentials" } }), "a Watch is never hidden");
+  assert.ok(!isDismissed(wants, {}));
+});
+
+test("Insights: a dismissed observation moves to the Put away fold with Bring back; a Watch has no Dismiss", function(){
+  var items = [
+    { id: "r", kind: "risk", area: "plan", title: "Short of cash", detail: "d", go: { page: "plan" } },
+    { id: "o", kind: "opportunity", area: "tax", title: "Unused super room", detail: "d", go: { page: "tax" } },
+    { id: "w", kind: "info", area: "cashflow", title: "Wants were 18% of spending", detail: "d", go: { page: "expenses" } }
+  ];
+  withState({ noticesDismissed: {} }, function(){
+    var html = adviceHomeHtml(items);
+    assert.equal((html.match(/data-notice-dismiss=/g) || []).length, 2);
+    assert.ok(!/data-notice-dismiss="r"/.test(html));
+    assert.ok(!/data-adv-away/.test(html), "no fold with nothing put away");
+  });
+  withState({ noticesDismissed: { w: "Wants were 18% of spending" } }, function(){
+    var html = adviceHomeHtml(items), fold = html.slice(html.indexOf("data-adv-away"));
+    assert.match(fold, /1 dismissed/);
+    assert.match(fold, /data-adv-id="w"[\s\S]*data-notice-restore="w">Bring back/);
+    assert.ok(html.indexOf('data-adv-id="w"') > html.indexOf("data-adv-away"), "out of the main list");
+    assert.match(html, /data-notice-dismiss="o">Dismiss/);
+  });
 });

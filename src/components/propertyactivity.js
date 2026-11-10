@@ -75,7 +75,7 @@ export function propertyActivityHtml(p, today){
         : '<input type="hidden" data-pa-charge-loan value="' + escapeAttr(loans[0].id) + '">') +
       '<input type="date" data-pa-charge-date value="' + escapeAttr(end) + '" aria-label="Date charged">' +
       '<input type="number" step="0.01" min="0" data-pa-charge-amount placeholder="Interest $" aria-label="Interest charged">' +
-      '<button type="button" class="btn btn-sm" data-pa-charge-add="' + escapeAttr(p.id) + '">Add</button>' +
+      '<button type="button" class="btn btn-sm" data-pa-charge-add="' + escapeAttr(p.id) + '">+ Add interest</button>' +
     '</div></details>' : '';
   return '<div class="pa" data-pa="' + escapeAttr(p.id) + '">' +
     '<div class="property-section-title">' + escapeAttr(fyLabel(fy)) + (end === win.end ? '' : ' so far') + ' — what\'s logged</div>' +

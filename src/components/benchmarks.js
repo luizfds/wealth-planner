@@ -299,7 +299,7 @@ export function targetsHtml(d){
     if(lowerBetter && p.pace != null) extra = '<span class="goal-note">' + fmtCurrency0.format(p.pace) + ' would be on pace today</span>';
     return '<div class="goal-row">' +
       '<div class="goal-head"><span class="bm-row-title">' + title + '</span><span class="goal-status ' + tone + '">' + STATUS_TEXT[p.status] + '</span>' +
-        '<button type="button" class="icon-btn goal-del" data-goal-del="' + i + '" aria-label="Remove this target" title="Remove">✕</button></div>' +
+        '<button type="button" class="icon-btn btn-danger goal-del" data-goal-del="' + i + '" aria-label="Remove this target" title="Remove">✕</button></div>' +
       '<div class="bm-bar"><span class="bm-fill ' + (tone || (lowerBetter ? "" : "")) + '" style="width:' + Math.max(0, Math.min(100, (p.pct || 0) * 100)).toFixed(1) + '%"></span>' +
         (lowerBetter && p.pace != null && p.target > 0 ? '<span class="bm-tick" style="left:' + Math.min(100, p.pace / p.target * 100).toFixed(1) + '%" title="On pace"><i>pace</i></span>' : '') + '</div>' +
       '<div class="goal-foot"><b>' + goalValue(g.kind, p.current) + '</b> of <span class="goal-target">' + targetInput + '</span>' + extra + '</div>' +
@@ -310,7 +310,7 @@ export function targetsHtml(d){
   return (rows || '<p class="fire-note">Set targets of your own — a savings rate, a net worth by a date, months of expenses in cash, super, or a monthly cap on a spending category — and see how far along each is.</p>') +
     '<div class="goal-add"><select data-goal-kind aria-label="Kind of target">' + kindOpts + '</select>' +
       '<select data-goal-category aria-label="Category" hidden>' + (catOpts || '<option value="">No categories yet</option>') + '</select>' +
-      '<button type="button" class="btn btn-sm" data-goal-add>+ Add target</button></div>';
+      '<button type="button" class="btn btn-sm" data-goal-add>+ Add goal target</button></div>';
 }
 export function addGoal(kind, category){
   var info = goalKindInfo(kind);

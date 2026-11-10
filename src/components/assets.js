@@ -118,7 +118,7 @@ function salesListHtml(item, idx){
       '<span class="sale-discount' + (g.discountApplied ? " on" : "") + '" title="' +
         escapeAttr(g.heldDays + " days held. The 50% discount needs more than 12 months (366 days).") + '">' +
         (g.isLoss ? "loss" : (g.discountApplied ? "−50% discount → " + fmtCurrency0.format(g.assessable) : "no discount")) + '</span>' +
-      '<button type="button" class="icon-btn" data-asset-sale-del="' + idx + ':' + si + '" aria-label="Delete this sale">✕</button>' +
+      '<button type="button" class="icon-btn btn-danger" data-asset-sale-del="' + idx + ':' + si + '" aria-label="Delete this sale">✕</button>' +
     '</div>';
   }).join("") + '</div>';
 }
@@ -141,7 +141,7 @@ export function lotsSectionHtml(item, idx){
       '<input type="number" step="any" min="' + sold + '" class="lot-units" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought' + n + '"' + (sold ? ' aria-describedby="' + soldId + '"' : '') + '>' +
       '<input type="number" step="any" min="0" class="lot-price" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit' + n + '">' +
       '<input type="number" step="0.01" min="0" class="lot-brokerage" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage' + n + '" aria-describedby="lots-help-' + idx + '">' +
-      '<button type="button" class="icon-btn" data-lot-del="' + idx + ':' + li + '" aria-label="Delete lot ' + (li + 1) + '"' + (sold ? ' disabled' : '') + '>✕</button>' +
+      '<button type="button" class="icon-btn btn-danger" data-lot-del="' + idx + ':' + li + '" aria-label="Delete lot ' + (li + 1) + '"' + (sold ? ' disabled' : '') + '>✕</button>' +
       (sold ? '<span class="lot-sold" id="' + soldId + '">' + fmtQtyDisplay.format(sold) + ' of ' + fmtQtyDisplay.format(Number(lot.units) || 0) + ' sold — sales use this lot, so delete those first to remove it</span>' : '') +
     '</div>';
   }).join("");
@@ -164,7 +164,7 @@ export function payoutsSectionHtml(item, idx){
       '<input type="date" class="po-date" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on (payment ' + (pi + 1) + ')">' +
       '<input type="number" step="0.01" min="0" class="po-cash" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received (payment ' + (pi + 1) + ')">' +
       '<input type="number" step="0.01" min="0" class="po-credit" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit (payment ' + (pi + 1) + ')" aria-describedby="payouts-help-' + idx + '">' +
-      '<button type="button" class="icon-btn" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete payment ' + (pi + 1) + '">✕</button>' +
+      '<button type="button" class="icon-btn btn-danger" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete payment ' + (pi + 1) + '">✕</button>' +
     '</div>';
   }).join("");
   return '<details class="row-more-options payouts-section"><summary>Distributions received' + (pays.length ? " (" + pays.length + ")" : "") + '</summary><div style="margin-top:8px">' +
@@ -210,7 +210,7 @@ export function statementsSectionHtml(item, idx){
       '<div class="stmt-head"><select class="stmt-fy" data-stmt-index="' + si + '" aria-label="Financial year">' +
         years.map(function(y){ return '<option value="' + y + '"' + (Number(st.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
       '</select>' +
-      '<button type="button" class="icon-btn" data-stmt-del="' + idx + ':' + si + '" aria-label="Delete the ' + fyLabel(Number(st.fy)) + ' statement">✕</button></div>' +
+      '<button type="button" class="icon-btn btn-danger" data-stmt-del="' + idx + ':' + si + '" aria-label="Delete the ' + fyLabel(Number(st.fy)) + ' statement">✕</button></div>' +
       '<div class="m-edit-grid">' + STATEMENT_FIELDS.map(function(f){
         return '<div class="m-edit-field"><label>' + f[1] + '</label><input type="number" step="0.01" class="stmt-field" data-stmt-index="' + si + '" data-stmt-key="' + f[0] + '" value="' + (Number(st[f[0]]) || 0) + '"></div>';
       }).join("") +
@@ -563,12 +563,14 @@ export function modernAssetRowHtml(item, idx, colorIdx){
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
 
+// #255: an add button names the thing it adds, lower case — "+ Add cash account", not "+ Add Cash".
+var ADD_NOUN = { Cash: "cash account", Super: "super fund", Other: "other asset" };
 export function renderAssetCategoryPage(cat){
   var container = document.getElementById("assetsSub-" + cat);
   if(!container) return;
   var data = assetCategoryItems(cat);
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(cat) + '</button>';
+  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(ADD_NOUN[cat] || String(cat).toLowerCase()) + '</button>';
   var body;
   if(!data.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
@@ -931,7 +933,7 @@ export function renderSharesSubpage(){
   filteredPairs = filteredPairs.filter(function(p){ return !isSoldOut(p.item); });
   var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
   var soldData = { items: soldPairs.map(function(p){ return p.item; }), indices: soldPairs.map(function(p){ return p.idx; }) };
-  var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add share holding</button>';
+  var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add holding</button>';
   var toolbar = allData.items.length ? sharesFilterSortHtml() : "";
   var body;
   if(!allData.items.length){
@@ -1167,7 +1169,7 @@ export function renderAssetsSummary(){
     // v3.138.0: four tiles of $0 tell someone new nothing; say where to start instead.
     if(!state.assets.length && !state.properties.length){
       statsEl.innerHTML = '<div class="empty-start"><b>Nothing here yet</b><p>Add what you own, one tab at a time — cash in Cash, holdings in Shares, each person\'s fund in Super — and this summary adds it up. Property has its own tab under Net worth.</p>' +
-        '<div class="empty-start-actions"><button type="button" class="btn btn-sm" data-empty-assets="Cash">Add cash</button><button type="button" class="btn btn-sm" data-empty-assets="Shares">Add shares</button><button type="button" class="btn btn-sm" data-empty-assets="Super">Add super</button></div></div>';
+        '<div class="empty-start-actions"><button type="button" class="btn btn-sm" data-empty-assets="Cash">+ Add cash account</button><button type="button" class="btn btn-sm" data-empty-assets="Shares">+ Add holding</button><button type="button" class="btn btn-sm" data-empty-assets="Super">+ Add super fund</button></div></div>';
       var alloc0 = document.getElementById("assetsAllocation");
       if(alloc0) alloc0.innerHTML = renderAssetAllocationHtml();
       return;

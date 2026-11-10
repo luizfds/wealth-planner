@@ -47,7 +47,7 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel){
         ' data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="' + c.key + '"' +
         ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '">';
     }).join("") +
-    '<button type="button" class="icon-btn" data-ty-del="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" aria-label="Delete">✕</button></div>';
+    '<button type="button" class="icon-btn btn-danger" data-ty-del="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" aria-label="Delete row ' + (i + 1) + '">✕</button></div>';
   }).join("");
   var head = '<div class="ty-row ty-row-' + kind + ' ty-head-row" aria-hidden="true">' + cols.map(function(c){ return '<span>' + c.label + '</span>'; }).join("") + '<span></span></div>';
   return (rows.length ? head + body : "") +

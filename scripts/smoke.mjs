@@ -9,6 +9,7 @@
 //   - on a phone, a control smaller than 44px each way (v3.167.0)
 //   - a floating button on a desktop, or more than one 56px circle on a phone (#304)
 //   - more than one primary button in a view, or a view with no About this page (#255)
+//   - an add button not worded "+ Add thing", or a delete that isn't .btn-danger (#255)
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs
 // Not part of `npm test` on purpose — the suite stays dependency-free; CI runs this beside it.
@@ -123,8 +124,17 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // and doesn't), and every view has its "About this page".
         const primaries = [...pageEl.querySelectorAll(".btn-primary"), ...document.querySelectorAll(".app-topbar .btn-primary")].filter(e => e.getClientRects().length)
           .map(e => (e.innerText.trim() || e.getAttribute("aria-label") || "?").slice(0, 28));
+        // #255 step 2: an add button reads "+ Add" and the thing, lower case and with no article; every
+        // delete or remove control is .btn-danger. (A heading or a menu item isn't a button on the page.)
+        const wording = [];
+        pageEl.querySelectorAll("button").forEach(b => {
+          if(!b.getClientRects().length || b.closest("[role=menu], .page-overflow-menu")) return;
+          const t = b.textContent.replace(/\s+/g, " ").trim(), name = (b.getAttribute("aria-label") || t).trim();
+          if(/^\+? ?Add\b/.test(t) && !/^Add (to|with|from)\b/.test(t) && !/^\+ Add (?!an? |the )[a-z]/.test(t)) wording.push('"' + t.slice(0, 30) + '" (add wording)');
+          if(/^(Delete|Remove)\b/.test(name) && !/^Remove (filter|from this)/.test(name) && !b.classList.contains("btn-danger")) wording.push('"' + name.slice(0, 30) + '" (not .btn-danger)');
+        });
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab, primaries, about };
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab, primaries, about, wording: [...new Set(wording)] };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
@@ -133,6 +143,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       if(r.fab) failures.push(where + ": " + r.fab);
       if(r.primaries.length > 1) failures.push(where + ": " + r.primaries.length + " primary buttons (" + r.primaries.join(", ") + ")");
       if(!r.about) failures.push(where + ": no About this page");
+      if(r.wording.length) failures.push(where + ": " + r.wording.slice(0, 6).join(", "));
       if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){

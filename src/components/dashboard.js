@@ -124,7 +124,7 @@ export function renderCards(){
       '</div>'
     );
   }).join("") +
-  '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span><span class="add-label">Add scenario</span></button>';
+  '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span> <span class="add-label">Add scenario</span></button>';
 
   el.innerHTML = html;
   fillBreakEvensSoon();

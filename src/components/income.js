@@ -327,7 +327,7 @@ export function renderIncomeGroups(){
       '<div class="m-card-total">' + groupTotalHtml(g) + '</div></div>' +
       modernIncomeCompBarHtml(rowMeta) +
       '<div class="m-rows">' + rows + '</div>' +
-      '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income</button>' +
+      '<button type="button" class="m-add-row" data-add="income:' + escapeAttr(addValue) + '">+ Add income for ' + (g.key === "__household" ? "the household" : escapeAttr(label)) + '</button>' +
     '</div>';
   }).join("") + '</div>';
   // Same post-render DOM patch the Expenses budget list uses, for the same reason: the "⇄ Vary"

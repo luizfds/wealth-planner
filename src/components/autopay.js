@@ -46,7 +46,7 @@ export function accountAutoPaysHtml(account, today){
   var mine = (state.autoPayments || []).filter(function(ap){ return ap.from === account.name || ap.to === account.name; });
   return '<div class="acct-field-wide ap-section"><span class="ap-title">Automatic payments</span>' +
     mine.map(function(ap){ return autoPayRowHtml(ap, today); }).join("") +
-    '<button type="button" class="btn btn-sm" data-ap-add="' + escapeAttr(account.name) + '">+ Add an automatic payment</button></div>';
+    '<button type="button" class="btn btn-sm" data-ap-add="' + escapeAttr(account.name) + '">+ Add automatic payment</button></div>';
 }
 
 // Home: what went out today (or in the last month) and hasn't been confirmed.

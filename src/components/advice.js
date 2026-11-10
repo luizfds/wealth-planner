@@ -6,8 +6,7 @@ import { escapeAttr } from "../lib/html.js";
 import { askClaudeHtml } from "./askclaude.js";
 
 // ---------------- What the app notices (v3.98.0) — calc/advice.js ----------------
-// The whole list on Home → Insights; on each page, a strip with that page's findings.
-var STRIPS = { plan: "adviceStrip-plan", cashflow: "adviceStrip-cashflow", income: "adviceStrip-income", tax: "adviceStrip-tax", investments: "adviceStrip-investments", accounts: "adviceStrip-accounts" };
+// The whole list on Home → Insights; a page shows one line for what is about it (attentionline.js, drawn by redraw.js).
 var KIND = { risk: "Watch", opportunity: "Opportunity", info: "Worth knowing", good: "On track" };
 export var adviceUi = { open: {}, goodOpen: false };
 
@@ -18,10 +17,6 @@ export function renderAdvice(){
   items = items.filter(function(a){ return partAllows(a.id, state); });
   var home = document.getElementById("adviceHome");
   if(home) home.innerHTML = adviceHomeHtml(items);
-  Object.keys(STRIPS).forEach(function(area){
-    var el = document.getElementById(STRIPS[area]);
-    if(el) el.innerHTML = adviceStripHtml(items.filter(function(a){ return a.area === area; }), area);
-  });
 }
 function impact(a){
   if(!a.impactYearly) return "";
@@ -52,16 +47,4 @@ export function adviceHomeHtml(items){
   return '<div class="panel adv-panel"><h2 class="section-title">What the app notices</h2>' +
     '<p class="ledger-note adv-note help">Read from your own figures, worked out here in the browser. Observations to weigh, not financial advice — the ones about tax and loans are worth taking to your accountant.</p>' +
     body + askClaudeHtml() + '</div>';
-}
-// A page's strip is for what to act on; what's on track stays on Insights.
-// v3.158.0 (item 188): what the page itself already shows in full stays off its strip — on Tax, each
-// person's super room is the Top up box on their card.
-var SHOWN_ON_PAGE = { tax: /^super-room:/ };
-export function adviceStripHtml(items, area){
-  items = (items || []).filter(function(a){ return a.kind !== "good" && !(SHOWN_ON_PAGE[area] && SHOWN_ON_PAGE[area].test(a.id)); });
-  if(!items.length) return "";
-  var shown = items.slice(0, 3);
-  return '<div class="adv-strip"><div class="adv-strip-head"><span>The app notices</span>' +
-    (items.length > shown.length ? '<button type="button" class="link-btn" data-adv-go="dashboard" data-adv-sub="insights">' + (items.length - shown.length) + ' more →</button>' : '<button type="button" class="link-btn" data-adv-go="dashboard" data-adv-sub="insights">All of it →</button>') +
-    '</div>' + shown.map(function(a){ return card(a, false); }).join("") + '</div>';
 }

@@ -123,7 +123,7 @@ function dueBillNotifications(pairs){
         detail: "Due " + fmtDate(x.due) + " · " + fmtCurrency0.format(x.item.amount) +
           (x.behind ? " — the one before this still isn't logged" : ""),
         date: x.due,
-        page: "expenses"
+        page: "expenses", sub: "bills"
       };
     });
 }
@@ -188,7 +188,7 @@ function reviewDueNotifications(alreadyBilled){
       title: due[0].what + " needs a fresh entry",
       detail: "No recent transaction logged against this budget line — use Review expenses on Cash flow.",
       date: todayStr(),
-      page: "expenses"
+      page: "expenses", sub: "spending"
     }];
   }
   var names = due.slice(0, 3).map(function(item){ return item.what; }).join(", ");
@@ -200,7 +200,7 @@ function reviewDueNotifications(alreadyBilled){
     title: due.length + " budget lines need a fresh entry",
     detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — use Review expenses on Cash flow.",
     date: todayStr(),
-    page: "expenses"
+    page: "expenses", sub: "spending"
   }];
 }
 // Shared "<name> (never logged)" / "<name> (Nd ago)" comma-joined formatting — used by both this
@@ -280,7 +280,7 @@ function sharePricesNotifications(){
     title: "Share prices could use a refresh",
     detail: parts.join(" · ") + " — paste an update from the Shares tab.",
     date: todayStr(),
-    page: "assets"
+    page: "assets", sub: "Shares"
   }];
 }
 // This month's spend vs. plan, overall — one notification per calendar month (id rolls over at

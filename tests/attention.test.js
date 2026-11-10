@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { getLocalNotifications } from "../src/lib/notifications.js";
-import { todoItems, knowItems, homeTodoItems, ATTENTION_LABEL } from "../src/lib/attention.js";
+import { todoItems, knowItems, homeTodoItems, ATTENTION_LABEL, belongsToView, attentionLineHtml } from "../src/lib/attention.js";
 
 // #305 (docs/design/attention.md): the bell and Home's To do are one list. Each fact makes one item.
 function withState(patch, fn){
@@ -60,4 +60,32 @@ test("every item has a group and a label from the one vocabulary; Home's To do s
     for(var i = 1; i < home.length; i++) assert.ok(rank[home[i - 1].severity] <= rank[home[i].severity]);
     knowItems("2026-10-27").forEach(function(a){ assert.equal(a.group, "know"); assert.notEqual(a.kind, "good"); assert.ok(a.label); });
   });
+});
+
+// Step 2: a page shows one line, and only for what is about that view.
+test("an item belongs to the page and tab it goes to; one with no tab, to the page's first tab", function(){
+  var pay = { group: "know", id: "payg:Alex", go: { page: "tax", sub: "people" } };
+  assert.ok(belongsToView(pay, { page: "tax", sub: "people" }));
+  ["year", "returns", "documents"].forEach(function(sub){ assert.ok(!belongsToView(pay, { page: "tax", sub: sub }), sub); });
+  var cap = { group: "todo", id: "cap:2026:Alex", page: "tax" };
+  assert.ok(belongsToView(cap, { page: "tax", sub: "year" }));
+  assert.ok(!belongsToView(cap, { page: "tax", sub: "returns" }));
+  var rent = { group: "todo", id: "rentreview:p1", page: "properties" };
+  assert.ok(belongsToView(rent, { page: "properties", sub: null }));
+  assert.ok(!belongsToView(rent, { page: "accounts", sub: null }));
+});
+
+test("what a page shows in full, Home's own items, and Checks stay off page lines", function(){
+  assert.ok(!belongsToView({ group: "know", id: "super-room:Alex", go: { page: "tax" } }, { page: "tax", sub: "year" }));
+  assert.ok(!belongsToView({ group: "todo", id: "review:2026-09", page: "dashboard", sub: "review" }, { page: "dashboard", sub: null }));
+  assert.ok(!belongsToView({ group: "todo", id: "health:x", page: "accounts", sub: "checks" }, { page: "accounts", sub: null }));
+  assert.ok(belongsToView({ group: "todo", id: "acctstale:a1", page: "accounts" }, { page: "accounts", sub: null }));
+});
+
+test("the line is one button: the count, the first item, and louder when something is urgent or a risk", function(){
+  assert.equal(attentionLineHtml({ todo: [], know: [] }), "");
+  var html = attentionLineHtml({ todo: [{ tone: "todo", title: "Update <Everyday> balance" }], know: [{ tone: "info", title: "Wants were 18% of spending" }] });
+  assert.match(html, /^<button type="button" class="attn-line" data-attn-line aria-haspopup="dialog">/);
+  assert.match(html, /<span class="attn-count">2 to look at<\/span><span class="attn-top">Update &lt;Everyday> balance<\/span>/);
+  assert.match(attentionLineHtml({ todo: [], know: [{ tone: "risk", title: "Short of cash" }] }), /class="attn-line loud"/);
 });

@@ -18,6 +18,7 @@ import { state, setState, persist, onCommit } from "../state.js";
 import { renderSavingsGoals } from "./accountswiring.js";
 import { renderActivity } from "./activity.js";
 import { renderAdvice } from "./advice.js";
+import { renderAttentionLine } from "./attentionline.js";
 import { renderAssets } from "./assets.js";
 import { renderBankImportHelp } from "./bank-import.js";
 import { renderBenchmarks } from "./benchmarks.js";
@@ -169,6 +170,8 @@ function defineViews(){
   defineView("savingsGoals", ["plan"], renderSavingsGoals, ["*"]);
   defineView("goalsFire", ["plan"], function(){ var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml(); }, ["*"]);
   defineView("advice", ["dashboard", "plan", "expenses", "tax"], renderAdvice, ["*"]);
+  // #305: a page's one line of notices follows the same figures, on every page that can carry one.
+  defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"]);
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);

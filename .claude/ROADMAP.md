@@ -4961,7 +4961,9 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - `[x]` **One list**: `lib/attention.js` feeds the bell (two groups, To do and Worth knowing) and Home's To do
      (the first four, in the same words). The to-dos only Home built are made with the rest; the month's review and
      lodging are one item each; an empty household is asked for nothing; dates read "31 Oct".
-   - `[ ]` One line per page in place of the strips. `[ ]` Dismissing advice. `[ ]` The cash-rate prompt as a To do
+   - `[x]` **One line per page** in place of the strips ("2 to look at" and the first item, 44px), only for what is
+     about that tab; it opens the bell showing that view's items. The smoke run fails a strip or a taller line.
+   - `[ ]` Dismissing advice. `[ ]` The cash-rate prompt as a To do
      with a dialog.
 3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.

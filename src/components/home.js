@@ -1,4 +1,5 @@
 import { emergencyFund } from "../calc/emergency.js";
+import { homeTodoItems } from "../lib/attention.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
@@ -6,12 +7,7 @@ import { selectedMonth, monthPhrase, isPeriodToday } from "../calc/ledger.js";
 import { totalNetWorthValue, scenarioTotals, currentScenario, staleAssets } from "../calc/engine.js";
 import { goalsOverview } from "../calc/savegoals.js";
 import { goalCardHtml } from "./savegoals.js";
-import { monthReview, reviewMonth, monthLabel } from "../calc/monthreview.js";
-import { dataHealthChecks } from "../calc/health.js";
-import { accountBalance } from "../calc/accounts.js";
-import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
-import { getTaxPeople } from "../calc/tax.js";
-import { fyLabel } from "../calc/property.js";
+import { monthReview } from "../calc/monthreview.js";
 import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
 import { sparklineHtml } from "../lib/charts.js";
 import { trendToToday } from "../calc/history.js";
@@ -48,44 +44,15 @@ export function upcomingBills(items, transactions, today, days){
 }
 
 // The to-do list: each { text, go, sub?, tone } where `go` is a page and `sub` its tab.
-export function homeTodos(today, opts){
-  opts = opts || {};
-  var out = [];
-  // v3.163.0 (item 193): imported rows nobody has looked at yet come first.
-  var waiting = toReview(state.transactions).length;
-  if(waiting) out.push({ text: waiting + " new transaction" + (waiting === 1 ? "" : "s") + " to review", go: "txreview", tone: "warn" });
-  var ym = reviewMonth(today);
-  var rev = state.monthReviews && state.monthReviews[ym];
-  if(!(rev && rev.done)) out.push({ text: "Review " + monthLabel(ym), go: "dashboard", sub: "review", tone: "warn" });
-  var checks = (opts.checks || dataHealthChecks({ today: today })).filter(function(c){ return c.severity !== "info"; });
-  if(checks.length) out.push({ text: checks.length + " thing" + (checks.length === 1 ? "" : "s") + " to fix in Checks", go: "settings", sub: "checks", tone: checks.some(function(c){ return c.severity === "bad"; }) ? "bad" : "warn" });
-  var stale = (state.accounts || []).filter(function(a){
-    var b = accountBalance(a);
-    return b.balance != null && b.date && Math.round((Date.parse(today) - Date.parse(b.date)) / 86400000) > 35;
-  });
-  if(stale.length) out.push({ text: "Update " + (stale.length === 1 ? stale[0].name + "'s balance" : stale.length + " account balances"), go: "accounts", tone: "warn" });
-  var lodge = lodgementStatus(today);
-  if(lodge.inSeason && getTaxPeople().length){
-    var rec = taxYearRecord(lodge.fy, false);
-    var lodged = rec && rec.lodged ? Object.keys(rec.lodged).length : 0;
-    if(lodged < getTaxPeople().length) out.push({ text: "Lodge " + fyLabel(lodge.fy) + " — " + lodge.daysLeft + " days to 31 October", go: "tax", sub: "returns", tone: lodge.daysLeft <= 21 ? "bad" : "warn", fy: lodge.fy });
-  }
-  // v3.72.0: a rent review coming up, and a fixed rate about to end.
-  (state.properties || []).forEach(function(p){
-    if(p.nextRentReview){
-      var dr = Math.round((Date.parse(p.nextRentReview) - Date.parse(today)) / 86400000);
-      if(dr <= 30) out.push({ text: (p.what || "Property") + ": rent review " + (dr < 0 ? "was due " + p.nextRentReview : dr === 0 ? "today" : "in " + dr + " days"), go: "properties", tone: dr < 0 ? "bad" : "warn" });
-    }
-    (p.loans || []).forEach(function(l){
-      if(!l.fixedUntil || l.endedOn) return;
-      var df = Math.round((Date.parse(l.fixedUntil) - Date.parse(today)) / 86400000);
-      if(df >= 0 && df <= 90) out.push({ text: (l.what || "A loan") + ": fixed rate ends in " + df + " days", go: "properties", tone: "warn" });
-    });
-  });
-  var lastBackup = state.lastBackupDate;
-  var backupAge = lastBackup ? Math.round((Date.parse(today) - Date.parse(lastBackup)) / 86400000) : null;
-  if(backupAge == null || backupAge > 30) out.push({ text: lastBackup ? "Back up — the last was " + backupAge + " days ago" : "Make your first backup", go: "backup", tone: "warn" });
-  return out;
+// #305: Home's To do is the first few items of the one list (lib/attention.js) — the bell shows all of it, in
+// the same words. It used to be built here, by its own rules, and disagreed with the bell.
+export var HOME_TODO_MAX = 4;
+export function homeTodos(){
+  return homeTodoItems();
+}
+function todoAttrs(n){
+  return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +
+    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '');
 }
 
 // v3.139.0 (item 171): what moved it most since the line began — the same rules both ends
@@ -149,11 +116,13 @@ export function homeSummaryHtml(today, opts){
     }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
     : '<p class="home-note">Nothing expected. Bills appear here once a payment has been logged against their budget line.</p>') + '</div>';
 
-  var todos = opts.todos || homeTodos(today, opts);
+  var todos = opts.todos || homeTodos();
+  var more = todos.length - HOME_TODO_MAX;
   var todoCard = '<div class="home-card home-todo" data-home-card="todo"><span class="home-k">To do</span>' +
-    (todos.length ? '<ul class="home-list">' + todos.map(function(t){
-      return '<li><button type="button" class="home-todo-btn ' + t.tone + '" data-home-go="' + t.go + '"' + (t.sub ? ' data-home-sub="' + t.sub + '"' : '') + (t.fy != null ? ' data-home-fy="' + t.fy + '"' : '') + '>' + escapeAttr(t.text) + ' <span aria-hidden="true">›</span></button></li>';
-    }).join("") + '</ul>' : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
+    (todos.length ? '<ul class="home-list">' + todos.slice(0, HOME_TODO_MAX).map(function(t){
+      return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + escapeAttr(t.title) + ' <span aria-hidden="true">›</span></button></li>';
+    }).join("") + '</ul>' + (more > 0 ? '<button type="button" class="link-btn home-todo-all" data-open-bell>All ' + todos.length + ' to-dos →</button>' : '')
+    : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
 
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +

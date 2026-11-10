@@ -8,7 +8,9 @@ import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { fyLabel } from "../calc/property.js";
 import { dataHealthChecks } from "../calc/health.js";
 import { sortedRateHistory, calcRepaymentMonthly } from "../calc/property.js";
-import { shiftMonth, monthLabel } from "../calc/monthreview.js";
+import { shiftMonth, monthLabel, reviewMonth } from "../calc/monthreview.js";
+import { toReview } from "../calc/reviewqueue.js";
+import { accountBalance } from "../calc/accounts.js";
 import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } from "../calc/bills.js";
 import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
 import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
@@ -118,7 +120,7 @@ function dueBillNotifications(pairs){
         title: x.item.what,
         // Carrying "and you haven't logged the last one" here is what lets reviewDueNotifications()
         // stay quiet about this line without the app losing that fact — see its comment.
-        detail: "Due " + x.due + " · " + fmtCurrency0.format(x.item.amount) +
+        detail: "Due " + fmtDate(x.due) + " · " + fmtCurrency0.format(x.item.amount) +
           (x.behind ? " — the one before this still isn't logged" : ""),
         date: x.due,
         page: "expenses"
@@ -332,9 +334,9 @@ function backupReminderNotification(){
     type: "backup",
     severity: "info",
     title: last ? "Time for a fresh backup" : "You haven't backed up yet",
-    detail: (last ? "Last backup was " + daysSince + " days ago" : "Everything's stored only in this browser") + " — use Export (top right) to save a copy.",
+    detail: (last ? "Last backup was " + daysSince + " days ago" : "Everything's stored only in this browser") + " — Export backup saves a copy.",
     date: todayStr(),
-    page: "dashboard"
+    page: "dashboard", action: "backup"
   }];
 }
 
@@ -353,14 +355,14 @@ function storageNotification(){
 }
 
 // ---------------- Monthly review (v3.54.0) ----------------
-// The first ten days of a month, until last month has been marked reviewed.
+// Until last month has been marked reviewed. #305: one item for the bell and Home's To do — the bell used
+// to carry it for the first ten days of the month and Home for all of it, in different words.
 function monthReviewNotification(){
   if(!hasRealUserData()) return [];
   var today = todayStr();
-  if(Number(today.slice(8, 10)) > 10) return [];
-  var last = shiftMonth(today.slice(0, 7), -1);
+  var last = reviewMonth(today);
   if(state.monthReviews && state.monthReviews[last] && state.monthReviews[last].done) return [];
-  return [{ id: "review:" + last, type: "review", severity: "info", title: monthLabel(last) + "'s review is ready",
+  return [{ id: "review:" + last, type: "review", severity: "warn", title: "Review " + monthLabel(last),
     detail: "Money in, card statements, checks and the month against the plan — Home → Review.", date: today, page: "dashboard", sub: "review" }];
 }
 
@@ -507,16 +509,18 @@ export function taxCalendarReminders(today, opts){
       id: "tyopen:" + st.fy, type: "tax", severity: "info",
       title: fyLabel(st.fy) + " is over — start the tax worksheet",
       detail: "Income statements are usually ready in myGov by mid-July. Tax → Documents lists the papers to gather.",
-      date: today, page: "tax"
+      date: today, page: "tax", sub: "returns", fy: st.fy
     });
   }
-  if(m === 10 && st.inSeason && !opts.lodged){
+  // #305: the return is a To do for the whole season (1 July to 31 October), as Home's list had it, and louder
+  // as October runs out. In July, "start the worksheet" above speaks for it until there is one.
+  if(st.inSeason && !opts.lodged && !(m === 7 && !opts.worksheetStarted)){
     var lastWeek = st.daysLeft <= 7;
     out.push({
-      id: "tydue:" + st.fy + ":" + (lastWeek ? "week" : "month"), type: "tax", severity: lastWeek ? "bad" : "warn",
-      title: fyLabel(st.fy) + " tax return due 31 October — " + (st.daysLeft === 0 ? "today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " left"),
+      id: "tydue:" + st.fy + ":" + (lastWeek ? "week" : m === 10 ? "month" : "season"), type: "tax", severity: lastWeek ? "bad" : m === 10 ? "warn" : "info",
+      title: "Lodge " + fyLabel(st.fy) + " — " + (st.daysLeft === 0 ? "due today" : st.daysLeft + " day" + (st.daysLeft === 1 ? "" : "s") + " to 31 October"),
       detail: "Lodging through a registered tax agent? They have later dates — mark the year lodged on the worksheet and this goes away.",
-      date: today, page: "tax"
+      date: today, page: "tax", sub: "returns", fy: st.fy
     });
   }
   return out;
@@ -577,6 +581,45 @@ export function cancelByNotifications(today){
 // The one local source today — a future remote source (fetched notifications from a backend)
 // would be added here as a sibling function and merged into getNotifications() below, unchanged
 // everywhere else.
+// ---------------- The to-dos only Home's list had (#305) ----------------
+// One list now feeds the bell and Home's To do (lib/attention.js), so these four are made here like the rest.
+function txReviewNotification(){
+  var waiting = toReview(state.transactions).length;
+  if(!waiting) return [];
+  return [{ id: "txreview:" + waiting, type: "txreview", severity: "warn", title: waiting + " new transaction" + (waiting === 1 ? "" : "s") + " to review",
+    detail: "Imported rows nobody has looked at yet — confirm each one's budget line.", date: todayStr(), page: "expenses", sub: "spending", action: "txreview" }];
+}
+function staleAccountNotifications(){
+  var today = todayStr();
+  var stale = (state.accounts || []).filter(function(a){
+    var b = accountBalance(a);
+    return b.balance != null && b.date && Math.round((Date.parse(today) - Date.parse(b.date)) / 86400000) > 35;
+  });
+  if(!stale.length) return [];
+  return [{ id: "acctstale:" + stale.map(function(a){ return a.id || a.name; }).sort().join(","), type: "account", severity: "warn",
+    title: "Update " + (stale.length === 1 ? stale[0].name + "'s balance" : stale.length + " account balances"),
+    detail: "The last balance recorded is more than five weeks old.", date: today, page: "accounts" }];
+}
+function propertyDateNotifications(){
+  var today = todayStr(), out = [];
+  (state.properties || []).forEach(function(p){
+    if(p.nextRentReview){
+      var dr = Math.round((Date.parse(p.nextRentReview) - Date.parse(today)) / 86400000);
+      if(dr <= 30) out.push({ id: "rentreview:" + p.id + ":" + p.nextRentReview, type: "property", severity: dr < 0 ? "bad" : "warn",
+        title: (p.what || "Property") + ": rent review " + (dr < 0 ? "was due " + fmtDate(p.nextRentReview) : dr === 0 ? "today" : "in " + dr + " days"),
+        detail: "Record the new rent on the property's Rent tab, or move the review date.", date: p.nextRentReview, page: "properties" });
+    }
+    (p.loans || []).forEach(function(l){
+      if(!l.fixedUntil || l.endedOn) return;
+      var df = Math.round((Date.parse(l.fixedUntil) - Date.parse(today)) / 86400000);
+      if(df >= 0 && df <= 90) out.push({ id: "fixedend:" + (l.id || l.what) + ":" + l.fixedUntil, type: "loan", severity: "warn",
+        title: (l.what || "A loan") + ": fixed rate ends in " + df + " days", detail: "On " + fmtDate(l.fixedUntil) + " it moves to the lender's variable rate unless you fix again.",
+        date: l.fixedUntil, page: "properties" });
+    });
+  });
+  return out;
+}
+
 export function getLocalNotifications(){
   // Computed once and shared: the due-bill pairs decide both their own notifications and which
   // lines reviewDueNotifications() must stay quiet about (see its comment).
@@ -584,6 +627,7 @@ export function getLocalNotifications(){
   var billed = {};
   pairs.forEach(function(x){ billed[x.item.id] = true; });
   return [].concat(
+    txReviewNotification(),
     dueBillNotifications(pairs),
     reviewDueNotifications(billed),
     staleAssetNotifications(),
@@ -597,6 +641,8 @@ export function getLocalNotifications(){
     autoPayNotifications(),
     endingPayNotifications(),
     cancelByNotifications(),
+    staleAccountNotifications(),
+    propertyDateNotifications(),
     monthReviewNotification(),
     weekRecapNotification(),
     dataHealthNotification(),

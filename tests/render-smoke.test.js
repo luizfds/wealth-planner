@@ -1099,11 +1099,17 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     var items = [{ id: "e1", what: "Phone", amount: 80, freq: "Monthly" }];
     var bills = upcomingBills(items, state.transactions, "2026-10-14", 14);
     assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
-    var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ text: "Review September 2026", go: "dashboard", sub: "review", tone: "warn" }] });
+    var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ id: "review:2026-09", title: "Review September 2026", page: "dashboard", sub: "review", severity: "warn" }] });
     assert.match(html, /<b class="home-big">\$105,000<\/b>/);
     assert.match(html, /\+\$5,000 since 1 Aug/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
-    assert.match(html, /data-home-go="dashboard" data-home-sub="review">Review September 2026/);
+    // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
+    assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review">Review September 2026/);
+    // More than four: the first four, and a way to the rest.
+    var many = [1, 2, 3, 4, 5, 6].map(function(i){ return { id: "t" + i, title: "Thing " + i, page: "accounts", severity: "info" }; });
+    var html2 = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: many });
+    assert.equal((html2.match(/class="home-todo-btn/g) || []).length, 4);
+    assert.match(html2, /data-open-bell>All 6 to-dos/);
   } finally { Object.assign(state, keep); }
 });
 

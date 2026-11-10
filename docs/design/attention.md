@@ -1,6 +1,6 @@
 # One place for what needs attention (#305)
 
-**Status: agreed (decisions at the end). Nothing here is implemented yet.** Part of #253; step 2 of the November
+**Status: agreed (decisions at the end). Step 1 (one list) is implemented; the rest is not yet.** Part of #253; step 2 of the November
 roadmap. It builds on [pages.md](pages.md) (how a page is put together) and the shared dialogs from #256.
 
 ## What there is today
@@ -88,8 +88,9 @@ Everything that asks for attention is one list of items of one shape, built in o
 
 | Label | Used for | Colour |
 |---|---|---|
-| Overdue | A To do past its date | `--bad-ink` |
-| To do | Any other To do | `--warn-ink` |
+| Urgent | A To do that is overdue or days from its date | `--bad-ink` |
+| To do | A To do waiting on you | `--warn-ink` |
+| Reminder | A To do that only tells you something: the week's recap, a return not due for months | `--ink-soft` |
 | Watch | Advice that is a risk | `--bad-ink` |
 | Opportunity | Advice with something to gain | `--good-ink` |
 | Worth knowing | Other advice | `--ink-soft` |

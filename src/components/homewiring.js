@@ -3,7 +3,7 @@
 // Home: the scenario cards' and figures' links, Review, Benchmarks, arranging Home and the summary's to-dos.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
-import { renderNotifBadge } from "./notifpanel.js";
+import { renderNotifBadge, followNotification } from "./notifpanel.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "../calc/monthreview.js";
 import { dismissWeekRecap } from "../calc/weekrecap.js";
 import { copyBenchmarkTemplateToClipboard } from "../lib/backup.js";
@@ -296,6 +296,9 @@ export function wireHomeSummary(){
       showToast("Put away until next Monday");
       return;
     }
+    // #305: a To do row is the bell's item, followed the same way.
+    var todo = e.target.closest(".home-todo [data-notif-id]");
+    if(todo){ followNotification(todo); return; }
     var b = e.target.closest("[data-home-go]");
     if(!b) return;
     var go = b.getAttribute("data-home-go"), sub = b.getAttribute("data-home-sub"), fy = b.getAttribute("data-home-fy");

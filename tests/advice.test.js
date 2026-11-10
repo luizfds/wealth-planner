@@ -5,7 +5,7 @@ import { state, defaultPurchaseConfig } from "../src/state.js";
 import { recalcComputedItems } from "../src/calc/engine.js";
 import { adviceFor } from "../src/calc/advice.js";
 import { householdSummary, aiAggregateSnapshot, AI_SUMMARY_FIELDS, anonymiser, deanonymiser } from "../src/calc/aisummary.js";
-import { adviceHomeHtml, adviceStripHtml } from "../src/components/advice.js";
+import { adviceHomeHtml } from "../src/components/advice.js";
 import { reviewHtml, askBody, askClaude, SYSTEM_PROMPT, copyPrompt, REVIEW_FORMAT, askClaudeHtml, askUi, cancelAiApproval } from "../src/components/askclaude.js";
 
 // What the app notices (v3.98.0), invented household.
@@ -52,11 +52,10 @@ test("the rules read the household: a purchase under strain, borrowed deposit mo
     var html = adviceHomeHtml(a);
     assert.match(html, /What the app notices/);
     assert.match(html, /data-adv-go="plan"/);
-    assert.match(adviceStripHtml(a.filter(function(x){ return x.area === "tax"; }), "tax"), /The app notices/);
   });
 });
 
-test("what's on track folds under the rest on Insights and stays off a page's strip", function(){
+test("what's on track folds under the rest on Insights", function(){
   var items = [
     { id: "r", kind: "risk", area: "cashflow", title: "Short of cash", detail: "d" },
     { id: "g1", kind: "good", area: "cashflow", title: "Holds up under a rate rise", detail: "d" },
@@ -66,9 +65,6 @@ test("what's on track folds under the rest on Insights and stays off a page's st
   assert.match(html, /data-adv-good><summary><span class="adv-kind">On track<\/span><span class="adv-title">2 things holding up/);
   assert.ok(html.indexOf('data-adv-id="r"') < html.indexOf("data-adv-good"), "what to act on first");
   assert.match(html, /data-adv-id="g2"/, "each one still there, inside the fold");
-  var strip = adviceStripHtml(items, "cashflow");
-  assert.ok(!/g1|g2/.test(strip) && /data-adv-id="r"/.test(strip));
-  assert.equal(adviceStripHtml(items.slice(1), "cashflow"), "", "nothing to act on, no strip");
 });
 
 test("the summary sent for a review carries no names, addresses or scenario names", function(){

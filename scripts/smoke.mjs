@@ -10,6 +10,7 @@
 //   - a floating button on a desktop, or more than one 56px circle on a phone (#304)
 //   - more than one primary button in a view, or a view with no About this page (#255)
 //   - an add button not worded "+ Add thing", or a delete that isn't .btn-danger (#255)
+//   - more than one line of notices above a page's content (#305)
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs
 // Not part of `npm test` on purpose — the suite stays dependency-free; CI runs this beside it.
@@ -133,8 +134,12 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           if(/^\+? ?Add\b/.test(t) && !/^Add (to|with|from)\b/.test(t) && !/^\+ Add (?!an? |the )[a-z]/.test(t)) wording.push('"' + t.slice(0, 30) + '" (add wording)');
           if(/^(Delete|Remove)\b/.test(name) && !/^Remove (filter|from this)/.test(name) && !b.classList.contains("btn-danger")) wording.push('"' + name.slice(0, 30) + '" (not .btn-danger)');
         });
+        // #305: a page carries at most one line of notices above its content — no strip of cards.
+        const line = document.getElementById("attentionLine"), lineH = line && !line.hidden ? Math.round(line.getBoundingClientRect().height) : 0;
+        let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";
+        if(!notices && line && !line.hidden && !pageEl.contains(line)) notices = "the notices line is on another page";
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab, primaries, about, wording: [...new Set(wording)] };
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab, primaries, about, wording: [...new Set(wording)], notices };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
@@ -143,6 +148,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       if(r.fab) failures.push(where + ": " + r.fab);
       if(r.primaries.length > 1) failures.push(where + ": " + r.primaries.length + " primary buttons (" + r.primaries.join(", ") + ")");
       if(!r.about) failures.push(where + ": no About this page");
+      if(r.notices) failures.push(where + ": " + r.notices);
       if(r.wording.length) failures.push(where + ": " + r.wording.slice(0, 6).join(", "));
       if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));

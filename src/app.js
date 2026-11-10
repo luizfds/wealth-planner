@@ -39,6 +39,7 @@ import { wireAdvice, wireBudgetHistory } from "./components/budgettoolswiring.js
 import { wireSafekeeping, keepNetWorthHistory } from "./components/safekeepingwiring.js";
 import { wireReports } from "./components/reportswiring.js";
 import { wireNotifications } from "./components/notifpanel.js";
+import { wireAttentionLine } from "./components/attentionline.js";
 import { wireUpdates } from "./components/updates.js";
 import { applyTheme, getThemePref } from "./lib/theme.js";
 import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.js";
@@ -261,4 +262,5 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
 })();
 
 wireNotifications();
+wireAttentionLine();
 wireUpdates();

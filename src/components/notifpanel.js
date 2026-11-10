@@ -4,14 +4,16 @@
 // where its listeners used to be added.
 import { escapeAttr } from "../lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "../lib/notifications.js";
-import { attentionItems } from "../lib/attention.js";
+import { attentionItems, viewItems } from "../lib/attention.js";
 import { renderHealth } from "./health.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
 import { openTxReview } from "./spendingwiring.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 
 var notifPanelOpen;
+// #305: opened from a page's line, the list shows only what is about that view, with a way to the rest.
+var panelView = null;
 
 export function renderNotifBadge(){
   var count = unreadNotificationCount();
@@ -53,11 +55,12 @@ function groupHtml(title, items, empty){
 function renderNotifPanelContent(){
   var root = document.getElementById("notifPanelRoot");
   if(!root) return;
-  var all = attentionItems();
+  var all = panelView ? viewItems(panelView) : attentionItems();
   var hasUnread = all.todo.some(function(n){ return !n.read; });
+  var scope = panelView ? '<p class="notif-scope">About this page <button type="button" class="link-btn" data-notif-all>Show everything</button></p>' : '';
   root.innerHTML = '<div class="notif-panel" id="notifPanel" role="dialog" aria-label="What needs attention">' +
-    '<div class="notif-panel-head"><h2>What needs attention</h2><button type="button" class="notif-mark-all-btn" id="notifMarkAllBtn"' + (hasUnread ? "" : " disabled") + '>Mark all read</button></div>' +
-    groupHtml("To do", all.todo, "All done — nothing needs you right now.") +
+    '<div class="notif-panel-head"><h2>What needs attention</h2><button type="button" class="notif-mark-all-btn" id="notifMarkAllBtn"' + (hasUnread ? "" : " disabled") + '>Mark all read</button></div>' + scope +
+    (panelView && !all.todo.length ? "" : groupHtml("To do", all.todo, "All done — nothing needs you right now.")) +
     (all.know.length ? groupHtml("Worth knowing", all.know, "") : "") +
   '</div>';
 }
@@ -75,7 +78,8 @@ function positionNotifPanel(triggerBtn){
   panel.style.left = left + "px";
   panel.style.top = top + "px";
 }
-function openNotifPanel(triggerBtn){
+function openNotifPanel(triggerBtn, view){
+  panelView = view || null;
   notifPanelOpen = true;
   renderNotifPanelContent();
   positionNotifPanel(triggerBtn);
@@ -124,8 +128,9 @@ export function wireNotifications(){
     if(notifPanelOpen) positionNotifPanel(document.querySelector('.notif-bell-btn[aria-expanded="true"]'));
   });
   document.getElementById("notifPanelRoot").addEventListener("click", function(e){
+    if(e.target.closest("[data-notif-all]")){ panelView = null; renderNotifPanelContent(); return; }
     if(e.target.closest("#notifMarkAllBtn")){
-      markAllNotificationsRead(getNotifications());
+      markAllNotificationsRead(panelView ? viewItems(panelView).todo : getNotifications());
       renderNotifBadge();
       renderNotifPanelContent();
       return;
@@ -138,10 +143,11 @@ export function wireNotifications(){
   });
   // Home's "All N to-dos" (and any other [data-open-bell]) opens the same list.
   document.addEventListener("click", function(e){
-    if(!e.target.closest("[data-open-bell]")) return;
+    var line = e.target.closest("[data-attn-line]");
+    if(!line && !e.target.closest("[data-open-bell]")) return;
     e.stopPropagation();
     var bell = Array.prototype.find.call(document.querySelectorAll(".notif-bell-btn"), function(b){ return b.getClientRects().length > 0; });
-    if(bell){ openNotifPanel(bell); var first = document.querySelector("#notifPanel .notif-item"); if(first) first.focus(); }
+    if(bell){ openNotifPanel(bell, line ? currentView() : null); var first = document.querySelector("#notifPanel .notif-item"); if(first) first.focus(); }
   });
   // Cheap enough to run on the same "tab regains focus" signal as the update checker below — local
   // data can change while the tab was backgrounded (e.g. a bill's due date rolling over at midnight)

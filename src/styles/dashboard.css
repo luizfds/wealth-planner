@@ -524,9 +524,18 @@
 .adv-good-fold[open] > summary .adv-fold-caret{ transform: rotate(90deg); }
 .adv-good-fold > .adv-list{ padding:0 8px 8px; }
 @media (max-width: 560px){ .adv-item summary{ grid-template-columns: minmax(0,1fr) auto; } .adv-kind{ grid-column: 1 / -1; } }
-.adv-strip{ margin:0 0 14px; display:flex; flex-direction:column; gap:6px; }
-.adv-strip-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-.adv-strip-head .link-btn{ text-transform:none; letter-spacing:0; font-weight:600; font-size:var(--fs-sm); }
+/* #305: a page's one line of notices, in place of the strip of cards. One row whatever it holds: the count,
+   the first item (cut with an ellipsis), and a chevron. It opens the bell showing this view's items. */
+.attn-line-wrap{ margin:0 0 14px; }
+.attn-line-wrap[hidden]{ display:none; }
+.attn-line{ all:unset; box-sizing:border-box; width:100%; min-height:44px; display:flex; align-items:center; gap:10px; padding:6px 12px;
+  border:1px solid var(--border); border-left:3px solid var(--border-strong, var(--border)); border-radius:8px; background:var(--paper-raised); cursor:pointer; font-size:var(--fs-sm); }
+.attn-line.loud{ border-left-color:var(--bad); }
+.attn-line:hover{ background:var(--paper-sunken); }
+.attn-line:focus-visible{ box-shadow:var(--focus-ring); }
+.attn-count{ flex:none; font-weight:600; }
+.attn-top{ flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink-soft); }
+.attn-go{ flex:none; color:var(--ink-soft); }
 .ai-box{ margin-top:16px; padding-top:14px; border-top:1px solid var(--border); font-size:var(--fs-sm); }
 .ai-head{ display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:baseline; margin-bottom:6px; }
 .ai-head span{ font-size:var(--fs-xs); color: var(--ink-soft); }

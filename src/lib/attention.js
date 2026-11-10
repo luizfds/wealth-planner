@@ -11,6 +11,7 @@ import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
 import { state } from "../state.js";
 import { localDateStr } from "./format.js";
+import { escapeAttr } from "./html.js";
 
 // One vocabulary. In the To do group an item is Urgent when it is overdue or days from its date (severity
 // "bad"), a To do when it is waiting on you ("warn"), and a Reminder when it is only telling you ("info": the
@@ -46,4 +47,39 @@ export function homeTodoItems(){
     .map(function(n, i){ return { n: n, i: i }; })
     .sort(function(a, b){ return (SEVERITY_ORDER[a.n.severity] - SEVERITY_ORDER[b.n.severity]) || (a.i - b.i); })
     .map(function(x){ return x.n; });
+}
+
+// ---------------- One line per page (#305, step 2) ----------------
+// A page shows one line — "3 to look at" — in place of a stack of notices, and only for what is about that
+// view: an item belongs to the page and tab it sends you to, and one with no tab to the page's first tab. So
+// Tax's two notices about pay count on People, not on every Tax tab.
+var FIRST_TAB = { expenses: "budget", tax: "year", plan: "scenarios", assets: "summary" };
+// What the page itself already shows in full stays off its line — on Tax, each person's super room is the
+// Top up box on their card (v3.158.0, item 188).
+var SHOWN_ON_PAGE = { tax: /^super-room:/ };
+export function itemView(n){
+  return n.group === "know" ? { page: n.go && n.go.page, sub: n.go && n.go.sub } : { page: n.page, sub: n.sub };
+}
+export function belongsToView(n, view){
+  var v = itemView(n);
+  if(!v.page || !view || v.page !== view.page) return false;
+  // Home has its own To do card and Insights; Checks and storage ("accounts" with a tab) live under Review and Settings.
+  if(v.page === "dashboard" || (v.page === "accounts" && v.sub)) return false;
+  if(n.group === "know" && SHOWN_ON_PAGE[view.page] && SHOWN_ON_PAGE[view.page].test(n.id)) return false;
+  var first = FIRST_TAB[view.page];
+  return v.sub ? v.sub === view.sub : (!first || !view.sub || view.sub === first);
+}
+export function viewItems(view, today){
+  var all = attentionItems(today), here = function(n){ return belongsToView(n, view); };
+  return { todo: all.todo.filter(here), know: all.know.filter(here) };
+}
+// The line itself: how many, and the first of them. components/attentionline.js places it on the page.
+export function attentionLineHtml(items){
+  var all = items.todo.concat(items.know);
+  if(!all.length) return "";
+  var top = all[0];
+  var loud = all.some(function(n){ return n.tone === "urgent" || n.tone === "risk"; });
+  return '<button type="button" class="attn-line' + (loud ? " loud" : "") + '" data-attn-line aria-haspopup="dialog">' +
+    '<span class="attn-count">' + all.length + ' to look at</span>' +
+    '<span class="attn-top">' + escapeAttr(top.title) + '</span><span class="attn-go" aria-hidden="true">›</span></button>';
 }

@@ -1,6 +1,6 @@
 # One place for what needs attention (#305)
 
-**Status: agreed (decisions at the end). Step 1 (one list) is implemented; the rest is not yet.** Part of #253; step 2 of the November
+**Status: agreed (decisions at the end). Steps 1 and 2 (one list; one line per page) are implemented; the rest is not yet.** Part of #253; step 2 of the November
 roadmap. It builds on [pages.md](pages.md) (how a page is put together) and the shared dialogs from #256.
 
 ## What there is today

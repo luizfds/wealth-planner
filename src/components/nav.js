@@ -56,6 +56,12 @@ var ALIASES = {
 };
 var currentPage = null;
 export function currentPageId(){ return currentPage; }
+// #305: the page and tab on screen, as an item's destination names them (lib/attention.js belongsToView).
+export function currentView(){
+  var sub = currentPage === "expenses" ? currentExpensesSub : currentPage === "plan" ? currentPlanSub : currentPage === "assets" ? currentAssetsSub
+    : currentPage === "tax" ? (currentTaxSub || defaultTaxSub()) : currentPage === "settings" ? currentSettingsSub : null;
+  return { page: currentPage, sub: sub };
+}
 export var PAGE_KEY = "wealthPlanner.page";
 
 // Shareable URLs: /<page>[/<subpage>], e.g. /assets/shares or /expenses/spending. GitHub Pages

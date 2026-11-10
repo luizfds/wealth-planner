@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-UWI+uIcjy9XLHrGF1Q+xVIbQLz93iUarMUkkxXXRG5s='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-MX7fcjroqrDu4b5z4TRJVqXzgqbL21lky641JPOkLa0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -313,7 +313,6 @@
           <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
           <button type="button" class="subnav-item" data-tax-sub="people">People</button>
         </div>
-        <div id="adviceStrip-tax"></div>
         <div class="tax-subpage" id="taxSub-year">
         <div class="page-intro-row">
           <p class="page-intro help">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
@@ -405,7 +404,6 @@
           <button type="button" class="subnav-item" data-expenses-sub="bills">Bills</button>
         </div>
         <div class="expenses-subpage" id="expensesSub-budget">
-        <div id="adviceStrip-cashflow"></div>
         <div class="page-intro-row">
           <p class="page-intro help">Everything the household plans to spend, in one list — and what's actually been spent against it.</p>
           <div class="page-intro-actions">
@@ -573,7 +571,6 @@
         </div>
         </div>
         <div class="expenses-subpage" id="expensesSub-income" hidden>
-        <div id="adviceStrip-income"></div>
         <div class="page-intro-row">
           <p class="page-intro help">Your household income, and what it's really worth after tax.</p>
           <div class="page-intro-actions">
@@ -630,7 +627,6 @@
           <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
-        <div id="adviceStrip-accounts"></div>
         <div class="page-intro-row">
           <p class="page-intro help">Every place your money sits — bank accounts, offsets, cards and loans — with what's in each. Tag spending with the account it came out of.</p>
         </div>
@@ -825,7 +821,6 @@
         <div id="assetsImportPreview" hidden></div>
 
         <div class="assets-subpage" id="assetsSub-summary">
-          <div id="adviceStrip-investments"></div>
           <div class="stat-row" id="assetsSummaryStats"></div>
           <div class="ledgers">
             <details class="ledger" open>
@@ -962,7 +957,6 @@
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
         <div class="page-intro-row"><p class="page-intro help">Each scenario is your current situation with a list of changes — a purchase, a move, a pay rise. Open one to edit it, pick the one to plan against, or compare them side by side.</p></div>
-        <div id="adviceStrip-plan"></div>
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- v3.175.0 (item 210): side by side. -->
         <div id="scenarioCompare"></div>
@@ -1200,6 +1194,7 @@
   "./src/components/askclaude.js": "./src/components/askclaude.js?v=3.240.0",
   "./src/components/assets.js": "./src/components/assets.js?v=3.240.0",
   "./src/components/assetswiring.js": "./src/components/assetswiring.js?v=3.240.0",
+  "./src/components/attentionline.js": "./src/components/attentionline.js?v=3.240.0",
   "./src/components/autopay.js": "./src/components/autopay.js?v=3.240.0",
   "./src/components/autoprices.js": "./src/components/autoprices.js?v=3.240.0",
   "./src/components/bank-import.js": "./src/components/bank-import.js?v=3.240.0",
@@ -1438,6 +1433,7 @@
 <link rel="modulepreload" href="./src/components/askclaude.js?v=3.240.0">
 <link rel="modulepreload" href="./src/components/assets.js?v=3.240.0">
 <link rel="modulepreload" href="./src/components/assetswiring.js?v=3.240.0">
+<link rel="modulepreload" href="./src/components/attentionline.js?v=3.240.0">
 <link rel="modulepreload" href="./src/components/autopay.js?v=3.240.0">
 <link rel="modulepreload" href="./src/components/autoprices.js?v=3.240.0">
 <link rel="modulepreload" href="./src/components/bank-import.js?v=3.240.0">

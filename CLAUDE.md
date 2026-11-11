@@ -97,3 +97,8 @@ and dark, and an empty household), `scripts/journeys.mjs` (real flows and a spee
 (informational). **A green run is not evidence the app renders** — drive any change to a component, template or
 stylesheet before calling it done, and measure (`getComputedStyle`, `getBoundingClientRect`) rather than eyeball.
 Locally: `npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs`.
+
+**A journey waits for what the app says, not for the network.** `data-wp-ready` on `<html>` is the app drawn;
+`data-wp-settled` is its startup reads (prices, the cash rate) finished. Don't wait on Playwright's `networkidle`: it
+sometimes never comes. To find a timing a journey depends on, slow it and load the machine: `JOURNEY_CPU=6
+JOURNEYS=name node scripts/journeys.mjs`, several at once. A failure there is a cause to fix, not a run to repeat.

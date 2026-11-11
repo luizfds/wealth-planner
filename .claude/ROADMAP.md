@@ -4979,6 +4979,29 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
-Alongside, not blocking: #267 (the Transfer journey), #282 (setup focus — not reproduced; the trace from PR #284 is
+Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is
 waiting for a failure), #299 (real screen readers and devices — needs a person with the devices), #300 (negative budget
 amounts — a decision for the owner).
+
+## Journeys that fail now and then — issue #267
+
+`[x]` Four causes found by running the journeys many times, slowed and in parallel (`JOURNEY_CPU=6` slows every page;
+several runs at once load the machine), and each fixed where it was:
+
+- **An app bug.** The scenario cards' break-even figures are filled a tick after the cards are drawn. If the
+  household was replaced in between (reset, import, sample data, another tab's save), the cards on screen named
+  scenarios that were gone and `scenarioTotals()` threw. It now skips a scenario that isn't there.
+- **A slow save.** A page's one line of notices was redrawn inside every save, reading every notification and all
+  the advice: saving a transfer went from about 225ms to 360–480ms on the speed budget's slowed CPU, and its share
+  of a full redraw from about 40% to 54–63% against a 60% limit (it failed one local run in three). The line is
+  drawn after the save, as the bell's badge is, and the advice is worked out once per pass. Back to about 200ms, 40–45%.
+- **A wait that sometimes never came.** Playwright's "networkidle" in a second tab: 249 requests made, none in
+  flight, thirty seconds, time out (3 times in about 150 runs). The app now sets `data-wp-settled` when its startup
+  reads have finished, and the journeys wait for that — every journey starts from it, so no price or cash-rate read
+  lands halfway through one.
+- **A helper that watched the wrong dialog.** `answerDialog` waited for `.app-dialog` to go; when one question
+  follows another the second was already there, and it waited thirty seconds on it. It tags the dialog it answers.
+
+Every `waitForFunction` that times out now says what it was waiting for. **Not explained:** setup closing with focus
+on the page body (#282) and "Guided setup" blocked by setup's backdrop (PR #311) did not recur in 150 runs of those
+two journeys; the click now reports what was in its way. The Transfer journey's one failure did not recur either.

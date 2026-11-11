@@ -4,7 +4,18 @@ var RAILS = ".subnav, .time-range-control";
 
 export function initSectionPickers(root){
   var scheduled = false, observed = new Set(), sources = new WeakMap(), restore = null;
-  var observer = new MutationObserver(schedule);
+  var observer = new MutationObserver(function(records){
+    // Help/row decoration elsewhere on the page also changes hidden attributes. Watching
+    // those writes makes the decorators and picker wake each other on every frame.
+    if(records.some(function(record){
+      var target = record.target;
+      if(target.closest && target.closest(RAILS)) return true;
+      if(record.type === "attributes") return !!target.querySelector(RAILS);
+      return Array.from(record.addedNodes).concat(Array.from(record.removedNodes)).some(function(node){
+        return node.nodeType === 1 && (node.matches(RAILS) || node.querySelector(RAILS));
+      });
+    })) schedule();
+  });
   var resize = new ResizeObserver(schedule);
   function watch(){
     observer.observe(root, { subtree: true, childList: true, attributes: true,
@@ -23,9 +34,11 @@ export function initSectionPickers(root){
     root.querySelectorAll(RAILS).forEach(function(rail){
       if(!observed.has(rail)){ observed.add(rail); resize.observe(rail); }
       if(!rail.getClientRects().length) return;
-      rail.classList.remove("has-section-picker");
+      // Keep the live native select displayed while measuring its original tabs. Hiding it
+      // changes the rail size, feeds ResizeObserver, and can dismiss Android's open picker.
+      rail.classList.add("measuring-section-picker");
       var buttons = Array.from(rail.children).filter(function(el){ return el.matches("button") && el.getClientRects().length; });
-      if(!buttons.length) return;
+      if(!buttons.length){ rail.classList.remove("measuring-section-picker"); return; }
       var picker = rail.querySelector(":scope > .section-picker");
       if(!picker){
         picker = document.createElement("select");
@@ -48,6 +61,7 @@ export function initSectionPickers(root){
         (parseFloat(style.columnGap) || 0) * (buttons.length - 1);
       var room = rail.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
       var compact = need > room + 1;
+      rail.classList.remove("measuring-section-picker");
       rail.classList.toggle("has-section-picker", compact);
       var selected = Math.max(0, buttons.findIndex(function(b){
         return b.getAttribute("aria-current") === "page" || b.getAttribute("aria-selected") === "true" || b.getAttribute("aria-pressed") === "true";

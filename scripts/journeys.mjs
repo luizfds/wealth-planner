@@ -89,7 +89,7 @@ function check(ok, what){ if(!ok) throw new Error(what); }
 // A fresh phone-sized page on the sample household (or `stored`, a state to start from), the clock fixed.
 async function fresh(opts){
   opts = opts || {};
-  const ctx = await browser.newContext({ viewport: { width: opts.width || 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: opts.width || 390, height: 844 }, hasTouch: !!opts.touch, isMobile: !!opts.touch });
   await ctx.addInitScript(([stored]) => {
     if(sessionStorage.getItem("journeyLoaded")) return;
     localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
@@ -497,6 +497,41 @@ const JOURNEYS = {
     check(await tx.locator('[data-overflow-toggle]').evaluate(e => e === document.activeElement), 'cancelling transfer lost focus');
   },
   // #259: real picker interaction, current state, history, redraw and resize.
+  async mobileinvestments(page){
+    await quiet(page);
+    await page.locator('.mobile-tab[data-page="networth"]').tap();
+    await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+    const enter = async () => {
+      await settle(page);
+      const rail = page.locator('#page-networth .nw-rail select');
+      if(await rail.isVisible()) await rail.selectOption({ label: "Investments" });
+      else await page.locator('#page-networth [data-page="assets"]').tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "assets");
+    };
+    await enter();
+    const picker = page.locator('#assetsSubnav > select');
+    await picker.waitFor({ state: "visible" });
+    // A native popup cannot stay open if every frame hides and restores its select.
+    await settle(page);
+    await page.evaluate(() => {
+      window.__pickerChanges = 0;
+      window.__pickerObserver = new MutationObserver(ms => { window.__pickerChanges += ms.length; });
+      window.__pickerObserver.observe(document.getElementById("assetsSubnav"), { attributes: true, attributeFilter: ["class"] });
+    });
+    await page.waitForTimeout(250);
+    check(await page.evaluate(() => { window.__pickerObserver.disconnect(); return window.__pickerChanges < 10; }),
+      "Investments picker keeps relaying out while idle");
+    for(const label of ["Shares", "Super", "Summary"]){
+      await picker.selectOption({ label });
+      await page.waitForFunction(id => !document.getElementById("assetsSub-" + id).hidden, label === "Summary" ? "summary" : label);
+      check(await picker.locator('option:checked').textContent() === label, "Investments picker did not keep " + label);
+    }
+    await page.locator('.investments-back').tap();
+    await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+    await enter();
+    await page.locator('.investments-back').tap();
+    await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+  },
   async sectionpickers(page){
     await quiet(page);
     for(const width of [320, 390]){
@@ -2748,7 +2783,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors"});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:name === "mobileinvestments"});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

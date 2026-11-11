@@ -10,13 +10,15 @@ import { requestCloseActiveOverlay, overlayOpen, handleModalHistory } from "../l
 // One delegated handler for all four (Income, Expenses, Properties, Assets). The menu is a
 // sibling of its own button inside .page-overflow, so "which menu?" is answered by walking up
 // from the click rather than by an id per page.
-function closeAllOverflowMenus(except){
+function closeAllOverflowMenus(except, restoreFocus){
   document.querySelectorAll(".page-overflow").forEach(function(wrap){
     if(wrap === except) return;
     var menu = wrap.querySelector("[data-overflow-menu]");
     var btn = wrap.querySelector("[data-overflow-toggle]");
+    var returnFocus = menu && !menu.hidden && (restoreFocus || menu.contains(document.activeElement));
     if(menu) menu.hidden = true;
     if(btn) btn.setAttribute("aria-expanded", "false");
+    if(returnFocus && btn) btn.focus();
   });
 }
 
@@ -90,7 +92,7 @@ export function wireOverflowMenus(){  document.addEventListener("click", functio
     closeAllOverflowMenus(null);
   });
   document.addEventListener("keydown", function(e){
-    if(e.key === "Escape") closeAllOverflowMenus(null);
+    if(e.key === "Escape") closeAllOverflowMenus(null, true);
   });
 }
 

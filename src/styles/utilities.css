@@ -33,3 +33,32 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 /* #259: this layer follows every page's segmented-control display rules. */
 .has-section-picker > button{ display:none; }
 .has-section-picker > .section-picker{ flex:1 0 0; }
+
+/* #306: records lead; filters and occasional tools open only when requested. */
+.record-list{ background:var(--paper-raised); border:1px solid var(--border); border-radius:var(--card-radius); box-shadow:var(--shadow); }
+.record-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px var(--card-px); }
+.record-heading{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+.record-heading .section-title{ margin:0; font-size:var(--fs-md); }
+.record-controls{ display:flex; align-items:center; gap:4px; flex-shrink:0; }
+.record-controls .btn{ white-space:nowrap; padding-left:8px; padding-right:8px; }
+.record-controls .page-overflow-btn, .record-search-toggle{ min-width:44px; min-height:44px; }
+.record-controls .page-overflow-menu{ min-width:180px; max-width:calc(100vw - 64px); }
+.record-summary{ font-size:var(--fs-sm); color:var(--ink-soft); margin:0 0 8px; }
+.record-summary b{ font-family:var(--font-num); }
+.record-applied{ display:flex; align-items:center; gap:8px; font-size:var(--fs-xs); color:var(--ink-soft); }
+.record-filter-panel{ padding:12px; margin:0 0 12px; border:1px solid var(--border); border-radius:var(--field-radius); background:var(--paper-sunken); }
+.record-filter-heading{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.record-filter-choices{ display:flex; flex-wrap:wrap; gap:8px; }
+.record-filter-panel .cf-filter-row{ margin-top:12px; }
+.record-tool-panel{ padding:12px 0; }
+.record-search-row{ margin-bottom:8px; }
+.record-search-row input{ width:100%; }
+.record-filter-panel[hidden], .record-tool-panel[hidden], .record-search-row[hidden]{ display:none; }
+.record-list .cf-filters{ margin-bottom:8px; }
+/* Leave room for fallback-font metrics: wrapping the count adds a row above the records. */
+.record-list .cf-totals{ gap:6px; }
+.record-list .record-toolbar{ padding-left:0; padding-right:0; }
+#assetsSub-Shares .record-toolbar, #assetsSub-Super .record-toolbar{ padding-left:var(--card-px); padding-right:var(--card-px); }
+#page-assets:has(#assetsSub-Shares:not([hidden]), #assetsSub-Super:not([hidden])) > #assetsPersonFilter{ display:none; }
+.record-filter-panel .shares-toolbar{ margin-bottom:8px; }
+.record-filter-panel .cf-dir{ flex-wrap:wrap; }

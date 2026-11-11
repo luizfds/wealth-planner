@@ -10,6 +10,16 @@ import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/
 import { parseAmountInput } from "../src/lib/format.js";
 import { openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogRefundChipsHtml, transactionSummaryText, quickLog } from "../src/components/expenses.js";
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
+import { listToolbarHtml, listActionsHtml } from "../src/lib/listtoolbar.js";
+
+test('list toolbar and actions render named controls and an escaped title', () => {
+  const menu = listActionsHtml('Holding tools', '<button type="button">Prices</button>');
+  const html = listToolbarHtml('Shares <test>', '$100', menu);
+  assert.match(html, /Shares &lt;test/);
+  assert.match(html, /aria-label="Holding tools"/);
+  assert.match(html, /data-overflow-menu hidden/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+});
 
 // Why this file exists.
 //

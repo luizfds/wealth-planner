@@ -58,7 +58,7 @@ const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath
 // #257: 320px too (light only — the colour scheme doesn't change layout). The narrowest phone is where a
 // grid track's content floor shows: at 390px there is room to hide it, and two such overflows shipped.
 for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, colorScheme: scheme });
+  const ctx = await browser.newContext({ viewport: { width, height: width >= 1280 ? 800 : 844 }, colorScheme: scheme });
   await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const page = await ctx.newPage();
@@ -79,6 +79,19 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         const hasSub = await page.evaluate(([a, s]) => { const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
         if(!hasSub && SHOTS) continue;
         await page.waitForTimeout(250);
+      }
+      // #306: measure the ordinary list before the expanded-state checks open every disclosure.
+      if(width === 390 || width === 1280){
+        const position = await page.evaluate(([pg, sub]) => {
+          const selector = pg === 'assets' && (sub === 'Shares' || sub === 'Super') ? '#assetsSub-' + sub + ' .m-row' :
+            pg === 'expenses' && sub === 'spending' ? '#transactionsTable .m-row' : pg === 'properties' ? '#propertiesBody .property-card' : '';
+          const first = selector && document.querySelector(selector);
+          return first ? { y: first.getBoundingClientRect().top, limit: innerHeight / 2 } : null;
+        }, [pg, sub]);
+        if(position){
+          console.log(scheme + ' ' + width + 'px ' + pg + '/' + (sub || '') + ': first record y=' + Math.round(position.y) + ', limit=' + position.limit);
+          if(position.y > position.limit) failures.push(scheme + ' ' + width + 'px ' + pg + '/' + (sub || '') + ': first record starts below the top half (' + Math.round(position.y) + 'px)');
+        }
       }
       await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
       await page.waitForTimeout(250);

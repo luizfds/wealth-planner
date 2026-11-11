@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-WEkJopAnY4ajR7pScAhwZCBHULbvp++1OuRS1dHvMjY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-X4oGj+ZuCam2oAmb8t1J3RW4AyAlQ7DeFLsWev/nSXY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -471,19 +471,14 @@
         </div>
         <div class="expenses-subpage" id="expensesSub-spending" hidden>
         <div class="page-intro-row">
-          <p class="page-intro help">What you actually spent. Log it here and the Budget tab becomes a live picture of the month.</p>
+          <p class="page-intro help">What you actually spent. Log it here and the Budget tab becomes a live picture of the month. <b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
           <div class="page-intro-actions">
             <button type="button" class="btn btn-sm review-cta" id="reviewExpensesBtn" hidden title="Go through budget lines that are overdue (or never logged) one at a time and record what you actually spent">Catch up</button>
           </div>
         </div>
         <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Transactions</h2></div>
-              <div class="ledger-total">Total <b id="totalTransactionsAmount">—</b></div>
-            </summary>
+          <section class="ledger record-list" aria-label="Transactions">
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0"><b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. The budget itself never moves — only this list does.</p>
               <div id="txReviewBanner"></div>
               <div id="transactionsTable"></div>
               <div class="ledger-footer">
@@ -491,7 +486,7 @@
                 <button class="btn btn-sm btn-ghost" id="addTransactionBtn" title="Add a transaction with every field available — link, description, amount, date and account">Add with full details</button>
               </div>
             </div>
-          </details>
+          </section>
           <details class="ledger" id="tripsCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Trips</h2></div>
@@ -753,7 +748,14 @@
         </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
-          <div class="page-intro-actions">
+        </div>
+        <div class="cash-rate" id="cashRatePanel" hidden></div>
+        <div class="record-toolbar">
+          <div class="record-heading">
+            <h2 class="section-title">Properties</h2>
+            <span class="ledger-total">Total <b id="propertiesListTotal">—</b></span>
+          </div>
+          <div class="record-controls">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Properties export" title="Properties export">⋯</button>
               <div class="page-overflow-menu" data-overflow-menu hidden>
@@ -762,7 +764,8 @@
             </div>
           </div>
         </div>
-        <div class="cash-rate" id="cashRatePanel" hidden></div>
+        <div id="propertiesBody"></div>
+        <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
         <div class="stat-row" id="propertiesSummaryStats"></div>
         <div class="ledgers">
           <details class="ledger" open>
@@ -782,8 +785,6 @@
           </details>
         </div>
         <div id="propertiesCompareList"></div>
-        <div id="propertiesBody"></div>
-        <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
       </section>
 
 
@@ -1296,6 +1297,7 @@
   "./src/lib/keepui.js": "./src/lib/keepui.js?v=3.245.0",
   "./src/lib/labelfields.js": "./src/lib/labelfields.js?v=3.245.0",
   "./src/lib/ledger-table.js": "./src/lib/ledger-table.js?v=3.245.0",
+  "./src/lib/listtoolbar.js": "./src/lib/listtoolbar.js?v=3.245.0",
   "./src/lib/notifications.js": "./src/lib/notifications.js?v=3.245.0",
   "./src/lib/overlaystack.js": "./src/lib/overlaystack.js?v=3.245.0",
   "./src/lib/pagetransition.js": "./src/lib/pagetransition.js?v=3.245.0",
@@ -1536,6 +1538,7 @@
 <link rel="modulepreload" href="./src/lib/keepui.js?v=3.245.0">
 <link rel="modulepreload" href="./src/lib/labelfields.js?v=3.245.0">
 <link rel="modulepreload" href="./src/lib/ledger-table.js?v=3.245.0">
+<link rel="modulepreload" href="./src/lib/listtoolbar.js?v=3.245.0">
 <link rel="modulepreload" href="./src/lib/notifications.js?v=3.245.0">
 <link rel="modulepreload" href="./src/lib/overlaystack.js?v=3.245.0">
 <link rel="modulepreload" href="./src/lib/pagetransition.js?v=3.245.0">

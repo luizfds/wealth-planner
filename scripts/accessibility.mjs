@@ -20,6 +20,7 @@ const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:pr
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
 const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['assets','assets-sub','summary'],['assets','assets-sub','Cash'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
+views.push(['assets','assets-sub','Shares'], ['properties',null,null]);
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
 for(const width of widths)for(const scheme of schemes){
@@ -76,7 +77,7 @@ for(const width of widths)for(const scheme of schemes){
  for(const [pg,attr,sub]of views){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
   await page.waitForTimeout(300);
-  await page.evaluate(([a,s])=>document.querySelector('[data-'+a+'="'+s+'"]').click(),[attr,sub]);await page.waitForTimeout(500);
+  if(attr) await page.evaluate(([a,s])=>document.querySelector('[data-'+a+'="'+s+'"]').click(),[attr,sub]);await page.waitForTimeout(500);
   if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   // #261: Tax's forms and Plan's goal editor, every section open (and a goal open) — the fields axe should see.
   if(pg==='tax'||sub==='goals'){
@@ -84,7 +85,27 @@ for(const width of widths)for(const scheme of schemes){
    await page.waitForTimeout(300);
    await page.evaluate(()=>document.querySelectorAll('.app-page:not([hidden]) details').forEach(d=>{d.open=true;}));
   }
-  await scan(pg+'/'+sub);
+  if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
+  else await scan(pg+'/'+sub);
+  // #306: the default lists and the controls moved behind their toolbars.
+  if(pg==='assets' && (sub==='Shares'||sub==='Super')){
+   await page.locator('#assetsSub-'+sub+' .record-toolbar [data-asset-list-filters]').click();
+   await scan('list-filters/'+sub, '#assetListFilters-'+sub);
+   await page.locator('#assetListFilters-'+sub+' [data-asset-list-filters]').click();
+   if(sub==='Shares') for(const tool of ['prices','trades']){
+    await page.locator('#assetsSub-Shares .record-toolbar [data-overflow-toggle]').click();
+    await page.locator('#assetsSub-Shares [data-asset-list-tool="'+tool+'"]').click();
+    await scan('list-tools/'+tool, '[data-asset-tool-panel="'+tool+'"]');
+    await page.locator('[data-asset-tool-panel="'+tool+'"] > [data-asset-list-tool]').click();
+   }
+  }
+  if(pg==='expenses' && sub==='spending'){
+   await page.locator('#transactionsTable .record-toolbar [data-cf-panel]').click();
+   await scan('list-filters/spending');
+   await page.locator('#cfFilterRow [data-cf-panel]').click();
+   await page.locator('#transactionsTable [data-cf-search]').click();
+   await scan('list-search/spending');
+  }
   if(pg==='expenses'&&sub==='budget'){
    await page.locator('#recurringRuleForm').evaluate(f=>{f.closest('details').open=true;});
    await scan('recurring-rule-form');

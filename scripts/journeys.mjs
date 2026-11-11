@@ -411,6 +411,84 @@ const JOURNEYS = {
     check(await home.locator('.adv-panel > .adv-list [data-adv-id="wants"]').count() === 1, 'a notice whose figures changed since it was dismissed stays hidden');
     check(await home.locator('[data-adv-away]').count() === 0, 'a stale dismissal is counted as put away');
   },
+  // #306: controls stay usable after leaving the default list, and saved filters keep their meaning.
+  async recordtools(page){
+    await quiet(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    const assetsBefore = await stored(page, 'JSON.stringify(state.assets)');
+    const shares = page.locator('#assetsSub-Shares');
+    await shares.locator('.record-toolbar [data-asset-list-filters]').click();
+    await shares.locator('[data-asset-list-person]').selectOption({ label: 'Alex' });
+    await shares.locator('[data-shares-gain-filter="winners"]').click();
+    await shares.locator('#sharesSortSelect').selectOption('value-desc');
+    await shares.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
+    check((await shares.locator('.record-toolbar [data-asset-list-filters]').textContent()).includes('(3)'), 'Shares does not count person, gain and sort');
+    check((await shares.locator('.record-applied').textContent()).includes('Alex'), 'closed filters hide the selected person');
+    await shares.locator('[data-asset-list-clear]').click();
+    check(!await shares.locator('.record-applied').count(), 'Clear left a Shares filter active');
+    await shares.locator('.record-toolbar [data-overflow-toggle]').focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    check(await shares.locator('[data-asset-list-tool="prices"]').evaluate(e => e === document.activeElement), 'Tab did not reach Prices in the tools menu');
+    await page.keyboard.press('Enter');
+    check(await shares.locator('[data-ps-panel]').evaluate(d => d.open && !!d.getClientRects().length), 'Prices needs another disclosure after choosing the tool');
+    await shares.locator('[data-asset-tool-panel="prices"] > [data-asset-list-tool]').click();
+    check(await shares.locator('.record-toolbar [data-overflow-toggle]').evaluate(e => e === document.activeElement), 'closing Prices lost focus');
+    await shares.locator('.record-toolbar [data-overflow-toggle]').click();
+    await shares.locator('[data-asset-list-tool="trades"]').click();
+    await shares.locator('[data-tr-text]').fill('Date,Code,Side,Quantity,Price,Brokerage\n2026-10-01,VAS,Buy,2,100,0');
+    await shares.locator('[data-tr-read]').click();
+    check(await shares.locator('.tr-preview').isVisible(), 'trade preview did not survive redraw in the tool');
+    await shares.locator('[data-asset-tool-panel="trades"] > [data-asset-list-tool]').click();
+    check(await stored(page, 'JSON.stringify(state.assets)') === assetsBefore, 'filters or reading trades changed stored holdings');
+    await go(page, 'assets', 'data-assets-sub', 'Super');
+    const sup = page.locator('#assetsSub-Super');
+    await sup.locator('.record-toolbar [data-asset-list-filters]').click();
+    await sup.locator('[data-asset-list-person]').selectOption({ label: 'Alex' });
+    await page.keyboard.press('Escape');
+    check(await sup.locator('.record-toolbar [data-asset-list-filters]').evaluate(e => e === document.activeElement), 'Escape from Super filters lost focus');
+    check((await sup.locator('.record-applied').textContent()).includes('Alex'), 'Super hides its applied person');
+    await sup.locator('[data-asset-list-clear]').click();
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    const tx = page.locator('#transactionsTable');
+    await tx.locator('.record-toolbar [data-cf-panel]').click();
+    await tx.locator('[data-cf-dir="in"]').click();
+    await tx.locator('[data-tx-range="year"]').click();
+    await tx.locator('[data-cf-view-save]').click();
+    await tx.locator('[data-cf-view-name]').fill('Discard this name');
+    await page.keyboard.press('Escape');
+    check(!await tx.locator('[data-cf-view-name]').count() && await tx.locator('#cfFilterRow').isVisible(), 'Escape closed Filters instead of cancelling the view name');
+    await tx.locator('[data-cf-view-save]').click();
+    await tx.locator('[data-cf-view-name]').fill('Money received');
+    await tx.locator('[data-cf-view-confirm]').click();
+    check(await stored(page, 'state.txViews.some(v => v.name === "Money received" && v.filter.direction === "in")'), 'saved view lost the transaction type');
+    await tx.locator('#cfFilterRow [data-cf-panel]').click();
+    check((await tx.locator('.record-toolbar [data-cf-panel]').textContent()).includes('(2)'), 'Spending does not count type and scope');
+    check(await tx.locator('.cf-chip[data-cf-dir="all"]').isVisible(), 'closed Spending filters hide transaction type');
+    await tx.locator('[data-cf-clear]').click();
+    await tx.locator('.record-toolbar [data-cf-panel]').click();
+    await tx.locator('[data-cf-view]').filter({ hasText: 'Money received' }).click();
+    check(await page.evaluate(async () => (await import('/src/components/cashflow.js')).txFilters.direction === 'in'), 'saved view did not restore its filter');
+    await tx.locator('[data-cf-clear]').click();
+    await page.evaluate(() => { const b = document.createElement('button'); b.id = 'sampleSpendingLink'; b.textContent = 'Show sample spending'; b.setAttribute('data-sv', ''); b.setAttribute('data-sv-direction', 'out'); b.setAttribute('data-sv-category', 'Groceries'); document.getElementById('transactionsTable').prepend(b); });
+    await page.locator('#sampleSpendingLink').click();
+    check(await page.evaluate(async () => { const f = (await import('/src/components/cashflow.js')).txFilters; return f.direction === 'out' && f.category === 'Groceries'; }), 'data-sv lost a filter');
+    await tx.locator('[data-cf-clear]').click();
+    await tx.locator('.record-toolbar [data-cf-search]').click();
+    await tx.locator('[data-cf-filter="text"]').fill('Rent');
+    await page.waitForFunction(() => document.querySelector('#transactionsTable [data-cf-filter="text"]').value === 'Rent' && !document.querySelector('#transactionsTable [data-cf-filter="text"]').closest('[hidden]'));
+    await tx.locator('[data-cf-clear]').click();
+    await tx.locator('[data-overflow-toggle]').click();
+    await tx.locator('.page-overflow-menu [data-cf-select]').click();
+    check(await tx.locator('.cf-bulk').isVisible(), 'Select transactions did not enter selection mode');
+    await tx.locator('.cf-filters > [data-cf-select]').click();
+    await tx.locator('[data-overflow-toggle]').click();
+    await tx.locator('[data-cf-transfer]').click();
+    check(await tx.locator('[data-tf="amount"]').evaluate(e => e === document.activeElement), 'transfer amount was not focused');
+    await tx.locator('[data-tf-cancel]').click();
+    check(await tx.locator('[data-overflow-toggle]').evaluate(e => e === document.activeElement), 'cancelling transfer lost focus');
+  },
   // #259: real picker interaction, current state, history, redraw and resize.
   async sectionpickers(page){
     await quiet(page);
@@ -423,12 +501,14 @@ const JOURNEYS = {
       check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
       check(await page.locator('.investments-back').isVisible(), "Investments has no Net worth back link");
       const range = page.locator('#sharesChangeWindow > select');
+      await page.locator('#assetsSub-Shares .record-toolbar [data-asset-list-filters]').click();
       await range.focus();
       await range.selectOption({ index: 1 });
       await page.waitForFunction(() => {
         const picker = document.querySelector('#sharesChangeWindow > select');
         return picker && picker.value === '1' && document.activeElement === picker;
       });
+      await page.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
       await picker.focus();
       await page.keyboard.press('End');
       await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
@@ -1099,6 +1179,36 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
+  // Hold pending resize frames to reproduce the hidden-tab focus handoff, rather than hoping
+  // the category change happens to beat ResizeObserver in a busy CI run.
+  async categoryresizefocus(page){
+    await page.addInitScript(() => {
+      const raf = window.requestAnimationFrame.bind(window), queued = [];
+      let held = false;
+      window.requestAnimationFrame = cb => raf(t => { if(held) queued.push(cb); else cb(t); });
+      window.holdCategoryFrames = () => { held = true; };
+      window.releaseCategoryFrames = () => { held = false; queued.splice(0).forEach(cb => raf(cb)); };
+    });
+    await page.reload();
+    await quiet(page);
+    await go(page, 'assets', 'data-assets-sub', 'Cash');
+    await page.locator('#assetsSub-Cash .m-row [data-row-toggle]').first().click();
+    await page.evaluate(() => window.holdCategoryFrames());
+    await page.setViewportSize({width:1280,height:844});
+    check(await page.locator('#assetsSubnav > select').isVisible(), 'the resize probe did not retain the phone picker');
+    await page.evaluate(() => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { observer.disconnect(); reject(new Error('Category change did not close its editor')); }, 5000);
+      const observer = new MutationObserver(() => {
+        if(!document.querySelector('.m-row.open')){ observer.disconnect(); clearTimeout(timer); queueMicrotask(resolve); }
+      });
+      observer.observe(document.body, {subtree:true,attributes:true,childList:true});
+      const field = document.querySelector('#assetsSub-Cash .m-row.open .a-category');
+      field.value = 'Other'; field.dispatchEvent(new Event('change', {bubbles:true}));
+    }));
+    check(await page.evaluate(() => document.activeElement.matches('#assetsSubnav > select') && !!document.activeElement.getClientRects().length), 'Category change focused a hidden tab instead of the visible picker');
+    await page.evaluate(() => window.releaseCategoryFrames());
+    await page.waitForFunction(() => document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
+  },
   async assetfields(page){
     const indexOf=id=>page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),id);
     const saved=(id,key)=>stored(page,"state.assets.find(x=>x.id==='"+id+"')."+key);
@@ -1134,7 +1244,7 @@ const JOURNEYS = {
     await row.getByLabel('Category',{exact:true}).selectOption('Other');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await saved('demo-cash-everyday','category')==='Other' && await saved('demo-cash-everyday','amount')===5000,'Moving category changed the stored value');
-    check(await page.evaluate(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active')), 'Moving category lost the list focus');
+    await page.waitForFunction(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
     await go(page,'assets','data-assets-sub','Other');
     const moved=page.locator('#assetsSub-Other .m-row[data-index="'+idx+'"]');
     await moved.locator('[data-row-toggle]').first().click();

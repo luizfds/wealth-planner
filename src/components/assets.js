@@ -1,6 +1,7 @@
 import { keepUi } from "../lib/keepui.js";
 import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
+import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
 import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
@@ -428,7 +429,7 @@ export function patchHoldingRow(tr, item){
 export function patchSharesGlance(){
   var el = document.getElementById("sharesGlance");
   if(!el) return;
-  el.innerHTML = sharesGainLossGlanceHtml(assetCategoryItems("Shares").items);
+  el.innerHTML = sharesCompactGlanceHtml(assetCategoryItems("Shares").items);
 }
 
 // Session-only (not persisted) — which person's assets every category subpage is filtered to.
@@ -460,6 +461,29 @@ function assetPersonOptions(){
 function assetPersonLabel(){
   var match = assetPersonOptions().find(function(o){ return o.key === assetPersonFilter; });
   return match ? match.label : "Everyone";
+}
+export var assetListUi = { filters: "", tool: "" };
+export function clearAssetListFilters(cat){
+  assetPersonFilter = "";
+  if(cat === "Shares"){ sharesGainFilter = ""; sharesSortMode = ""; sharesChangeWindow = "1d"; }
+  renderAssets();
+}
+export function assetPersonSelectHtml(){
+  return distinctAssetPersons().length ? '<label class="cf-filter"><span>Person</span><select class="field-control" data-asset-list-person aria-label="Filter assets by person">' +
+    assetPersonOptions().map(function(o){ return '<option value="' + escapeAttr(o.key) + '"' + (assetPersonFilter === o.key ? ' selected' : '') + '>' + escapeAttr(o.label) + '</option>'; }).join("") + '</select></label>' : '';
+}
+function assetListControlsHtml(cat, count, itemsHtml){
+  return '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-filters="' + escapeAttr(cat) + '" aria-expanded="' + (assetListUi.filters === cat) + '" aria-controls="assetListFilters-' + escapeAttr(cat) + '">Filters' + (count ? ' (' + count + ')' : '') + '</button>' +
+    listActionsHtml(cat + ' tools', itemsHtml);
+}
+function assetAppliedHtml(cat){
+  var labels = assetPersonFilter ? [assetPersonLabel()] : [];
+  if(cat === "Shares"){
+    if(sharesGainFilter) labels.push(SHARES_GAIN_FILTERS.find(function(f){ return f.key === sharesGainFilter; }).label);
+    if(sharesSortMode) labels.push(SHARES_SORT_OPTIONS.find(function(s){ return s.key === sharesSortMode; }).label);
+    if(sharesChangeWindow !== "1d") labels.push(rangeLabel(rangeByKey(sharesChangeWindow), householdYearBasis()));
+  }
+  return labels.length ? '<div class="record-applied"><span>' + labels.map(escapeAttr).join(' · ') + '</span><button type="button" class="btn btn-sm btn-ghost" data-asset-list-clear="' + escapeAttr(cat) + '">Clear</button></div>' : '';
 }
 // One chip, not a rail. This used to be a second row of .subnav pills sitting directly under the
 // real subnav, distinguishable from it only by a border — so the page had two strips competing to
@@ -573,7 +597,7 @@ export function renderAssetCategoryPage(cat){
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(ADD_NOUN[cat] || String(cat).toLowerCase()) + '</button>';
   var body;
   if(!data.items.length){
-    body = '<p class="ledger-note" style="margin:0 0 12px">No ' + escapeAttr(cat) + ' tracked yet.</p>' + footerBtn;
+    body = '<p class="ledger-note" style="margin:0 0 12px">' + (assetPersonFilter ? 'No assets match this person.' : 'No ' + escapeAttr(cat) + ' tracked yet.') + '</p>' + footerBtn;
   } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
@@ -586,9 +610,14 @@ export function renderAssetCategoryPage(cat){
         '<h2 class="section-title">' + escapeAttr(cat) + ' over time</h2></div></summary>' +
         '<div class="ledger-body"><div id="assetHistoryPanel-' + escapeAttr(cat) + '"></div></div></details>'
     : "";
-  // v3.61.0: Super leads with this year's contributions against each person's cap.
+  // Contributions remain available below the funds; the list leads with records.
   var superCard = cat === "Super" ? superContributionsCardHtml(superContributions(currentTaxFy()), fyLabel(currentTaxFy())) : "";
-  container.innerHTML = '<div class="ledgers">' + superCard + '<details class="ledger" open>' +
+  if(cat === "Super"){
+    var controls = assetListControlsHtml(cat, assetPersonFilter ? 1 : 0, '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-jump="superContributions">Contributions</button>');
+    container.innerHTML = '<div class="ledgers"><section class="ledger record-list">' + listToolbarHtml(cat, fmtCurrency0.format(total), controls) +
+      '<div class="ledger-body"><div id="assetListFilters-Super" class="record-filter-panel"' + (assetListUi.filters === cat ? '' : ' hidden') + '><div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-asset-list-filters="Super">Done</button></div>' + (assetPersonSelectHtml() || '<p class="record-summary">Tag funds with a person to filter them.</p>') + '</div>' + assetAppliedHtml(cat) + body + '</div></section>' +
+      '<div id="superContributions">' + superCard + '</div>' + historyCard + '</div>';
+  } else container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">' + escapeAttr(cat) + '</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
     '<div class="ledger-body">' + body + '</div></details>' + historyCard + '</div>';
@@ -839,6 +868,13 @@ function sharesGainLossGlanceHtml(items){
     '</div>' +
   '</div>';
 }
+function sharesCompactGlanceHtml(items){
+  var s = sharesGainLossSummary(items);
+  if(!s.trackedCount) return "";
+  var label = sharesWindowLabel(rangeByKey(sharesChangeWindow));
+  return '<p class="record-summary">' + escapeAttr(label) + ' gain/loss <b class="asset-trend ' + (s.gainDollar >= 0 ? 'up' : 'down') + '">' +
+    (s.gainDollar >= 0 ? '+' : '−') + fmtCurrency0.format(Math.abs(s.gainDollar)) + ' (' + fmtPercent1.format(Math.abs(s.pct)) + ')</b></p>';
+}
 
 // Session-only (not persisted, mirrors assetPersonFilter's own convention) — narrows the row
 // list/table to holdings whose unrealized gain is positive/negative/not trackable yet.
@@ -921,7 +957,8 @@ function sharesFilterSortHtml(){
     '</div>';
 }
 
-export function renderSharesSubpage(){
+export function renderSharesSubpage(){ return keepUi(drawSharesSubpage); }
+function drawSharesSubpage(){
   var container = document.getElementById("assetsSub-Shares");
   if(!container) return;
   var allData = assetCategoryItems("Shares");
@@ -934,7 +971,7 @@ export function renderSharesSubpage(){
   var data = sortShareData({ items: filteredPairs.map(function(p){ return p.item; }), indices: filteredPairs.map(function(p){ return p.idx; }) });
   var soldData = { items: soldPairs.map(function(p){ return p.item; }), indices: soldPairs.map(function(p){ return p.idx; }) };
   var footerBtn = '<button type="button" class="btn btn-sm' + (allData.items.length ? " btn-ghost" : "") + '" data-add="holding" title="Track an individual holding — symbol, quantity, cost, and value. Set Market to Crypto to track a coin the same way.">+ Add holding</button>';
-  var toolbar = allData.items.length ? sharesFilterSortHtml() : "";
+  var toolbar = sharesFilterSortHtml();
   var body;
   if(!allData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
@@ -997,10 +1034,15 @@ export function renderSharesSubpage(){
     ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares value over time</h2></div></summary>' +
       '<div class="ledger-body"><div id="sharesHistoryPanel"></div></div></details>'
     : "";
-  container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
-    '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares</h2></div>' +
-    '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><div id="sharesGlance">' + sharesGainLossGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>' + fxWarn + pasteTool + (allData.items.length ? tradesCardHtml() : '') + toolbar + body + '</div></details>' +
+  var activeCount = (assetPersonFilter ? 1 : 0) + (sharesGainFilter ? 1 : 0) + (sharesSortMode ? 1 : 0) + (sharesChangeWindow !== '1d' ? 1 : 0);
+  var controls = assetListControlsHtml('Shares', activeCount,
+    '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="prices">Prices</button><button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="trades">Import trades</button>');
+  container.innerHTML = '<div class="ledgers"><section class="ledger record-list">' + listToolbarHtml('Shares', fmtCurrency0.format(total), controls) +
+    '<div class="ledger-body"><div id="assetListFilters-Shares" class="record-filter-panel"' + (assetListUi.filters === 'Shares' ? '' : ' hidden') + '><div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-asset-list-filters="Shares">Done</button></div>' + assetPersonSelectHtml() + toolbar + '</div>' + assetAppliedHtml('Shares') +
+    '<div id="sharesGlance">' + sharesCompactGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>' + fxWarn +
+    '<div class="record-tool-panel" data-asset-tool-panel="prices"' + (assetListUi.tool === 'prices' ? '' : ' hidden') + '><button type="button" class="btn btn-sm" data-asset-list-tool="">Done</button>' + (pasteTool || '<p class="record-summary">Add a holding to set its prices.</p>') + '</div>' +
+    '<div class="record-tool-panel" data-asset-tool-panel="trades"' + (assetListUi.tool === 'trades' ? '' : ' hidden') + '><button type="button" class="btn btn-sm" data-asset-list-tool="">Done</button>' + tradesCardHtml() + '</div>' + body + '</div></section>' +
+    (allData.items.length ? '<details class="ledger"><summary><h2 class="section-title">Gain/loss breakdown</h2></summary><div class="ledger-body">' + sharesGainLossGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div></details>' : '') +
     // v3.61.0: the portfolio's performance and its distributions by year, over the same holdings.
     (allData.items.length ? performanceCardHtml(portfolioPerformance(allData.items.map(function(a){ return a; }), householdYearWindow()), householdYearWindow().label, moneyWeighted(allData.items, localDateStr(), toAudAmount)) +
       // v3.178.0 (item 203): against an index, a target mix, and what's likely to be paid in the year ahead.
@@ -1687,7 +1729,8 @@ export function commitAssetsImport(items){
   });
 }
 
-export function renderAssets(){
+export function renderAssets(){ return keepUi(drawAssets); }
+function drawAssets(){
   renderAssetPersonFilter();
   renderAssetCategoryPage("Cash");
   renderSharesSubpage();

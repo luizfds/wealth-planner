@@ -1,6 +1,6 @@
 # Records before tools (#306, #259)
 
-Status: navigation choice implemented for review; Spending choice pending. List toolbars are the next PR.
+Status: navigation shipped v3.245.0 (PR #320). List toolbar implementation complete, awaiting review.
 Roadmap: Simplify and finish, step 3; also #255 step 5.
 
 ## Proposed interaction
@@ -16,7 +16,7 @@ Roadmap: Simplify and finish, step 3; also #255 step 5.
 ## Choices for review
 
 1. Agreed: replace a rail that cannot fit with one labelled section picker showing the current section. Keep tabs where they fit. Apply to section rails, property editor tabs and range controls; no sideways swipe and no reduced touch targets.
-2. Spending's quick controls: recommend Search plus Filters, with transaction type and period inside Filters. Alternative: keep All / Spending / Money in / Transfers directly visible as an additional segmented row; put period and other filters inside Filters. This step moves the existing period control without changing its meaning (#307 remains separate).
+2. Agreed: Spending keeps Search plus Filters, with transaction type and period inside Filters. Search opens its field directly from the toolbar. This step moves the existing period control without changing its meaning (#307 remains separate).
 
 ## Delivery and verification
 
@@ -42,3 +42,42 @@ at 320, 390 and 1280px in both themes. The smoke run now checks local navigation
 The section-picker journey covers keyboard selection, Back, resize, property panels and focus after a range redraw.
 Testing found that Offsets had no URL slug: it displayed but wrote `/assets/summary`. It now uses `/assets/offsets`
 so restoring history selects the same section.
+
+## List toolbar implementation
+
+Shares and Super have one header with title, total, Filters and tools. Person selection is inside Filters on those
+two views; Shares also keeps gain, sort and price range there. Counts and a readable applied-filter line remain
+outside the panel. Prices and broker import open from the tools menu. The gain breakdown and contributions are
+retained below the records. Property's cards now precede the statistics, equity bar and history chart, and its
+loan export is in the list's toolbar.
+
+Spending has Search, Filters and tools in its header. Search opens its field directly; Filters holds type, scope,
+saved views and the existing advanced controls. The menu holds bulk selection, transfer creation and list/table
+choice. Active filters stay visible. Clear also restores the default Month scope. The date scope's meaning,
+saved-view format, calculations and stored data are unchanged. The existing transaction explanation moved to
+the page's About text.
+
+First record positions on the synthetic demo household, unchanged main v3.245.0 versus this implementation:
+
+| List | 390×844 before → after | 1280×800 before → after |
+|---|---|---|
+| Shares | 860 → 362px | 750 → 349px |
+| Super | 700 → 335px | 658 → 322px |
+| Spending | 597 → 402px | 461 → 382px |
+| Property | 1148 → 360px | 908 → 339px |
+
+The smoke run enforces the half-screen limits (422px and 400px) before opening disclosures for its expanded-state
+checks. Screenshots were also captured at 320px and in both themes. The new `recordtools` journey covers keyboard
+menu access, applied filters, clearing, price/import panels, unchanged holdings after reading trades, Super's
+person selection, saved-view save/cancel/restore, `data-sv`, search, bulk selection and transfer focus.
+
+### Accessibility coverage and existing findings
+
+The existing whole-page/editor scan remains, with Property added. New checks explicitly scan the Shares toolbar,
+its open filters and price/import panels, Super filters, and Spending filters/search. These scoped Shares checks
+do not certify the whole Shares page.
+
+A broader exploratory Shares scan found existing problems on unchanged main too: the performance table's ARIA
+rows lack cell roles, holding rows contain nested Details buttons, and holding-avatar initials have insufficient
+contrast. Small Details targets are also flagged at 320px. These are recorded as follow-up work rather than
+changing holding-row interactions or the financial table in this toolbar change.

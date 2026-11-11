@@ -3,6 +3,7 @@ import { filterChoices } from "../calc/cashflowlist.js";
 import { incomeTargets } from "../calc/received.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
 import { usualCardSource } from "../calc/bills.js";
 import { emptyFilter, filterActive, effectiveFilter, viewMatching, describeFilter } from "../calc/txviews.js";
 
@@ -34,11 +35,9 @@ export function lineLabeler(lines){
   return function(id){ return names[id] || id; };
 }
 
-// v3.138.0: one row — search, a Filters button carrying how many are on, Select and + Transfer. The
-// four dropdowns open under it on request, and while they're closed each filter that's on shows as
-// a chip that clears it. On a phone the first transaction is now on the first screen. The
-// direction (All / Spending / Money in / Transfers) sits with the Month / Year / All control above.
-export var txFilterPanel = { open: false };
+// #306: Search, Filters and tools share the list header. Type, scope and saved views live
+// with the other filters; applied filters remain visible when the panel is closed.
+export var txFilterPanel = { open: false, search: false };
 var FILTER_KEYS = [["account"], ["category"], ["line"], ["person"], ["trip"], ["min"], ["max"], ["from"], ["to"]];
 function tripName(id){ var t = (state.trips || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
 function inputHtml(key, label, type, value, extra){
@@ -57,7 +56,7 @@ export function viewsBarHtml(){
   }).join("");
   var tail = txViewForm.open
     ? '<span class="cf-view-form"><input type="text" data-cf-view-name maxlength="40" placeholder="Name this view" aria-label="Name for this view">' +
-        '<button type="button" class="btn btn-sm btn-primary" data-cf-view-confirm>Save</button><button type="button" class="btn btn-sm btn-ghost" data-cf-view-cancel>Cancel</button></span>'
+        '<button type="button" class="btn btn-sm" data-cf-view-confirm>Save</button><button type="button" class="btn btn-sm btn-ghost" data-cf-view-cancel>Cancel</button></span>'
     : on ? '<button type="button" class="btn btn-sm btn-danger" data-cf-view-del="' + escapeAttr(on.id) + '">Delete view</button>'
     : active ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-view-save>Save view</button>' : '';
   return '<div class="cf-views" role="group" aria-label="Saved views">' + (views.length ? '<span class="cf-views-k">Views</span>' : '') + chips + tail + '</div>';
@@ -69,25 +68,29 @@ export function directionControlHtml(){
     return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + d[0] + '">' + d[1] + '</button>';
   }).join("") + '</div>';
 }
-export function filterBarHtml(entries, lines){
+export function filterBarHtml(entries, lines, options){
+  var opts = options || {};
   var ch = filterChoices(entries);
   var labelOf = lineLabeler(lines);
   var on = FILTER_KEYS.filter(function(k){ return txFilters[k[0]]; });
-  var chips = !txFilterPanel.open && on.length ? '<div class="cf-chips">' + on.map(function(k){
+  var chips = on.length ? on.map(function(k){
     var d = describeFilter(k[0], txFilters[k[0]], { lineName: labelOf, tripName: tripName, date: fmtDate });
     return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + d.text) + '">' + escapeAttr(d.label + d.sep) + '<b>' + escapeAttr(d.value) + '</b> <span aria-hidden="true">✕</span></button>';
-  }).join("") + '</div>' : '';
+  }).join("") : '';
+  if(txFilters.direction !== 'all') chips += '<button type="button" class="cf-chip" data-cf-dir="all">' + escapeAttr({out: 'Spending', in: 'Money in', transfer: 'Transfers'}[txFilters.direction]) + ' ✕</button>';
+  if(opts.scopeActive) chips += '<button type="button" class="cf-chip" data-tx-range="month">' + escapeAttr(opts.scopeLabel) + ' ✕</button>';
+  if(chips) chips = '<div class="cf-chips">' + chips + '</div>';
+  var count = on.length + (txFilters.direction !== 'all' ? 1 : 0) + (opts.scopeActive ? 1 : 0);
+  var controls = '<button type="button" class="btn btn-sm btn-ghost record-search-toggle" data-cf-search aria-label="Search transactions" aria-expanded="' + (txFilterPanel.search || !!txFilters.text) + '" aria-controls="cfSearchRow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg></button>' +
+    '<button type="button" class="btn btn-sm btn-ghost cf-more-btn" data-cf-panel aria-expanded="' + txFilterPanel.open + '" aria-controls="cfFilterRow">Filters' + (count ? ' (' + count + ')' : '') + '</button>' +
+    listActionsHtml('Transaction tools', '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? 'Done selecting' : 'Select transactions') + '</button><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' + txViewToggleHtml());
   return '<div class="cf-filters">' +
-    '<div class="cf-toolbar">' +
-      '<input type="search" class="cf-search-input" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Search name or account" aria-label="Search transactions">' +
-      '<button type="button" class="btn btn-sm btn-ghost cf-more-btn" data-cf-panel aria-expanded="' + txFilterPanel.open + '" aria-controls="cfFilterRow">Filters' + (on.length ? ' <span class="cf-badge">' + on.length + '</span>' : '') + '</button>' +
-      '<span class="cf-filter-actions">' +
-        (txFiltersActive() ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-clear>Clear</button>' : '') +
-        '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? "Done selecting" : "Select") + '</button>' +
-        '<button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' +
-      '</span>' +
-    '</div>' +
-    (txFilterPanel.open ? '<div class="cf-filter-row" id="cfFilterRow">' +
+    listToolbarHtml('Transactions', opts.total || fmtCurrency0.format(0), controls, 'totalTransactionsAmount') +
+    '<div id="cfSearchRow" class="record-search-row"' + (txFilterPanel.search || txFilters.text ? '' : ' hidden') + '><input type="search" class="field-control cf-search-input" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Search name or account" aria-label="Search transactions"></div>' +
+    (txFilterPanel.open ? '<div class="record-filter-panel" id="cfFilterRow">' +
+      '<div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-cf-panel>Done</button></div>' +
+      '<div class="record-filter-choices">' + directionControlHtml() + (opts.scopeHtml || '') + '</div>' +
+      viewsBarHtml() + '<div class="cf-filter-row">' +
       selectHtml("account", "Account", ch.accounts, txFilters.account) +
       selectHtml("category", "Category", ch.categories, txFilters.category) +
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
@@ -97,7 +100,9 @@ export function filterBarHtml(entries, lines){
       inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("from", "Date from", "date", txFilters.from) +
       inputHtml("to", "Date to", "date", txFilters.to) +
-    '</div>' : '') + chips +
+    '</div></div>' : '') + chips +
+    (txFiltersActive() || opts.scopeActive ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-clear>Clear filters</button>' : '') +
+    (txSelect.on ? '<button type="button" class="btn btn-sm" data-cf-select>Done selecting</button>' : '') +
   '</div>';
 }
 

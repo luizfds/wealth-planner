@@ -85,3 +85,30 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 @media (max-width:880px){
   .report-chooser[open]{ width:100%; box-sizing:border-box; height:min(720px, calc(100dvh - 24px)); }
 }
+
+/* #258: one-dimensional report reading on phones; the complete comparison remains optional. */
+.rp-mobile-summary, .rp-display-control{ display:none; }
+@media screen and (max-width:767px){
+  .rp-display-control{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:44px; margin:12px 0; font-size:var(--fs-sm); }
+  .rp-display-control input{ width:20px; height:20px; }
+  .rp-table-instruction{ display:none; color:var(--ink-soft); }
+  .rp-presentation[data-full-table="true"] .rp-table-instruction{ display:inline; }
+  .rp-mobile-summary{ display:block; }
+  .rp-comparison-table{ display:none; }
+  .rp-presentation[data-full-table="true"] .rp-mobile-summary{ display:none; }
+  .rp-presentation[data-full-table="true"] .rp-comparison-table{ display:block; }
+  .rp-summary-row{ min-width:0; border-bottom:1px solid var(--border); padding:12px 0; overflow-wrap:anywhere; }
+  .rp-summary-row h3{ margin:0 0 8px; font-size:var(--fs-sm); font-weight:600; }
+  .rp-summary-total{ border-top:2px solid var(--ink); }
+  .rp-summary-fields{ display:grid; gap:8px; margin:0; font-size:var(--fs-sm); }
+  .rp-summary-fields > div{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
+  .rp-summary-fields dt{ color:var(--ink-soft); }
+  .rp-summary-fields dd{ margin:0; text-align:right; }
+  .rp-figure{ font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+  .rp-summary-fields .neg{ color:var(--bad-ink); }
+  .rp-row-details > summary{ min-height:44px; align-content:center; font-size:var(--fs-sm); cursor:pointer; }
+  .rp-entity{ display:grid; gap:4px; font-size:var(--fs-sm); margin:12px 0; }
+  .rp-entity select{ width:100%; min-width:0; min-height:44px; }
+  .rp-drill-table{ table-layout:fixed; }
+  .rp-drill-table td{ white-space:normal; overflow-wrap:anywhere; }
+}

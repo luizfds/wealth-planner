@@ -1,8 +1,8 @@
 # Mobile report summaries (#258)
 
-Status: interaction proposed for owner review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
+Status: recommended interaction approved by the owner; shared Reports implementation complete; awaiting PR review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
 
-## Proposed interaction
+## Approved interaction
 
 Below 768px, replace the default report table with compact, labelled rows. Each row shows its name and
 up to three important figures. A Details disclosure reveals remaining fields vertically; values and labels
@@ -22,12 +22,13 @@ Priority examples (use the exact existing column labels and formatting):
 | Loans and debts | Owed now, monthly repayment, payoff outcome |
 | Super | Concessional, remaining cap, balance |
 | Capital gains | Gain, taxable gain; parcel dates in Details |
-| Net worth check | Current balance, change; earlier dates in Details |
+| Net worth check | Expected change, actual change, gap; components in Details |
 | Spending and budget | Actual, comparison, variance when available |
 
 Use report-specific column priorities, never infer importance from a currency amount or position alone.
-Every cell remains accessible, including blanks, percentages, totals and long labels. Reports with dynamic
-property/date columns need explicit handling so their first column is not incorrectly treated as a metric.
+Every cell remains accessible, including blanks, percentages, totals and long labels. Property P&L, property
+returns and tax summary offer a property/person selector so each entity reads vertically. Date columns stay
+in Details after the report’s totals/comparison figures.
 Month in detail and the year-end checklist already have specialised renderers: review them separately rather
 than forcing the common table pattern onto them.
 
@@ -41,3 +42,24 @@ horizontal scrolling in default summaries, all original cells in expanded detail
 formatting, retained month/group actions, keyboard operation and no hidden duplicate focus targets.
 Measure both default and full-table layouts in a real browser. Check complete print/CSV output and relevant
 journeys, static checks and accessibility; let CI run the full suite once.
+
+## Verified implementation
+
+- All 19 reports using the shared renderer have phone summaries below 768px. Month in detail and the
+  year-end checklist retain their specialised renderers for follow-up review. The spending transaction
+  drilldown wraps its existing three columns within the phone width.
+- Browser cell-parity checks cover all 19 reports and each property/person option. Percentage, zero,
+  negative and blank values share the same formatter as the table; empty values read as an em dash.
+- Pinned frames, month and spending actions, Details keyboard/focus restoration through redraw, entity
+  selection focus and the keyboard-scrollable Full table are covered by focused journeys.
+- Measured with long synthetic holding labels: investment summary client/scroll widths are 254/254px
+  at 320px and 324/324px at 390px. The optional full table retains its complete 1392px width. Desktop
+  keeps the table at 768/1280px. No document overflow in either theme at all four widths.
+- 24 focused axe scans (default, expanded Details, full table; four widths and both themes) found no
+  violations. Long property labels and multiple property options were also inspected in all eight layouts.
+  Screenshots and measurements are session artifacts under `/tmp/mobile-report-review/`.
+- Local static checks, unit tests, full page smoke and reportsummary/reportchooser/reportaudit/assessmentux
+  journeys pass. CI accessibility now includes investment/property reports and expanded/full-table states.
+
+Remaining #258 work: specialised Reports layouts, scenario comparisons, projection milestones/tables,
+spending heatmap and investment-summary comparison. This PR does not close the issue or complete roadmap step 4.

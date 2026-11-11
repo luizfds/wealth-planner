@@ -20,7 +20,7 @@ const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:pr
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
 const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['assets','assets-sub','summary'],['assets','assets-sub','Cash'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
-views.push(['assets','assets-sub','Shares'], ['properties',null,null]);
+views.push(['assets','assets-sub','Shares'], ['properties',null,null], ['reports','report','invest'], ['reports','report','property']);
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
 for(const width of widths)for(const scheme of schemes){
@@ -88,6 +88,13 @@ for(const width of widths)for(const scheme of schemes){
   }
   if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
   else await scan(pg+'/'+sub);
+  if(pg==='reports' && width<768 && await page.locator('[data-report-full-table]').count()){
+   await page.locator('.rp-mobile-summary details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   await scan('reports/'+sub+'/details');
+   await page.locator('[data-report-full-table]').check();
+   await scan('reports/'+sub+'/full-table');
+   await page.locator('[data-report-full-table]').uncheck();
+  }
   if(pg==='reports' && sub==='cashflow'){
    await page.locator('#reportsBody [data-report-choose]').first().click();
    await scan('reports/chooser');

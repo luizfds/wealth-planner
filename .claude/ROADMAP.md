@@ -4986,7 +4986,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
 4. `[~]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
    - Report picker shipped v3.247.0 (PR #322). Design: `docs/design/report-picker.md`.
      The selected report leads; a searchable grouped chooser replaces the catalogue. Pins keep their saved frames.
-   - Mobile summaries (#258) started on `codex/mobile-report-summaries`; interaction review before implementation.
+   - Mobile summaries (#258) implemented on `codex/mobile-report-summaries`; owner approved compact rows,
+     expandable Details and optional Full table. Shared Reports renderer verified; awaiting PR review.
      Reports first, then scenario/projection and other comparison surfaces in coherent follow-up PRs.
      Design: `docs/design/mobile-report-summaries.md`.
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),

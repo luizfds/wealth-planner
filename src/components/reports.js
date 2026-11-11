@@ -87,7 +87,7 @@ function drillHtml(rep, opts){
       // v3.168.0: by category, the same rows in Spending — a filter there, and a view to keep.
       (reportFrame.group === "category" ? '<button type="button" class="btn btn-ghost btn-sm" data-sv data-sv-direction="out" data-sv-category="' + escapeAttr(k) + '" data-sv-from="' + escapeAttr(opts.win.start) + '" data-sv-to="' + escapeAttr(opts.win.end) + '">Show in Spending</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" data-rf-drill="' + escapeAttr(k) + '">Close</button></div>' +
-      '<table class="rp-table"><tbody>' + tx.slice(0, 60).map(function(t){
+      '<table class="rp-table rp-drill-table"><tbody>' + tx.slice(0, 60).map(function(t){
         return '<tr><td>' + escapeAttr(fmtDate(t.date)) + '</td><td>' + escapeAttr(transactionDisplayName(t, budgetLineItems())) + '</td><td class="num">' + fmtCurrency2.format(Number(t.amount) || 0) + '</td></tr>';
       }).join("") + '</tbody></table>' + (tx.length > 60 ? '<p class="ledger-note">The 60 most recent of ' + tx.length + '.</p>' : '') + '</div>';
   }).join("");
@@ -98,6 +98,51 @@ function cell(v, num){
   return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v));
 }
 function pctCell(v){ return v == null || v === "" ? "" : (Math.round(v * 10) / 10) + "%"; }
+// Phone priorities refer to builder column keys, keeping calculation and export data unchanged.
+var SUMMARY_KEYS = {
+  cashflow: ['in','out','net'], categories: ['total','cmp','chg','avg'], income: ['total','plan'],
+  flow: ['value'], budget: ['actual','plan','diff'], trends: ['cur','prev','chg'],
+  networth: ['now','month','year'], nwcheck: ['expected','actual','gap'],
+  invest: ['value','total','annual'], dividends: ['cash','credit','total'], cgt: ['gain','taxable'],
+  debts: ['balance','monthly','payoff'], super: ['total','room','balance'],
+  taxpack: ['value','source'], review: ['v','prev','chg'], lender: ['year','month']
+};
+export var reportDisplay = { fullTable: false, entity: {} };
+function reportValue(r, c){
+  var v = r.cells[c.key];
+  return (r.cls === 'pct' || c.pct) && c.num ? pctCell(v) : cell(v, c.num);
+}
+function reportRowName(r, c){
+  var name = reportValue(r, c);
+  return r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + escapeAttr(r.ym) + '">' + name + '</button>'
+    : r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '">' + name + '</button>' : name;
+}
+function summaryFields(r, columns){
+  return '<dl class="rp-summary-fields">' + columns.map(function(c){
+    var v = r.cells[c.key];
+    return '<div data-report-field="' + escapeAttr(c.key) + '"><dt>' + escapeAttr(c.label || 'Item') + '</dt><dd' + (c.num ? ' class="rp-figure' + (typeof v === 'number' && v < 0 ? ' neg' : '') + '"' : '') + '>' + (reportValue(r, c) || '—') + '</dd></div>';
+  }).join('') + '</dl>';
+}
+export function reportSummaryHtml(rep){
+  if(!rep.rows.length) return '<p class="ledger-note">Nothing to report yet for this one.</p>';
+  var entities = ['property','propreturns','tax'].includes(rep.key) ? rep.columns.slice(1) : null;
+  var selected = entities && (entities.find(function(c){ return c.key === reportDisplay.entity[rep.key]; }) || entities[0]);
+  var priorities = SUMMARY_KEYS[rep.key] || [];
+  var primary = selected ? [selected] : priorities.map(function(key){ return rep.columns.find(function(c){ return c.key === key; }); }).filter(Boolean).slice(0, 3);
+  var remaining = selected ? [] : rep.columns.slice(1).filter(function(c){ return !primary.includes(c); });
+  var selector = entities ? '<label class="rp-entity"><span>' + (rep.key === 'tax' ? 'Person' : 'Property') + '</span><select data-report-entity>' + entities.map(function(c){ return '<option value="' + escapeAttr(c.key) + '"' + (selected && selected.key === c.key ? ' selected' : '') + '>' + escapeAttr(c.label) + '</option>'; }).join('') + '</select></label>' : '';
+  return '<div data-report-summary="' + escapeAttr(rep.key) + '">' + selector + '<div class="rp-summary-rows">' + rep.rows.map(function(r, index){
+    var title = reportRowName(r, rep.columns[0]);
+    var headingOnly = r.cls === 'head' && rep.columns.slice(1).every(function(c){ return r.cells[c.key] == null || r.cells[c.key] === ''; });
+    return '<section data-report-summary-row="' + escapeAttr(String(r.cells[rep.columns[0].key]) + '/' + index) + '" class="rp-summary-row' + (r.cls === 'total' ? ' rp-summary-total' : '') + '"><h3>' + title + '</h3>' + (headingOnly ? '' : summaryFields(r, primary) +
+      (remaining.length ? '<details class="rp-row-details"><summary>Details<span class="visually-hidden"> for ' + reportValue(r, rep.columns[0]) + '</span></summary>' + summaryFields(r, remaining) + '</details>' : '')) + '</section>';
+  }).join('') + '</div></div>';
+}
+export function reportPresentationHtml(rep){
+  if(!rep.rows.length) return reportTableHtml(rep);
+  return '<div class="rp-presentation" data-full-table="' + reportDisplay.fullTable + '"><label class="rp-display-control"><input type="checkbox" data-report-full-table' + (reportDisplay.fullTable ? ' checked' : '') + '> Full table <span class="rp-table-instruction">— scroll horizontally to compare columns</span></label>' +
+    '<div class="rp-mobile-summary">' + reportSummaryHtml(rep) + '</div><div class="rp-comparison-table">' + reportTableHtml(rep) + '</div></div>';
+}
 export function reportTableHtml(rep){
   if(!rep.rows.length) return '<p class="ledger-note" style="margin:0">Nothing to report yet for this one.</p>';
   return '<div class="rp-scroll" role="region" aria-label="' + escapeAttr((rep.title || 'Report') + '; scroll horizontally for more columns') + '" tabindex="0"><table class="rp-table' + (rep.wide ? " rp-wide" : "") + '"><thead><tr>' + rep.columns.map(function(c){ return '<th' + (c.num ? ' class="num"' : '') + ' scope="col">' + escapeAttr(c.label || 'Item') + '</th>'; }).join("") + '</tr></thead><tbody>' +
@@ -105,8 +150,7 @@ export function reportTableHtml(rep){
       return '<tr' + (r.cls ? ' class="' + r.cls + '"' : '') + '>' + rep.columns.map(function(c, i){
         var v = r.cells[c.key];
         // v3.81.0: a month row opens Month in detail; v3.118.0: a group row opens its transactions.
-        var inner = i === 0 && r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + r.ym + '" title="See this month in detail">' + cell(v, c.num) + '</button>'
-          : i === 0 && r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '" title="See the transactions">' + cell(v, c.num) + '</button>' : ((r.cls === "pct" || c.pct) && c.num ? pctCell(v) : cell(v, c.num));
+        var inner = i === 0 ? reportRowName(r, c) : reportValue(r, c);
         // v3.120.0: a heat-map cell (Budget vs actual) carries its shade.
         var heat = r.heat && r.heat[c.key] ? " heat" + (r.heat[c.key] > 0 ? "-p" : "-n") + Math.abs(r.heat[c.key]) : "";
         return (i === 0 ? '<th scope="row">' : '<td' + (c.num ? ' class="num' + (typeof v === "number" && v < 0 ? " neg" : "") + heat + '"' : '') + '>') + inner + (i === 0 ? '</th>' : '</td>');
@@ -243,7 +287,7 @@ export function reportsPageHtml(opts){
   return picker + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
-      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
+      storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");

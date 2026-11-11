@@ -5030,3 +5030,10 @@ several runs at once load the machine), and each fixed where it was:
 Every `waitForFunction` that times out now says what it was waiting for. **Not explained:** setup closing with focus
 on the page body (#282) and "Guided setup" blocked by setup's backdrop (PR #311) did not recur in 150 runs of those
 two journeys; the click now reports what was in its way. The Transfer journey's one failure did not recur either.
+
+## Urgent mobile Investments navigation regression
+
+`[~]` Reported after PR #327: Investments cannot leave Summary or return to Net worth on a phone.
+Investigating on `codex/fix-mobile-investments`. The mobile back button has no registered navigation handler;
+reproduce and verify the section chooser as well, through real touch controls and the normal Net worth entry path.
+Keep the completed debt/offset field work separate (PR #328; all six checks passed).

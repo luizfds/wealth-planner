@@ -1,6 +1,6 @@
 # Records before tools (#306, #259)
 
-Status: navigation shipped v3.245.0 (PR #320). List toolbar implementation complete, awaiting review.
+Status: navigation shipped v3.245.0 (PR #320). List toolbars shipped v3.246.0 (PR #321).
 Roadmap: Simplify and finish, step 3; also #255 step 5.
 
 ## Proposed interaction

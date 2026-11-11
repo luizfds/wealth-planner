@@ -4972,18 +4972,20 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      Scenarios (it sent you to Accounts); Insights' Dismiss is a ✕ in the card's corner, one tap; a page's line with
      one item that has its own action runs it (Property's opens the cash-rate dialog); and the journeys wait for the
      day's price read before reading a saved figure (`quiet()`), after `investvalidation` failed once on PR #317.
-3. `[~]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
+3. `[x]` **Records before tools.** Shipped v3.246.0 (PR #321). Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.
    - Shared navigation: the owner chose a current-section picker wherever tabs do not fit, tabs where they do.
      Implementation and browser verification on `codex/records-before-tools`; design in
      `docs/design/records-before-tools.md`. Investments' phone rail replaces its outer rail with “‹ Net worth”.
      Merged as PR #320, shipped v3.245.0.
-   - List toolbars implemented, awaiting review: the owner chose Search + Filters for Spending, with type and period inside Filters.
+   - List toolbars shipped v3.246.0 (PR #321): the owner chose Search + Filters for Spending, with type and period inside Filters.
      Shares/Super move person selection into Filters; prices/import/bulk tools go in ⋯ menus. Records lead
      contributions and property charts. Implementation on `codex/records-before-tools-toolbars`; the smoke run now
      enforces the first record's top-half position at 390×844 and 1280×800. Measurements and accessibility coverage
      (including existing Shares findings) are in `docs/design/records-before-tools.md`.
-4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
+4. `[~]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
+   - Report picker in progress on `codex/report-chooser`. Design: `docs/design/report-picker.md`.
+     The selected report leads; a searchable grouped chooser replaces the catalogue. Pins keep their saved frames.
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.

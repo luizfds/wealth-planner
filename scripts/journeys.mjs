@@ -995,6 +995,69 @@ const JOURNEYS = {
   },
   // #261 / #263: Net worth → Investments → Summary's debts — a visible focus indicator on the inline name, fields named
   // for their debt (and kept right when it's renamed), and a cleared balance that isn't saved as $0.
+  async debtoffsetfields(page){
+    await page.evaluate(async()=>{const s=await import('/src/state.js');s.state.debts=[{what:'Sample card',balance:1000},{what:'Sample personal loan',balance:5000}];s.commit(['debts']);});
+    await go(page,'assets','data-assets-sub','summary');
+    await page.locator('#debtsTable').evaluate(e=>e.closest('details').open=true);
+    const balance=page.locator('.debt-balance').first();
+    await balance.fill('');
+    check(await stored(page,'state.debts[0].balance')===1000,'blank debt balance saved');
+    check(await balance.getAttribute('aria-invalid')==='true','debt balance lacks shared error');
+    check(await balance.evaluate(e=>document.querySelectorAll('[id="'+e.id+'-error"]').length===1),'debt error is duplicated');
+    await balance.fill('-100');check(await stored(page,'state.debts[0].balance')===-100,'negative debt policy changed');
+    await balance.fill('0');check(await stored(page,'state.debts[0].balance')===0,'zero debt no longer saves');
+    await page.locator('.debt-what').first().fill('Renamed sample card');
+    check(await page.getByRole('spinbutton',{name:'Balance of Renamed sample card',exact:true}).count()===1,'balance name did not follow rename');
+    await balance.focus();await page.evaluate(async()=>(await import('/src/components/assets.js')).renderDebts());
+    check(await balance.evaluate(e=>e===document.activeElement),'debt redraw lost focus');
+    await page.locator('[data-debt-log]').first().click();
+    check(await stored(page,'state.debts[0].history.length')>0,'debt snapshot did not save');
+    await go(page,'assets','data-assets-sub','Offsets');
+    const offset=page.locator('.offset-balance-input').first();
+    const property=await offset.getAttribute('data-offset-property'),loan=Number(await offset.getAttribute('data-offset-loan'));
+    const saved=()=>page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].offsetBalance,{property,loan});
+    const before=await saved();await offset.fill('');check(await saved()===before,'blank offset saved');
+    check(await offset.getAttribute('aria-invalid')==='true','offset lacks shared error');
+    check(await offset.evaluate(e=>document.querySelectorAll('[id="'+e.id+'-error"]').length===1),'offset error duplicated');
+    await offset.fill('-100');check(await saved()===before,'negative offset saved');
+    await offset.fill('1000');check(await saved()===1000,'valid offset did not save');
+    await offset.focus();await page.evaluate(async()=>(await import('/src/components/assets.js')).renderOffsetsSubpage());
+    check(await offset.evaluate(e=>e===document.activeElement),'offset redraw lost focus');
+    await page.locator('[data-jump-property="'+property+'"]').first().click();
+    await page.waitForFunction(()=>document.body.dataset.currentPage==='properties');
+    await page.locator('[data-prop-edit="'+property+'"]').click();
+    const loanTab=page.locator('[data-prop-tab="'+property+'"][data-tab="loans"]');
+    const sectionPicker=loanTab.locator('..').locator('select.section-picker');
+    if(await sectionPicker.isVisible())await sectionPicker.selectOption({label:'Loans'});else await loanTab.click();
+    await page.evaluate(()=>{document.querySelectorAll('[data-prop-section-toggle="loans"][aria-expanded="false"]').forEach(e=>e.click());});
+    await page.locator('.prop-tab-panel:not([hidden]) [data-loan-index="'+loan+'"]').first().locator('[data-row-toggle]').click();
+    const row=page.locator('.m-row.open[data-loan-index]');
+    await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    check(await row.locator('.loan-offset').inputValue()==='1000','Offsets value did not mirror into loan');
+    check(await row.locator('input,select').evaluateAll(es=>es.every(e=>e.classList.contains('field-control'))),'loan still has an independent control skin');
+    const properLabels=await row.locator('.m-edit-field > input,.m-edit-field > select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
+    check(properLabels,'loan label/help links lost');
+    await row.locator('.loan-offset').fill('2000');check(await saved()===2000,'loan offset did not save');
+    check(await page.locator('.offset-balance-input[data-offset-property="'+property+'"][data-offset-loan="'+loan+'"]').inputValue()==='2000','loan edit did not mirror into Offsets');
+    const oldBalance=await row.locator('.loan-balance').inputValue();await row.locator('.loan-balance').fill('');
+    check(await row.locator('.loan-balance').getAttribute('aria-invalid')==='true','loan blank balance has no error');
+    await row.locator('.loan-balance').fill(oldBalance);
+    await row.locator('.loan-repay-mode').focus();await row.locator('.loan-repay-mode').selectOption('manual');
+    check(await row.locator('.loan-repay-mode').evaluate(e=>e===document.activeElement),'repayment mode redraw lost focus');
+    await row.locator('.loan-manual-amount').fill('1000');
+    check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].manualRepaymentAmount,{property,loan})===1000,'manual repayment did not save');
+    await row.locator('.loan-rate-new').fill('5');await row.locator('.loan-rate-date').fill('2026-11-03');
+    await row.locator('[data-rate-record]').click();
+    check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].rateHistory.some(h=>h.date==='2026-11-03'&&h.rate===5),{property,loan}),'new rate was not recorded');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      const bad=await row.locator('input,select').evaluateAll(es=>es.filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.borderRadius!=='6px'||s.padding!=='6px 8px'||r.height+0.01<(innerWidth<=880?44:36);}).map(e=>e.className));
+      check(!bad.length,'loan shared skin failed at '+width+': '+bad.join(','));
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'loan editor creates page overflow at '+width);
+    }
+    await row.locator('.loan-offset').focus();await page.evaluate(async()=>(await import('/src/components/properties.js')).renderProperties());
+    check(await row.locator('.loan-offset').evaluate(e=>e===document.activeElement),'property loan redraw lost focus');
+  },
   async debts(page){
     await quiet(page);
     await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.debts = [{ what: "Card one", balance: 1200 }, { what: "Personal loan", balance: 8000 }]; m.commit(["debts"]); });

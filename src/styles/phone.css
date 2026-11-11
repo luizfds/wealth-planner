@@ -123,5 +123,5 @@
 
 /* #254: shared controls keep a thumb-sized target on touch tablets as well as phones. */
 @media (pointer: coarse){
-  .field-control{ --field-h:44px; }
+  .field-control, .inline-name{ --field-h:44px; }
 }

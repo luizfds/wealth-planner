@@ -115,3 +115,29 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   .rp-drill-table{ table-layout:fixed; }
   .rp-drill-table td{ white-space:normal; overflow-wrap:anywhere; }
 }
+
+/* #258: choose one scenario for phone reading; retain side-by-side tables explicitly. */
+.cmp-mobile-summary, .cmp-display-control{ display:none; }
+.cmp-scenario[hidden]{ display:none; }
+.cmp-table [data-odds].is-bad{ color:var(--bad-ink); }
+@media screen and (max-width:767px){
+  .cmp-display-control{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:44px; margin:12px 0; font-size:var(--fs-sm); }
+  .cmp-display-control input{ width:20px; height:20px; }
+  .cmp-table-instruction{ display:none; color:var(--ink-soft); }
+  .cmp-card[data-cmp-full-table="true"] .cmp-table-instruction{ display:inline; }
+  .cmp-mobile-summary{ display:block; }
+  .cmp-table-view{ display:none; }
+  .cmp-card[data-cmp-full-table="true"] .cmp-mobile-summary{ display:none; }
+  .cmp-card[data-cmp-full-table="true"] .cmp-table-view{ display:block; }
+  .cmp-scenario{ overflow-wrap:anywhere; }
+  .cmp-scenario h3{ font-size:var(--fs-md); font-weight:600; margin:12px 0 6px; }
+  .cmp-summary-fields{ display:grid; gap:12px; margin:12px 0; font-size:var(--fs-sm); }
+  .cmp-summary-fields > div{ padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .cmp-summary-fields dt{ color:var(--ink-soft); }
+  .cmp-summary-fields dd{ margin:4px 0 0; font-family:var(--font-num); }
+  .cmp-summary-fields small{ display:block; font-size:var(--fs-xs); }
+  .cmp-summary-fields .down, .cmp-summary-fields .is-bad{ color:var(--bad-ink); }
+  .cmp-summary-fields .up{ color:var(--good-ink); }
+  .cmp-summary-details > summary{ min-height:44px; align-content:center; cursor:pointer; }
+  .cmp-summary-verdict{ font-size:var(--fs-sm); margin:12px 0; }
+}

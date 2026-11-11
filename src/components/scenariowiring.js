@@ -1,3 +1,4 @@
+import { compareDisplay } from "./compare.js";
 import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Plan → Scenarios, wired (v3.200.0, item 230) ----------------
 //
@@ -30,6 +31,16 @@ import { withUndo, renderAll } from "./redraw.js";
 export var scenarioActions = {};
 
 export function wireScenarioEditor(){
+  document.getElementById('scenarioCompare').addEventListener('change', function(e){
+    if(e.target.matches('[data-cmp-scenario]')){
+      compareDisplay.scenario = e.target.value;
+      this.querySelectorAll('[data-cmp-summary]').forEach(function(panel){ panel.hidden = panel.getAttribute('data-cmp-summary') !== compareDisplay.scenario; });
+    }
+    if(e.target.matches('[data-cmp-full-table-toggle]')){
+      compareDisplay.fullTable = e.target.checked;
+      this.querySelector('.cmp-card').setAttribute('data-cmp-full-table', String(e.target.checked));
+    }
+  });
   // ---------------- A scenario's changes (v3.172.0, item 207) ----------------
   // Plan → Scenarios: a line's amount in a scenario, kept in the scenario (calc/scenariochanges.js).
   // v3.206.0 (item 236b): the commit redraws the views that read scenarios (the home blocks, the cards, the

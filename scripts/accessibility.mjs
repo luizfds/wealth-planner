@@ -88,6 +88,20 @@ for(const width of widths)for(const scheme of schemes){
   }
   if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
   else await scan(pg+'/'+sub);
+  if(pg==='plan' && sub==='scenarios' && width<768){
+   await page.locator('.cmp-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   await scan('scenario-comparison/details');
+   const choices=await page.locator('[data-cmp-scenario] option').evaluateAll(os=>os.map(o=>o.value));
+   for(const choice of choices.slice(1)){
+    await page.locator('[data-cmp-scenario]').selectOption(choice);
+    await page.locator('.cmp-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    await scan('scenario-comparison/'+choice);
+   }
+   await page.locator('[data-cmp-full-table-toggle]').check();
+   await page.locator('.cmp-table-view .cmp-longterm').evaluate(d=>d.open=true);
+   await scan('scenario-comparison/full-table');
+   await page.locator('[data-cmp-full-table-toggle]').uncheck();
+  }
   if(pg==='reports' && width<768 && await page.locator('[data-report-full-table]').count()){
    await page.locator('.rp-mobile-summary details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    await scan('reports/'+sub+'/details');

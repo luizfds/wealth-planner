@@ -2319,3 +2319,25 @@ test('property summaries select one named column and retain all entity options',
     assert.match(html,/\$200/); assert.doesNotMatch(html,/\$100/);
   } finally {reportDisplay.entity=before;}
 });
+
+
+test('scenario summary selects safely, falls back to household and keeps complete metrics', async () => {
+  const {compareHtml,compareDisplay}=await import('../src/components/compare.js');
+  const row=(scenario,isBaseline)=>({scenario,isBaseline,upfront:100000,available:50000,short:isBaseline?0:50000,monthBeforeTax:-1000,monthAfterTax:-500,monthUnderStress:-2000,lowestCash:-5000,netWorth:[5,10,20].map(year=>({year,value:100000,vsBase:0})),aheadFrom:null,verdict:'Sample verdict <text>'});
+  const before=compareDisplay.scenario;
+  try{
+    compareDisplay.scenario='<Sample scenario>';
+    const rows=[row('Household',true),row('<Sample scenario>',false)];
+    const html=compareHtml(rows);
+    assert.match(html,/value="&lt;Sample scenario>" selected/);
+    assert.doesNotMatch(html,/<Sample scenario>/);
+    assert.match(html,/Funding incomplete/);
+    assert.match(html,/Fund the gap before interpreting cash survival/);
+    assert.match(html,/Sample verdict &lt;text>/);
+    assert.match(html,/data-cmp-full-table-toggle/);
+    assert.match(html,/data-cmp-metric="Net worth in 20 years"/);
+    compareDisplay.scenario='Removed';
+    assert.match(compareHtml(rows),/value="Household" selected/);
+    assert.equal(compareHtml(rows.slice(0,1)),'');
+  } finally {compareDisplay.scenario=before;}
+});

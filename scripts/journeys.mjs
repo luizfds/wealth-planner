@@ -1908,7 +1908,8 @@ const JOURNEYS = {
     await page.keyboard.press('Escape');
     await go(page,'plan','data-plan-sub','scenarios');
     check(await page.locator('.card-funding').count() > 0, 'unfunded scenario cards lack funding status');
-    const longterm=page.locator('.cmp-longterm');
+    await page.locator('.cmp-scenario:not([hidden]) .cmp-summary-details > summary').click();
+    const longterm=page.locator('.cmp-scenario:not([hidden]) .cmp-longterm');
     check(!await longterm.evaluate(e=>e.open), 'long-term detail is not collapsed');
     await longterm.locator('summary').focus(); await page.keyboard.press('Enter');
     check(await longterm.evaluate(e=>e.open), 'long-term comparison is not keyboard operable');
@@ -2012,6 +2013,7 @@ const JOURNEYS = {
       (await import('/src/components/redraw.js')).renderAll();
     }, original);
     await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    await page.locator('[data-cmp-full-table-toggle]').check();
     const compare = page.locator('.cmp-scroll').first();
     await compare.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await compare.elementHandle());
     check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
@@ -2098,6 +2100,61 @@ const JOURNEYS = {
     await page.locator('[data-rr-delete="' + id + '"]').click(); await answerDialog(page, true);
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
+  },
+  async scenariosummary(page){
+    await go(page,'plan','data-plan-sub','scenarios');
+    const picker=page.locator('[data-cmp-scenario]');
+    const options=await picker.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    check(options.length>1,'sample comparison needs multiple scenarios');
+    await until(page,()=>[...document.querySelectorAll('#scenarioCompare [data-odds]')].every(e=>!e.textContent.includes('working out')));
+    const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
+    for(const [index,name] of options.entries()){
+      await picker.focus(); await picker.selectOption(name);
+      check(await picker.evaluate(e=>e===document.activeElement),'scenario picker lost focus');
+      const panel=page.locator('.cmp-scenario:not([hidden])');
+      check(await panel.getAttribute('data-cmp-summary')===name,'wrong scenario shown');
+      check(await page.locator('.cmp-scenario:visible').count()===1,'multiple scenario summaries exposed');
+      await panel.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+      const parity=await panel.evaluate((el,index)=>{
+        const rows=[...document.querySelectorAll('.cmp-table-view tr[data-cmp-metric]')];
+        const fields=[...el.querySelectorAll('[data-cmp-metric]')];
+        return fields.length===rows.length && fields.every(f=>{
+          const row=rows.find(r=>r.dataset.cmpMetric===f.dataset.cmpMetric);
+          return row && f.querySelector('dd').innerHTML===row.cells[index+1].innerHTML && f.querySelector('dt').textContent===row.cells[0].textContent;
+        });
+      },index);
+      check(parity,'summary changed or dropped a metric for '+name);
+      await panel.locator('h3').evaluate(e=>e.textContent='Sample scenario with a deliberately long name for narrow phone layouts');
+      for(const width of [320,390]){
+        await page.setViewportSize({width,height:844});
+        check(await panel.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'scenario summary overflows at '+width);
+      }
+    }
+    const details=page.locator('.cmp-scenario:not([hidden]) .cmp-summary-details');
+    await details.locator('summary').focus();
+    await page.evaluate(async()=>(await import('/src/components/compare.js')).renderCompare());
+    check(await picker.inputValue()===options.at(-1),'redraw lost the selected scenario');
+    check(await details.evaluate(e=>e.open),'redraw lost expanded details');
+    check(await details.locator('summary').evaluate(e=>e===document.activeElement),'redraw lost keyboard focus');
+    await until(page,()=>[...document.querySelectorAll('#scenarioCompare [data-odds]')].every(e=>!e.textContent.includes('working out')));
+    await page.locator('[data-cmp-full-table-toggle]').focus(); await page.keyboard.press('Space');
+    check(await page.locator('.cmp-table-view').isVisible(),'Full table is unavailable');
+    check(!await page.locator('.cmp-mobile-summary').isVisible(),'summary exposes duplicate controls in table mode');
+    const scroll=page.locator('.cmp-table-view .cmp-scroll').first();await scroll.focus();await page.keyboard.press('ArrowRight');
+    await until(page,e=>e.scrollLeft>0,await scroll.elementHandle());
+    await page.locator('[data-cmp-full-table-toggle]').uncheck();
+    check(await page.evaluate(async original=>JSON.stringify((await import('/src/state.js')).state)===original,original),'display controls changed saved household data');
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      check(await page.locator('.cmp-mobile-summary').isVisible()===(width<768),'wrong summary mode at '+width);
+      check(await page.locator('.cmp-table-view').isVisible()===(width>=768),'wrong table mode at '+width);
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'comparison creates page overflow at '+width);
+    }
+    // A removed selection returns to the current household, and fewer than two scenarios hides comparison.
+    await page.evaluate(async()=>{
+      const m=await import('/src/components/compare.js');m.compareDisplay.scenario='Removed sample scenario';m.renderCompare();
+    });
+    check(await picker.inputValue()===options[0],'missing scenario did not fall back to the household');
   },
   async reportsummary(page){
     await go(page, 'reports', 'data-report', 'invest');

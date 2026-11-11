@@ -2198,6 +2198,8 @@ const JOURNEYS = {
   },
   async comparisonfinish(page){
     await go(page,'expenses','data-expenses-sub','spending');
+    // Drain the sample household's deferred activity entry before taking the unchanged-data baseline.
+    await page.evaluate(async() => (await import('/src/lib/activity.js')).noteChanges());
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
     const numbers=page.locator('.trend-numbers');
     await numbers.locator('summary').focus();await page.keyboard.press('Enter');

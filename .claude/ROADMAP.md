@@ -4977,7 +4977,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - Shared navigation: the owner chose a current-section picker wherever tabs do not fit, tabs where they do.
      Implementation and browser verification on `codex/records-before-tools`; design in
      `docs/design/records-before-tools.md`. Investments' phone rail replaces its outer rail with “‹ Net worth”.
-     List toolbars remain next; Spending's visible quick controls are awaiting the owner's choice.
+     Merged as PR #320, shipped v3.245.0.
+   - List toolbars in progress: the owner chose Search + Filters for Spending, with type and period inside Filters.
+     Shares/Super move person selection into Filters; prices/import/bulk tools go in ⋯ menus. Records lead
+     contributions and property charts. Implementation on `codex/records-before-tools-toolbars`.
 4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).

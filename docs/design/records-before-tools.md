@@ -1,6 +1,6 @@
 # Records before tools (#306, #259)
 
-Status: navigation choice implemented for review; Spending choice pending. List toolbars are the next PR.
+Status: navigation shipped v3.245.0 (PR #320). Spending choice agreed; list toolbar implementation in progress.
 Roadmap: Simplify and finish, step 3; also #255 step 5.
 
 ## Proposed interaction
@@ -16,7 +16,7 @@ Roadmap: Simplify and finish, step 3; also #255 step 5.
 ## Choices for review
 
 1. Agreed: replace a rail that cannot fit with one labelled section picker showing the current section. Keep tabs where they fit. Apply to section rails, property editor tabs and range controls; no sideways swipe and no reduced touch targets.
-2. Spending's quick controls: recommend Search plus Filters, with transaction type and period inside Filters. Alternative: keep All / Spending / Money in / Transfers directly visible as an additional segmented row; put period and other filters inside Filters. This step moves the existing period control without changing its meaning (#307 remains separate).
+2. Agreed: Spending keeps Search plus Filters, with transaction type and period inside Filters. Search opens its field directly from the toolbar. This step moves the existing period control without changing its meaning (#307 remains separate).
 
 ## Delivery and verification
 

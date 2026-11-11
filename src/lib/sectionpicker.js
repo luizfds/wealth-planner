@@ -4,7 +4,18 @@ var RAILS = ".subnav, .time-range-control";
 
 export function initSectionPickers(root){
   var scheduled = false, observed = new Set(), sources = new WeakMap(), restore = null;
-  var observer = new MutationObserver(schedule);
+  var observer = new MutationObserver(function(records){
+    // Help/row decoration elsewhere on the page also changes hidden attributes. Watching
+    // those writes makes the decorators and picker wake each other on every frame.
+    if(records.some(function(record){
+      var target = record.target;
+      if(target.closest && target.closest(RAILS)) return true;
+      if(record.type === "attributes") return !!target.querySelector(RAILS);
+      return Array.from(record.addedNodes).concat(Array.from(record.removedNodes)).some(function(node){
+        return node.nodeType === 1 && (node.matches(RAILS) || node.querySelector(RAILS));
+      });
+    })) schedule();
+  });
   var resize = new ResizeObserver(schedule);
   function watch(){
     observer.observe(root, { subtree: true, childList: true, attributes: true,

@@ -173,6 +173,9 @@ export function wireNavigation(){
     var pageBtn = e.target.closest(".mobile-tab[data-page]");
     if(pageBtn) showPage(pageBtn.getAttribute("data-page"));
   });
+  document.querySelector(".investments-back").addEventListener("click", function(){
+    showPage("networth");
+  });
   // Quick-action button — one button, present on every page, retargeted per page/subpage by
   // nav.js's updateQuickFab() (data-fab-mode/data-fab-selector). "networth" is the one mode with
   // no button to click (Dashboard has no add-something UI at all); everything else scrolls the

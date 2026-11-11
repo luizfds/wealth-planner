@@ -874,6 +874,66 @@ const JOURNEYS = {
   },
   // #263: Investments' number fields — a cleared or out-of-range figure is said beside the field and nothing is saved
   // (before, a cleared quantity saved 0 units and franking of 150% saved 100); closing the editor cancels the draft.
+  async investmentfields(page){
+    await go(page,'assets','data-assets-sub','Shares');
+    await page.evaluate(()=>[...document.querySelectorAll('.m-asset-rows [data-row-toggle]')].find(e=>e.getClientRects().length).click());
+    const row=page.locator('.m-row.open');
+    const idx=Number(await row.getAttribute('data-index'));
+    await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    await row.locator('[data-stmt-add]').click();
+    await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    const statement=row.locator('.stmt-card').first();
+    const fields=statement.locator('input,select');
+    check(await fields.count()===14,'statement fields missing');
+    const labels=await fields.evaluateAll(es=>es.every(e=>e.labels?.length && e.labels[0].htmlFor===e.id && e.classList.contains('field-control') && document.getElementById(e.id+'-error') && (e.getAttribute('aria-describedby')||'').split(' ').every(id=>document.getElementById(id))));
+    check(labels,'statement labels/help/errors are not linked');
+    const amount=statement.locator('[data-stmt-key="m20"]');
+    const label=await amount.getAttribute('id');
+    await statement.locator('label[for="'+label+'"]').click();
+    check(await amount.evaluate(e=>e===document.activeElement),'statement label does not activate its field');
+    await amount.fill('100');
+    check(await stored(page,'state.assets['+idx+'].taxStatements[0].m20')===100,'statement amount did not save');
+    await amount.fill('');
+    check(await stored(page,'state.assets['+idx+'].taxStatements[0].m20')===100,'blank statement amount saved as zero');
+    check(await amount.getAttribute('aria-invalid')==='true','blank statement amount has no inline error');
+    check(await amount.evaluate(e=>document.querySelectorAll('[id="'+e.id+'-error"]').length===1),'validation duplicated a reserved error');
+    await amount.fill('-100');
+    check(await stored(page,'state.assets['+idx+'].taxStatements[0].m20')===-100,'signed statement amount policy changed');
+    check(await amount.getAttribute('aria-invalid')===null,'valid amount did not clear error');
+    const fy=statement.locator('.stmt-fy');
+    const years=await fy.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    await fy.selectOption(years[0]);
+    check(await stored(page,'state.assets['+idx+'].taxStatements[0].fy')===Number(years[0]),'statement year did not save');
+    await row.locator('[data-payout-add]').click();
+    await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    const cash=row.locator('.po-cash').last();
+    const payout=Number(await cash.getAttribute('data-payout-index'));
+    await cash.fill('100');
+    check(await stored(page,'state.assets['+idx+'].payouts['+payout+'].cash')===100,'distribution cash did not save');
+    await cash.fill('');
+    check(await stored(page,'state.assets['+idx+'].payouts['+payout+'].cash')===100,'blank distribution cash saved');
+    check(await cash.getAttribute('aria-invalid')==='true','blank distribution has no shared error');
+    await cash.fill('0');
+    check(await stored(page,'state.assets['+idx+'].payouts['+payout+'].cash')===0,'zero distribution no longer saves');
+    await row.locator('[data-lot-add]').click();
+    await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    const lot=row.locator('.lot-row[data-lot-index]').last();
+    const lotIndex=Number(await lot.getAttribute('data-lot-index'));
+    await lot.locator('.lot-brokerage').fill('100');
+    check(await stored(page,'state.assets['+idx+'].lots['+lotIndex+'].brokerage')===100,'lot brokerage did not save');
+    await lot.locator('[data-lot-del]').click();
+    check(await row.locator('.lot-row[data-lot-index="'+lotIndex+'"]').count()===0,'new lot could not be deleted');
+    await row.locator('.stmt-field').first().focus();
+    const focusId=await row.locator('.stmt-field').first().getAttribute('id');
+    await page.evaluate(async()=>(await import('/src/components/assets.js')).renderSharesSubpage());
+    check(await page.evaluate(id=>document.activeElement?.id===id,focusId),'holding redraw lost statement focus');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      const audit=await row.evaluate(el=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,scroll:el.scrollWidth,width:el.clientWidth,bad:[...el.querySelectorAll('.lot-row input,.stmt-field,.stmt-fy')].filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return !e.classList.contains('field-control')||s.borderRadius!=='6px'||s.paddingLeft!==(e.classList.contains('field-compact')?'4px':'8px')||r.height<(innerWidth<=880?44:36);}).map(e=>e.className)}));
+      check(audit.doc<=audit.viewport+1&&audit.scroll<=audit.width+1,'investment editor overflows at '+width);
+      check(!audit.bad.length,'shared investment skin failed at '+width+': '+audit.bad.join(','));
+    }
+  },
   async investvalidation(page){
     await quiet(page);
     await go(page, "assets", "data-assets-sub", "Shares");

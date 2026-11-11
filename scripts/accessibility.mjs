@@ -210,6 +210,23 @@ for(const width of widths)for(const scheme of schemes){
    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
   }
 
+  if(pg==='assets'&&sub==='Shares'){
+   const row=page.locator('#assetsSub-Shares .m-row').first();
+   await row.locator('[data-row-toggle]').first().click();
+   await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   await row.locator('[data-stmt-add]').click();
+   await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   await scan('investment-fields/expanded', '.m-row.open .m-row-edit-pad');
+   const amount=row.locator('[data-stmt-key="m20"]').first();
+   await amount.fill('');
+   await scan('investment-fields/invalid-statement', '.m-row.open .m-row-edit-pad');
+   await amount.fill('0');
+   await row.locator('.lot-brokerage').first().fill('');
+   await scan('investment-fields/invalid-lot', '.m-row.open .m-row-edit-pad');
+   await row.locator('.lot-brokerage').first().fill('0');
+   await page.keyboard.press('Escape');
+   await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+  }
   if(pg==='assets'&&['Cash','Super','Vehicle'].includes(sub)){
    const assetId=sub==='Cash'?'demo-cash-everyday':sub==='Super'?'demo-super-alex':'demo-car';
    const index=await page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),assetId);

@@ -1,7 +1,7 @@
 /* ---------------- On a phone (v3.167.0, item 197; its own layer since v3.207.1, item 238) ----------------
    The ≤880px floors: tap targets, bottom sheets, a list's sticky total, swipe and pull to refresh. The
    `phone` layer is declared last in styles.css, so these win over every page's own rules on a phone by
-   layer — not by being last in the file — and nothing here applies above 880px (except the 16px text-field floor on a
+   layer — not by being last in the file — and nothing here applies above 880px (except the shared-field target and text-size floors on a
    touch screen, below). The tap-target floors
    are !important, and an !important declaration in a *later* layer is the *weaker* one: no page rule
    below may mark min-height or min-width !important, or it beats these. */
@@ -104,7 +104,7 @@
    paste box), which a layered rule can only beat that way. */
 /* #254: every text-entry type — url, month, time, week and datetime-local had been left out (the price Sheet's link
    and the month picker zoomed) — and on any touch screen, not only up to 640px: a tablet is touch too, and at 768px
-   its fields were 13px. The one rule in this layer that can apply above 880px (a large touch screen); a desktop
+   its fields were 13px. These touch floors can apply above 880px (a large touch screen); a desktop
    with a mouse never matches (pointer: coarse). */
 @media (max-width: 640px), (pointer: coarse){
   input[type="text"], input[type="number"], input[type="date"], input[type="search"],
@@ -119,4 +119,9 @@
 /* Stress inputs need room for both the value and their touch target. */
 @media (max-width: 880px) {
   input[data-proj-stress-invest], input[data-proj-stress-property], input[data-proj-stress-years], input[data-proj-cash-years] { width: 52px; }
+}
+
+/* #254: shared controls keep a thumb-sized target on touch tablets as well as phones. */
+@media (pointer: coarse){
+  .field-control{ --field-h:44px; }
 }

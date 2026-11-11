@@ -1,7 +1,7 @@
 # One field: inventory and spec (#254)
 
-**Status: foundation shipped (PR #272); shared ledger editors migrated in the current follow-up.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
-Benchmarks, generic ledger, income, basic asset and vehicle editors use it. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
+**Status: foundation and the ledger/income/basic asset families shipped; remaining investment transaction fields implemented, awaiting PR review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
+Benchmarks, generic ledger, income, basic asset, vehicle, holding and sale editors use it. Lots/distributions and statements now follow in this PR. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
 ## How this was measured
@@ -87,7 +87,7 @@ Counts are text-entry controls at 1280px (236 per width).
 |---|---|---|---|
 | Benchmarks (`.bm-controls`) | 2 | **Shared field (migrated in this PR)** | Was 8px corners, 4px padding |
 | Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field (generic row migrated) | The separate group picker remains; income controls are migrated below |
-| Investments: holdings, lots, offsets (`.h-*`, `.lot-*`, `.po-*`, `.offset-*`) | 31 | Shared field; lots → *compact* | 7px corners on holdings |
+| Investments: holdings/lots/distributions/statements (`.h-*`, `.lot-*`, `.po-*`, `.stmt-*`) | — | Shared field; lots/distributions → *compact* | Holding/sale fields were shared already; transaction controls migrated in step 5. Offsets remain a separate family. |
 | Tax: this year, returns (`.ty-*`, `.tax-*`) | 31 | Shared field; rent grid → *compact* | Mix of 6/7/8px |
 | Tax: people (`.pp-*`) | 22 | Shared field | 7–8px corners |
 | Calculators (`.cq-field`) | 16 | Shared field | 14px text |
@@ -115,9 +115,10 @@ Counts are text-entry controls at 1280px (236 per width).
    picker and never triggers iOS's zoom, and that 16px would break the badge selects. 48 selects are under 16px at
    390px. That claim needs checking on a real iPhone; this work used Chromium emulation only. If it's wrong, selects
    join the floor and badge selects stay an exception.
-2. **Desktop text: 13px or 14px?** The spec takes 13px (`--fs-sm`, the majority). The unclassed fallback and the
-   calculators use 14px (`--fs-md`), which is also the body size. Pick one before migrating.
-3. **Compact cells:** a variant (4px padding, as now), or the full field with the grid allowed to scroll sideways?
+2. **Desktop text:** migrated families retain the shipped shared standard, 13px (`--fs-sm`). The unclassed
+   fallback and calculators remain for later family migrations; they currently use 14px (`--fs-md`).
+3. **Compact cells:** the documented variant uses 4px horizontal padding with the shared height and state skin;
+   lots/distributions adopt it below.
 4. **Migration order.** Proposed: the Cash flow budget editor (largest), then Investments, Tax, Calculators, and the
    fallback's pages. One family per PR, each with before/after measurements.
 
@@ -195,5 +196,54 @@ missing purchase date/price, add/discard and 320/390/1280px reflow. Initial labe
 a background redraw cannot make the assertion evaluate a detached node; no retries or error filters are added.
 Full-document accessibility adds Cash/Super/Vehicle pages and five expanded/computed/blank/stored-value states.
 
-Holdings/lots, debt/offset forms and other families remain separate migrations. Actual screen-reader and physical-device
+Holding/sale fields already use the adapter; investment transaction skin work is documented below. Debt/offset
+forms and other families remain separate migrations. Actual screen-reader and physical-device
 verification remains the pending manual task above.
+
+## Step 5: investment transaction field skin (#254)
+
+Implemented on `codex/investment-field-skin`, awaiting PR review. Reuse the shipped field contract: 13px desktop text,
+6px radius, 36px desktop height, shared hover/focus/error/disabled/read-only states. Lots and distribution
+rows use the documented compact-cell variant with 4px horizontal padding; standard statement fields use
+8px. Preserve the existing 44px phone/touch floors and 16px touch text-entry typography.
+
+The main holding and Record sale controls already use the shared adapter; verify them rather than rebuilding.
+Migrate purchase lots, distributions and annual statements as one family. Retain selector hooks, constraints,
+blank/zero/negative policies, sold-lot protection, saved data and financial calculations. Statement fields get
+stable holding/statement-scoped ids, linked labels and reserved errors; units-at-year-end help becomes visible
+and described. Keep compact row names and existing brokerage/franking/sold-unit descriptions.
+
+Inventory for this PR: lot date/units/price/brokerage (compact); distribution date/cash/franking (compact);
+statement financial year and the 12 statement amounts plus units held (standard). Existing holding/sale
+fields are shared already. Debt/offset, Tax, calculators, setup and remaining fallback families follow separately.
+
+Measure before/after and inspect normal/expanded/error states at 320/390/768/1024/1280px, both themes,
+including coarse-pointer tablet emulation. Verify actual saves, rejection of blank/invalid amounts, labels,
+focus, lot add/delete/protection, statement years, CSS tokens and unique described/error ids. Run the
+existing holding/validation journeys, page smoke and accessibility checks. No new stored fields or maths.
+
+### Investment field verification
+
+| Control | Before at 1280px | After at 1280px | Before → after at 1024px touch |
+| --- | --- | --- | --- |
+| Lot price | 32px high; 6px radius; 6×4px padding | 36px; 6px; 6×4px | 37 → 44px high |
+| Statement amount | 40px high; 7px radius; 6×8px padding | 36px; 6px; 6×8px | 40 → 44px high |
+| Statement year | 32px high; 6px radius; 5×6px padding | 36px; 6px; 6×8px | 32 → 44px high |
+
+Desktop text remains 13px. Text-entry fields on coarse-pointer screens measure 17px (above the 16px floor);
+native selects retain the documented picker exception. The shared `--field-h` token now becomes 44px on coarse
+pointers, fixing the gap above the 880px phone breakpoint for all shared controls without changing mouse desktop
+sizing. Textareas retain their larger minimum. Compact cells override only `--field-px` to 4px; their state skin
+comes from `.field-control`. Statement units/help span two grid columns so the explanation has room.
+
+Before/after screenshots and measurements use synthetic data at 320/390/768/1024/1280px, both themes; touch
+emulation includes both tablet widths. 30 focused axe states (expanded, invalid statement, disabled/read-only)
+pass in the editor content. Local static/unit/render checks, full page smoke and investmentfields/holdings/
+investvalidation journeys pass. Tests verify saves, blank rejection, signed statements, zero distributions,
+statement years, lot add/delete/sold protection, linked labels, unique error ids and focus through redraw.
+Artifacts: `/tmp/investment-field-review/`.
+
+The unchanged holding-row header’s nested Details link is an existing finding recorded in
+`records-before-tools.md`; editor scans cover `.m-row-edit-pad` and do not certify that header or the Shares
+performance table. The whole Shares page remains covered by smoke and existing scoped accessibility checks.
+#254 stays open for the remaining debt/offset, Tax, calculator, setup and fallback families.

@@ -147,7 +147,8 @@
   .lot-head, .lot-row{ display:grid; grid-template-columns: 124px minmax(0,.9fr) minmax(0,1.25fr) minmax(0,.85fr) 32px; gap:5px; align-items:center; }
   .lot-head{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); padding:0 2px 4px; }
   .lot-row{ padding:4px 0; border-top:1px solid var(--border); }
-  .lot-row input{ min-width:0; width:100%; font-size:var(--fs-sm); padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+  /* Compact cells use the shared field skin and its --field-px variant. */
+  .lot-row input{ width:100%; }
   .lot-row input[type="number"]{ font-family:var(--font-num); text-align:right; }
   .lot-row .icon-btn{ width:32px; height:32px; }
   .lot-row .icon-btn[disabled]{ opacity:.35; cursor:not-allowed; }
@@ -157,9 +158,9 @@
   /* Annual tax statements (v3.22.0): one bordered card per year, the year select and delete in a
      head row, then the labelled fields on the shared edit grid. */
   .stmt-card{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 2px; margin-bottom:8px; }
-  .stmt-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+  .stmt-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:8px; margin-bottom:6px; }
   .stmt-card .m-edit-grid{ align-items:end; }
-  .stmt-head select{ font-size:var(--fs-sm); font-weight:600; font-family:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--border); border-radius:6px; padding:5px 6px; }
+  .stmt-head > .field{ flex:1; min-width:0; }
   .sale-list{ display:flex; flex-direction:column; gap:2px; margin-top:10px; }
   .sale-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:var(--fs-xs); padding:5px 2px; border-top:1px solid var(--border); }
   .sale-date{ font-family:var(--font-num); color: var(--ink-soft); flex:none; }

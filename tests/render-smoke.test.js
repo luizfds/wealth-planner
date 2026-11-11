@@ -689,7 +689,7 @@ import { lotsSectionHtml, lotsNoteText } from "../src/components/assets.js";
 test("the purchase lots section renders its rows and a used lot can't be deleted", function(){
   var item = { quantity: 100, lots: [{ id: "a", date: "2023-02-10", units: 100, price: 1.5, brokerage: 3, soldUnits: 40 }] };
   var html = lotsSectionHtml(item, 0);
-  assert.match(html, /class="lot-date"[^>]*value="2023-02-10"/);
+  assert.match(html, /class="lot-date field-control field-compact"[^>]*value="2023-02-10"/);
   assert.match(html, /data-lot-del="0:0"[^>]*disabled/);
   assert.match(html, /40 of 100 sold/);
   assert.match(lotsNoteText(item), /60 unsold units across 1 lot — the holding shows 100/);
@@ -702,7 +702,7 @@ import { statementsSectionHtml } from "../src/components/assets.js";
 test("the annual tax statements section renders each statement's labelled fields", function(){
   var html = statementsSectionHtml({ taxStatements: [{ fy: 2025, m20: 205.30, o20: 30.80, units: 210 }] }, 3);
   assert.match(html, /20M Other net foreign income/);
-  assert.match(html, /data-stmt-key="m20" value="205.3"/);
+  assert.match(html, /<input(?=[^>]*data-stmt-key="m20")(?=[^>]*value="205.3")[^>]*>/);
   assert.match(html, /data-stmt-del="3:0"/);
   assert.match(statementsSectionHtml({ taxStatements: [] }, 0), /\+ Add statement/);
 });
@@ -850,7 +850,7 @@ test("distributions received: rows, note and add button", async function(){
   const item = { what: "VAS", payouts: [{ date: "2026-01-15", cash: 120.5, credit: 51.64 }] };
   const html = payoutsSectionHtml(item, 3);
   assert.match(html, /Distributions received \(1\)/);
-  assert.match(html, /class="po-cash" data-payout-index="0" value="120.5"/);
+  assert.match(html, /class="po-cash field-control field-compact" data-payout-index="0" value="120.5"/);
   assert.match(html, /data-payout-del="3:0"/);
   assert.match(payoutsNoteText(item), /1 payment: \$120\.50 cash \+ \$51\.64 franking credits/);
   assert.match(payoutsSectionHtml({ payouts: [] }, 0), /Log each dividend/);
@@ -2408,4 +2408,21 @@ test('purchase funding retains empty guidance and adds all four values to phone 
     assert.match(empty,/Turn on the purchase calculator/);
     assert.doesNotMatch(empty,/data-funding-scenario|<table/);
   } finally {setState(keep);purchaseDisplay.scenario=selected;}
+});
+
+
+test('statement fields have holding-scoped linked labels, help and unique reserved errors', () => {
+  const st={fy:2025,units:100,m20:-100};
+  const html=statementsSectionHtml({id:'sample-a',taxStatements:[st,{...st,fy:2024}]},0)+statementsSectionHtml({id:'sample-b',taxStatements:[st]},0);
+  const ids=[...html.matchAll(/ id="([^"]+)"/g)].map(m=>m[1]);
+  assert.equal(new Set(ids).size,ids.length);
+  const controls=[...html.matchAll(/<(?:input|select)[^>]* id="([^"]+)"[^>]*>/g)];
+  assert.equal(controls.length,42);
+  for(const [,id] of controls){
+    assert.ok(html.includes('for="'+id+'"'));
+    assert.ok(html.includes('id="'+id+'-error"'));
+  }
+  assert.match(html,/field-help[^>]*>Spreads the AMIT adjustment/);
+  assert.doesNotMatch(html,/ title=/);
+  assert.match(html,/value="-100"/);
 });

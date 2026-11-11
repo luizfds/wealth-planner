@@ -1,4 +1,5 @@
 import { keepUi } from "../lib/keepui.js";
+import { fieldHtml } from "../lib/field.js";
 import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
 import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
@@ -138,10 +139,10 @@ export function lotsSectionHtml(item, idx){
     // alike; the help that was a title tooltip is the visible line under the grid (lotsHelp), and describes them.
     var n = " (lot " + (li + 1) + ")", soldId = "lot-" + idx + "-" + li + "-sold";
     return '<div class="lot-row" data-lot-index="' + li + '">' +
-      '<input type="date" class="lot-date" data-lot-index="' + li + '" value="' + escapeAttr(lot.date || "") + '" aria-label="Bought on' + n + '">' +
-      '<input type="number" step="any" min="' + sold + '" class="lot-units" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought' + n + '"' + (sold ? ' aria-describedby="' + soldId + '"' : '') + '>' +
-      '<input type="number" step="any" min="0" class="lot-price" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit' + n + '">' +
-      '<input type="number" step="0.01" min="0" class="lot-brokerage" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage' + n + '" aria-describedby="lots-help-' + idx + '">' +
+      '<input type="date" class="lot-date field-control field-compact" data-lot-index="' + li + '" value="' + escapeAttr(lot.date || "") + '" aria-label="Bought on' + n + '">' +
+      '<input type="number" step="any" min="' + sold + '" class="lot-units field-control field-compact" data-lot-index="' + li + '" value="' + (Number(lot.units) || 0) + '" aria-label="Units bought' + n + '"' + (sold ? ' aria-describedby="' + soldId + '"' : '') + '>' +
+      '<input type="number" step="any" min="0" class="lot-price field-control field-compact" data-lot-index="' + li + '" value="' + (Number(lot.price) || 0) + '" aria-label="Price per unit' + n + '">' +
+      '<input type="number" step="0.01" min="0" class="lot-brokerage field-control field-compact" data-lot-index="' + li + '" value="' + (Number(lot.brokerage) || 0) + '" aria-label="Brokerage' + n + '" aria-describedby="lots-help-' + idx + '">' +
       '<button type="button" class="icon-btn btn-danger" data-lot-del="' + idx + ':' + li + '" aria-label="Delete lot ' + (li + 1) + '"' + (sold ? ' disabled' : '') + '>✕</button>' +
       (sold ? '<span class="lot-sold" id="' + soldId + '">' + fmtQtyDisplay.format(sold) + ' of ' + fmtQtyDisplay.format(Number(lot.units) || 0) + ' sold — sales use this lot, so delete those first to remove it</span>' : '') +
     '</div>';
@@ -162,9 +163,9 @@ export function payoutsSectionHtml(item, idx){
   var rows = pays.map(function(p, pi){
     return '<div class="lot-row payout-row" data-payout-index="' + pi + '">' +
       // #261: as the lots — numbered in their names, the franking help visible under the grid.
-      '<input type="date" class="po-date" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on (payment ' + (pi + 1) + ')">' +
-      '<input type="number" step="0.01" min="0" class="po-cash" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received (payment ' + (pi + 1) + ')">' +
-      '<input type="number" step="0.01" min="0" class="po-credit" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit (payment ' + (pi + 1) + ')" aria-describedby="payouts-help-' + idx + '">' +
+      '<input type="date" class="po-date field-control field-compact" data-payout-index="' + pi + '" value="' + escapeAttr(p.date || "") + '" aria-label="Paid on (payment ' + (pi + 1) + ')">' +
+      '<input type="number" step="0.01" min="0" class="po-cash field-control field-compact" data-payout-index="' + pi + '" value="' + (Number(p.cash) || 0) + '" aria-label="Cash received (payment ' + (pi + 1) + ')">' +
+      '<input type="number" step="0.01" min="0" class="po-credit field-control field-compact" data-payout-index="' + pi + '" value="' + (Number(p.credit) || 0) + '" aria-label="Franking credit (payment ' + (pi + 1) + ')" aria-describedby="payouts-help-' + idx + '">' +
       '<button type="button" class="icon-btn btn-danger" data-payout-del="' + idx + ':' + pi + '" aria-label="Delete payment ' + (pi + 1) + '">✕</button>' +
     '</div>';
   }).join("");
@@ -207,15 +208,20 @@ export function statementsSectionHtml(item, idx){
     var years = [];
     for(var y = thisFy - 6; y <= thisFy; y++) years.push(y);
     if(years.indexOf(Number(st.fy)) === -1) years.unshift(Number(st.fy));
+    var key = encodeURIComponent('holding-statement:' + (item.id == null ? idx : item.id) + ':' + si);
+    function amountField(name, label, options){
+      return '<div class="m-edit-field' + (name === 'units' ? ' span2' : '') + '">' + fieldHtml(Object.assign({
+        id:'statement-' + key + '-' + name, label:label, type:'number', value:Number(st[name]) || 0,
+        className:'stmt-field', attrs:{step:'0.01','data-stmt-index':si,'data-stmt-key':name}
+      }, options || {})) + '</div>';
+    }
     return '<div class="stmt-card" data-stmt-index="' + si + '">' +
-      '<div class="stmt-head"><select class="stmt-fy" data-stmt-index="' + si + '" aria-label="Financial year">' +
-        years.map(function(y){ return '<option value="' + y + '"' + (Number(st.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
-      '</select>' +
+      '<div class="stmt-head">' + fieldHtml({id:'statement-' + key + '-fy', label:'Financial year', type:'select', value:Number(st.fy), className:'stmt-fy',
+        attrs:{'data-stmt-index':si}, options:years.map(function(y){ return {value:y,label:fyLabel(y)}; })}) +
       '<button type="button" class="icon-btn btn-danger" data-stmt-del="' + idx + ':' + si + '" aria-label="Delete the ' + fyLabel(Number(st.fy)) + ' statement">✕</button></div>' +
-      '<div class="m-edit-grid">' + STATEMENT_FIELDS.map(function(f){
-        return '<div class="m-edit-field"><label>' + f[1] + '</label><input type="number" step="0.01" class="stmt-field" data-stmt-index="' + si + '" data-stmt-key="' + f[0] + '" value="' + (Number(st[f[0]]) || 0) + '"></div>';
-      }).join("") +
-        '<div class="m-edit-field"><label>Units held at 30 June</label><input type="number" step="any" min="0" class="stmt-field" data-stmt-index="' + si + '" data-stmt-key="units" value="' + (Number(st.units) || 0) + '" title="Spreads the AMIT adjustment across the units, so a later sale adds the right amount per unit sold."></div>' +
+      '<div class="m-edit-grid">' + STATEMENT_FIELDS.map(function(f){ return amountField(f[0],f[1]); }).join('') +
+        amountField('units','Units held at 30 June',{attrs:{step:'any',min:0,'data-stmt-index':si,'data-stmt-key':'units'},
+          help:'Spreads the AMIT adjustment across the units, so a later sale adds the right amount per unit sold.'}) +
       '</div>' +
     '</div>';
   }).join("");

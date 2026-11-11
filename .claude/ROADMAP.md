@@ -4999,7 +4999,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      are covered alongside the remaining optional comparisons. Step 4 is complete.
 5. `[~]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
-   - Investment transaction fields (#254) in progress on `codex/investment-field-skin`: shared control skin
+   - Investment transaction fields (#254) implemented on `codex/investment-field-skin`, awaiting PR review: shared control skin
      for lots/distributions and shared labelled statement fields. Holdings/sale fields already use the adapter.
      Preserve all calculations and saves; use the existing 13px desktop standard and compact-cell variant.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.

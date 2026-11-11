@@ -176,6 +176,7 @@
     padding:var(--field-py) var(--field-px); border:1px solid var(--field-border); border-radius:var(--field-radius);
     background:var(--field-bg); color:var(--ink); font:inherit; font-size:var(--field-fs);
   }
+  .field-compact{ --field-px:4px; }
   textarea.field-control{ min-height:72px; line-height:1.45; }
   .field-control:hover:not(:disabled, [readonly]){ border-color:var(--field-border-hover); }
   .field-control:focus-visible{ border-color:var(--field-focus); outline:none; box-shadow:var(--focus-ring); }

@@ -1,6 +1,6 @@
 # Records before tools (#306, #259)
 
-Status: navigation choice agreed; shared navigation implementation in progress. Spending choice pending.
+Status: navigation choice implemented for review; Spending choice pending. List toolbars are the next PR.
 Roadmap: Simplify and finish, step 3; also #255 step 5.
 
 ## Proposed interaction
@@ -26,3 +26,19 @@ Implement in coherent PRs: shared responsive navigation first, then list toolbar
 - First records on Shares, Super, Spending and Property must begin above y=422 at 390×844 and y=400 at 1280×800. Add explicit first-record smoke checks using these half-screen thresholds.
 - Preserve every tool, selected destination, browser back/forward, saved Spending view and filtered deep link. Check touch and keyboard access, focus return and selected-state announcements.
 - Run unit/static checks, smoke, relevant journeys and accessibility scans. Check for local navigation overflow as well as document overflow.
+
+## Navigation measurements
+
+Chromium, synthetic demo household, 390px viewport. Widths are the content and the available space within each rail.
+
+| Control | Before | After |
+|---|---|---|
+| Investments sections | 486px in 358px | Picker, 358px in 358px |
+| Shares price range | 374px in 322px | Picker, 322px in 322px |
+| Property sections | 450px in 309px | Picker, 309px in 309px |
+
+At 320px the same controls fit their available space; at 1280px they retain tabs. Before/after screenshots captured
+at 320, 390 and 1280px in both themes. The smoke run now checks local navigation overflow, not just document overflow.
+The section-picker journey covers keyboard selection, Back, resize, property panels and focus after a range redraw.
+Testing found that Offsets had no URL slug: it displayed but wrote `/assets/summary`. It now uses `/assets/offsets`
+so restoring history selects the same section.

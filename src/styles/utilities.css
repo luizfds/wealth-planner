@@ -30,3 +30,6 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 /* #263: every field that doesn't read shows it the same way, whichever family styles it — here in the utilities layer
    so it wins over a page's own border (and its focus border). The message is .field-error (base.css). */
 :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--bad-ink); }
+/* #259: this layer follows every page's segmented-control display rules. */
+.has-section-picker > button{ display:none; }
+.has-section-picker > .section-picker{ flex:1 0 0; }

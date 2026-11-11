@@ -86,8 +86,8 @@ var BASE_PATH = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner
 export function appAssetUrl(file){
   return BASE_PATH + "/" + file;
 }
-var ASSETS_SUB_TO_SLUG = { summary: "summary", Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other" };
-var SLUG_TO_ASSETS_SUB = { summary: "summary", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other" };
+var ASSETS_SUB_TO_SLUG = { summary: "summary", Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other", Offsets: "offsets" };
+var SLUG_TO_ASSETS_SUB = { summary: "summary", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other", offsets: "Offsets" };
 var currentAssetsSub = "summary";
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these

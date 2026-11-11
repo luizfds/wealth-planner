@@ -93,6 +93,10 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // invisible ::before catch area the phone CSS gives a small mark. Inline links in a sentence are
         // exempt (WCAG 2.5.8), and so is anything inside a closed row's editor (not on screen).
         const small = [];
+        // #259: document overflow alone misses sideways navigation inside a rail.
+        const navigationOverflow = [...pageEl.querySelectorAll('.subnav, .time-range-control')]
+          .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1)
+          .map(el => el.getAttribute('aria-label') || el.id);
         if(w < 880){
           const roots = [pageEl, document.querySelector(".app-topbar"), document.querySelector(".mobile-tabbar, .mobile-tabs")].filter(Boolean);
           roots.forEach(root => root.querySelectorAll('button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [tabindex="0"]').forEach(el => {
@@ -139,10 +143,11 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";
         if(!notices && line && !line.hidden && !pageEl.contains(line)) notices = "the notices line is on another page";
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, fab, primaries, about, wording: [...new Set(wording)], notices };
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, navigationOverflow, fab, primaries, about, wording: [...new Set(wording)], notices };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
+      if(r.navigationOverflow.length) failures.push(where + ": sideways navigation: " + r.navigationOverflow.join(', '));
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
       if(r.zeroBars.length) failures.push(where + ": bars that don't draw: " + [...new Set(r.zeroBars)].join(", "));
       if(r.fab) failures.push(where + ": " + r.fab);
@@ -211,14 +216,18 @@ if(!SHOTS){
   const r = await page.evaluate(async () => {
     const wait = ms => new Promise(res => setTimeout(res, ms));
     const out = [], go = p => { document.querySelector('[data-page="' + p + '"]').click(); return wait(500); };
-    const visible = sel => [...document.querySelectorAll(sel)].some(e => e.getClientRects().length);
+    const available = sel => [...document.querySelectorAll(sel)].some(e => {
+      if(e.getClientRects().length) return true;
+      const picker = e.parentElement.querySelector('select.section-picker');
+      return picker && picker.getClientRects().length && [...picker.options].some(o => o.textContent === e.textContent.trim());
+    });
     const page = () => document.querySelector(".app-page:not([hidden])");
     const checkPage = name => { const t = page().innerText; ["NaN", "undefined", "[object Object]"].forEach(b => { if(t.includes(b)) out.push(name + " shows " + b); }); if(document.documentElement.scrollWidth > 390) out.push(name + " scrolls sideways"); };
     for(const p of ["dashboard", "expenses", "tax", "plan"]){ await go(p); checkPage(p); }
     await go("networth"); checkPage("networth");
-    if(visible('.nw-rail-item[data-page="properties"]')) out.push("the Property tab shows with no property");
+    if(available('.nw-rail-item[data-page="properties"]')) out.push("the Property tab shows with no property");
     await go("assets");
-    if(visible('[data-assets-sub="Shares"]')) out.push("the Shares tab shows with no shares");
+    if(available('[data-assets-sub="Shares"]')) out.push("the Shares tab shows with no shares");
     await go("reports"); checkPage("reports");
     if(/Property P&L|Capital gains/.test(page().innerText)) out.push("property or share reports offered");
     document.querySelector('[data-page="dashboard"]').click(); await wait(400);
@@ -230,7 +239,7 @@ if(!SHOTS){
     const add = document.querySelector('[data-part-show="property"]');
     if(!add) out.push("no way back in from Net worth"); else { add.click(); await wait(700);
       if(document.body.getAttribute("data-current-page") !== "properties") out.push("Add a property didn't open Property");
-      if(!visible('.nw-rail-item[data-page="properties"]')) out.push("the Property tab stayed hidden after Add a property"); }
+      if(!available('.nw-rail-item[data-page="properties"]')) out.push("Property stayed unavailable after Add a property"); }
     return out;
   });
   r.forEach(f => failures.push(where + ": " + f));

@@ -411,10 +411,60 @@ const JOURNEYS = {
     check(await home.locator('.adv-panel > .adv-list [data-adv-id="wants"]').count() === 1, 'a notice whose figures changed since it was dismissed stays hidden');
     check(await home.locator('[data-adv-away]').count() === 0, 'a stale dismissal is counted as put away');
   },
+  // #259: real picker interaction, current state, history, redraw and resize.
+  async sectionpickers(page){
+    await quiet(page);
+    for(const width of [320, 390]){
+      await page.setViewportSize({ width, height: 844 });
+      await go(page, "assets", "data-assets-sub", "Shares");
+      const picker = page.locator('#assetsSubnav > select');
+      await picker.waitFor({ state: "visible" });
+      check(await picker.locator('option:checked').textContent() === "Shares", "deep-linked Shares is not the selected section");
+      check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
+      check(await page.locator('.investments-back').isVisible(), "Investments has no Net worth back link");
+      const range = page.locator('#sharesChangeWindow > select');
+      await range.focus();
+      await range.selectOption({ index: 1 });
+      await page.waitForFunction(() => {
+        const picker = document.querySelector('#sharesChangeWindow > select');
+        return picker && picker.value === '1' && document.activeElement === picker;
+      });
+      await picker.focus();
+      await page.keyboard.press('End');
+      await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
+      check(await picker.locator('option:checked').textContent() === "Offsets", "keyboard choice did not select Offsets");
+      await picker.selectOption({ label: "Super" });
+      await page.waitForFunction(() => !document.getElementById('assetsSub-Super').hidden);
+      await page.goBack();
+      await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
+      await settle(page);
+      check(await picker.locator('option:checked').textContent() === "Offsets", "Back did not restore the picker selection");
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await picker.waitFor({ state: "hidden" });
+      check(await page.locator('#assetsSubnav [data-assets-sub="Offsets"]').isVisible(), "desktop did not restore tabs");
+      await page.setViewportSize({ width, height: 844 });
+      await go(page, "properties");
+      const prop = page.locator('#propertiesBody .prop-tabs').first();
+      const pp = prop.locator('select');
+      await pp.waitFor({ state: 'visible' });
+      await pp.selectOption({ index: 1 });
+      await settle(page);
+      check(await prop.evaluate(el => {
+        const selected = el.querySelector('[aria-selected="true"]');
+        return el.getAttribute('role') === 'group' && selected && !document.getElementById(selected.getAttribute('aria-controls')).hidden &&
+          el.querySelector('select').selectedOptions[0].textContent === selected.textContent.trim();
+      }), "property picker and panel disagree");
+      const overflow = await page.evaluate(() => [...document.querySelectorAll('.app-page:not([hidden]) .subnav, .app-page:not([hidden]) .time-range-control')]
+        .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1).map(el => el.getAttribute('aria-label')));
+      check(!overflow.length, "sideways navigation remains: " + overflow.join(', '));
+    }
+  },
   // #262: tabs and choosers by keyboard — a property card's tabs are ARIA tabs that work as tabs; Reports' picker is a
   // chooser that keeps focus when it redraws; page subtabs say which one is showing.
   async tabkeys(page){
     await quiet(page);
+    // Tabs remain tabs when they fit; the narrow-screen picker has its own journey below.
+    await page.setViewportSize({ width: 1280, height: 800 });
     // Property tabs.
     await go(page, "properties");
     const list = '#propertiesBody [role="tablist"]';

@@ -197,3 +197,25 @@ Full-document accessibility adds Cash/Super/Vehicle pages and five expanded/comp
 
 Holdings/lots, debt/offset forms and other families remain separate migrations. Actual screen-reader and physical-device
 verification remains the pending manual task above.
+
+## Step 5: investment transaction field skin (#254)
+
+In progress on `codex/investment-field-skin`. Reuse the shipped field contract: 13px desktop text,
+6px radius, 36px desktop height, shared hover/focus/error/disabled/read-only states. Lots and distribution
+rows use the documented compact-cell variant with 4px horizontal padding; standard statement fields use
+8px. Preserve the existing 44px phone/touch floors and 16px touch text-entry typography.
+
+The main holding and Record sale controls already use the shared adapter; verify them rather than rebuilding.
+Migrate purchase lots, distributions and annual statements as one family. Retain selector hooks, constraints,
+blank/zero/negative policies, sold-lot protection, saved data and financial calculations. Statement fields get
+stable holding/statement-scoped ids, linked labels and reserved errors; units-at-year-end help becomes visible
+and described. Keep compact row names and existing brokerage/franking/sold-unit descriptions.
+
+Inventory for this PR: lot date/units/price/brokerage (compact); distribution date/cash/franking (compact);
+statement financial year and the 12 statement amounts plus units held (standard). Existing holding/sale
+fields are shared already. Debt/offset, Tax, calculators, setup and remaining fallback families follow separately.
+
+Measure before/after and inspect normal/expanded/error states at 320/390/768/1024/1280px, both themes,
+including coarse-pointer tablet emulation. Verify actual saves, rejection of blank/invalid amounts, labels,
+focus, lot add/delete/protection, statement years, CSS tokens and unique described/error ids. Run the
+existing holding/validation journeys, page smoke and accessibility checks. No new stored fields or maths.

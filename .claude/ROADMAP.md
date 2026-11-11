@@ -4983,7 +4983,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      contributions and property charts. Implementation on `codex/records-before-tools-toolbars`; the smoke run now
      enforces the first record's top-half position at 390×844 and 1280×800. Measurements and accessibility coverage
      (including existing Shares findings) are in `docs/design/records-before-tools.md`.
-4. `[~]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
+4. `[x]` **Reading on a phone.** Shipped through v3.251.0 (PR #326). Issue #260 (report picker), then #258 (summaries instead of wide tables).
    - Report picker shipped v3.247.0 (PR #322). Design: `docs/design/report-picker.md`.
      The selected report leads; a searchable grouped chooser replaces the catalogue. Pins keep their saved frames.
    - Shared Reports summaries shipped v3.248.0 (PR #323); owner approved compact rows,
@@ -4994,11 +4994,14 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      pattern: one scenario selected, funding/monthly outcomes first, Details and optional Full table.
    - Projection tables shipped v3.250.0 (PR #325): one selected scenario, current/final
      net worth and loans gone first, intermediate years and milestones in Details; optional complete tables.
-   - Final #258 surfaces implemented on `codex/mobile-comparison-finish`, awaiting PR review: month-by-month spending numbers
+   - Final #258 surfaces shipped v3.251.0 (PR #326): month-by-month spending numbers
      and scenario purchase-funding summaries. Existing spending bar strips and report heatmap summaries
-     are covered alongside the remaining optional comparisons. This completes step 4 on merge.
-5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
+     are covered alongside the remaining optional comparisons. Step 4 is complete.
+5. `[~]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
+   - Investment transaction fields (#254) in progress on `codex/investment-field-skin`: shared control skin
+     for lots/distributions and shared labelled statement fields. Holdings/sale fields already use the adapter.
+     Preserve all calculations and saves; use the existing 13px desktop standard and compact-cell variant.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

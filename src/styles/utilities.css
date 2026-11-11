@@ -55,6 +55,8 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .record-search-row input{ width:100%; }
 .record-filter-panel[hidden], .record-tool-panel[hidden], .record-search-row[hidden]{ display:none; }
 .record-list .cf-filters{ margin-bottom:8px; }
+/* Leave room for fallback-font metrics: wrapping the count adds a row above the records. */
+.record-list .cf-totals{ gap:6px; }
 .record-list .record-toolbar{ padding-left:0; padding-right:0; }
 #assetsSub-Shares .record-toolbar, #assetsSub-Super .record-toolbar{ padding-left:var(--card-px); padding-right:var(--card-px); }
 #page-assets:has(#assetsSub-Shares:not([hidden]), #assetsSub-Super:not([hidden])) > #assetsPersonFilter{ display:none; }

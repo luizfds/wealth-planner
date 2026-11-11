@@ -2,7 +2,7 @@
 
 Roadmap step 4 starts with this picker; mobile report summaries (#258) follow in separate work.
 
-## Interaction (implemented; awaiting PR review)
+## Interaction (shipped v3.247.0, PR #322)
 
 - Reports opens on the selected report, its existing period/comparison/group controls and results.
 - One “Choose report” button opens the same searchable, grouped chooser on phone and desktop.

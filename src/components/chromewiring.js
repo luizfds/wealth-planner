@@ -373,12 +373,16 @@ export function wirePullToRefresh(){
         .then(function(){ busy = false; hide(); });
     });
   })();
+  // data-wp-settled (beside data-wp-ready): the startup reads below have all finished, whether or not they found
+  // anything. Until then a price or the cash rate can still land and save. The journeys wait for it (#267) —
+  // "no network for half a second" turned out not to mean the same thing, and sometimes never came.
+  var settled = function(){ document.documentElement.setAttribute("data-wp-settled", ""); };
   setTimeout(function(){ (typeof initialSync !== "undefined" ? initialSync : Promise.resolve()).then(function(){
     var first = autoPricesNeeded() && state.assets.some(function(a){ return a.category === "Shares" && a.symbol; }) ? readAutoPricesNow(false) : Promise.resolve();
-    first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); })
+    return first.then(function(){ if(priceSheetDue()) return readPriceSheetNow(false); })
       // Item 249: the RBA cash rate, once a day, from this site's file.
       .then(function(){ if(cashRateDue()) return readCashRateNow().then(function(news){ if(news) renderNotifBadge(); }); });
-  }); }, 800);
+  }).catch(function(){}).then(settled); }, 800);
 }
 
 export function wirePeriod(){

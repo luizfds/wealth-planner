@@ -1,6 +1,7 @@
 // Journeys and a speed budget (v3.203.1, item 234). The smoke script proves every page renders; this proves
 // the things people do work, end to end, in a real browser at a phone's width, on invented data:
 //
+//   replacedhousehold — the household replaced a tick after the scenario cards are drawn: nothing throws (#267)
 //   dismissnotice — put an observation away from the bell, bring it back on Insights, and see it return by itself (#305)
 //   bills       — confirm the bills that fell due; each becomes a logged payment
 //   transfer    — save a transfer that moves both balances, then Undo puts them back
@@ -82,6 +83,7 @@ const base = "http://127.0.0.1:" + server.address().port;
 const TODAY = "2026-11-03T10:00:00";
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
 const failures = [];
+const STRESS_CPU = Number(process.env.JOURNEY_CPU) || 0;
 
 function check(ok, what){ if(!ok) throw new Error(what); }
 // A fresh phone-sized page on the sample household (or `stored`, a state to start from), the clock fixed.
@@ -111,20 +113,39 @@ async function fresh(opts){
   page.on("pageerror", e => errors.push("page error: " + e.message));
   page.on("console", m => { if(m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
   if(opts.cpu){ const cdp = await ctx.newCDPSession(page); await cdp.send("Emulation.setCPUThrottlingRate", { rate: opts.cpu }); }
+  // JOURNEY_CPU=6 slows every journey's page six times, the fixed clock kept — a slow CI runner on demand, for
+  // finding the step a journey's timing depends on (#267). Off by default.
+  else if(STRESS_CPU){ const cdp = await ctx.newCDPSession(page); await cdp.send("Emulation.setCPUThrottlingRate", { rate: STRESS_CPU }); }
+  nameWaits(page);
   await page.goto(base + "/index.html" + (opts.query || (opts.stored ? "" : "?mock=1")));
   await page.waitForFunction(() => document.documentElement.hasAttribute("data-wp-ready") && document.querySelector(".app-page:not([hidden])"), null, { timeout: 60000 });
+  // A journey starts once the app's startup reads (prices, the cash rate) are done, so none lands halfway through
+  // it. The speed budget measures startup itself, so it doesn't wait.
+  if(!opts.cpu) await waited(page, () => document.documentElement.hasAttribute("data-wp-settled"), "the app's startup reads to finish");
   await page.waitForTimeout(300);
   return { ctx, page, errors };
+}
+// A wait that times out says what it was waiting for. Playwright's own message is "Timeout 30000ms exceeded" and
+// nothing else — all the datasafety failure on PR #318 said, with five waits it could have been.
+function nameWaits(page){
+  const wf = page.waitForFunction.bind(page);
+  page.waitForFunction = (fn, arg, options) => wf(fn, arg, options).catch(e => {
+    e.message = String(e.message).split("\n")[0] + " — waiting for: " + String(fn).replace(/\s+/g, " ").slice(0, 220);
+    throw e;
+  });
+  return page;
 }
 const st = (page, expr) => page.evaluate(new Function("return import('/src/state.js').then(function(m){ var state = m.state; return (" + expr + "); })"));
 // #269: what's in storage, as opposed to the tab's own copy; a second tab on the same household, settled (its own
 // startup and refreshes done); a save made in a tab; a budget line's name typed in its editor, left or not.
 const stored = (page, expr) => page.evaluate(new Function("var state = JSON.parse(localStorage.getItem('wealthPlanner.v1')); return (" + expr + ");"));
 async function secondTab(page){
-  const other = await page.context().newPage();
+  const other = nameWaits(await page.context().newPage());
   await other.goto(base + "/index.html");
-  await other.waitForFunction(() => document.documentElement.hasAttribute("data-wp-ready"));
-  await other.waitForLoadState("networkidle"); await other.waitForTimeout(1500);
+  // Its startup and its reads done, by the app's own word. (This waited on Playwright's "networkidle", which three
+  // times in some 150 runs never arrived: 249 requests made, none in flight, thirty seconds, time out.)
+  await ready(other, "the second tab");
+  await settle(other);
   return other;
 }
 const saveIn = (page, amount) => page.evaluate(async a => { const m = await import("/src/state.js"); m.state.shared[0].amount = a; m.commit(["shared"]); }, amount);
@@ -156,19 +177,18 @@ async function settle(page){
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.waitForTimeout(150);
 }
-// The page at rest before a step reads a saved figure to compare against later. "networkidle" alone isn't that: the
-// day's price read starts 800ms after startup and, when it lands, legitimately changes a holding's saved price — a
-// journey that had already read its "before" then saw "a negative price saved 113.35" (PR #317, the price file's
-// figure, not the -3 it typed). So wait until the app has no price read left to do, then let it draw.
+// The page at rest before a step reads a saved figure to compare against later: the app's startup reads are done
+// (data-wp-settled), then a frame for what they drew. The day's price read starts 800ms after startup and, when it
+// lands, legitimately changes a holding's saved price — a journey that had already read its "before" then saw "a
+// negative price saved 113.35" (PR #317: the price file's figure, not the -3 it typed).
 async function quiet(page){
-  await page.waitForLoadState("networkidle");
-  await eventually(() => page.evaluate(async () => {
-    const s = (await import("/src/state.js")).state, a = await import("/src/components/autoprices.js");
-    return !s.assets.some(x => x.category === "Shares" && x.symbol) || !a.autoPricesNeeded();
-  }));
-  await page.waitForLoadState("networkidle");
+  await ready(page, "the app at rest");
   await settle(page);
 }
+// A wait named for what the step needs, rather than for its code (nameWaits does that for the rest).
+const waited = (page, fn, what, arg) => page.waitForFunction(fn, arg, { timeout: 30000 }).catch(e => { throw new Error("timed out waiting for " + what + " (" + String(e.message).split("\n")[0] + ")"); });
+// The app loaded and its startup reads finished — after a load, a reload, or in a tab just opened.
+const ready = (page, what) => waited(page, () => document.documentElement.hasAttribute("data-wp-ready") && document.documentElement.hasAttribute("data-wp-settled"), what);
 // Until fn (run in the page, with arg) is true, up to 10s. It doesn't fail by itself: the step's own check after it
 // says what was wrong.
 const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
@@ -182,6 +202,18 @@ async function go(page, pageId, subAttr, sub){
     [pageId, subAttr, sub], { timeout: 10000 });
   await settle(page);
 }
+// "Guided setup", and if the click can't land, what was in its way. On PR #311 it timed out behind setup's own
+// backdrop, and the log couldn't say whether setup was already open or hadn't finished closing (#282).
+async function openSetup(page){
+  await page.locator('#dashboardSetup [data-firstrun-open]').click().catch(async e => {
+    const seen = await page.evaluate(() => { const d = document.querySelector('#firstRunRoot [role="dialog"]');
+      return "setup dialog " + (d ? "open (" + ((d.innerText.match(/Step \d of \d/) || ["no step shown"])[0]) + ")" : "not open") +
+        "; backdrop " + (document.querySelector("#firstRunRoot .review-backdrop") ? "present" : "gone") +
+        "; history.state " + JSON.stringify(history.state) + "; page " + document.body.getAttribute("data-current-page") +
+        "; focus " + (document.activeElement ? document.activeElement.tagName + (document.activeElement.id ? "#" + document.activeElement.id : "") : "none"); }).catch(() => "page not readable");
+    throw new Error("Guided setup could not be clicked — " + seen + " — " + String(e.message).split("\n")[0]);
+  });
+}
 // Clicks the first match, once there is one (up to 10s) — a step's target can arrive after a redraw.
 const click = async (page, sel) => {
   await page.waitForSelector(sel, { state: "attached", timeout: 10000 }).catch(() => {});
@@ -189,15 +221,24 @@ const click = async (page, sel) => {
 };
 
 // App questions are asynchronous DOM dialogs. Drive their controls rather than bypassing approval.
+let dialogSeq = 0;
 async function answerDialog(page, accept, value){
   const dialog = page.locator('.app-dialog');
   await dialog.waitFor({state:'visible'});
+  // This dialog, not "a dialog": when one question follows another (a passphrase, then a confirmation) the next is
+  // on screen before a wait for '.app-dialog' to go can look, and it waited out thirty seconds on the wrong one
+  // (taximporterrors, under load — #267). So the one being answered is tagged, and the wait is for the tag to go:
+  // true when it closes, and when its answer reloads the page ("Reload latest").
+  const tag = "d" + (++dialogSeq);
+  await dialog.evaluate((d, t) => d.setAttribute("data-journey-dialog", t), tag);
+  const self = page.locator('.app-dialog[data-journey-dialog="' + tag + '"]');
   if(value !== undefined){
-    await dialog.locator('#appDialogInput').fill(value);
-    if(await dialog.locator('#appDialogRepeat').count()) await dialog.locator('#appDialogRepeat').fill(value);
+    await self.locator('#appDialogInput').fill(value);
+    if(await self.locator('#appDialogRepeat').count()) await self.locator('#appDialogRepeat').fill(value);
   }
-  await dialog.locator(accept ? '[data-dialog-submit]' : '[data-dialog-cancel]').click();
-  await dialog.waitFor({state:'detached'});
+  await self.locator(accept ? '[data-dialog-submit]' : '[data-dialog-cancel]').click();
+  await page.waitForFunction(t => !document.querySelector('.app-dialog[data-journey-dialog="' + t + '"]'), tag, { timeout: 30000 })
+    .catch(e => { if(/Timeout/.test(String(e.message))) throw new Error("the app dialog did not close after " + (accept ? "accepting" : "cancelling") + " it"); });
 }
 async function runBackup(page, action, value){
   await page.evaluate(async action => {
@@ -313,6 +354,20 @@ const JOURNEYS = {
     check(await page.evaluate(n => { const pg = document.querySelector(".app-page:not([hidden])"); return pg.innerText.includes(n) || [...pg.querySelectorAll("input")].some(i => i.value === n); }, longName),
       "the scenario page opened isn't the one tapped");
   },
+  // #267: the scenario cards' break-even figures are filled a tick after the cards are drawn. Replace the household
+  // inside that tick (a reset, an import, another tab's save) and the cards still on screen name scenarios that are
+  // gone: it threw "Cannot read properties of undefined (reading 'reduce')". A page error fails the journey.
+  async replacedhousehold(page){
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    check(await page.locator("#cards [data-card-breakeven]").count() > 0, "the demo household has no buying scenario to fill");
+    await page.evaluate(async () => {
+      const s = await import("/src/state.js"), d = await import("/src/components/dashboard.js");
+      d.renderCards();                    // queues the fill for the next tick…
+      s.setState(s.defaultState());       // …and the household is replaced before it runs
+      await new Promise(r => setTimeout(r, 50));
+    });
+    await settle(page);
+  },
   // #305: an observation put away from the bell is saved, leaves the bell, its page's line and Insights' list, and
   // sits in Insights' "Put away" fold; a Watch can't be put away; it comes back when brought back, and by itself
   // once its title is no longer the one that was dismissed (its figures moved).
@@ -329,6 +384,7 @@ const JOURNEYS = {
     check(await stored(page, 'state.noticesDismissed.wants') === title, 'the dismissal was not saved with its title');
     await page.keyboard.press('Escape');
     await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await until(page, () => { const l = document.getElementById('attentionLine'); return !l || l.hidden || !/Wants were/.test(l.innerText); });
     check(await page.evaluate(() => { const l = document.getElementById('attentionLine'); return !l || l.hidden || !/Wants were/.test(l.innerText); }), 'the dismissed notice is still on Budget\'s line');
     await go(page, 'dashboard', 'data-dashboard-sub', 'insights');
     const home = page.locator('#adviceHome');
@@ -1576,7 +1632,7 @@ const JOURNEYS = {
     await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 147; m.commit(['shared']); });
     // A real reload: waiting on data-wp-ready alone could pass on the old page before the new one loads (#269).
     await page.reload();
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await ready(page, 'the app after a reload');
     check(await st(page, 'state.shared[0].amount') === 147, 'reload lost the last edit');
     check(await stored(page, 'state.shared[0].amount') === 147, 'reload lost the last edit from storage');
     const other = await secondTab(page);
@@ -1585,7 +1641,7 @@ const JOURNEYS = {
     const typedAt = await typeBalance(page, 4321);
     await saveIn(other, 320);
     check(await stored(other, 'state.shared[0].amount') === 320, 'the newer tab did not save');
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount === 320); // propagation between tabs
+    await waited(page, () => JSON.parse(localStorage.getItem('wealthPlanner.v1')).shared[0].amount === 320, "the other tab's save to reach this tab's storage");
     await page.locator('#storageConflict[data-kind="updated"]').waitFor();
     check(await page.inputValue(typedAt) === '4321', 'another tab\'s save replaced the typing in progress');
     check(await st(page, 'state.shared[0].amount') === 147, 'another tab\'s save was taken over work in progress');
@@ -1603,17 +1659,17 @@ const JOURNEYS = {
     check(await st(page, 'state.shared[0].amount') === 280, 'cancelled reload discarded the recoverable copy');
     await page.locator('[data-storage-reload]').click();
     await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}), answerDialog(page, true)]);
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await ready(page, 'the app after Reload latest');
     check(await st(page, 'state.shared[0].amount') === 320, 'Reload latest did not adopt the saved household');
     await page.goto(base + '/index.html?mock=1');
     await page.locator('.app-dialog').waitFor();
     check(await page.locator('#appLoading:not(.is-hidden)').count()===0,'sample question blocked bootstrap completion');
     await answerDialog(page, false);
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await ready(page, 'the app after declining sample data');
     check(await st(page, 'state.shared[0].amount') === 320, 'declining sample data replaced the household');
     await page.goto(base + '/index.html?mock=1');
     await answerDialog(page, true);
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
+    await ready(page, 'the app after accepting sample data');
     check(await st(page, 'state.shared[0].amount') !== 320, 'accepted sample replacement did not run');
     check(!await page.locator('#firstRunRoot [role="dialog"]').count(), 'sample household opened the empty setup wizard');
     const protectedSections = await page.evaluate(async()=>{
@@ -1807,7 +1863,7 @@ const JOURNEYS = {
       const r = await import('/src/components/redraw.js'); r.renderAll();
     });
     await go(page, 'dashboard');
-    await page.locator('#dashboardSetup [data-firstrun-open]').click();
+    await openSetup(page);
     const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
     check((await dialog.innerText()).includes('Step 1 of 5'), 'setup has no readable progress');
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
@@ -1815,7 +1871,7 @@ const JOURNEYS = {
     check((await dialog.innerText()).includes('Step 2 of 5'), 'setup did not advance');
     await dialog.locator('[data-fr-close]').click();
     check(await st(page, 'state.income.length') === 0, 'cancelling setup saved an incomplete draft');
-    await page.locator('#dashboardSetup [data-firstrun-open]').click();
+    await openSetup(page);
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
     await dialog.locator('[data-fr-next]').click();
     await dialog.locator('[data-fr-next]').click();
@@ -2067,6 +2123,8 @@ const JOURNEYS = {
     check(picks.length > 0, "no loans offered for the rate change");
     await page.fill("#cashRateRoot [data-cr-date]", "2026-11-20");
     await click(page, "#cashRateRoot [data-cr-record]"); await until(page, () => !document.querySelector("#cashRateRoot [data-cr-record]"));
+    // The page's line is redrawn after the save, not inside it (as the bell's badge is), so wait for it to catch up.
+    await until(page, () => !/cash rate/.test((document.getElementById("attentionLine") || {}).innerText || ""));
     const r = await page.evaluate(async (key) => {
       const s = (await import("/src/state.js")).state, P = await import("/src/calc/property.js");
       const [pid, i] = key.split(":"), l = s.properties.find(p => p.id === pid).loans[Number(i)];

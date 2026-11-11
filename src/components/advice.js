@@ -1,7 +1,6 @@
-import { adviceFor } from "../calc/advice.js";
 import { state } from "../state.js";
 import { partAllows } from "../calc/parts.js";
-import { canDismiss, isDismissed } from "../lib/attention.js";
+import { canDismiss, isDismissed, adviceNow } from "../lib/attention.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { askClaudeHtml } from "./askclaude.js";
@@ -13,8 +12,7 @@ export var adviceUi = { open: {}, goodOpen: false, awayOpen: false };
 
 export function renderAdvice(){
   if(typeof document === "undefined") return;
-  var items;
-  try { items = adviceFor({ today: localDateStr() }); } catch(e){ items = []; }
+  var items = adviceNow(localDateStr());
   items = items.filter(function(a){ return partAllows(a.id, state); });
   var home = document.getElementById("adviceHome");
   if(home) home.innerHTML = adviceHomeHtml(items);

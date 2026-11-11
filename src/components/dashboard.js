@@ -58,6 +58,10 @@ function fillBreakEvensSoon(){
     var baseKey = JSON.stringify([state.projection, scenarioTotals(base).netMonthly, totalNetWorthValue(), state.cashRate && state.cashRate.rate]);
     document.querySelectorAll("#cards [data-card-breakeven]").forEach(function(el){
       var sc = el.getAttribute("data-card-breakeven");
+      // This runs a tick after the cards were drawn. If the household was replaced in between (reset, an import,
+      // sample data, another tab's save) the cards still on screen name scenarios that are gone, and
+      // scenarioTotals() threw on one — found by the keyboardaudit journey on a slowed CPU (#267).
+      if((state.scenarios || []).indexOf(sc) === -1 || !state.home[sc]) return;
       var key = baseKey + JSON.stringify([state.purchase[sc], effectiveChanges(sc), scenarioTotals(sc).netMonthly]);
       var b = el.querySelector("b");
       if(b) b.textContent = breakEvenText(breakEvenGrowthCached(sc, 10, key)) || "—";

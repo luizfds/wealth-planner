@@ -171,7 +171,9 @@ function defineViews(){
   defineView("goalsFire", ["plan"], function(){ var goalsFire = document.getElementById("goalsFireBody"); if(goalsFire) goalsFire.innerHTML = goalsFireHtml(); }, ["*"]);
   defineView("advice", ["dashboard", "plan", "expenses", "tax"], renderAdvice, ["*"]);
   // #305: a page's one line of notices follows the same figures, on every page that can carry one.
-  defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"]);
+  // Drawn after the save, like the bell's badge: it reads every notification and all the advice, and doing that
+  // inside each save took saving a transfer from about 225ms to over 400ms on the speed budget's slowed CPU (#267).
+  defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"], { later: true });
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);

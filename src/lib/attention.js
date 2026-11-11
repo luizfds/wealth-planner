@@ -13,6 +13,21 @@ import { state } from "../state.js";
 import { localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
+// The observations, worked out once per pass. One save redraws Insights, a page's line and the bell's badge, and
+// each asked calc/advice.js afresh — the scenario comparisons three times over. The speed budget's transfer step
+// went from about 40% of a full redraw to 57% (its limit is 60%) when the line was added. The answer is kept for
+// the rest of the current task and dropped before the next, so nothing reads a stale one.
+var adviceMemo = null;
+export function adviceNow(today){
+  var day = today || localDateStr();
+  if(adviceMemo && adviceMemo.day === day) return adviceMemo.items;
+  var items;
+  try { items = adviceFor({ today: day }); } catch(e){ items = []; }
+  adviceMemo = { day: day, items: items };
+  if(typeof setTimeout === "function") setTimeout(function(){ adviceMemo = null; }, 0);
+  return items;
+}
+
 // One vocabulary. In the To do group an item is Urgent when it is overdue or days from its date (severity
 // "bad"), a To do when it is waiting on you ("warn"), and a Reminder when it is only telling you ("info": the
 // week's recap, a rate change recorded, a return that isn't due for months).
@@ -29,8 +44,7 @@ export function todoItems(){
   });
 }
 export function knowItems(today){
-  var items;
-  try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
+  var items = adviceNow(today);
   var order = { risk: 0, opportunity: 1, info: 2 };
   return items.filter(function(a){ return a.kind !== "good" && partAllows(a.id, state) && !isDismissed(a); })
     .map(function(a, i){ return Object.assign({}, a, { group: "know", tone: a.kind, label: ATTENTION_LABEL[a.kind], i: i }); })
@@ -46,15 +60,13 @@ export function isDismissed(a, st){
 }
 // What is put away right now, for Insights' "put away" fold.
 export function dismissedItems(today){
-  var items;
-  try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
+  var items = adviceNow(today);
   return items.filter(function(a){ return partAllows(a.id, state) && isDismissed(a); });
 }
 // The edit itself: the caller saves it with commit(["noticesDismissed"]). Entries for notices no longer raised,
 // or whose title has moved on, are dropped as it goes.
 export function setNoticeDismissed(id, on, today){
-  var items;
-  try { items = adviceFor({ today: today || localDateStr() }); } catch(e){ items = []; }
+  var items = adviceNow(today);
   var byId = {};
   items.forEach(function(a){ byId[a.id] = a; });
   var d = state.noticesDismissed;   // always an object: defaultState() and migration step 27

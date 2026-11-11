@@ -11,7 +11,7 @@ import { persist, commit } from "../state.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./monthdetail.js";
 import { renderMonthReview } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showTaxSubpage } from "./nav.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport } from "./reports.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay } from "./reports.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { printStatic } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -75,6 +75,15 @@ export function wireReports(){
   // ---------------- Reports (v3.62.0) ----------------
   // v3.118.0: the frame — period, comparison, grouping.
   document.getElementById("reportsBody").addEventListener("change", function(e){
+    if(e.target.matches('[data-report-full-table]')){
+      reportDisplay.fullTable = e.target.checked;
+      e.target.closest('.rp-presentation').setAttribute('data-full-table', String(e.target.checked));
+      return;
+    }
+    if(e.target.matches('[data-report-entity]')){
+      reportDisplay.entity[reportShown.key] = e.target.value;
+      renderReports(); return;
+    }
     var k = e.target.getAttribute && e.target.getAttribute("data-rf");
     if(!k) return;
     reportFrame[k] = e.target.value;

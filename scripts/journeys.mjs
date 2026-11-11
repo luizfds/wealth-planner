@@ -78,7 +78,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
   fs.createReadStream(file).pipe(res);
 });
-await new Promise(r => server.listen(0, r));
+await new Promise(r => server.listen(0, "127.0.0.1", r));
 const base = "http://127.0.0.1:" + server.address().port;
 const TODAY = "2026-11-03T10:00:00";
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
@@ -2016,6 +2016,7 @@ const JOURNEYS = {
     await compare.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await compare.elementHandle());
     check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
     await go(page, 'reports', 'data-report', 'networth');
+    await page.locator('[data-report-full-table]').check();
     const report = page.locator('#reportSheet .rp-scroll');
     await report.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await report.elementHandle());
     check(await report.evaluate(el => el.scrollLeft > 0), 'net worth report cannot scroll with the keyboard');
@@ -2097,6 +2098,78 @@ const JOURNEYS = {
     await page.locator('[data-rr-delete="' + id + '"]').click(); await answerDialog(page, true);
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
+  },
+  async reportsummary(page){
+    await go(page, 'reports', 'data-report', 'invest');
+    // All fields, including percentage/negative/blank values, must match the unchanged table.
+    const keys = await page.evaluate(async () => (await import('/src/calc/reports.js')).REPORTS.map(r=>r.key).filter(k=>!['month','yearend'].includes(k)));
+    for(const key of keys){
+      await go(page, 'reports', 'data-report', key);
+      const summary = page.locator('.rp-mobile-summary');
+      if(!await summary.count()) continue; // empty report has no table or summary
+      check(await summary.isVisible(), key+' does not default to a phone summary');
+      await summary.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+      const entities = summary.locator('[data-report-entity]');
+      const options = await entities.count() ? await entities.locator('option').evaluateAll(os=>os.map(o=>o.value)) : [null];
+      for(const entity of options){
+        if(entity !== null) await entities.selectOption(entity);
+        const parity = await summary.evaluate((el, entity) => {
+          const table = document.querySelector('.rp-comparison-table table');
+          const headings = [...table.tHead.rows[0].cells].map(c=>c.textContent);
+          return [...el.querySelectorAll('[data-report-summary-row]')].every((row,i) => {
+            const cells = [...table.tBodies[0].rows[i].cells];
+            if(row.querySelector('h3').textContent !== cells[0].textContent) return false;
+            const values = [...row.querySelectorAll('[data-report-field]')];
+            if(!values.length) return cells.slice(1).every(c=>!c.textContent);
+            return values.every(field => {
+              const label=field.querySelector('dt').textContent;
+              const index=headings.indexOf(label);
+              return index>0 && field.querySelector('dd').textContent === (cells[index].textContent || '—');
+            }) && (entity !== null || values.length === cells.length-1);
+          });
+        }, entity);
+        check(parity, key+' summary dropped or changed a table cell');
+      }
+      check(await summary.evaluate(el=>[el,...el.querySelectorAll('*:not(.visually-hidden)')].every(n=>!n.getClientRects().length || n.scrollWidth<=n.clientWidth+1)),key+' has horizontal overflow');
+      await page.locator('[data-report-full-table]').check();
+      check(await page.locator('.rp-comparison-table').isVisible(),key+' full table is unavailable');
+      check(!await summary.isVisible(),key+' summary still exposes duplicate controls');
+      await page.locator('[data-report-full-table]').uncheck();
+    }
+    await go(page,'reports','data-report','cashflow');
+    const details=page.locator('.rp-row-details').first();
+    await details.locator('summary').focus(); await page.keyboard.press('Enter');
+    check(await details.evaluate(d=>d.open),'Details cannot open by keyboard');
+    await page.evaluate(async ()=>(await import('/src/components/reports.js')).renderReports());
+    check(await details.evaluate(d=>d.open),'redraw lost expanded details');
+    check(await details.locator('summary').evaluate(e=>e===document.activeElement),'redraw lost Details focus');
+    await page.locator('.rp-mobile-summary [data-md-open]').first().click();
+    check(await page.locator('[data-current-report="month"]').count()===1,'summary month action failed');
+    await go(page,'reports','data-report','categories');
+    await page.locator('[data-rf="range"]').selectOption('l12');
+    await page.locator('.rp-mobile-summary [data-rf-drill]').first().click();
+    check(await page.locator('.rp-drill').count()>0,'summary spending drilldown failed');
+    await page.locator('.rp-drill-head > b').evaluate(el=>el.textContent='Sample category with a deliberately long label for narrow phones');
+    for(const width of [320,390]){
+      await page.setViewportSize({width,height:844});
+      check(await page.locator('.rp-drill').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'spending drilldown overflows at '+width);
+    }
+    await go(page,'reports','data-report','property');
+    const entity=page.locator('[data-report-entity]');
+    const options=await entity.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    if(options.length>1){
+      await entity.focus(); await entity.selectOption(options[1]);
+      check(await entity.evaluate(e=>e===document.activeElement),'entity selection lost keyboard focus');
+      check(await entity.inputValue()===options[1],'entity selection was not retained');
+    }
+
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      await go(page,'reports','data-report','invest');
+      check(await page.locator('.rp-mobile-summary').isVisible()===(width<768),'incorrect responsive mode at '+width);
+      check(await page.locator('.rp-comparison-table').isVisible()===(width>=768),'table missing at '+width);
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'document overflow at '+width);
+    }
   },
   async reportchooser(page){
     await go(page, 'reports');

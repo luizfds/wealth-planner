@@ -2157,7 +2157,7 @@ test("Reports → Rental tax pack", async function(){
 
 // Issue audit: exercise the new builders alongside the older page builders.
 import { recurringRuleManagerHtml, categoryInsightsHtml } from "../src/components/recurringrules.js";
-import { planningReadinessHtml, reportDisclosureHtml, reportChooserResultsHtml, REPORT_DESCRIPTIONS } from "../src/components/reports.js";
+import { planningReadinessHtml, reportDisclosureHtml, reportChooserResultsHtml, REPORT_DESCRIPTIONS, reportSummaryHtml, reportPresentationHtml, reportTableHtml, reportDisplay } from "../src/components/reports.js";
 test('report chooser descriptions cover the catalogue and search safely by purpose', async () => {
   const { REPORTS } = await import('../src/calc/reports.js');
   for(const r of REPORTS) assert.ok(REPORT_DESCRIPTIONS[r.key], 'Missing description for '+r.key);
@@ -2296,4 +2296,26 @@ test("asset renderers follow shared open keys and preserve blank versus zero dep
     assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control v-deprate"[^>]*value="0"/);
     assert.match(modernAssetRowHtml({id:'example-cash',category:'Cash',what:'Example cash',amount:5000},2,0),/<div class="m-row open"/);
   }finally{ delete modernAssetRowOpen['assets:2']; }
+});
+
+
+test('report summaries preserve formatting, remaining fields, headings and safe text', () => {
+  const rep={key:'invest',title:'Sample',columns:[{key:'name',label:'Holding'},{key:'value',label:'Value',num:true},{key:'total',label:'Total return',num:true},{key:'annual',label:'A year',num:true,pct:true},{key:'cost',label:'Cost',num:true}],rows:[{cls:'head',cells:{name:'Section'}},{cells:{name:'<Sample>',value:-100,total:0,annual:12.5,cost:null}}]};
+  const html=reportSummaryHtml(rep);
+  assert.match(html,/&lt;Sample/); assert.doesNotMatch(html,/<Sample>/);
+  assert.match(html,/12.5%/); assert.match(html,/−\$100/); assert.match(html,/\$0/);
+  assert.match(html,/data-report-field="cost"><dt>Cost<\/dt><dd class="rp-figure">—/);
+  assert.match(html,/Details/);
+  assert.match(reportPresentationHtml(rep),/data-report-full-table/);
+  assert.doesNotMatch(reportTableHtml(rep),/rp-mobile-summary|data-report-full-table/);
+});
+test('property summaries select one named column and retain all entity options', () => {
+  const rep={key:'property',columns:[{key:'line',label:''},{key:'a',label:'Property A',num:true},{key:'b',label:'Property B',num:true}],rows:[{cells:{line:'Rent',a:100,b:200}}]};
+  const before=reportDisplay.entity;
+  try{
+    reportDisplay.entity={property:'b'};
+    const html=reportSummaryHtml(rep);
+    assert.match(html,/value="a"/); assert.match(html,/value="b" selected/);
+    assert.match(html,/\$200/); assert.doesNotMatch(html,/\$100/);
+  } finally {reportDisplay.entity=before;}
 });

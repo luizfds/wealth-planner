@@ -76,8 +76,9 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
     await page.waitForTimeout(250);
     for (const sub of subs) {
       if(sub) {
-        const hasSub = await page.evaluate(([a, s]) => { const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
+        const hasSub = await page.evaluate(([a, s]) => { if(a === 'report'){ const chooser = document.querySelector('[data-report-choose]'); if(chooser) chooser.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
         if(!hasSub && SHOTS) continue;
+        if(attr === 'report') await page.waitForFunction(key => !document.querySelector('[data-report-choose]') || (!!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser')), sub);
         await page.waitForTimeout(250);
       }
       // #306: measure the ordinary list before the expanded-state checks open every disclosure.
@@ -92,6 +93,17 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           console.log(scheme + ' ' + width + 'px ' + pg + '/' + (sub || '') + ': first record y=' + Math.round(position.y) + ', limit=' + position.limit);
           if(position.y > position.limit) failures.push(scheme + ' ' + width + 'px ' + pg + '/' + (sub || '') + ': first record starts below the top half (' + Math.round(position.y) + 'px)');
         }
+      }
+      if(pg === 'reports' && sub === 'cashflow' && width <= 390){
+        const visibleResult = await page.evaluate(() => {
+          if(!document.querySelector('[data-report-choose]')) return true; // Photographing an older base checkout.
+          const sheet = document.querySelector('#reportSheet'), title = sheet && sheet.querySelector('h2');
+          const result = sheet && (sheet.querySelector('svg') || sheet.querySelector('tbody tr'));
+          const tabs = document.getElementById('mobileTabbar');
+          const limit = innerHeight - (tabs ? tabs.getBoundingClientRect().height : 0);
+          return !!(title && result && title.getBoundingClientRect().top >= 0 && result.getBoundingClientRect().bottom <= limit);
+        });
+        if(!visibleResult) failures.push(scheme + ' ' + width + 'px Reports: current title and meaningful result are not visible in the initial viewport');
       }
       await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
       await page.waitForTimeout(250);

@@ -142,20 +142,72 @@ export function openSavedReport(id){
   return true;
 }
 export function unpinReport(id){ state.savedReports = state.savedReports.filter(function(x){ return x.id !== id; }); }
-function pickerHtml(){
-  var pins = (state.savedReports || []).length ? '<div class="rp-group rp-pins"><span class="rp-group-label">Pinned</span><div class="rp-chips">' + state.savedReports.map(function(r){
+export var reportRecent = [];
+export function rememberReport(key){ reportRecent = [key].concat(reportRecent.filter(function(k){ return k !== key; })).slice(0, 4); }
+export var REPORT_DESCRIPTIONS = {
+  cashflow: "Logged money in, spending and the running balance by month.",
+  categories: "Spending by category, person, account or merchant, with comparisons.",
+  income: "Income and expenses over the selected period.",
+  flow: "Where received income goes, including saving and transfers.",
+  budget: "Planned amounts against actual spending.",
+  trends: "The last twelve months compared with the twelve before.",
+  month: "One month’s spending, income and transactions in detail.",
+  networth: "Assets and debts that make up today’s net worth.",
+  nwcheck: "How saved net-worth balances changed over the last year.",
+  invest: "Each holding’s return compared with a benchmark.",
+  dividends: "Distributions and franking credits by financial year.",
+  cgt: "Capital gains by purchase parcel, including the twelve-month discount.",
+  propreturns: "Property growth, equity and returns on your investment.",
+  property: "A year of rent, costs and cash flow at today’s rates.",
+  debts: "Loan balances, repayments and payoff schedules.",
+  super: "Fund balances and concessional contributions against each person’s cap.",
+  tax: "Each person’s estimated tax for the financial year.",
+  taxpack: "Rental tax schedules with the source of each figure.",
+  review: "A financial-year recap of income, spending and net worth.",
+  lender: "Income, spending, assets and debts gathered for a lender.",
+  yearend: "A checklist and documents for finishing the financial year."
+};
+function availableReports(){ return REPORTS.filter(function(r){ return !r.part || partOn(r.part, state); }); }
+function pinsHtml(limit, query){
+  var text = (query || '').trim().toLowerCase();
+  var pins = (state.savedReports || []).filter(function(r){ return !text || r.name.toLowerCase().includes(text); });
+  if(limit) pins = pins.slice(0, limit);
+  return pins.length ? '<div class="rp-group rp-pins"><span class="rp-group-label">Pinned</span><div class="rp-chips">' + pins.map(function(r){
       return '<span class="rp-pin"><button type="button" class="period-chip" data-report-saved="' + escapeAttr(r.id) + '">' + escapeAttr(r.name) + '</button>' +
         '<button type="button" class="rp-unpin" data-report-unpin="' + escapeAttr(r.id) + '" aria-label="Unpin ' + escapeAttr(r.name) + '" title="Unpin">×</button></span>';
     }).join("") + '</div></div>' : '';
-  // #262: a chooser, not ARIA tabs — 21 reports under group headings, which a tablist can't hold. Each group is named by
-  // its heading, and the report shown is aria-current.
-  return pins + '<div class="rp-picker" role="group" aria-label="Reports">' + REPORT_GROUPS.map(function(g){
+}
+function pickerHtml(){
+  var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
+  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><strong>' + escapeAttr(current.label) + '</strong>' +
+    '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
+    ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
+}
+export function reportChooserResultsHtml(query){
+  var text = (query || '').trim().toLowerCase();
+  var available = availableReports();
+  var matches = available.filter(function(r){
+    var group = REPORT_GROUPS.find(function(g){ return g.key === r.group; });
+    return !text || (r.label + ' ' + group.label + ' ' + (r.part || '') + ' ' + REPORT_DESCRIPTIONS[r.key]).toLowerCase().includes(text);
+  });
+  var recent = !text ? reportRecent.filter(function(key){ return key !== reportShown.key && available.some(function(r){ return r.key === key; }); }) : [];
+  var recentHtml = recent.length ? '<div class="rp-recent" role="group" aria-label="Recently viewed"><h3>Recently viewed</h3>' + recent.map(function(key){
+    var r = available.find(function(r){ return r.key === key; });
+    return '<button type="button" class="btn btn-sm btn-ghost" data-report-recent="' + escapeAttr(key) + '">' + escapeAttr(r.label) + '</button>';
+  }).join('') + '</div>' : '';
+  var catalogue = REPORT_GROUPS.map(function(g){
+    var reports = matches.filter(function(r){ return r.group === g.key; });
+    if(!reports.length) return '';
     var gid = "rp-group-" + g.key;
-    return '<div class="rp-group" role="group" aria-labelledby="' + gid + '"><span class="rp-group-label" id="' + gid + '">' + escapeAttr(g.label) + '</span><div class="rp-chips">' + REPORTS.filter(function(r){ return r.group === g.key && (!r.part || partOn(r.part, state)); }).map(function(r){
+    return '<section class="rp-choice-group" aria-labelledby="' + gid + '"><h3 id="' + gid + '">' + escapeAttr(g.label) + '</h3>' + reports.map(function(r){
       var on = r.key === reportShown.key;
-      return '<button type="button" class="period-chip' + (on ? " active" : "") + '"' + (on ? ' aria-current="true"' : '') + ' data-report="' + r.key + '">' + r.label + '</button>';
-    }).join("") + '</div></div>';
-  }).join("") + '</div>';
+      return '<button type="button" class="rp-choice' + (on ? ' active' : '') + '"' + (on ? ' aria-current="true"' : '') + ' data-report="' + escapeAttr(r.key) + '"><strong>' + escapeAttr(r.label) +
+        (on ? ' <span class="rp-current">Current</span>' : '') + '</strong><span>' + escapeAttr(REPORT_DESCRIPTIONS[r.key]) + '</span></button>';
+    }).join('') + '</section>';
+  }).join('');
+  var pins = pinsHtml(null, query);
+  return pins + recentHtml + catalogue +
+    (!matches.length && !pins ? '<p>No reports match “' + escapeAttr(query || '') + '”.</p><button type="button" class="btn btn-sm" data-report-search-clear>Clear search</button>' : '');
 }
 // v3.124.0: what a printout opens with — whose it is, what it is, for when, and when it was printed.
 function householdName(){ var p = getTaxPeople(); return p.length ? p.slice(0, -1).join(", ") + (p.length > 1 ? " and " : "") + p[p.length - 1] : "Household"; }
@@ -188,10 +240,10 @@ export function reportsPageHtml(opts){
   if(reportShown.key === "yearend") return picker + yearEndHtml();
   if(reportShown.key === "month") return picker + monthDetailHtml();
   var rep = buildReport(reportShown.key, opts);
-  return picker + planningReadinessHtml(state, localDateStr()) + frameControlsHtml(rep) +
+  return picker + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
-      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>';
+      storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");

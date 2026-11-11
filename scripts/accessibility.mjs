@@ -77,7 +77,8 @@ for(const width of widths)for(const scheme of schemes){
  for(const [pg,attr,sub]of views){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
   await page.waitForTimeout(300);
-  if(attr) await page.evaluate(([a,s])=>document.querySelector('[data-'+a+'="'+s+'"]').click(),[attr,sub]);await page.waitForTimeout(500);
+  if(attr) await page.evaluate(([a,s])=>{if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
+  if(attr==='report') await page.waitForFunction(key=>!!document.querySelector('[data-current-report="'+key+'"]')&&!document.querySelector('.report-chooser'),sub);
   if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   // #261: Tax's forms and Plan's goal editor, every section open (and a goal open) — the fields axe should see.
   if(pg==='tax'||sub==='goals'){
@@ -87,6 +88,14 @@ for(const width of widths)for(const scheme of schemes){
   }
   if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
   else await scan(pg+'/'+sub);
+  if(pg==='reports' && sub==='cashflow'){
+   await page.locator('#reportsBody [data-report-choose]').first().click();
+   await scan('reports/chooser');
+   await page.locator('[data-report-search]').fill('no-such-report');
+   await scan('reports/chooser-empty');
+   await page.keyboard.press('Escape');
+   await page.waitForFunction(()=>!document.querySelector('.report-chooser'));
+  }
   // #306: the default lists and the controls moved behind their toolbars.
   if(pg==='assets' && (sub==='Shares'||sub==='Super')){
    await page.locator('#assetsSub-'+sub+' .record-toolbar [data-asset-list-filters]').click();

@@ -1239,6 +1239,7 @@ export function patchAssetCategoryTotals(){
   renderAssetsSummary();
 }
 
+export var purchaseDisplay = { scenario: "", fullTable: false };
 export function netWorthPurchaseHtml(){
   var total = totalNetWorthValue();
   var liquid = drawFor(0).available;
@@ -1254,18 +1255,29 @@ export function netWorthPurchaseHtml(){
   if(!purchaseScenarios.length){
     return '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin-top:14px">Turn on the purchase calculator for a scenario (under &quot;Your home&quot;) to see how buying would affect your net worth.</p>' + investNote;
   }
-  var rows = purchaseScenarios.map(function(s){
+  var columns = [
+    {label:'Upfront cash needed',help:'Deposit + stamp duty + LMI + other acquisition costs needed at settlement.'},
+    {label:'Cash and offsets available',help:'Available without selling investments; the same sources used by Can we buy and Plan.'},
+    {label:'Surplus / shortfall',help:'Available cash and offsets minus upfront cash needed. A shortfall is a funding gap.'},
+    {label:'Net worth after costs (if funded)',help:'Current net worth minus stamp duty, LMI and other acquisition costs.'}
+  ];
+  var data = purchaseScenarios.map(function(s){
     var out = recalcPurchase(s);
     var costs = out.stampDutyForTotal + out.lmi + out.otherTotal;
     var netAfter = total - costs;
     var shortfall = out.upfrontCash - liquid;
-    return '<tr><td>' + escapeAttr(s) + '</td>' +
-      '<td class="num">' + fmtCurrency0.format(out.upfrontCash) + '</td>' +
-      '<td class="num">' + fmtCurrency0.format(liquid) + '</td>' +
-      '<td class="num ' + (shortfall > 0 ? "short" : "ok") + '">' + (shortfall > 0 ? "shortfall " : "surplus ") + fmtCurrency0.format(Math.abs(shortfall)) + '</td>' +
-      '<td class="num">' + fmtCurrency0.format(netAfter) + '</td></tr>';
-  }).join("");
-  return '<div class="table-scroll" role="region" aria-label="Purchase funding comparison" tabindex="0"><table class="worth-table">' +
+    return {name:s, values:[fmtCurrency0.format(out.upfrontCash),fmtCurrency0.format(liquid),(shortfall > 0 ? 'shortfall ' : 'surplus ') + fmtCurrency0.format(Math.abs(shortfall)),fmtCurrency0.format(netAfter)], fundingClass:shortfall > 0 ? 'short' : 'ok'};
+  });
+  var rows = data.map(function(r){ return '<tr data-funding-table-scenario="' + escapeAttr(r.name) + '"><td>' + escapeAttr(r.name) + '</td>' + r.values.map(function(value,i){ return '<td class="num' + (i === 2 ? ' ' + r.fundingClass : '') + '">' + value + '</td>'; }).join('') + '</tr>'; }).join('');
+  var selected = data.find(function(r){ return r.name === purchaseDisplay.scenario; }) || data[0];
+  function fields(r, indices){
+    return '<dl class="funding-fields">' + indices.map(function(i){ return '<div data-funding-field="' + i + '"><dt>' + escapeAttr(columns[i].label) + '<small>' + escapeAttr(columns[i].help) + '</small></dt><dd' + (i === 2 ? ' class="' + r.fundingClass + '"' : '') + '>' + r.values[i] + '</dd></div>'; }).join('') + '</dl>';
+  }
+  var summary = '<div class="funding-mobile"><label class="rp-entity"><span>Scenario</span><select data-funding-scenario>' + data.map(function(r){ return '<option value="' + escapeAttr(r.name) + '"' + (r === selected ? ' selected' : '') + '>' + escapeAttr(r.name) + '</option>'; }).join('') + '</select></label>' + data.map(function(r){
+    return '<section class="funding-scenario" data-funding-summary="' + escapeAttr(r.name) + '"' + (r === selected ? '' : ' hidden') + '><h3>' + escapeAttr(r.name) + '</h3>' + fields(r,[0,1,2]) + '<details class="funding-details"><summary>Details</summary>' + fields(r,[3]) + '</details></section>';
+  }).join('') + '</div>';
+  return '<div class="funding-reading" data-funding-full="' + purchaseDisplay.fullTable + '"><label class="funding-control"><input type="checkbox" data-funding-full-toggle' + (purchaseDisplay.fullTable ? ' checked' : '') + '> Full table <span class="funding-instruction">— scroll horizontally to compare scenarios</span></label>' + summary + '<div class="funding-full-table">' +
+    '<div class="table-scroll" role="region" aria-label="Purchase funding comparison" tabindex="0"><table class="worth-table">' +
       '<thead><tr><th scope="col">Scenario</th>' +
         '<th scope="col" class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
         '<th scope="col" class="num" title="Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.">Cash and offsets available</th>' +
@@ -1273,14 +1285,18 @@ export function netWorthPurchaseHtml(){
         '<th scope="col" class="num" title="Current net worth minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after costs (if funded)</th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
-    '</table></div>' +
-    '<p class="calc-note help" style="margin-top:10px">This illustration assumes any funding gap is filled. Selling investments is not assumed. Net worth after purchase = current net worth minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
+    '</table></div></div></div>' +
+    '<p class="calc-note" style="margin-top:10px">This illustration assumes any funding gap is filled. Selling investments is not assumed. Net worth after purchase = current net worth minus stamp duty, LMI and other acquisition costs. The deposit itself just moves from cash into home equity, so it doesn\'t change net worth on its own.</p>' +
     investNote;
 }
 
 export function renderNetWorthPanel(){
   var panel = document.getElementById("netWorthPanel");
-  if(panel) panel.innerHTML = netWorthPurchaseHtml();
+  if(panel) keepUi(function(){
+    panel.innerHTML = netWorthPurchaseHtml();
+    var picker = panel.querySelector('[data-funding-scenario]');
+    purchaseDisplay.scenario = picker ? picker.value : '';
+  });
 }
 
 // Where the money actually is, over time. A single net-worth line cannot answer "am I getting more

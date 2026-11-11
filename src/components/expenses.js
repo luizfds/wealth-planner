@@ -2160,10 +2160,12 @@ function trendAlertsHtml(rows){
   }).join("") + '</div>';
 }
 
-function trendNumbersTableHtml(view){
+export var trendDisplay = { month: "", fullTable: false };
+export function trendNumbersTableHtml(view){
+  if(!view.months.length) return '';
   var lastIdx = view.months.length - 1;
-  var head = "<tr><th>Category</th>" + view.months.map(function(m){
-    return "<th>" + escapeAttr(monthKeyLabel(m, view.months[lastIdx])) + "</th>";
+  var head = "<tr><th scope=\"col\">Category</th>" + view.months.map(function(m){
+    return "<th scope=\"col\">" + escapeAttr(monthKeyLabel(m, view.months[lastIdx])) + "</th>";
   }).join("") + "</tr>";
   var body = view.rows.map(function(r){
     return "<tr><td>" + escapeAttr(r.category) + "</td>" + r.values.map(function(v){
@@ -2173,8 +2175,14 @@ function trendNumbersTableHtml(view){
   var totals = "<tr class=\"trend-total-row\"><td>Total</td>" + view.totals.map(function(v){
     return "<td>" + fmtCurrency0.format(v) + "</td>";
   }).join("") + "</tr>";
-  return '<div class="table-scroll"><table class="milestone-table trend-table"><thead>' + head +
-    '</thead><tbody>' + body + totals + '</tbody></table></div>';
+  var month = view.months.includes(trendDisplay.month) ? trendDisplay.month : view.months[lastIdx];
+  var summary = '<div class="trend-month-reading"><label class="rp-entity"><span>Month</span><select data-trend-month>' + view.months.map(function(m,i){ return '<option value="' + escapeAttr(m) + '"' + (m === month ? ' selected' : '') + '>' + escapeAttr(monthKeyLabel(m,view.months[lastIdx]) + (i === lastIdx && !view.complete ? ' (so far)' : '')) + '</option>'; }).join('') + '</select></label>' + view.months.map(function(m,i){
+    var rows = view.rows.concat([{category:'Total',values:view.totals}]);
+    return '<section class="trend-month" data-trend-summary="' + escapeAttr(m) + '"' + (m === month ? '' : ' hidden') + '><h3>' + escapeAttr(monthKeyLabel(m,view.months[lastIdx]) + (i === lastIdx && !view.complete ? ' · so far' : '')) + '</h3><dl class="trend-month-fields">' + rows.map(function(r,j){ return '<div data-trend-row="' + j + '"' + (j === rows.length - 1 ? ' class="trend-month-total"' : '') + '><dt>' + escapeAttr(r.category) + '</dt><dd>' + fmtCurrency0.format(r.values[i]) + '</dd></div>'; }).join('') + '</dl></section>';
+  }).join('') + '</div>';
+  return '<div class="trend-number-reading" data-trend-full="' + trendDisplay.fullTable + '"><label class="trend-number-control"><input type="checkbox" data-trend-full-toggle' + (trendDisplay.fullTable ? ' checked' : '') + '> Full table <span class="trend-number-instruction">— scroll horizontally to compare months</span></label>' + summary +
+    '<div class="trend-full-table"><div class="table-scroll" role="region" aria-label="Spending by category and month; scroll horizontally to compare months" tabindex="0"><table class="milestone-table trend-table"><thead>' + head +
+    '</thead><tbody>' + body + totals + '</tbody></table></div></div></div>';
 }
 
 // This panel's gate is a coverage gate, not a calendar one — it needs months that were genuinely
@@ -2187,7 +2195,8 @@ function trendsImportHintText(){
 function trendsImportHintHtml(){
   return '<p class="ledger-note" style="margin:8px 0 0">Already have the history at your bank? <b>Import from your bank</b> above takes a statement straight in, and remembers where each shop goes for next time.</p>';
 }
-export function renderSpendingTrends(){
+export function renderSpendingTrends(){ return keepUi(drawSpendingTrends); }
+function drawSpendingTrends(){
   var el = document.getElementById("spendingTrendsPanel");
   if(!el) return;
   var view = spendingTrends(state.transactions, {
@@ -2268,6 +2277,8 @@ export function renderSpendingTrends(){
     (rowsHtml ? '<div class="trend-rows">' + rowsHtml + '</div>' + trendMoreHtml
               : '<p class="ledger-note" style="margin:0">Nothing logged above ' + fmtCurrency0.format(TRENDS_MIN_SPEND) + ' over the last ' + TRENDS_MONTHS + ' months yet.</p>') +
     (rowsHtml ? '<details class="trend-numbers"><summary>Show the numbers</summary>' + trendNumbersTableHtml(view) + '</details>' : "");
+  var picker = el.querySelector('[data-trend-month]');
+  trendDisplay.month = picker ? picker.value : '';
 }
 
 // ---------------- This year so far ----------------

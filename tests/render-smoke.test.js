@@ -2371,3 +2371,41 @@ test('projection reading preserves milestones, short horizons and safe scenario 
     assert.match(stress,/Illustrative stress scenario; excluded from the saved-plan ranking/);
   } finally {projectionDisplay.scenario=before;}
 });
+
+
+test('spending month numbers retain refunds, zeroes, totals and partial-month context', async () => {
+  const {trendNumbersTableHtml,trendDisplay}=await import('../src/components/expenses.js');
+  const before=trendDisplay.month;
+  try{
+    trendDisplay.month='Removed';
+    const html=trendNumbersTableHtml({months:['2026-09','2026-10'],complete:false,rows:[{category:'<Sample category>',values:[-100,0]}],totals:[-100,0]});
+    assert.match(html,/value="2026-10" selected/);
+    assert.match(html,/so far/);
+    assert.match(html,/&lt;Sample category>/); assert.doesNotMatch(html,/<Sample category>/);
+    assert.match(html,/-\$100/); assert.match(html,/\$0/);
+    assert.match(html,/trend-month-total/);
+    assert.match(html,/role="region" aria-label="Spending by category and month/);
+    assert.equal(trendNumbersTableHtml({months:[],rows:[],totals:[]}),'');
+  } finally {trendDisplay.month=before;}
+});
+test('purchase funding retains empty guidance and adds all four values to phone reading', async () => {
+  const {setState,migrateState}=await import('../src/state.js');
+  const {demoHousehold}=await import('../src/calc/demo.js');
+  const {netWorthPurchaseHtml,purchaseDisplay}=await import('../src/components/assets.js');
+  const {recalcComputedItems}=await import('../src/calc/engine.js');
+  const keep=state, selected=purchaseDisplay.scenario;
+  try{
+    setState(migrateState(demoHousehold('2026-10-15')));recalcComputedItems();
+    purchaseDisplay.scenario='Removed';
+    const html=netWorthPurchaseHtml();
+    for(const i of [0,1,2,3])assert.ok(html.includes('data-funding-field="'+i+'"'));
+    assert.match(html,/Net worth after costs \(if funded\)/);
+    assert.match(html,/any funding gap is filled/);
+    assert.match(html,/Selling investments is not assumed/);
+    assert.match(html,/data-funding-full-toggle/);
+    for(const s of state.scenarios) if(state.purchase[s])state.purchase[s].enabled=false;
+    const empty=netWorthPurchaseHtml();
+    assert.match(empty,/Turn on the purchase calculator/);
+    assert.doesNotMatch(empty,/data-funding-scenario|<table/);
+  } finally {setState(keep);purchaseDisplay.scenario=selected;}
+});

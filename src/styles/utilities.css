@@ -168,3 +168,33 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   .proj-reading-fields i{ font-style:normal; color:var(--ink-soft); }
   .proj-reading-details > summary{ min-height:44px; align-content:center; cursor:pointer; }
 }
+
+/* #258: the remaining spending and purchase-funding comparisons. */
+.funding-mobile, .funding-control, .trend-month-reading, .trend-number-control{ display:none; }
+.trend-rows{ grid-template-columns:repeat(auto-fit, minmax(min(260px, 100%), 1fr)); }
+.funding-scenario[hidden], .trend-month[hidden]{ display:none; }
+@media screen and (max-width:767px){
+  .trend-row-head{ flex-wrap:wrap; }
+  .trend-row-name{ flex-basis:100%; white-space:normal; overflow-wrap:anywhere; }
+  .funding-control, .trend-number-control{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:44px; margin:12px 0; font-size:var(--fs-sm); }
+  .funding-control input, .trend-number-control input{ width:24px; height:24px; }
+  .funding-instruction, .trend-number-instruction{ display:none; color:var(--ink-soft); }
+  .funding-reading[data-funding-full="true"] .funding-instruction, .trend-number-reading[data-trend-full="true"] .trend-number-instruction{ display:inline; }
+  .funding-mobile, .trend-month-reading{ display:block; }
+  .funding-full-table, .trend-full-table{ display:none; }
+  .funding-reading[data-funding-full="true"] .funding-mobile, .trend-number-reading[data-trend-full="true"] .trend-month-reading{ display:none; }
+  .funding-reading[data-funding-full="true"] .funding-full-table, .trend-number-reading[data-trend-full="true"] .trend-full-table{ display:block; }
+  .funding-scenario, .trend-month{ overflow-wrap:anywhere; }
+  .funding-scenario h3, .trend-month h3{ font-size:var(--fs-md); font-weight:600; margin:12px 0; }
+  .funding-fields, .trend-month-fields{ display:grid; gap:12px; margin:12px 0; font-size:var(--fs-sm); }
+  .funding-fields > div, .trend-month-fields > div{ padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .funding-fields dt, .trend-month-fields dt{ color:var(--ink-soft); }
+  .funding-fields small{ display:block; font-size:var(--fs-xs); }
+  .funding-fields dd{ margin:4px 0 0; font-family:var(--font-num); }
+  .funding-fields .short{ color:var(--bad-ink); }
+  .funding-fields .ok{ color:var(--good-ink); }
+  .funding-details > summary{ min-height:44px; align-content:center; cursor:pointer; }
+  .trend-month-fields > div{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
+  .trend-month-fields dd{ margin:0; text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+  .trend-month-total{ border-top:2px solid var(--ink); padding-top:10px; font-weight:600; }
+}

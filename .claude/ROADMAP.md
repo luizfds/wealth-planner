@@ -4994,9 +4994,9 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      pattern: one scenario selected, funding/monthly outcomes first, Details and optional Full table.
    - Projection tables shipped v3.250.0 (PR #325): one selected scenario, current/final
      net worth and loans gone first, intermediate years and milestones in Details; optional complete tables.
-   - Final #258 surfaces in progress on `codex/mobile-comparison-finish`: month-by-month spending numbers
+   - Final #258 surfaces implemented on `codex/mobile-comparison-finish`, awaiting PR review: month-by-month spending numbers
      and scenario purchase-funding summaries. Existing spending bar strips and report heatmap summaries
-     will be verified alongside the remaining optional comparisons.
+     are covered alongside the remaining optional comparisons. This completes step 4 on merge.
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.

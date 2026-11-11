@@ -1,6 +1,6 @@
 # One field: inventory and spec (#254)
 
-**Status: foundation and the ledger/income/basic asset families shipped; remaining investment transaction fields implemented, awaiting PR review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
+**Status: foundation and the ledger/income/basic asset families shipped; investment transaction fields merged in PR #327; debt/offset/loan fields in progress.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
 Benchmarks, generic ledger, income, basic asset, vehicle, holding and sale editors use it. Lots/distributions and statements now follow in this PR. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
@@ -247,3 +247,24 @@ The unchanged holding-row header’s nested Details link is an existing finding 
 `records-before-tools.md`; editor scans cover `.m-row-edit-pad` and do not certify that header or the Shares
 performance table. The whole Shares page remains covered by smoke and existing scoped accessibility checks.
 #254 stays open for the remaining debt/offset, Tax, calculator, setup and fallback families.
+
+## Debt, offset and property-loan fields (#254)
+
+In progress on `codex/debt-offset-fields`, reusing the shipped shared tokens and state contract. Debt balances
+and Investments’ offset balances become bordered shared controls, retaining their compact 110px record-value
+layout and context-based accessible names. Debt names remain the documented inline-rename variant. Give record
+balances stable ids and reserved errors without changing their values, limits, steps or save handlers.
+
+Property-loan controls (including manual repayment, rate-change date/new rate and optional borrowing/fixed-rate
+fields) use `.field-control` while retaining the existing `labelFields` compatibility adapter. That adapter
+already supplies linked visible labels, stable per-card ids and described help; existing numeric validation
+keeps its messages and update rules. This is a skin migration, not a new set of loan rules or persisted fields.
+
+Keep the two offset surfaces synchronized, without double-counting cash or changing interest/equity. Preserve
+empty states, loan add/delete, debt balance history, rate recording, auto/manual modes, fixed/variable inputs
+and blank/zero/negative handling. Verify selectors, actual saves, rejected values, name changes, focus through
+redraw, both directions of offset mirroring and all rate-history fields. Inspect before/after at
+320/390/768/1024/1280px, both themes, including coarse-pointer tablets and expanded/error states.
+
+The remaining Property, Tax, calculator, setup and fallback families stay under #254. The compatible loan
+adapter and compact record balances are explicit shared-control variants; they do not introduce another skin.

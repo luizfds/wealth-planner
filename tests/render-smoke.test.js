@@ -2341,3 +2341,33 @@ test('scenario summary selects safely, falls back to household and keeps complet
     assert.equal(compareHtml(rows.slice(0,1)),'');
   } finally {compareDisplay.scenario=before;}
 });
+
+
+test('projection reading preserves milestones, short horizons and safe scenario labels', async () => {
+  const {projectionTablesHtml,projectionDisplay}=await import('../src/components/projections.js');
+  const before=projectionDisplay.scenario;
+  const points=[200000,550000,1000000,1600000].map((y,x)=>({x,y,debt:x<2?100000:0}));
+  const rows=[{label:'<Sample scenario>',colorClass:'series-color-0',points}];
+  try{
+    projectionDisplay.scenario='<Sample scenario>';
+    const html=projectionTablesHtml(rows,3,true);
+    assert.match(html,/value="&lt;Sample scenario>" selected/);
+    assert.doesNotMatch(html,/<Sample scenario>/);
+    assert.match(html,/today's dollars/);
+    assert.match(html,/data-proj-reading-year="3"><dt>Year 3<\/dt><dd>\$1,600,000/);
+    assert.match(html,/First reaches \$500k<\/dt><dd>yr 1/);
+    assert.match(html,/data-proj-reading-loans>yr 2/);
+    assert.match(html,/data-proj-reading-full-toggle/);
+    const short=projectionTablesHtml([{...rows[0],points:points.slice(0,2)}],1,false);
+    assert.equal((short.match(/data-proj-reading-year=/g)||[]).length,2);
+    assert.match(short,/future dollars/);
+    const noTarget=projectionTablesHtml([{...rows[0],points:[{x:0,y:100000,debt:0},{x:1,y:200000,debt:0}]}],1,true);
+    assert.doesNotMatch(noTarget,/class="proj-reading-details"/);
+    assert.equal(projectionTablesHtml([],3,true),'');
+    assert.equal(projectionTablesHtml([{...rows[0],points:[]}],3,true),'');
+    projectionDisplay.scenario='Removed';
+    assert.match(projectionTablesHtml(rows,3,true),/value="&lt;Sample scenario>" selected/);
+    const stress=projectionTablesHtml([{...rows[0],illustrativeStress:true}],3,true);
+    assert.match(stress,/Illustrative stress scenario; excluded from the saved-plan ranking/);
+  } finally {projectionDisplay.scenario=before;}
+});

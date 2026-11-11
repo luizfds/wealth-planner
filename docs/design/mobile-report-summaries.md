@@ -1,6 +1,6 @@
 # Mobile report summaries (#258)
 
-Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison implemented; awaiting PR review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
+Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison shipped v3.249.0 (PR #324); projection tables implemented; awaiting PR review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
 
 ## Approved interaction
 
@@ -94,3 +94,44 @@ comparison follow in separate changes; keep #258 open.
   `/tmp/mobile-compare-review/`.
 - Focused scenariosummary/assessmentux/keyboardaudit/replacedhousehold journeys pass. The accessibility
   CI script now covers selected scenarios, expanded details and full-table mode.
+
+## Projection tables follow-up
+
+Apply the approved pattern below 768px to the milestones grid and the selected-year net-worth table.
+One scenario selector includes all currently charted series, including labelled illustrative stress lines and
+what-if previews. Show net worth today, at the horizon and when loans are gone. Details includes every other
+table year and the first year each milestone is reached. Keep dollar basis, overtaking commentary and stress
+qualifications available. Full table shows both complete comparisons; desktop and print retain the tables.
+
+Use the chart’s existing points and milestone calculations, with no new financial maths or stored settings.
+Scenario selection and display mode are session UI. Preserve selection and Details focus through output
+redraw; if a scenario disappears (including disabling a stress line), fall back to the current household or
+first available series. Short horizons must not duplicate the current/final year. Empty series must render
+without a selector or broken table. CSV still exports every year of every plotted series with its components.
+
+Verify phone summaries against the table cells and milestone outputs, including short/long horizons,
+real/future dollars, stress lines, what-if previews, long names, redraw, keyboard and CSV. Review default,
+expanded and Full table at 320/390/768/1280px in both themes. Projections’ existing chart, headline, assumptions,
+sliders and calculation behavior stay unchanged.
+
+### Projection verification
+
+- Phone summaries match every selected-year table cell, milestone target and loan-payoff label for each
+  plotted scenario. The journey covers 1/7/50-year horizons, today’s/future dollars, illustrative stress and
+  what-if series, disabled-selection fallback, keyboard selection/scrolling and focus through redraw.
+- CSV download is checked against every charted series/year and all six exported columns. Print keeps the
+  full tables. Display controls do not change saved data; horizon/basis edits retain their existing behavior.
+- At 320/390px, summary client/scroll widths are 254/254 and 324/324px. The optional year table retains
+  519px and milestones 384px inside their bounded scroll regions. Desktop tables fill 692/964px at
+  768/1280px. No page overflow in either theme with long scenario names.
+- 24 focused axe scans cover default, expanded Details and Full table at four widths in both themes, with
+  zero violations. Session screenshots/measurements: `/tmp/mobile-projection-review/`.
+- Static checks, unit/render tests and projection/plan-validation/scenario journeys pass. Accessibility CI
+  now includes Projections with expanded Details and full tables. Empty short-horizon disclosures are omitted.
+
+Remaining #258 surfaces after the projection PR: spending heatmap and investment-summary comparison.
+The issue and roadmap step 4 remain open until those are reviewed and migrated.
+
+Expanded whole-page CI coverage also found the existing “How to interpret these estimates” disclosure
+had too small a desktop click target. Its summary now has a 44px minimum target; whole-page desktop
+axe scans pass in both themes after the fix.

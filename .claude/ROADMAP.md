@@ -4990,8 +4990,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      expandable Details and optional Full table.
      Reports first, then scenario/projection and other comparison surfaces in coherent follow-up PRs.
      Design: `docs/design/mobile-report-summaries.md`.
-   - Scenario comparison summaries implemented on `codex/mobile-scenario-comparison`, awaiting PR review; approved
+   - Scenario comparison summaries shipped v3.249.0 (PR #324); approved
      pattern: one scenario selected, funding/monthly outcomes first, Details and optional Full table.
+   - Projection tables implemented on `codex/mobile-projection-tables`, awaiting PR review: one selected scenario, current/final
+     net worth and loans gone first, intermediate years and milestones in Details; optional complete tables.
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.

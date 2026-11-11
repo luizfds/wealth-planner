@@ -1179,6 +1179,36 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
+  // Hold pending resize frames to reproduce the hidden-tab focus handoff, rather than hoping
+  // the category change happens to beat ResizeObserver in a busy CI run.
+  async categoryresizefocus(page){
+    await page.addInitScript(() => {
+      const raf = window.requestAnimationFrame.bind(window), queued = [];
+      let held = false;
+      window.requestAnimationFrame = cb => raf(t => { if(held) queued.push(cb); else cb(t); });
+      window.holdCategoryFrames = () => { held = true; };
+      window.releaseCategoryFrames = () => { held = false; queued.splice(0).forEach(cb => raf(cb)); };
+    });
+    await page.reload();
+    await quiet(page);
+    await go(page, 'assets', 'data-assets-sub', 'Cash');
+    await page.locator('#assetsSub-Cash .m-row [data-row-toggle]').first().click();
+    await page.evaluate(() => window.holdCategoryFrames());
+    await page.setViewportSize({width:1280,height:844});
+    check(await page.locator('#assetsSubnav > select').isVisible(), 'the resize probe did not retain the phone picker');
+    await page.evaluate(() => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { observer.disconnect(); reject(new Error('Category change did not close its editor')); }, 5000);
+      const observer = new MutationObserver(() => {
+        if(!document.querySelector('.m-row.open')){ observer.disconnect(); clearTimeout(timer); queueMicrotask(resolve); }
+      });
+      observer.observe(document.body, {subtree:true,attributes:true,childList:true});
+      const field = document.querySelector('#assetsSub-Cash .m-row.open .a-category');
+      field.value = 'Other'; field.dispatchEvent(new Event('change', {bubbles:true}));
+    }));
+    check(await page.evaluate(() => document.activeElement.matches('#assetsSubnav > select') && !!document.activeElement.getClientRects().length), 'Category change focused a hidden tab instead of the visible picker');
+    await page.evaluate(() => window.releaseCategoryFrames());
+    await page.waitForFunction(() => document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
+  },
   async assetfields(page){
     const indexOf=id=>page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),id);
     const saved=(id,key)=>stored(page,"state.assets.find(x=>x.id==='"+id+"')."+key);
@@ -1214,7 +1244,7 @@ const JOURNEYS = {
     await row.getByLabel('Category',{exact:true}).selectOption('Other');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await saved('demo-cash-everyday','category')==='Other' && await saved('demo-cash-everyday','amount')===5000,'Moving category changed the stored value');
-    check(await page.evaluate(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active')), 'Moving category lost the list focus');
+    await page.waitForFunction(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
     await go(page,'assets','data-assets-sub','Other');
     const moved=page.locator('#assetsSub-Other .m-row[data-index="'+idx+'"]');
     await moved.locator('[data-row-toggle]').first().click();

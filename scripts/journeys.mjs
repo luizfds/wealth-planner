@@ -2149,6 +2149,7 @@ const JOURNEYS = {
     await page.locator('[data-rf="range"]').selectOption('l12');
     await page.locator('.rp-mobile-summary [data-rf-drill]').first().click();
     check(await page.locator('.rp-drill').count()>0,'summary spending drilldown failed');
+    await page.locator('.rp-drill-head > b').evaluate(el=>el.textContent='Sample category with a deliberately long label for narrow phones');
     for(const width of [320,390]){
       await page.setViewportSize({width,height:844});
       check(await page.locator('.rp-drill').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'spending drilldown overflows at '+width);

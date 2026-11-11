@@ -109,6 +109,9 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   .rp-row-details > summary{ min-height:44px; align-content:center; font-size:var(--fs-sm); cursor:pointer; }
   .rp-entity{ display:grid; gap:4px; font-size:var(--fs-sm); margin:12px 0; }
   .rp-entity select{ width:100%; min-width:0; min-height:44px; }
+  .rp-drill-head{ flex-wrap:wrap; overflow-wrap:anywhere; }
+  .rp-drill-head > b{ min-width:0; max-width:100%; }
+  .rp-drill-head .btn{ max-width:100%; white-space:normal; }
   .rp-drill-table{ table-layout:fixed; }
   .rp-drill-table td{ white-space:normal; overflow-wrap:anywhere; }
 }

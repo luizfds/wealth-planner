@@ -5,6 +5,9 @@ import { eventMarkers } from "../calc/lifeevents.js";
 import { fireSettings } from "../calc/fire.js";
 import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { keepUi } from "../lib/keepui.js";
+
+export var projectionDisplay = { scenario: "", fullTable: false };
 import { renderLineChart } from "../lib/charts.js";
 import { firstYearAtLeast, debtFreeYear, leadChanges, milestoneAmounts } from "../calc/milestones.js";
 import { actualRatios, MIN_MONTHS } from "../calc/actuals.js";
@@ -117,6 +120,9 @@ export function renderProjectionsWhenSeen(){
 export function renderProjectionsIfStale(){ if(stale) renderProjectionOutputs(); }
 
 export function renderProjectionOutputs(){
+  return keepUi(renderProjectionContent);
+}
+function renderProjectionContent(){
   var container = document.getElementById("projOutputs");
   if(!container) return;
   stale = false;
@@ -231,37 +237,12 @@ export function renderProjectionOutputs(){
   lastChartHost = chartHost;
   renderLineChart(chartHost, series, chartOpts(horizon, realTerms, spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null));
 
-  var milestones = [0, 5, 10, 15, 20, horizon].filter(function(y, i, arr){ return y <= horizon && arr.indexOf(y) === i; }).sort(function(a,b){return a-b;});
-  var table = document.createElement("table");
-  table.className = "milestone-table";
-  var headRow = "<tr><th>Scenario</th>" + milestones.map(function(y){ return "<th>" + (y === 0 ? "Today" : "Year " + y) + "</th>"; }).join("") + "</tr>";
-  var bodyRows = series.map(function(s){
-    var cells = milestones.map(function(y){
-      var pt = s.points.find(function(p){ return p.x === y; });
-      return "<td>" + fmtCurrency0.format(pt ? pt.y : 0) + "</td>";
-    }).join("");
-    var isBaseline = s.label === state.baselineScenario;
-    return "<tr><td><span class=\"proj-swatch " + s.colorClass + "\"></span>" + escapeAttr(s.label) +
-      (isBaseline ? ' <span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : "") +
-      "</td>" + cells + "</tr>";
-  }).join("");
-  table.innerHTML = "<thead>" + headRow + "</thead><tbody>" + bodyRows + "</tbody>";
-  // Every other wide table in the app (Loans, ledger tables, Assets' worth-table) gets wrapped in
-  // .table-scroll for a bounded horizontal scroll, a mobile edge-fade + sticky first column, and
-  // a scroll-position-aware fade on wider viewports (see lib/scroll-shadow.js) — this table was
-  // appended bare with none of that, so on mobile its later milestone columns (Year 15, Year 20 —
-  // exactly the numbers this whole page exists to show) were clipped with no indication there was
-  // more to scroll to, or in some cases forced the whole page to scroll sideways instead.
-  var scrollWrap = document.createElement("div");
-  scrollWrap.className = "table-scroll";
-  scrollWrap.style.marginTop = "16px";
-  scrollWrap.appendChild(table);
-  container.appendChild(scrollWrap);
-
-  var ms = document.createElement("div");
-  ms.className = "proj-milestones";
-  ms.innerHTML = projectionMilestonesHtml(series, realTerms);
-  container.insertBefore(ms, scrollWrap);
+  var readings = document.createElement('div');
+  readings.className = 'proj-readings';
+  readings.innerHTML = projectionTablesHtml(series, horizon, realTerms);
+  container.appendChild(readings);
+  var picker = readings.querySelector('[data-proj-reading-scenario]');
+  projectionDisplay.scenario = picker ? picker.value : '';
 
   var tools = document.createElement("div");
   tools.className = "proj-tools";
@@ -269,9 +250,49 @@ export function renderProjectionOutputs(){
   container.appendChild(tools);
 }
 
+function loanWhenHtml(points){
+  var free = debtFreeYear(points), horizon = points[points.length - 1].x;
+  return points[0].debt > 1 ? (free == null ? '<i>after yr ' + horizon + '</i>' : 'yr ' + free) : '<i>none</i>';
+}
+function reachedWhenHtml(points, amount){
+  var year = firstYearAtLeast(points, amount);
+  return year == null ? '<i>—</i>' : year === 0 ? 'now' : 'yr ' + year;
+}
+export function projectionTablesHtml(series, horizon, realTerms){
+  var shown = series.filter(function(s){ return s.points && s.points.length; });
+  if(!shown.length) return '';
+  var years = [0,5,10,15,20,horizon].filter(function(y,i,arr){ return y <= horizon && arr.indexOf(y) === i; }).sort(function(a,b){ return a-b; });
+  var selected = shown.find(function(s){ return s.label === projectionDisplay.scenario; }) || shown.find(function(s){ return s.label === currentScenario(); }) || shown[0];
+  var amounts = milestoneAmounts(shown.filter(function(s){ return s.points.length > 1; }));
+  var yearLabel = function(year){ return year === 0 ? 'Today' : 'Year ' + year; };
+  var value = function(s,year){ var point = s.points.find(function(p){ return p.x === year; }); return fmtCurrency0.format(point ? point.y : 0); };
+  var fields = function(s, list){ return '<dl class="proj-reading-fields">' + list.map(function(year){ return '<div data-proj-reading-year="' + year + '"><dt>' + yearLabel(year) + '</dt><dd>' + value(s,year) + '</dd></div>'; }).join('') + '</dl>'; };
+  var table = '<div class="table-scroll" role="region" aria-label="Projected net worth; scroll horizontally to compare years and scenarios" tabindex="0"><table class="milestone-table"><thead><tr><th scope="col">Scenario</th>' + years.map(function(y){ return '<th scope="col">' + yearLabel(y) + '</th>'; }).join('') + '</tr></thead><tbody>' + shown.map(function(s){
+    return '<tr data-proj-table-scenario="' + escapeAttr(s.label) + '"><th scope="row"><span class="proj-swatch ' + escapeAttr(s.colorClass) + '"></span>' + escapeAttr(s.label) + (s.label === state.baselineScenario ? ' <span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : '') + '</th>' + years.map(function(y){ return '<td>' + value(s,y) + '</td>'; }).join('') + '</tr>';
+  }).join('') + '</tbody></table></div>';
+  var detailYears = years.filter(function(y){ return y !== 0 && y !== horizon; });
+  var summary = '<div class="proj-mobile-reading"><label class="rp-entity"><span>Scenario</span><select data-proj-reading-scenario>' + shown.map(function(s){ return '<option value="' + escapeAttr(s.label) + '"' + (s === selected ? ' selected' : '') + '>' + escapeAttr(s.label) + '</option>'; }).join('') + '</select></label>' + shown.map(function(s){
+    return '<section class="proj-reading-scenario" data-proj-reading="' + escapeAttr(s.label) + '"' + (s === selected ? '' : ' hidden') + '><h4>' + escapeAttr(s.label) + '</h4>' +
+      (s.illustrativeStress ? '<p class="ledger-note">Illustrative stress scenario; excluded from the saved-plan ranking. See the assumptions above.</p>' : '') +
+      fields(s, years.filter(function(y){ return y === 0 || y === horizon; })) + '<dl class="proj-reading-fields"><div><dt>Loans gone</dt><dd data-proj-reading-loans>' + loanWhenHtml(s.points) + '</dd></div></dl>' +
+      (detailYears.length || amounts.length ? '<details class="proj-reading-details"><summary>Details and milestones</summary>' + fields(s, detailYears) +
+      '<dl class="proj-reading-fields">' + amounts.map(function(amount){ return '<div data-proj-reading-target="' + amount + '"><dt>First reaches ' + fmtCompact(amount) + '</dt><dd>' + reachedWhenHtml(s.points, amount) + '</dd></div>'; }).join('') + '</dl></details>' : '') + '</section>';
+  }).join('') + '</div>';
+  // Milestones retains the original lead-change commentary and dollar basis in both modes.
+  return '<section class="proj-table-reading" data-proj-reading-full="' + projectionDisplay.fullTable + '"><h3 class="proj-ms-title">Projected net worth <span>— ' + (realTerms ? "today's" : 'future') + ' dollars</span></h3>' +
+    '<label class="proj-reading-control"><input type="checkbox" data-proj-reading-full-toggle' + (projectionDisplay.fullTable ? ' checked' : '') + '> Full table <span class="proj-reading-instruction">— scroll horizontally to compare years and scenarios</span></label>' + summary +
+    '<div class="proj-full-tables">' + projectionMilestonesHtml(shown,realTerms,true) + table + '</div>' + projectionLeadChangesHtml(shown) + '</section>';
+}
+function projectionLeadChangesHtml(shown){
+  var comparable = scenarioComparisonSeries(shown);
+  var changes = leadChanges(comparable);
+  var text = changes.length ? changes.map(function(c){ return '<b>' + escapeAttr(c.leader) + '</b> overtakes ' + escapeAttr(c.behind) + ' in year ' + c.year; }).join('; ') + '.'
+    : (comparable.length > 1 ? 'No scenario overtakes another within the horizon — the one in front today stays in front.' : '');
+  return text ? '<p class="ledger-note proj-lead-changes" style="margin:8px 0 0">' + text + '</p>' : '';
+}
 // What happens when, per scenario: the round numbers it reaches, when its loans are gone, and when
 // one scenario overtakes another. Exported for the render-smoke test.
-export function projectionMilestonesHtml(series, realTerms){
+export function projectionMilestonesHtml(series, realTerms, omitCommentary){
   var shown = series.filter(function(s){ return s.points && s.points.length > 1; });
   if(!shown.length) return "";
   var amounts = milestoneAmounts(shown);
@@ -279,23 +300,15 @@ export function projectionMilestonesHtml(series, realTerms){
   var head = '<div class="proj-ms-row proj-ms-head"><span>Scenario</span>' +
     amounts.map(function(a){ return '<span>' + fmtShort(a) + '</span>'; }).join("") + '<span>Loans gone</span></div>';
   var rows = shown.map(function(s){
-    var debtFree = debtFreeYear(s.points);
-    var hasDebt = s.points[0].debt > 1;
     return '<div class="proj-ms-row"><span class="proj-ms-name"><span class="proj-swatch ' + s.colorClass + '"></span>' + escapeAttr(s.label) + '</span>' +
       amounts.map(function(a){
-        var y = firstYearAtLeast(s.points, a);
-        return '<span>' + (y == null ? '<i>—</i>' : (y === 0 ? "now" : "yr " + y)) + '</span>';
+        return '<span>' + reachedWhenHtml(s.points,a) + '</span>';
       }).join("") +
-      '<span>' + (!hasDebt ? '<i>none</i>' : (debtFree == null ? '<i>after yr ' + s.points[s.points.length - 1].x + '</i>' : "yr " + debtFree)) + '</span></div>';
+      '<span>' + loanWhenHtml(s.points) + '</span></div>';
   }).join("");
-  var comparable = scenarioComparisonSeries(shown);
-  var changes = leadChanges(comparable);
-  var changeText = changes.length
-    ? changes.map(function(c){ return '<b>' + escapeAttr(c.leader) + '</b> overtakes ' + escapeAttr(c.behind) + ' in year ' + c.year; }).join("; ") + "."
-    : (comparable.length > 1 ? "No scenario overtakes another within the horizon — the one in front today stays in front." : "");
   return '<h3 class="proj-ms-title">Milestones <span>— first year net worth reaches each amount, ' + (realTerms ? "today's" : "future") + ' dollars</span></h3>' +
-    '<div class="proj-ms-table" style="--ms-cols:' + amounts.length + '">' + head + rows + '</div>' +
-    (changeText ? '<p class="ledger-note" style="margin:8px 0 0">' + changeText + '</p>' : '');
+    '<div class="proj-ms-table" role="region" aria-label="Projection milestones; scroll horizontally to compare scenarios and targets" tabindex="0" style="--ms-cols:' + amounts.length + '">' + head + rows + '</div>' +
+    (omitCommentary ? '' : projectionLeadChangesHtml(shown));
 }
 
 if(typeof document !== "undefined"){

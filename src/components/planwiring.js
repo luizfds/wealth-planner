@@ -14,7 +14,7 @@ import { renderGoalsTab } from "./accountswiring.js";
 import { renderDetail } from "./dashboard.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./lifeevents.js";
 import { showPage, showAssetsSubpage, showPlanSubpage } from "./nav.js";
-import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown } from "./projections.js";
+import { renderProjectionOutputs, renderWhatIfDrag, projectionSeriesShown, projectionDisplay } from "./projections.js";
 import { renderAll } from "./redraw.js";
 import { retirementHtml, retireLevers } from "./retirement.js";
 import { whatIfValues, resetWhatIf, wiFromSlider, wiValueText } from "./whatif.js";
@@ -112,6 +112,16 @@ function renderRetirement(){
 }
 
 export function wireProjections(){
+  document.getElementById('projOutputs').addEventListener('change', function(e){
+    if(e.target.matches('[data-proj-reading-scenario]')){
+      projectionDisplay.scenario = e.target.value;
+      this.querySelectorAll('[data-proj-reading]').forEach(function(panel){ panel.hidden = panel.getAttribute('data-proj-reading') !== projectionDisplay.scenario; });
+    }
+    if(e.target.matches('[data-proj-reading-full-toggle]')){
+      projectionDisplay.fullTable = e.target.checked;
+      this.querySelector('.proj-table-reading').setAttribute('data-proj-reading-full', String(e.target.checked));
+    }
+  });
   // ---------------- Long-term projection ----------------
   document.getElementById("projHorizon").addEventListener("input", function(e){
     var h = readProj(e.target);

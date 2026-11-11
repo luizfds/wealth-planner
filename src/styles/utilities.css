@@ -141,3 +141,29 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   .cmp-summary-details > summary{ min-height:44px; align-content:center; cursor:pointer; }
   .cmp-summary-verdict{ font-size:var(--fs-sm); margin:12px 0; }
 }
+
+/* #258: read one projection vertically; complete comparison tables remain optional. */
+.proj-mobile-reading, .proj-reading-control{ display:none; }
+.proj-reading-scenario[hidden]{ display:none; }
+.proj-table-reading{ margin-top:16px; }
+.proj-full-tables > .table-scroll{ margin-top:16px; }
+.proj-full-tables .proj-ms-table{ overflow-x:auto; }
+.proj-full-tables .proj-ms-table:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+@media screen and (max-width:767px){
+  .proj-reading-control{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-height:44px; margin:12px 0; font-size:var(--fs-sm); }
+  .proj-reading-control input{ width:20px; height:20px; }
+  .proj-reading-instruction{ display:none; color:var(--ink-soft); }
+  .proj-table-reading[data-proj-reading-full="true"] .proj-reading-instruction{ display:inline; }
+  .proj-mobile-reading{ display:block; }
+  .proj-full-tables{ display:none; }
+  .proj-table-reading[data-proj-reading-full="true"] .proj-mobile-reading{ display:none; }
+  .proj-table-reading[data-proj-reading-full="true"] .proj-full-tables{ display:block; }
+  .proj-reading-scenario{ overflow-wrap:anywhere; }
+  .proj-reading-scenario h4{ margin:12px 0; font-size:var(--fs-md); font-weight:600; }
+  .proj-reading-fields{ display:grid; gap:10px; margin:12px 0; font-size:var(--fs-sm); }
+  .proj-reading-fields > div{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .proj-reading-fields dt{ color:var(--ink-soft); }
+  .proj-reading-fields dd{ margin:0; text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+  .proj-reading-fields i{ font-style:normal; color:var(--ink-soft); }
+  .proj-reading-details > summary{ min-height:44px; align-content:center; cursor:pointer; }
+}

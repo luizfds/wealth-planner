@@ -2101,6 +2101,82 @@ const JOURNEYS = {
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
   },
+  async projectionsummary(page){
+    await go(page,'plan','data-plan-sub','projections');
+    const picker=page.locator('[data-proj-reading-scenario]');
+    const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
+    async function parity(){
+      const options=await picker.locator('option').evaluateAll(os=>os.map(o=>o.value));
+      for(const name of options){
+        await picker.focus();await picker.selectOption(name);
+        check(await picker.evaluate(e=>e===document.activeElement),'projection scenario selection lost focus');
+        const panel=page.locator('.proj-reading-scenario:not([hidden])');
+        await panel.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+        check(await panel.evaluate(el=>{
+          const row=[...document.querySelectorAll('[data-proj-table-scenario]')].find(r=>r.dataset.projTableScenario===el.dataset.projReading);
+          const headings=[...row.closest('table').tHead.rows[0].cells].slice(1).map(c=>c.textContent);
+          const fields=[...el.querySelectorAll('[data-proj-reading-year]')];
+          const amounts=[...el.querySelectorAll('[data-proj-reading-target]')];
+          const ms=[...document.querySelectorAll('.proj-full-tables .proj-ms-row:not(.proj-ms-head)')].find(r=>r.firstElementChild.textContent===el.dataset.projReading);
+          const msCells=ms ? [...ms.children].slice(1) : [];
+          return fields.length===headings.length && fields.every(f=>row.cells[headings.indexOf(f.querySelector('dt').textContent)+1]?.textContent===f.querySelector('dd').textContent) && amounts.every((f,i)=>f.querySelector('dd').textContent===msCells[i]?.textContent) && el.querySelector('[data-proj-reading-loans]').textContent===msCells.at(-1)?.textContent;
+        }),'projection summary changed or dropped a table value for '+name);
+      }
+    }
+    await parity();
+    const details=page.locator('.proj-reading-scenario:not([hidden]) .proj-reading-details');
+    await details.locator('summary').focus();
+    const selected=await picker.inputValue();
+    await page.evaluate(async()=>(await import('/src/components/projections.js')).renderProjectionOutputs());
+    check(await picker.inputValue()===selected,'projection redraw lost selected scenario');
+    check(await details.evaluate(e=>e.open),'projection redraw lost expanded Details');
+    check(await details.locator('summary').evaluate(e=>e===document.activeElement),'projection redraw lost Details focus');
+    await page.locator('[data-proj-reading-full-toggle]').focus();await page.keyboard.press('Space');
+    check(await page.locator('.proj-full-tables').isVisible(),'projection Full table unavailable');
+    check(!await page.locator('.proj-mobile-reading').isVisible(),'summary duplicates controls in table mode');
+    for(const selector of ['.proj-full-tables .table-scroll','.proj-full-tables .proj-ms-table']){
+      const scroll=page.locator(selector);await scroll.focus();await page.keyboard.press('ArrowRight');
+      await until(page,e=>e.scrollLeft>0,await scroll.elementHandle());
+    }
+    await page.locator('[data-proj-reading-full-toggle]').uncheck();
+    check(await page.evaluate(async original=>JSON.stringify((await import('/src/state.js')).state)===original,original),'projection display changed saved household');
+    if(!await page.locator('#projAssumptions').evaluate(d=>d.open)) await page.locator('#projAssumptions > summary').click();
+    for(const horizon of [1,7,50])for(const basis of ['real','nominal']){
+      await page.locator('#projHorizon').fill(String(horizon));
+      await page.locator('[data-proj-basis="'+basis+'"]').click();
+      await parity();
+      check((await page.locator('.proj-table-reading > h3').textContent()).includes(basis==='real' ? "today's" : 'future'),'projection dollar basis label missing');
+    }
+    await page.locator('#projHorizon').fill('20');
+    await page.locator('[data-proj-stress-enabled]').check();
+    const stress=await picker.locator('option').evaluateAll(os=>os.map(o=>o.value).find(v=>v.includes('illustrative')));
+    check(stress,'stress line missing from reading selector');
+    await picker.selectOption(stress);await parity();await picker.selectOption(stress);
+    check((await page.locator('.proj-reading-scenario:not([hidden])').innerText()).includes('excluded from the saved-plan ranking'),'stress summary lacks qualification');
+    await page.locator('[data-proj-stress-enabled]').uncheck();
+    check(await picker.inputValue()!==stress,'disabled stress line remains selected');
+    await page.locator('[data-wi="extraMonthly"]').evaluate(e=>{e.value='500';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));});
+    check(await picker.locator('option').count()===2,'what-if and saved plan missing from selector');
+    await parity();
+    const download=page.waitForEvent('download');await page.locator('#projCsvBtn').click();const file=await download;
+    const text=fs.readFileSync(await file.path(),'utf8');
+    const csv=await page.evaluate(async text=>{
+      const rows=(await import('/src/lib/backup.js')).parseCsv(text).slice(1);
+      const series=(await import('/src/components/projections.js')).projectionSeriesShown();
+      const expected=series.flatMap(s=>s.points.map(p=>[s.label,p.x,Math.round(p.y),Math.round(p.investments||0),Math.round(p.propertyEquity||0),Math.round(p.debt||0)].map(String)));
+      return JSON.stringify(rows)===JSON.stringify(expected);
+    },text);
+    check(csv,'every-year CSV changed or omitted a scenario/component');
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      check(await page.locator('.proj-mobile-reading').isVisible()===(width<768),'wrong projection summary mode at '+width);
+      check(await page.locator('.proj-full-tables').isVisible()===(width>=768),'wrong projection table mode at '+width);
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'projection page overflows at '+width);
+    }
+    await page.emulateMedia({media:'print'});
+    check(await page.locator('.proj-full-tables').isVisible()&&!await page.locator('.proj-mobile-reading').isVisible(),'print lost complete projection tables');
+    await page.emulateMedia({media:'screen'});
+  },
   async scenariosummary(page){
     await go(page,'plan','data-plan-sub','scenarios');
     const picker=page.locator('[data-cmp-scenario]');

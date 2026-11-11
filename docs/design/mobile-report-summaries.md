@@ -1,6 +1,6 @@
 # Mobile report summaries (#258)
 
-Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison in progress. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
+Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison implemented; awaiting PR review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
 
 ## Approved interaction
 
@@ -80,3 +80,17 @@ removing a selected scenario falls back to the current household.
 Month in detail and the year-end checklist use specialised lists/disclosures, with no table markup to replace.
 Their layout still receives ordinary page smoke coverage. Projection tables, heatmap and investment-summary
 comparison follow in separate changes; keep #258 open.
+
+### Scenario comparison verification
+
+- Shared metric markup preserves every table value, help text, warning, year label and baseline delta.
+  The browser journey checks each scenario field against the complete table after odds are filled in.
+- Selection and Details focus survive redraw; missing selections fall back to the household. Display controls
+  do not change stored data. The table remains available for keyboard horizontal scrolling and desktop use.
+- At 320px the summary client/scroll widths are 254/254px; at 390px they are 324/324px. The optional
+  table keeps its 520px comparison width. At 768/1280px the table fills 694/966px respectively.
+- Default and expanded states, long names and full-table mode were reviewed at all four widths in both
+  themes. 24 focused axe scans found no violations. Session screenshots and measurements are under
+  `/tmp/mobile-compare-review/`.
+- Focused scenariosummary/assessmentux/keyboardaudit/replacedhousehold journeys pass. The accessibility
+  CI script now covers selected scenarios, expanded details and full-table mode.

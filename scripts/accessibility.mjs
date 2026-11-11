@@ -19,7 +19,7 @@ const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
-const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['plan','plan-sub','projections'],['assets','assets-sub','summary'],['assets','assets-sub','Cash'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
+const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['plan','plan-sub','projections'],['assets','assets-sub','summary'],['assets','assets-sub','Cash'],['assets','assets-sub','Offsets'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
 views.push(['assets','assets-sub','Shares'], ['properties',null,null], ['reports','report','invest'], ['reports','report','property']);
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
@@ -210,6 +210,46 @@ for(const width of widths)for(const scheme of schemes){
    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
   }
 
+  if(pg==='assets'&&sub==='Offsets'){
+   const offset=page.locator('.offset-balance-input').first();
+   if(await offset.count()){
+    const before=await offset.inputValue();await offset.fill('');
+    await scan('offset-fields/invalid', '#assetsSub-Offsets');await offset.fill(before);
+   }
+  }
+  if(pg==='assets'&&sub==='summary'){
+   const debt=page.locator('.debt-balance').first();
+   const invented=await debt.count()===0;
+   if(invented)await page.evaluate(async()=>{const s=await import('/src/state.js');s.state.debts=[{what:'Sample debt',balance:1000}];s.commit(['debts']);});
+   await page.locator('#debtsTable').evaluate(e=>e.closest('details').open=true);
+   await scan('debt-fields/normal', '#debtsTable');
+   const before=await debt.inputValue();await debt.fill('');
+   await scan('debt-fields/invalid', '#debtsTable');await debt.fill(before);
+   if(invented)await page.evaluate(async()=>{const s=await import('/src/state.js');s.state.debts=[];s.commit(['debts']);});
+  }
+  if(pg==='properties'){
+   await page.locator('[data-prop-edit]').first().click();
+   await page.locator('[data-prop-tab][data-tab="loans"]').first().evaluate(e=>e.click());
+   await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="loans"][aria-expanded="false"]').forEach(e=>e.click()));
+   await page.locator('.prop-tab-panel:not([hidden]) [data-loan-index]').first().locator('[data-row-toggle]').click();
+   const row=page.locator('.m-row.open[data-loan-index]');
+   await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   await row.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));
+   // The long form scrolls inside a modal. Scan every field with its label/help fully in view,
+   // so clipped label fragments are not sampled against the backdrop at the scroll boundary.
+   const boxes=row.locator('.m-edit-field:has(input,select,textarea)');
+   for(let i=0;i<await boxes.count();i++){
+    await boxes.nth(i).evaluate((e,i)=>{e.classList.add('loan-field-scan-'+i);e.scrollIntoView({block:'center',behavior:'instant'});},i);
+    await scan('loan-fields/expanded/'+i, '.m-row.open .loan-field-scan-'+i);
+   }
+   const offset=row.locator('.loan-offset'),before=await offset.inputValue();await offset.fill('');
+   await offset.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+   await scan('loan-fields/invalid-offset', '.m-row.open .m-edit-field:has(> .loan-offset)');await offset.fill(before);
+   await row.locator('.loan-repay-mode').selectOption('manual');
+   await row.locator('.loan-manual-amount').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+   await scan('loan-fields/manual', '.m-row.open .m-edit-field:has(> .loan-manual-amount)');
+   await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+  }
   if(pg==='assets'&&sub==='Shares'){
    const row=page.locator('#assetsSub-Shares .m-row').first();
    await row.locator('[data-row-toggle]').first().click();

@@ -18,6 +18,7 @@ import { statementTotals, statementsForFy, waterRatesLine, latestStatement } fro
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { labelFields } from "../lib/labelfields.js";
+import { keepUi } from "../lib/keepui.js";
 import { detailLinkHtml } from "./detail.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
 import { propertyEstimate } from "../calc/estimates.js";
@@ -150,30 +151,30 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
   '</div>';
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
     '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="loan-what" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></div>' +
-      '<div class="m-edit-field"><label>Balance</label><input type="number" step="1000" min="0" class="loan-balance" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></div>' +
-      '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate" value="' + rateDisplay + '" aria-label="Interest rate percent" title="The rate now. To keep a record of a change (so past years\' interest follows it), use Record change below."></div>' +
-      '<div class="m-edit-field"><label>Term (yrs)</label><input type="number" step="1" min="0" class="loan-term" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></div>' +
-      '<div class="m-edit-field"><label>Type</label><select class="loan-type" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
-      '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
-      '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
-      '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset in Net worth → Investments, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
+      '<div class="m-edit-field span3"><label>What</label><input type="text" class="loan-what field-control" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></div>' +
+      '<div class="m-edit-field"><label>Balance</label><input type="number" step="1000" min="0" class="loan-balance field-control" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></div>' +
+      '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate field-control" value="' + rateDisplay + '" aria-label="Interest rate percent" title="The rate now. To keep a record of a change (so past years\' interest follows it), use Record change below."></div>' +
+      '<div class="m-edit-field"><label>Term (yrs)</label><input type="number" step="1" min="0" class="loan-term field-control" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></div>' +
+      '<div class="m-edit-field"><label>Type</label><select class="loan-type field-control" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
+      '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq field-control" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
+      '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode field-control" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
+      '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset in Net worth → Investments, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset field-control" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
       // Borrowing costs — see calc/property.js. A total, not a list: only the total enters the
       // five-year rule, and this form is busy enough already.
-      '<div class="m-edit-field"><label>Settled on</label><input type="date" class="loan-settled" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
-      '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
+      '<div class="m-edit-field span2"><label>Settled on</label><input type="date" class="loan-settled field-control" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
+      '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing field-control" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
       // v3.85.0: what the money was used for decides the deduction, not the property behind it.
-      '<div class="m-edit-field"><label>Used to invest %</label><input type="number" step="1" min="0" max="100" class="loan-invest-pct" value="' + (loan.investPct != null && loan.investPct !== "" ? loan.investPct : "") + '" placeholder="100" aria-label="Share of this loan used to invest, percent" title="Interest is deductible for what the borrowed money was used for, not the property it\'s secured against. The rental, shares: invest. Your own home\'s deposit, a car, living costs: not. Blank means all of it."></div>' +
-      '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
-      '<div class="m-edit-field"><label>Paid out on</label><input type="date" class="loan-ended" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
+      '<div class="m-edit-field"><label>Used to invest %</label><input type="number" step="1" min="0" max="100" class="loan-invest-pct field-control" value="' + (loan.investPct != null && loan.investPct !== "" ? loan.investPct : "") + '" placeholder="100" aria-label="Share of this loan used to invest, percent" title="Interest is deductible for what the borrowed money was used for, not the property it\'s secured against. The rental, shares: invest. Your own home\'s deposit, a car, living costs: not. Blank means all of it."></div>' +
+      '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term field-control" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
+      '<div class="m-edit-field span2"><label>Paid out on</label><input type="date" class="loan-ended field-control" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
       // v3.72.0: a fixed rate's end, and the rate it rolls to.
-      '<div class="m-edit-field"><label>Fixed until</label><input type="date" class="loan-fixed-until" value="' + escapeAttr(loan.fixedUntil || "") + '" aria-label="Fixed rate ends on" title="Leave blank for a variable loan."></div>' +
-      '<div class="m-edit-field"><label>Rate after %</label><input type="number" step="0.01" min="0" class="loan-revert-rate" value="' + (loan.revertRate != null ? loan.revertRate : "") + '" placeholder="' + rateDisplay + '" aria-label="Rate after the fixed period" title="What the lender says it reverts to — check your loan statement. Blank uses today\'s rate."></div>' +
+      '<div class="m-edit-field span2"><label>Fixed until</label><input type="date" class="loan-fixed-until field-control" value="' + escapeAttr(loan.fixedUntil || "") + '" aria-label="Fixed rate ends on" title="Leave blank for a variable loan."></div>' +
+      '<div class="m-edit-field"><label>Rate after %</label><input type="number" step="0.01" min="0" class="loan-revert-rate field-control" value="' + (loan.revertRate != null ? loan.revertRate : "") + '" placeholder="' + rateDisplay + '" aria-label="Rate after the fixed period" title="What the lender says it reverts to — check your loan statement. Blank uses today\'s rate."></div>' +
       '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
       rateHistoryHtml(loan) +
       loanBankHtml(loan) +
       (loan.repaymentMode === "manual"
-        ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
+        ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount field-control" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
         : "") +
     '</div>' +
     '<div class="m-edit-actions"><button type="button" class="btn btn-danger btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
@@ -224,7 +225,7 @@ export function rateHistoryHtml(loan, today){
   var gid = "rh-" + String(loan.id || loan.what || "loan").replace(/[^A-Za-z0-9_-]/g, "_");
   return '<div class="m-edit-field span3 rh-wrap" role="group" aria-labelledby="' + gid + '"><span class="rh-label" id="' + gid + '">Rate changes</span>' +
     (hist.length ? '<div class="rh-list">' + list + '</div>' + (rateChangeNote(loan) ? '<span class="computed-note">' + rateChangeNote(loan) + '</span>' : '') : '<span class="computed-note">No changes recorded. When the lender moves the rate, record it here with the date — past years\' interest then follows it.</span>') +
-    '<div class="rh-record"><input type="date" class="loan-rate-date" value="' + today + '" aria-label="Date the new rate applies from"><input type="number" step="0.01" min="0" class="loan-rate-new" placeholder="New rate %" aria-label="New rate percent">' +
+    '<div class="rh-record"><input type="date" class="loan-rate-date field-control" value="' + today + '" aria-label="Date the new rate applies from"><input type="number" step="0.01" min="0" class="loan-rate-new field-control" placeholder="New rate %" aria-label="New rate percent">' +
     '<button type="button" class="btn btn-sm btn-ghost" data-rate-record>Record change</button></div></div>';
 }
 // What the latest recorded change did: the repayment and a year's interest, before and after.
@@ -1064,7 +1065,8 @@ function propertiesCompareListHtml(){
   return '<div class="property-compare-list">' + rows + '</div>';
 }
 
-export function renderProperties(){
+export function renderProperties(){ return keepUi(drawProperties); }
+function drawProperties(){
   var container = document.getElementById("propertiesBody");
   if(!container) return;
   container.innerHTML = state.properties.length

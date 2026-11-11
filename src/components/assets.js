@@ -1783,25 +1783,24 @@ function drawAssets(){
 // neither page can go stale behind the other). Which is also why this list has no "+Add": you
 // can't create an offset account independent of the loan it's attached to, only set its balance.
 function offsetRowHtml(property, loan, li, colorIdx){
+  var fieldId = 'offset-' + encodeURIComponent(property.id) + '-' + li;
   var dot = '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>';
-  return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
+  return '<div class="m-row computed offset-row"><div class="m-row-summary" style="cursor:default">' +
     dot +
     '<div style="flex:1 1 auto;min-width:0">' +
       '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
       '<div class="m-row-sub">' + escapeAttr(property.what) + '</div>' +
     '</div>' +
-    '<input type="number" step="1000" min="0" class="offset-balance-input" data-offset-property="' + escapeAttr(property.id) + '" data-offset-loan="' + li + '"' +
+    '<div class="field offset-balance"><label class="field-label" for="' + fieldId + '">Offset</label><input type="number" step="1000" min="0" class="offset-balance-input field-control" id="' + fieldId + '" aria-describedby="' + fieldId + '-error" data-offset-property="' + escapeAttr(property.id) + '" data-offset-loan="' + li + '"' +
       ' value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset balance for ' + escapeAttr(loan.what) + ' on ' + escapeAttr(property.what) + '"' +
-      // flex:none: without it, this row's flex layout (dot + name/sub column + this input + the
-      // jump button, all inside a 390px phone) shrinks a fixed-width input below its own width:110
-      // once space is tight — the same trap .m-cost-row .row-del's own flex:none guards against.
-      ' style="width:110px;min-height:40px;flex:none;text-align:right;font-family:var(--font-num);border:1px solid transparent;background:transparent;color:inherit;padding:5px 6px;border-radius:6px">' +
+      '><p class="field-error" id="' + fieldId + '-error" aria-live="polite"></p></div>' +
     '<button type="button" class="icon-btn" style="flex:none" data-jump-property="' + escapeAttr(property.id) + '" aria-label="View ' + escapeAttr(property.what) + ' on Properties" title="View on Properties">' +
       '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h8v8"/><path d="M15 5L5 15"/></svg>' +
     '</button>' +
   '</div></div>';
 }
-export function renderOffsetsSubpage(){
+export function renderOffsetsSubpage(){ return keepUi(drawOffsetsSubpage); }
+function drawOffsetsSubpage(){
   var container = document.getElementById("assetsSub-Offsets");
   if(!container) return;
   var rows = [];
@@ -1832,7 +1831,8 @@ export function patchOffsetsRow(propertyId, loanIdx, offsetBalance){
 // Deliberately not built on the generic ledger-table.js machinery — debts have a different
 // shape (just what/balance, no freq/period math) and reusing rowHtml()/modernPlainRowHtml()
 // would mean fighting their amount+frequency assumptions rather than a small bespoke renderer.
-export function renderDebts(){
+export function renderDebts(){ return keepUi(drawDebts); }
+function drawDebts(){
   var container = document.getElementById("debtsTable");
   var totalEl = document.getElementById("totalDebtsAmount");
   if(!container) return;
@@ -1849,7 +1849,7 @@ export function renderDebts(){
       // aria-labelledby, which reads the name field's current value, so renaming keeps them right without a redraw.
       '<div style="flex:1 1 auto;min-width:0"><input type="text" class="debt-what inline-name" id="debt-name-' + idx + '" data-debt-index="' + idx + '" value="' + escapeAttr(d.what) + '" aria-label="Debt name">' + historyTrendHtml(d) + '</div>' +
       '<span class="visually-hidden" id="debt-bal-' + idx + '-lbl">Balance of</span><span class="visually-hidden" id="debt-del-' + idx + '-lbl">Delete</span>' +
-      '<div class="field debt-bal"><input type="number" step="100" min="0" class="debt-balance" data-debt-index="' + idx + '" value="' + d.balance + '" aria-labelledby="debt-bal-' + idx + '-lbl debt-name-' + idx + '"></div>' +
+      '<div class="field debt-bal"><label class="field-label" for="debt-balance-' + idx + '">Balance</label><input type="number" step="100" min="0" class="debt-balance field-control" id="debt-balance-' + idx + '" aria-describedby="debt-balance-' + idx + '-error" data-debt-index="' + idx + '" value="' + d.balance + '" aria-labelledby="debt-bal-' + idx + '-lbl debt-name-' + idx + '"><p class="field-error" id="debt-balance-' + idx + '-error" aria-live="polite"></p></div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-debt-log="' + idx + '" title="Record the balance above as of today">Update balance</button>' +
       '<button type="button" class="btn btn-danger btn-sm row-del" data-debt-del="' + idx + '" aria-labelledby="debt-del-' + idx + '-lbl debt-name-' + idx + '">✕</button>' +
     '</div></div>';

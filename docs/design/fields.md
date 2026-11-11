@@ -1,6 +1,6 @@
 # One field: inventory and spec (#254)
 
-**Status: foundation and the ledger/income/basic asset families shipped; investment transaction fields merged in PR #327; debt/offset/loan fields in progress.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
+**Status: foundation and the ledger/income/basic asset families shipped; investment transaction fields merged in PR #327; debt/offset/loan fields implemented, awaiting PR review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
 Benchmarks, generic ledger, income, basic asset, vehicle, holding and sale editors use it. Lots/distributions and statements now follow in this PR. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
 once this spec is agreed. Part of #253.
 
@@ -87,7 +87,7 @@ Counts are text-entry controls at 1280px (236 per width).
 |---|---|---|---|
 | Benchmarks (`.bm-controls`) | 2 | **Shared field (migrated in this PR)** | Was 8px corners, 4px padding |
 | Cash flow budget editor (`.m-edit-field`, `.bc-kind`) | 37 | Shared field (generic row migrated) | The separate group picker remains; income controls are migrated below |
-| Investments: holdings/lots/distributions/statements (`.h-*`, `.lot-*`, `.po-*`, `.stmt-*`) | — | Shared field; lots/distributions → *compact* | Holding/sale fields were shared already; transaction controls migrated in step 5. Offsets remain a separate family. |
+| Investments: holdings/lots/distributions/statements (`.h-*`, `.lot-*`, `.po-*`, `.stmt-*`) | — | Shared field; lots/distributions → *compact* | Holding/sale fields were shared already; transaction controls shipped v3.252.0. Debt/offset/loan fields are documented below. |
 | Tax: this year, returns (`.ty-*`, `.tax-*`) | 31 | Shared field; rent grid → *compact* | Mix of 6/7/8px |
 | Tax: people (`.pp-*`) | 22 | Shared field | 7–8px corners |
 | Calculators (`.cq-field`) | 16 | Shared field | 14px text |
@@ -197,12 +197,12 @@ a background redraw cannot make the assertion evaluate a detached node; no retri
 Full-document accessibility adds Cash/Super/Vehicle pages and five expanded/computed/blank/stored-value states.
 
 Holding/sale fields already use the adapter; investment transaction skin work is documented below. Debt/offset
-forms and other families remain separate migrations. Actual screen-reader and physical-device
+forms are documented below; other families remain separate migrations. Actual screen-reader and physical-device
 verification remains the pending manual task above.
 
 ## Step 5: investment transaction field skin (#254)
 
-Implemented on `codex/investment-field-skin`, awaiting PR review. Reuse the shipped field contract: 13px desktop text,
+Shipped v3.252.0 (PR #327). Reuse the shipped field contract: 13px desktop text,
 6px radius, 36px desktop height, shared hover/focus/error/disabled/read-only states. Lots and distribution
 rows use the documented compact-cell variant with 4px horizontal padding; standard statement fields use
 8px. Preserve the existing 44px phone/touch floors and 16px touch text-entry typography.
@@ -246,17 +246,17 @@ Artifacts: `/tmp/investment-field-review/`.
 The unchanged holding-row header’s nested Details link is an existing finding recorded in
 `records-before-tools.md`; editor scans cover `.m-row-edit-pad` and do not certify that header or the Shares
 performance table. The whole Shares page remains covered by smoke and existing scoped accessibility checks.
-#254 stays open for the remaining debt/offset, Tax, calculator, setup and fallback families.
+#254 stays open; the debt/offset/loan migration follows below, with Property, Tax, calculator, setup and fallback families still to finish.
 
 ## Debt, offset and property-loan fields (#254)
 
-In progress on `codex/debt-offset-fields`, reusing the shipped shared tokens and state contract. Debt balances
+Implemented on `codex/debt-offset-fields`, awaiting PR review, reusing the shipped shared tokens and state contract. Debt balances
 and Investments’ offset balances become bordered shared controls, retaining their compact 110px record-value
-layout and context-based accessible names. Debt names remain the documented inline-rename variant. Give record
+layout, linked visible labels and context-based accessible names. Debt names remain the documented inline-rename variant. Give record
 balances stable ids and reserved errors without changing their values, limits, steps or save handlers.
 
 Property-loan controls (including manual repayment, rate-change date/new rate and optional borrowing/fixed-rate
-fields) use `.field-control` while retaining the existing `labelFields` compatibility adapter. That adapter
+fields) use `.field-control`; native loan dates span two columns so their year remains readable on touch screens. They retain the existing `labelFields` compatibility adapter. That adapter
 already supplies linked visible labels, stable per-card ids and described help; existing numeric validation
 keeps its messages and update rules. This is a skin migration, not a new set of loan rules or persisted fields.
 
@@ -268,3 +268,32 @@ redraw, both directions of offset mirroring and all rate-history fields. Inspect
 
 The remaining Property, Tax, calculator, setup and fallback families stay under #254. The compatible loan
 adapter and compact record balances are explicit shared-control variants; they do not introduce another skin.
+
+### Debt/offset/loan verification
+
+| Control | Before at 1280px | After at 1280px | Before → after at 1024px touch |
+| --- | --- | --- | --- |
+| Debt balance | 40px; 6px radius; 5×6px padding | 36px; 6px; 6×8px | 40 → 44px high |
+| Investments offset | 40px; 6px radius; 5×6px padding | 36px; 6px; 6×8px | 40 → 44px high |
+| Property-loan balance | 40px; 7px radius; 6×8px padding | 36px; 6px; 6×8px | 40 → 44px high |
+
+Shared controls keep 13px desktop text; touch text entry remains 17px. Debt names retain the transparent
+inline-rename variant (40px desktop, 44px touch) and visible keyboard focus. Debt/offset controls now have
+linked visible labels, retaining debt-specific accessible names after renaming. Existing and new error
+messages remain attached to their field; debt/offset messages reuse reserved ids.
+
+The debtoffsetfields journey checks debt blank/zero/negative rules and history; offset blank/negative rejection;
+mirroring in both directions; labels/help; manual repayment and rate recording; shared dimensions at five
+widths; and focus through direct redraw and repayment-mode changes. Existing debts/property/propvalidation
+journeys pass. Render, unit and static checks and full page smoke pass.
+
+Before/after screenshots and measurements cover 320/390/768/1024/1280px and both themes with long loan/property
+names. Focused scans cover normal balances, invalid fields and manual loan mode in the editor content. The
+accessibility script now includes Offsets plus populated debt normal/error states and expanded loan/error/manual
+states. Artifacts: `/tmp/debt-offset-review/`. Financial calculations, stored data and save handlers are unchanged.
+
+Final scoped checks pass at all five widths and both themes, including the wider native date fields on phones,
+touch tablets and desktop. Whole-form review starts at the dialog’s stable initial scroll position; the CI
+accessibility script checks every loan field with its label/help fully in view, avoiding contrast sampling of
+fragments clipped at the modal/backdrop boundary. No accessibility rule is disabled. Local accessibility runs pass at 390px/light and 1280px/light; the 85-state desktop run includes all 16 loan
+field groups plus error and manual-repayment checks. Normal whole-page coverage remains in place.

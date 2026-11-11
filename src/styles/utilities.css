@@ -32,9 +32,6 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--bad-ink); }
 /* #259: this layer follows every page's segmented-control display rules. */
 .has-section-picker > button{ display:none; }
-.has-section-picker.measuring-section-picker > button{
-  display:block; position:absolute; width:max-content; visibility:hidden;
-}
 .has-section-picker > .section-picker{ flex:1 0 0; }
 
 /* #306: records lead; filters and occasional tools open only when requested. */

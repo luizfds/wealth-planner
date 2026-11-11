@@ -34,11 +34,9 @@ export function initSectionPickers(root){
     root.querySelectorAll(RAILS).forEach(function(rail){
       if(!observed.has(rail)){ observed.add(rail); resize.observe(rail); }
       if(!rail.getClientRects().length) return;
-      // Keep the live native select displayed while measuring its original tabs. Hiding it
-      // changes the rail size, feeds ResizeObserver, and can dismiss Android's open picker.
-      rail.classList.add("measuring-section-picker");
+      rail.classList.remove("has-section-picker");
       var buttons = Array.from(rail.children).filter(function(el){ return el.matches("button") && el.getClientRects().length; });
-      if(!buttons.length){ rail.classList.remove("measuring-section-picker"); return; }
+      if(!buttons.length) return;
       var picker = rail.querySelector(":scope > .section-picker");
       if(!picker){
         picker = document.createElement("select");
@@ -61,7 +59,6 @@ export function initSectionPickers(root){
         (parseFloat(style.columnGap) || 0) * (buttons.length - 1);
       var room = rail.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
       var compact = need > room + 1;
-      rail.classList.remove("measuring-section-picker");
       rail.classList.toggle("has-section-picker", compact);
       var selected = Math.max(0, buttons.findIndex(function(b){
         return b.getAttribute("aria-current") === "page" || b.getAttribute("aria-selected") === "true" || b.getAttribute("aria-pressed") === "true";

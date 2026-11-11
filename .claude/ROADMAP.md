@@ -5035,7 +5035,7 @@ two journeys; the click now reports what was in its way. The Transfer journey's 
 
 `[~]` Reported after PR #327 in Android Chrome's installed app: Investments cannot leave Summary or return to Net worth.
 On `codex/fix-mobile-investments`, wire the mobile back button through normal navigation. Restrict the picker observer
-to navigation mutations so it and help decoration stop waking each other, and measure tabs without hiding the native
+to navigation mutations so it and help decoration stop waking each other and continuously hiding the native
 select. Idle rail mutations fell from 242 in two seconds to zero. Add a touch journey entering from Net worth,
 choosing Shares/Super/Summary, checking idle stability, going back, and entering again. Chrome journeys and a
 WebKit reproduction pass; native Android installed-app confirmation remains for the released fix.

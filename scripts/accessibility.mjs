@@ -88,6 +88,23 @@ for(const width of widths)for(const scheme of schemes){
   }
   if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
   else await scan(pg+'/'+sub);
+  if(pg==='expenses' && sub==='spending'){
+   const numbers=page.locator('.trend-numbers');
+   if(await numbers.count()){
+    await numbers.evaluate(d=>d.open=true);
+    if(width<768)await page.locator('[data-trend-month]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+    await scan('spending-numbers/default', '.trend-number-reading');
+    if(width<768){await page.locator('[data-trend-full-toggle]').check();await page.locator('[data-trend-full-toggle]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await scan('spending-numbers/full-table', '.trend-number-reading');await page.locator('[data-trend-full-toggle]').uncheck();}
+   }
+  }
+  if(pg==='assets' && sub==='summary' && width<768){
+   await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+   await scan('purchase-funding/details', '#netWorthPanel');
+   if(await page.locator('[data-funding-full-toggle]').count()){
+    await page.locator('[data-funding-full-toggle]').check();await page.locator('[data-funding-full-toggle]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await scan('purchase-funding/full-table', '#netWorthPanel');await page.locator('[data-funding-full-toggle]').uncheck();
+   }
+  }
   if(pg==='plan' && sub==='projections' && width<768){
    await page.locator('.proj-reading-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    await scan('projection-reading/details');

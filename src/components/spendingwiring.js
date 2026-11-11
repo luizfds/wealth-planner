@@ -21,7 +21,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint, txViewForm } from "./cashflow.js";
 import { afterReceivedChange } from "./cashflowwiring.js";
-import { renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
+import { trendDisplay, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
 import { firstRun, firstRunHtml } from "./firstrun.js";
 import { renderHomeSummary } from "./home.js";
 import { showPage, showExpensesSubpage } from "./nav.js";
@@ -246,6 +246,16 @@ function txrChange(){ if(!txrCurrent() || txReview.mode !== "card") return; txRe
 function afterReceiptChange(){ persist(); renderTransactions(); rerenderTableFor("shared"); renderTaxYear(); }
 
 export function wireSpending(){
+  document.getElementById('spendingTrendsPanel').addEventListener('change', function(e){
+    if(e.target.matches('[data-trend-month]')){
+      trendDisplay.month = e.target.value;
+      this.querySelectorAll('[data-trend-summary]').forEach(function(panel){ panel.hidden = panel.getAttribute('data-trend-summary') !== trendDisplay.month; });
+    }
+    if(e.target.matches('[data-trend-full-toggle]')){
+      trendDisplay.fullTable = e.target.checked;
+      this.querySelector('.trend-number-reading').setAttribute('data-trend-full', String(e.target.checked));
+    }
+  });
   // ---------------- Transactions: real dated spend, separate from the planned budget ----------------
   // The Transactions time-range picker. Delegated off the card because renderTransactions()
   // rebuilds the control itself on every change.

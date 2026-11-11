@@ -2101,6 +2101,85 @@ const JOURNEYS = {
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
   },
+  async comparisonfinish(page){
+    await go(page,'expenses','data-expenses-sub','spending');
+    const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
+    const numbers=page.locator('.trend-numbers');
+    await numbers.locator('summary').focus();await page.keyboard.press('Enter');
+    const month=page.locator('[data-trend-month]');
+    const months=await month.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    check(months.length>1,'sample needs multiple logged months');
+    check(await month.inputValue()===months.at(-1),'numbers do not default to latest month');
+    check((await month.locator('option:checked').textContent()).includes('so far'),'partial-month context missing');
+    for(const [index,name] of months.entries()){
+      await month.focus();await month.selectOption(name);
+      check(await month.evaluate(e=>e===document.activeElement),'month selection lost focus');
+      const panel=page.locator('.trend-month:not([hidden])');
+      check(await panel.evaluate((e,index)=>{
+        const rows=[...document.querySelectorAll('.trend-full-table tbody tr')];
+        const fields=[...e.querySelectorAll('[data-trend-row]')];
+        return fields.length===rows.length&&fields.every((f,i)=>f.querySelector('dt').textContent===rows[i].cells[0].textContent&&f.querySelector('dd').textContent===rows[i].cells[index+1].textContent);
+      },index),'month summary changed a category/total value');
+    }
+    await page.evaluate(async()=>(await import('/src/components/expenses.js')).renderSpendingTrends());
+    check(await month.inputValue()===months.at(-1),'redraw lost month selection');
+    check(await month.evaluate(e=>e===document.activeElement),'redraw lost month focus');
+    check(await numbers.evaluate(e=>e.open),'redraw collapsed exact numbers');
+    await page.locator('.trend-month:not([hidden]) dt').first().evaluate(e=>e.textContent='Sample category with a deliberately long label for narrow phones');
+    for(const width of [320,390]){
+      await page.setViewportSize({width,height:844});
+      check(await page.locator('.trend-month:not([hidden])').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'month numbers overflow at '+width);
+      check(await page.locator('.trend-rows').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'default spending bars overflow at '+width);
+    }
+    await page.locator('[data-trend-full-toggle]').focus();await page.keyboard.press('Space');
+    const trendTable=page.locator('.trend-full-table .table-scroll');await trendTable.focus();await page.keyboard.press('ArrowRight');await until(page,e=>e.scrollLeft>0,await trendTable.elementHandle());
+    check(!await page.locator('.trend-month-reading').isVisible(),'spending table exposes duplicate summary');
+    await page.locator('[data-trend-full-toggle]').uncheck();
+    await go(page,'assets','data-assets-sub','summary');
+    const funding=page.locator('#netWorthPanel'),scenario=page.locator('[data-funding-scenario]');
+    const choices=await scenario.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    check(choices.length>0,'sample needs a purchase comparison');
+    for(const [index,name] of choices.entries()){
+      await scenario.focus();await scenario.selectOption(name);
+      check(await scenario.evaluate(e=>e===document.activeElement),'funding selection lost focus');
+      const panel=page.locator('.funding-scenario:not([hidden])');
+      await panel.locator('summary').focus();await page.keyboard.press('Enter');
+      check(await panel.evaluate((e,index)=>{
+        const row=document.querySelectorAll('.funding-full-table tbody tr')[index];
+        return [...e.querySelectorAll('[data-funding-field]')].every(f=>f.querySelector('dd').textContent===row.cells[Number(f.dataset.fundingField)+1].textContent);
+      },index),'funding summary changed a table value');
+      check((await panel.innerText()).includes('if funded'),'conditional funding value lost its qualification');
+    }
+    const details=page.locator('.funding-scenario:not([hidden]) .funding-details');
+    await details.locator('summary').focus();await page.evaluate(async()=>(await import('/src/components/assets.js')).renderNetWorthPanel());
+    check(await scenario.inputValue()===choices.at(-1),'redraw lost funding selection');
+    check(await details.evaluate(e=>e.open),'redraw lost funding Details');
+    check(await details.locator('summary').evaluate(e=>e===document.activeElement),'redraw lost funding focus');
+    check((await funding.innerText()).includes('Selling investments is not assumed'),'funding assumptions missing');
+    await page.locator('.funding-scenario:not([hidden]) h3').evaluate(e=>e.textContent='Sample scenario with a deliberately long name for narrow phones');
+    for(const width of [320,390]){await page.setViewportSize({width,height:844});check(await page.locator('.funding-scenario:not([hidden])').evaluate(e=>e.scrollWidth<=e.clientWidth+1),'funding summary overflows at '+width);}
+    await page.locator('[data-funding-full-toggle]').check();
+    const fundingTable=page.locator('.funding-full-table .table-scroll');await fundingTable.focus();await page.keyboard.press('ArrowRight');await until(page,e=>e.scrollLeft>0,await fundingTable.elementHandle());
+    check(!await page.locator('.funding-mobile').isVisible(),'funding table exposes duplicate summary');
+    await page.locator('[data-funding-full-toggle]').uncheck();
+    check(await page.evaluate(async original=>JSON.stringify((await import('/src/state.js')).state)===original,original),'display controls changed household data');
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      check(await page.locator('.funding-mobile').isVisible()===(width<768),'wrong funding mode at '+width);
+      await go(page,'expenses','data-expenses-sub','spending');
+      check(await page.locator('.trend-month-reading').isVisible()===(width<768),'wrong spending numbers mode at '+width);
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'comparison creates page overflow at '+width);
+      await go(page,'assets','data-assets-sub','summary');
+    }
+    await page.emulateMedia({media:'print'});
+    check(await page.locator('.funding-full-table').isVisible()&&!await page.locator('.funding-mobile').isVisible(),'print lost funding comparison');
+    await page.emulateMedia({media:'screen'});
+    await page.evaluate(async()=>{const a=await import('/src/components/assets.js');a.purchaseDisplay.scenario='Removed';a.renderNetWorthPanel();});
+    check(await scenario.inputValue()===choices[0],'missing funding selection did not fall back');
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.evaluate(async()=>{const e=await import('/src/components/expenses.js');e.trendDisplay.month='Removed';e.renderSpendingTrends();});
+    check(await month.inputValue()===months.at(-1),'missing month did not fall back');
+  },
   async projectionsummary(page){
     await go(page,'plan','data-plan-sub','projections');
     const picker=page.locator('[data-proj-reading-scenario]');

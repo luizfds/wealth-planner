@@ -15,7 +15,7 @@ import { readNumberField, markField, readInput as readIn } from "../lib/validate
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, genId, normalizeShareAsset } from "../state.js";
-import { patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, clearAssetsImportPreview, commitAssetsImport, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
+import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, clearAssetsImportPreview, commitAssetsImport, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
 import { refreshAutoPrices, autoPricesResultText } from "./autoprices.js";
 import { tradesUi, readTradesText, useParsedTrades, currentTradePlan } from "./brokertrades.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./dashboard.js";
@@ -255,6 +255,16 @@ defineSavedValue("v-purchaseprice", function(it){ return it.purchasePrice; });
 defineSavedValue("v-deprate", function(it){ return it.depreciationRate; });
 
 export function wireAssets(){
+  document.getElementById('netWorthPanel').addEventListener('change', function(e){
+    if(e.target.matches('[data-funding-scenario]')){
+      purchaseDisplay.scenario = e.target.value;
+      this.querySelectorAll('[data-funding-summary]').forEach(function(panel){ panel.hidden = panel.getAttribute('data-funding-summary') !== purchaseDisplay.scenario; });
+    }
+    if(e.target.matches('[data-funding-full-toggle]')){
+      purchaseDisplay.fullTable = e.target.checked;
+      this.querySelector('.funding-reading').setAttribute('data-funding-full', String(e.target.checked));
+    }
+  });
   document.addEventListener("click", function(e){
     var filters = e.target.closest('[data-asset-list-filters]');
     if(filters){

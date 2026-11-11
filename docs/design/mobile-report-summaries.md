@@ -1,6 +1,6 @@
 # Mobile report summaries (#258)
 
-Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison shipped v3.249.0 (PR #324); projection tables implemented; awaiting PR review. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
+Status: recommended interaction approved by the owner; shared Reports shipped v3.248.0 (PR #323); scenario comparison shipped v3.249.0 (PR #324); projection tables shipped v3.250.0 (PR #325); final comparisons in progress. Roadmap step 4; report chooser shipped v3.247.0 (PR #322).
 
 ## Approved interaction
 
@@ -135,3 +135,22 @@ The issue and roadmap step 4 remain open until those are reviewed and migrated.
 Expanded whole-page CI coverage also found the existing “How to interpret these estimates” disclosure
 had too small a desktop click target. Its summary now has a 44px minimum target; whole-page desktop
 axe scans pass in both themes after the fix.
+
+## Final #258 comparisons
+
+Spending over time already uses vertical category rows with six-bar strips as its default; no heatmap grid
+needs replacing there. Retain the chart and partial-month comparisons. Inside Show the numbers, phones
+select one month and read its exact category amounts and total vertically. Label the current partial month
+“so far”. Full table remains optional, named and keyboard-scrollable; desktop/print retain all six months.
+The Budget vs actual report’s heatmap already has the shared report summary from PR #323.
+
+Investments → Summary → Net worth if you buy uses the approved scenario picker: show upfront cash,
+available cash/offsets and surplus/shortfall first, with conditional net worth after costs in Details. Keep
+all funding definitions and qualifications visible, including “if funded” and no assumed investment sales.
+Both representations use the same calculation results and formatted cells. Retain the existing empty state
+and note for scenarios using the invest leg. Full table remains available; desktop/print keep the comparison.
+
+Both selections/modes are session UI and preserve focus through redraw, falling back when a month/scenario
+is no longer available. Verify every cell, partial months, total rows, long labels, empty history/purchases,
+keyboard, complete comparison modes and 320/390/768/1280px in both themes. This finishes #258 once merged;
+all report renderers, scenario/projection tables and these remaining comparisons will have been reviewed.

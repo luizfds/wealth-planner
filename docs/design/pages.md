@@ -155,8 +155,8 @@ means a button, or a link to the place the step is done:
 
 - **One rail per page on a phone.** Investments' seven tabs become the only rail when Investments is open, and Net
   worth's rail moves into the header's back link ("‹ Net worth"), as a record's details page already does.
-- **Reports keep their chip catalogue.** It is a menu of 21 reports, not tabs, and its pins and order are the
-  person's.
+- **Reports use a searchable chooser.** The 21-report menu has group headings and descriptions; pinned
+  shortcuts remain on the page. See [Report picker](report-picker.md) (#260).
 
 ## Migration matrix
 

@@ -49,7 +49,14 @@ for (const [mode, width] of [["demo", 390], ["demo", 1280], ["empty", 390]]) {
     await p.evaluate(async x => (await import("/src/components/nav.js")).showPage(x), pg);
     await p.waitForTimeout(450);
     for (const sub of subs) {
-      if(sub) { await p.evaluate(([a, s]) => { const el = document.querySelector('[data-' + a + '="' + s + '"]'); if(el) el.click(); }, [attr, sub]); await p.waitForTimeout(350); }
+      if(sub) {
+        const found = await p.evaluate(([a, s]) => { if(a === 'report') document.querySelector('[data-report-choose]').click(); const el = document.querySelector('[data-' + a + '="' + s + '"]'); if(el) el.click(); return !!el; }, [attr, sub]);
+        if(attr === 'report'){
+          if(!found){ await p.keyboard.press('Escape'); await p.waitForFunction(() => !document.querySelector('.report-chooser')); continue; }
+          await p.waitForFunction(key => !!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser'), sub);
+        }
+        await p.waitForTimeout(350);
+      }
       const r = await p.evaluate(() => {
         const root = document.querySelector(".app-page:not([hidden])");
         const vis = el => !!el.getClientRects().length && !el.closest("[hidden]") && getComputedStyle(el).visibility !== "hidden";

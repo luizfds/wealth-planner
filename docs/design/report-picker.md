@@ -2,11 +2,11 @@
 
 Roadmap step 4 starts with this picker; mobile report summaries (#258) follow in separate work.
 
-## Proposed interaction
+## Interaction (implemented; awaiting PR review)
 
 - Reports opens on the selected report, its existing period/comparison/group controls and results.
-- One “Choose report” button opens a searchable, grouped chooser. Recommend the same chooser on phone and desktop;
-  the owner has been asked whether desktop should instead retain the visible catalogue.
+- One “Choose report” button opens the same searchable, grouped chooser on phone and desktop.
+  Pinned shortcuts remain on the page.
 - Each report has a short description. Search matches its title, group and description. No matches offers Clear search.
 - The current report is marked. Group labels remain visible. Household parts keep their existing availability rules.
 - Pinned shortcuts remain on the report page and in the chooser. Their saved frames and ordering are unchanged.
@@ -17,6 +17,15 @@ Roadmap step 4 starts with this picker; mobile report summaries (#258) follow in
   Calculations, CSV and print remain unchanged.
 
 ## Verification
+
+Measured with the synthetic demo in both themes: at 390px, the report title moves from y=808 to y=262
+and the first chart ends at y=452 (previously 998). At 320px, the chart ends at y=509 (previously 1255).
+The chooser keeps a fixed viewport-bounded height so filtering does not move the search field.
+
+Local static checks, unit tests, full smoke and targeted reportchooser/tabkeys/reportaudit journeys pass.
+Focused axe scans cover 24 report/chooser/no-results states across four widths and both themes, with zero violations.
+The journey also checks nested confirmation dialogs, Back/Escape, saved frame restoration after reload and focus.
+
 
 Use CI's pinned Playwright 1.56.0. Verify search, descriptions, keyboard selection/cancellation, Back, pin restore
 and frame preservation. Measure the report title and first meaningful result at 320/390/768/1280px in both themes.

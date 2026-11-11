@@ -195,6 +195,13 @@ const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 
 // The same from this side: until test() (async, here) is true, up to 10s, polling every 100ms.
 async function eventually(test){ for(let t0 = Date.now(); Date.now() - t0 < 10000; await new Promise(r => setTimeout(r, 100))) if(await test()) return; }
 async function go(page, pageId, subAttr, sub){
+  if(pageId === 'reports' && subAttr === 'data-report'){
+    await go(page, 'reports');
+    await page.locator('#reportsBody [data-report-choose]').first().click();
+    await page.locator('.report-chooser [data-report="' + sub + '"]').click();
+    await page.waitForFunction(key => !!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser'), sub);
+    await settle(page); return;
+  }
   await page.evaluate(([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]'); b.click(); if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
   // The page, and its subtab, showing — then a frame for what they draw.
   await page.waitForFunction(([p, a, s]) => document.body.getAttribute("data-current-page") === p &&
@@ -573,12 +580,12 @@ const JOURNEYS = {
     await press("Home", 0, "Home didn't go back to the first tab");
     // Reports: choosing a report, or changing its period, redraws the page — focus stays on the control used.
     await go(page, "reports");
-    await page.locator('[data-report="categories"]').waitFor({ state: "visible" });
+    await page.locator('[data-report-choose]').first().click();
+    await page.locator('.report-chooser [data-report="categories"]').waitFor({ state: "visible" });
     check(await page.locator('#reportsBody [role="tablist"], #reportsBody [role="tab"]').count() === 0, "Reports' picker still claims to be tabs");
     await page.focus('[data-report="categories"]'); await page.keyboard.press("Enter"); await settle(page);
-    const rep = await page.evaluate(() => ({ key: document.activeElement.getAttribute("data-report"), current: document.querySelector('[data-report="categories"]').getAttribute("aria-current"),
-      others: document.querySelectorAll('[data-report][aria-current]').length }));
-    check(rep.key === "categories" && rep.current === "true" && rep.others === 1, "choosing a report lost focus or didn't mark it current: " + JSON.stringify(rep));
+    await page.waitForFunction(() => !!document.querySelector('[data-current-report="categories"]') && !document.querySelector('.report-chooser'));
+    check(await page.evaluate(() => document.activeElement.matches('[data-report-choose]')), "choosing a report lost focus");
     await page.keyboard.press("Tab");
     check(await page.evaluate(() => document.activeElement && document.activeElement !== document.body && !!document.activeElement.closest("#reportsBody")), "Tab after choosing a report restarted at the page body");
     const range = '#reportsBody [data-rf="range"]';
@@ -2008,8 +2015,7 @@ const JOURNEYS = {
     const compare = page.locator('.cmp-scroll').first();
     await compare.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await compare.elementHandle());
     check(await compare.evaluate(el => el.scrollLeft > 0), 'scenario table cannot scroll with the keyboard');
-    await go(page, 'reports');
-    await page.locator('[data-report="networth"]').click();
+    await go(page, 'reports', 'data-report', 'networth');
     const report = page.locator('#reportSheet .rp-scroll');
     await report.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await report.elementHandle());
     check(await report.evaluate(el => el.scrollLeft > 0), 'net worth report cannot scroll with the keyboard');
@@ -2092,6 +2098,74 @@ const JOURNEYS = {
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');
   },
+  async reportchooser(page){
+    await go(page, 'reports');
+    const opener = page.locator('#reportsBody [data-report-choose]').first();
+    await page.locator('[data-rf="range"]').selectOption('l12');
+    await page.locator('[data-rf="compare"]').selectOption('prev');
+    const frame = () => page.evaluate(async () => {
+      const f = (await import('/src/components/reports.js')).reportFrame;
+      return JSON.stringify([f.range,f.from,f.to,f.compare,f.group]);
+    });
+    const previous = await frame();
+    await opener.focus(); await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', {name:'Choose a report'});
+    const search = dialog.getByRole('searchbox', {name:'Search reports'});
+    check(await search.evaluate(e => e === document.activeElement), 'chooser did not focus search');
+    check(await dialog.locator('[data-report]').count() === 21, 'chooser lost a report');
+    check(await dialog.locator('[data-report="cashflow"]').getAttribute('aria-current') === 'true', 'chooser did not mark the current report');
+    await dialog.locator('button').last().focus(); await page.keyboard.press('Tab');
+    check(await page.evaluate(() => !!document.activeElement.closest('.report-chooser')), 'Tab escaped the native report chooser');
+    await search.fill('property');
+    check(await dialog.locator('[data-report]').count() === 3, 'property search does not distinguish all three property reports');
+    const position = await search.evaluate(e => e.getBoundingClientRect().top);
+    await search.fill('no-such-report');
+    check(await dialog.getByText('No reports match', {exact:false}).isVisible(), 'no-results feedback is missing');
+    check(Math.abs(await search.evaluate(e => e.getBoundingClientRect().top) - position) < 1, 'search field moved when results changed');
+    await dialog.getByRole('button', {name:'Clear search',exact:true}).click();
+    check(await dialog.locator('[data-report]').count() === 21, 'Clear search did not restore the catalogue');
+    await search.fill('merchant');
+    check(await dialog.locator('[data-report="categories"]').count() === 1, 'description search missed Spending');
+    await dialog.locator('[data-report="categories"]').focus(); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !!document.querySelector('[data-current-report="categories"]') && !document.querySelector('.report-chooser'));
+    check(await frame() === previous, 'ordinary report selection changed its frame');
+    check(await opener.evaluate(e => e === document.activeElement), 'selection did not return focus to Choose report');
+    await page.locator('[data-rf="group"]').selectOption('merchant');
+    const pinnedFrame = await frame();
+    await page.locator('[data-report-pin]').click();
+    const id = await stored(page, 'state.savedReports[0].id');
+    await go(page, 'reports', 'data-report', 'networth');
+    await opener.click();
+    check(await dialog.locator('[aria-label="Recently viewed"] [data-report-recent="categories"]').isVisible(), 'recent report shortcut is missing');
+    await page.goBack();
+    await page.waitForFunction(() => !document.querySelector('.report-chooser'));
+    check(await opener.evaluate(e => e === document.activeElement), 'Back did not return focus');
+    check(await page.locator('[data-current-report="networth"]').count() === 1, 'cancelling the chooser changed the report');
+    await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
+    check(await frame() === pinnedFrame, 'pinned shortcut did not restore its frame');
+    await page.reload(); await quiet(page); await go(page, 'reports');
+    await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
+    check(await frame() === pinnedFrame, 'pinned report did not survive reload');
+    await opener.click(); await dialog.locator('[data-report-search]').fill('discard this search'); await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.report-chooser'));
+    check(await opener.evaluate(e => e === document.activeElement), 'Escape lost focus');
+    await opener.click();
+    await page.evaluate(async () => { const d = await import('/src/lib/dialogs.js'); void d.confirmDialog('Sample confirmation', {title:'Sample question'}); });
+    await page.getByRole('dialog', {name:'Sample question'}).waitFor({state:'visible'});
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[aria-labelledby="appDialogTitle"]'));
+    check(await dialog.isVisible(), 'closing a question also closed the chooser underneath');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.report-chooser'));
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      await opener.click();
+      const fit = await dialog.evaluate(e => { const r=e.getBoundingClientRect(); return r.left>=0 && r.right<=innerWidth+1 && e.scrollWidth<=e.clientWidth+1; });
+      check(fit, 'chooser overflows at '+width+'px');
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('.report-chooser'));
+    }
+  },
   async reportaudit(page){
     page.setDefaultTimeout(10000);
     await page.evaluate(() => {
@@ -2099,8 +2173,7 @@ const JOURNEYS = {
       Object.defineProperty(navigator, 'canShare', {configurable:true,value:()=>true});
       Object.defineProperty(navigator, 'share', {configurable:true,value:async({files})=>{window.__csvShares.push({name:files[0].name,text:await files[0].text()});}});
     });
-    await go(page, "reports");
-    await page.locator('[data-report="cashflow"]').click();
+    await go(page, "reports", 'data-report', 'cashflow');
     const disclosure = page.locator('[aria-label="Report assumptions and data quality"]');
     await disclosure.locator('summary').focus();
     await page.keyboard.press('Enter');

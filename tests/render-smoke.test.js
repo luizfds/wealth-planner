@@ -2157,7 +2157,24 @@ test("Reports → Rental tax pack", async function(){
 
 // Issue audit: exercise the new builders alongside the older page builders.
 import { recurringRuleManagerHtml, categoryInsightsHtml } from "../src/components/recurringrules.js";
-import { planningReadinessHtml, reportDisclosureHtml } from "../src/components/reports.js";
+import { planningReadinessHtml, reportDisclosureHtml, reportChooserResultsHtml, REPORT_DESCRIPTIONS } from "../src/components/reports.js";
+test('report chooser descriptions cover the catalogue and search safely by purpose', async () => {
+  const { REPORTS } = await import('../src/calc/reports.js');
+  for(const r of REPORTS) assert.ok(REPORT_DESCRIPTIONS[r.key], 'Missing description for '+r.key);
+  assert.match(reportChooserResultsHtml('running balance'), /data-report="cashflow"/);
+  assert.doesNotMatch(reportChooserResultsHtml('running balance'), /data-report="categories"/);
+  const empty = reportChooserResultsHtml('<script>');
+  assert.match(empty, /No reports match/);
+  assert.doesNotMatch(empty, /<script>/);
+  assert.match(empty, /data-report-search-clear/);
+  const saved = state.savedReports;
+  try{
+    state.savedReports = [{id:'sample-pin', key:'categories', name:'Spending · Last 12 months'}];
+    const pinned = reportChooserResultsHtml('last 12');
+    assert.match(pinned, /data-report-saved="sample-pin"/);
+    assert.doesNotMatch(pinned, /No reports match/);
+  } finally { state.savedReports = saved; }
+});
 import { reportDisclosure } from "../src/calc/planningreadiness.js";
 test("recurring management and partial-profile disclosures render without private data", () => {
   const rule = { id: "sample-rule", what: "Sample service", kind: "Expense", amount: 25,

@@ -975,6 +975,8 @@ function propertiesEquityDebtBarHtml(){
   return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
 }
 export function renderPropertiesSummary(){
+  var listTotal = document.getElementById("propertiesListTotal");
+  if(listTotal) listTotal.textContent = fmtCurrency0.format(propertiesTotalValue());
   var statsEl = document.getElementById("propertiesSummaryStats");
   if(statsEl){
     if(!state.properties.length){

@@ -15,8 +15,9 @@ import { escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
 import { hasOwnDates } from "../calc/txviews.js";
+import { keepUi } from "../lib/keepui.js";
 import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
-import { txGrid, txGridHtml, txViewToggleHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, viewsBarHtml, filterBarHtml, directionControlHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { txGrid, txGridHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, filterBarHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -1415,7 +1416,8 @@ export function setTransactionsRange(value){
   transactionsShowAll = false; // a new window is a new list; "show all" was about the old one
   renderTransactions();
 }
-export function renderTransactions(){
+export function renderTransactions(){ return keepUi(drawTransactions); }
+function drawTransactions(){
   var container = document.getElementById("transactionsTable");
   var totalEl = document.getElementById("totalTransactionsAmount");
   if(!container) return;
@@ -1425,8 +1427,7 @@ export function renderTransactions(){
   var top = (transferForm.open ? transferFormHtml() : "");
   if(!all.length){
     if(totalEl) totalEl.textContent = fmtCurrency0.format(0);
-    container.innerHTML = top + '<p class="ledger-note" style="margin:0">Nothing logged yet — log what you spend below (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.</p>' +
-      '<div class="cf-filter-actions" style="margin-top:8px"><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button></div>';
+    container.innerHTML = top + filterBarHtml([], lines, { scopeHtml: transactionScopeControlHtml(transactionsRange) }) + '<p class="ledger-note" style="margin:0">Nothing logged yet — log what you spend below (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.</p>';
     return;
   }
   // v3.168.0: a view or filter with its own dates (or a trip) decides the dates, not the header's period.
@@ -1437,12 +1438,13 @@ export function renderTransactions(){
   var totals = entryTotals(shown);
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = viewsBarHtml() + '<div class="tx-controls-row"><div class="tx-controls-left">' + (ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange)) + directionControlHtml() + '</div>' + txViewToggleHtml() + '</div>' + filterBarHtml(inScope, lines);
+  var controlHtml = filterBarHtml(inScope, lines, { total: fmtCurrency0.format(totals.out), scopeActive: !ownDates && transactionsRange !== 'month', scopeLabel: win ? win.label : 'All dates',
+    scopeHtml: ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange) });
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){
     container.innerHTML = top + controlHtml + bulk +
       '<p class="ledger-note" style="margin:10px 0 0">' + (inScope.length ? "Nothing matches these filters." : "Nothing logged in " + escapeAttr(win ? win.label : "this window") + ". " +
-        all.length + (all.length === 1 ? " entry sits" : " entries sit") + " outside it — choose Year or All above, or another period in the header.") + '</p>';
+        all.length + (all.length === 1 ? " entry sits" : " entries sit") + " outside it — choose Year or All in Filters, or another period in the header.") + '</p>';
     return;
   }
   var hasMore = shown.length > TRANSACTIONS_RECENT_COUNT;

@@ -4978,9 +4978,11 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      Implementation and browser verification on `codex/records-before-tools`; design in
      `docs/design/records-before-tools.md`. Investments' phone rail replaces its outer rail with “‹ Net worth”.
      Merged as PR #320, shipped v3.245.0.
-   - List toolbars in progress: the owner chose Search + Filters for Spending, with type and period inside Filters.
+   - List toolbars implemented, awaiting review: the owner chose Search + Filters for Spending, with type and period inside Filters.
      Shares/Super move person selection into Filters; prices/import/bulk tools go in ⋯ menus. Records lead
-     contributions and property charts. Implementation on `codex/records-before-tools-toolbars`.
+     contributions and property charts. Implementation on `codex/records-before-tools-toolbars`; the smoke run now
+     enforces the first record's top-half position at 390×844 and 1280×800. Measurements and accessibility coverage
+     (including existing Shares findings) are in `docs/design/records-before-tools.md`.
 4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).

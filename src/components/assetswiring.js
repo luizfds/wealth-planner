@@ -32,6 +32,7 @@ import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { openNewRowModal } from "./rows.js";
 import { modernAssetRowOpen } from "./assets.js";
+import { assetListUi, clearAssetListFilters } from "./assets.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { pendingImport } from "./importwiring.js";
 
@@ -254,6 +255,39 @@ defineSavedValue("v-purchaseprice", function(it){ return it.purchasePrice; });
 defineSavedValue("v-deprate", function(it){ return it.depreciationRate; });
 
 export function wireAssets(){
+  document.addEventListener("click", function(e){
+    var filters = e.target.closest('[data-asset-list-filters]');
+    if(filters){
+      var cat = filters.getAttribute('data-asset-list-filters');
+      assetListUi.filters = assetListUi.filters === cat ? '' : cat;
+      renderAssets();
+      var target = assetListUi.filters ? document.querySelector('#assetListFilters-' + cat + ' select, #assetListFilters-' + cat + ' button') : document.querySelector('[data-asset-list-filters="' + cat + '"]');
+      if(target) target.focus();
+      return;
+    }
+    var clear = e.target.closest('[data-asset-list-clear]');
+    if(clear){ var category = clear.getAttribute('data-asset-list-clear'); clearAssetListFilters(category); document.querySelector('[data-asset-list-filters="' + category + '"]').focus(); return; }
+    var tool = e.target.closest('[data-asset-list-tool]');
+    if(tool){
+      assetListUi.tool = tool.getAttribute('data-asset-list-tool');
+      if(assetListUi.tool === 'prices') priceSheetUi.open = true;
+      if(assetListUi.tool === 'trades') tradesUi.open = true;
+      renderAssets();
+      var panel = assetListUi.tool && document.querySelector('[data-asset-tool-panel="' + assetListUi.tool + '"]');
+      var focus = panel ? panel.querySelector('button') : document.querySelector('#assetsSub-Shares [data-overflow-toggle]');
+      if(focus){ focus.focus(); focus.scrollIntoView({ block: 'nearest' }); }
+      return;
+    }
+    var jump = e.target.closest('[data-asset-list-jump]');
+    if(jump){ var dest = document.getElementById(jump.getAttribute('data-asset-list-jump')); if(dest){ dest.tabIndex = -1; dest.focus(); dest.scrollIntoView({ block: 'start' }); } }
+  });
+  document.addEventListener('change', function(e){ if(e.target.matches('[data-asset-list-person]')) setAssetPersonFilter(e.target.value); });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && e.target.closest('.record-tool-panel')){ assetListUi.tool = ''; renderAssets(); document.querySelector('#assetsSub-Shares [data-overflow-toggle]').focus(); return; }
+    if(e.key !== 'Escape' || !e.target.closest('.record-filter-panel') || !assetListUi.filters) return;
+    var cat = assetListUi.filters; assetListUi.filters = ''; renderAssets();
+    document.querySelector('[data-asset-list-filters="' + cat + '"]').focus();
+  });
   document.addEventListener("input", function(e){
     if(e.target.closest(".m-asset-rows")){
       var tr = e.target.closest("[data-index]");

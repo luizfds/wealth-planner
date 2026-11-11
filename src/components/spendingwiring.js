@@ -66,11 +66,12 @@ function onCashflowListClick(e){
   var b = e.target.closest("button");
   if(!b || b.disabled) return;
   if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
-  if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); renderTransactions(); return; }
+  if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); setTransactionsRange('month'); var clearFocus = document.querySelector('#transactionsTable [data-cf-panel]'); if(clearFocus) clearFocus.focus(); return; }
+  if(b.hasAttribute('data-cf-search')){ txFilterPanel.search = !txFilterPanel.search; renderTransactions(); var search = document.querySelector('#transactionsTable [data-cf-filter="text"]'); if(search && search.getClientRects().length) search.focus(); return; }
   // v3.168.0: saved views — pick one, name the filters as one, or delete the one you're on.
   if(b.hasAttribute("data-cf-view")){
     var view = (state.txViews || []).find(function(v){ return v.id === b.getAttribute("data-cf-view"); });
-    if(view){ Object.assign(txFilters, applyView(view)); txFilterPanel.open = false; setTransactionsShowAll(false); renderTransactions(); }
+    if(view){ Object.assign(txFilters, applyView(view)); txFilterPanel.open = false; setTransactionsShowAll(false); renderTransactions(); document.querySelector('#transactionsTable .record-toolbar [data-cf-panel]').focus(); }
     return;
   }
   if(b.hasAttribute("data-cf-view-save")){ txViewForm.open = true; renderTransactions(); var nm = document.querySelector("#transactionsTable [data-cf-view-name]"); if(nm) nm.focus(); return; }
@@ -84,11 +85,11 @@ function onCashflowListClick(e){
     }
     return;
   }
-  if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = txFilterPanel.open && document.querySelector('#transactionsTable #cfFilterRow select'); if(first) first.focus(); return; }
+  if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = document.querySelector(txFilterPanel.open ? '#transactionsTable #cfFilterRow select' : '#transactionsTable .record-toolbar [data-cf-panel]'); if(first) first.focus(); return; }
   if(b.hasAttribute("data-cf-chip-clear")){ txFilters[b.getAttribute("data-cf-chip-clear")] = ""; setTransactionsShowAll(false); renderTransactions(); var fb = document.querySelector('#transactionsTable [data-cf-panel]'); if(fb) fb.focus(); return; }
-  if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); return; }
+  if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); var selectionFocus = document.querySelector(txSelect.on ? '#transactionsTable > .cf-filters > [data-cf-select]' : '#transactionsTable [data-overflow-toggle]'); if(selectionFocus) selectionFocus.focus(); return; }
   if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
-  if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); return; }
+  if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); document.querySelector('#transactionsTable [data-overflow-toggle]').focus(); return; }
   if(b.hasAttribute("data-tf-save")){
     var get = function(k){ var el = document.querySelector('#transactionsTable [data-tf="' + k + '"]'); return el ? (el.type === "checkbox" ? el.checked : el.value) : ""; };
     var amt = Number(get("amount"));
@@ -354,8 +355,9 @@ export function wireSpending(){
     }, true);
   })();
   txTable.addEventListener("keydown", function(e){
+    if(e.key === 'Escape' && e.target.closest('#cfFilterRow') && !e.target.hasAttribute('data-cf-view-name')){ txFilterPanel.open = false; renderTransactions(); document.querySelector('#transactionsTable .record-toolbar [data-cf-panel]').focus(); return; }
     if(e.key === "Enter" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ e.preventDefault(); saveTxView(); }
-    if(e.key === "Escape" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ txViewForm.open = false; renderTransactions(); }
+    if(e.key === "Escape" && e.target.hasAttribute && e.target.hasAttribute("data-cf-view-name")){ txViewForm.open = false; renderTransactions(); document.querySelector('#transactionsTable [data-cf-view-save]').focus(); }
   });
   txTable.addEventListener("change", function(e){
     var t = e.target;
@@ -550,6 +552,7 @@ export function wireSpending(){
     if(!v) return;
     setTxGrid(v.getAttribute("data-tx-view") === "table");
     renderTransactions();
+    document.querySelector('#transactionsTable [data-overflow-toggle]').focus();
   });  // Narrowed past a phone's width (or widened back), the table and the list swap.
   txGridWide = window.innerWidth > 720;
   txGridTimer = null;

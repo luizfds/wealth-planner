@@ -4972,7 +4972,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      Scenarios (it sent you to Accounts); Insights' Dismiss is a ✕ in the card's corner, one tap; a page's line with
      one item that has its own action runs it (Property's opens the cash-rate dialog); and the journeys wait for the
      day's price read before reading a saved figure (`quiet()`), after `investvalidation` failed once on PR #317.
-3. `[ ]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
+3. `[~]` **Records before tools.** Issue #306 (one toolbar row above each list), with issue #259 (one rail, no sideways
    navigation) and #255's step 5.
 4. `[ ]` **Reading on a phone.** Issue #260 (report picker), then #258 (summaries instead of wide tables).
 5. `[ ]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),

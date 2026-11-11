@@ -298,8 +298,8 @@ function acquisitionCostRowModernHtml(item, index, colorIdx, p){
   var moveBtn = canMove
     ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' title="A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
     : "";
-  var whatInput = '<input type="text" class="cc-what" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
-  var amountInput = '<input type="number" step="100" min="0" class="cc-amount" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
+  var whatInput = '<input type="text" class="cc-what field-control field-compact" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
+  var amountInput = '<input type="number" step="100" min="0" class="cc-amount field-control field-compact" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
   var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
   return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
     '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
@@ -335,11 +335,11 @@ function depreciationScheduleHtml(p){
   years.sort(function(a, b){ return a - b; });
   var rowsHtml = rows.map(function(r, i){
     return '<div class="cc-row m-cost-row dep-sched-row" data-dep-sched-index="' + i + '">' +
-      '<select class="dep-sched-fy" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
+      '<select class="dep-sched-fy field-control field-compact" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
         years.map(function(y){ return '<option value="' + y + '"' + (Number(r.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
       '</select>' +
-      '<input type="number" step="1" min="0" class="dep-sched-cw" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
-      '<input type="number" step="1" min="0" class="dep-sched-plant" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
+      '<input type="number" step="1" min="0" class="dep-sched-cw field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
+      '<input type="number" step="1" min="0" class="dep-sched-plant field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
       '<button type="button" class="btn btn-danger btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
     '</div>';
   }).join("");
@@ -358,12 +358,12 @@ function depreciationSectionHtml(p){
       '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
     '<p class="ledger-note help" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
-      '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
-      '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
-      '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost field-control" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
+      '<div class="calc-field" title="When the building was completed. The 2.5% capital works claim runs for 40 years from then; leave blank if unknown and the full year is claimed."><label>Built on</label><input type="date" class="prop-construction-date field-control" aria-label="Built on" value="' + escapeAttr(p.constructionDate || "") + '"></div>' +
+      '<div class="calc-field" title="Carpets, blinds, appliances, air conditioning. Since 2017 these are only claimable on items you bought new — not on a second-hand residential property."><label>Plant &amp; equipment</label><input type="number" step="500" min="0" class="prop-plant-value field-control" value="' + (Number(p.plantValue) || 0) + '" placeholder="0"></div>' +
       '<div class="calc-field" style="grid-column:1/-1"><label class="m-checkbox-field"><input type="checkbox" class="prop-plant-secondhand"' + (p.plantSecondHand ? " checked" : "") + '> Plant was already in the property when bought (second-hand)</label>' +
         '<span class="computed-note">Bought under a contract after 9 May 2017? Then existing plant isn\'t claimable — your QS report still values it, for a capital loss when an item is replaced and for CGT on sale.</span></div>' +
-      '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
+      '<div class="calc-field" title="Averaged straight-line over this many years. A real schedule depreciates each item separately at its own rate; this app has no per-item register, so an average across the pool is closer to the truth than pretending to a precision it can\'t support."><label>Effective life (yrs)</label><input type="number" step="1" min="1" max="40" class="prop-plant-life field-control" aria-label="Plant and equipment effective life in years" value="' + (Number(p.plantEffectiveLife) || 10) + '"></div>' +
     '</div>' +
     depreciationScheduleHtml(p) +
     '<p class="ledger-note" style="margin-left:0">' +

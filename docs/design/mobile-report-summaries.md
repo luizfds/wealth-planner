@@ -131,3 +131,7 @@ sliders and calculation behavior stay unchanged.
 
 Remaining #258 surfaces after the projection PR: spending heatmap and investment-summary comparison.
 The issue and roadmap step 4 remain open until those are reviewed and migrated.
+
+Expanded whole-page CI coverage also found the existing “How to interpret these estimates” disclosure
+had too small a desktop click target. Its summary now has a 44px minimum target; whole-page desktop
+axe scans pass in both themes after the fix.

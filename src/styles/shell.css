@@ -50,6 +50,20 @@
   .subnav-item.active{ color: var(--brass-strong); border-bottom-color: var(--brass); }
   /* Inset so the ring isn't clipped by the rail's own overflow:hidden on the first/last tab. */
   .subnav-item:focus-visible{ box-shadow: inset var(--focus-ring); border-radius:6px; }
+  /* #259: tabs where they fit; a labelled native picker where they do not. */
+  .subnav, .time-range-control{ min-width:0; max-width:100%; }
+  .subnav > button, .time-range-control > button{ flex-shrink:0; }
+  .section-picker{ display:none; }
+  .has-section-picker{ overflow:visible; width:100%; box-sizing:border-box; }
+  .has-section-picker > .section-picker{
+    display:block; width:100%; min-width:0; min-height:44px;
+    font-size:var(--fs-md); font-weight:600;
+  }
+  .investments-back{ display:none; }
+  @media (max-width:880px){
+    #page-assets > .nw-rail{ display:none; }
+    .investments-back{ display:inline-flex; align-items:center; align-self:flex-start; min-height:44px; }
+  }
   .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
   .assets-subpage[hidden]{ display:none; }
   /* Expenses' Budget/Spending halves — same shape as .assets-subpage above, including the

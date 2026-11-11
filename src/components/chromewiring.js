@@ -35,6 +35,7 @@ import { openSearchOverlay } from "./searchwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
 import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
 import { readInput } from "../lib/validate.js";
+import { initSectionPickers } from "../lib/sectionpicker.js";
 
 var navMenuToggle, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
@@ -146,6 +147,7 @@ function shortcutsDialog(){
 }
 
 export function wireNavigation(){
+  initSectionPickers(document.body);
   // ---------------- Page navigation ----------------
   document.getElementById("appNav").addEventListener("click", function(e){
     var btn = e.target.closest(".nav-item");

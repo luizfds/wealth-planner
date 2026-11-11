@@ -14,9 +14,11 @@ function tabsOf(list){
 }
 
 export function selectTab(tab){
-  var list = tab.closest('[role="tablist"]');
+  var list = tab.closest('[role="tablist"], .prop-tabs');
   if(!list) return;
-  tabsOf(list).forEach(function(t){
+  Array.prototype.filter.call(list.querySelectorAll('[role="tab"]'), function(t){
+    return t.closest('[role="tablist"], .prop-tabs') === list;
+  }).forEach(function(t){
     var on = t === tab;
     t.setAttribute("aria-selected", on ? "true" : "false");
     t.setAttribute("tabindex", on ? "0" : "-1");

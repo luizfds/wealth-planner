@@ -92,11 +92,11 @@ export function priceSheetCardHtml(){
     '<p class="ledger-note help">Prices come from a Google Sheet you keep, read each day you open the app. Only the sheet is read — no price service is asked anything, and nothing about your holdings is sent.</p>' +
     '<ol class="ps-steps">' +
       '<li><b>Make the sheet.</b> Copy the template and paste it into cell A1 of an empty Google Sheet. It has a live price for each holding, plus weekly prices back to its first purchase — or, for a holding with no purchase lots, back to ' +
-        '<input type="date" class="ps-from" data-ps-from value="' + escapeAttr(from) + '" aria-label="Fill in prices back to">' + '.' +
+        '<input type="date" class="ps-from field-control" data-ps-from value="' + escapeAttr(from) + '" aria-label="Fill in prices back to">' + '.' +
         '<div class="ps-actions"><button type="button" class="btn btn-sm" data-ps-copy>⧉ Copy sheet template</button></div></li>' +
       '<li><b>Share it.</b> In Google Sheets: Share → General access → <i>Anyone with the link</i>, Viewer. Copy the link.</li>' +
       '<li><b>Paste the link here.</b>' +
-        '<div class="ps-actions"><input type="url" class="ps-url" data-ps-url placeholder="https://docs.google.com/spreadsheets/d/…" value="' + escapeAttr(sh.url || "") + '" aria-label="Google Sheet link">' +
+        '<div class="ps-actions"><input type="url" class="ps-url field-control" data-ps-url placeholder="https://docs.google.com/spreadsheets/d/…" value="' + escapeAttr(sh.url || "") + '" aria-label="Google Sheet link">' +
         '<button type="button" class="btn btn-sm" data-ps-read>' + (sh.url ? "Read now" : "Save and read") + '</button>' +
         (sh.url ? '<button type="button" class="btn btn-sm btn-ghost" data-ps-forget>Forget link</button>' : '') + '</div></li>' +
     '</ol>' + status +

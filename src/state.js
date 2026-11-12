@@ -924,7 +924,8 @@ export function deviceId(){
     return id;
   }catch(e){ return "unknown"; }
 }
-// v3.134.0: told after each save reaches storage (folder sync marks itself as having changes).
+// v3.134.0: told after each save reaches storage (folder sync marks itself as having changes), with
+// { background } — whether it was a save nobody made (a refresh), which the activity log must not credit to anyone.
 var afterSave = [];
 export function onSaved(fn){ afterSave.push(fn); }
 // { background: true }: a save nobody asked for (startup, a refresh). It never overwrites another tab's save and
@@ -957,7 +958,8 @@ export function persist(opts){
     ownWasBackground = !!(opts && opts.background);
     lastSeen = next;
     setStatus(true, "Saved " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}));
-    afterSave.forEach(function(fn){ try { fn(); } catch(err){} });
+    var saved = { background: ownWasBackground };
+    afterSave.forEach(function(fn){ try { fn(saved); } catch(err){} });
     return true;
   }catch(e){
     storageAvailable = false;

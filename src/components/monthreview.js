@@ -94,7 +94,7 @@ export function monthReviewHtml(ym, today){
         : Math.abs(st.gap) < 1 ? '<span class="mr-tick" aria-label="Matches">✓</span>'
         : '<small class="' + (st.gap > 0 ? "warn" : "") + '">' + fmtCurrency2.format(Math.abs(st.gap)) + (st.gap > 0 ? ' not logged yet' : ' more logged than billed') + '</small>';
       return '<div class="mr-row mr-statement"><span>' + escapeAttr(st.account) + '<small>' + escapeAttr(fmtDate(st.start)) + ' – ' + escapeAttr(fmtDate(st.end)) + ' · ' + fmtCurrency2.format(st.logged) + ' logged</small></span>' +
-        '<label class="mr-stmt-in">Statement $<input type="number" step="0.01" min="0" data-mr-statement="' + escapeAttr(st.account) + '" value="' + (st.statement != null ? st.statement : "") + '" aria-label="' + escapeAttr(st.account) + ' statement total"></label>' + gap + '</div>';
+        '<label class="mr-stmt-in">Statement $<input class="field-control" type="number" step="0.01" min="0" data-mr-statement="' + escapeAttr(st.account) + '" value="' + (st.statement != null ? st.statement : "") + '" aria-label="' + escapeAttr(st.account) + ' statement total"></label>' + gap + '</div>';
     }).join("") + '</div>' + (r.statements.some(function(s){ return s.gap > 1; }) ? '<button type="button" class="btn btn-sm btn-ghost" data-mr-go="import">Import the statement</button>' : '')
       : '<p class="mr-lede">No credit cards set up — add one on Accounts to reconcile its statement here.</p>';
   } else if(key === "balances"){

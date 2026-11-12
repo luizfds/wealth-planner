@@ -1,8 +1,8 @@
 # One field: inventory and spec (#254)
 
-**Status: foundation and the ledger/income/basic asset families shipped; investment transaction fields merged in PR #327; debt/offset/loan fields implemented, awaiting PR review.** The shared field exists (tokens, `.field` / `.field-control`, `lib/field.js`).
-Benchmarks, generic ledger, income, basic asset, vehicle, holding and sale editors use it. Lots/distributions and statements now follow in this PR. The touch floors are fixed everywhere. Every other family moves onto it in its own PR,
-once this spec is agreed. Part of #253.
+**Status: complete (#254).** Every field in the app is the shared one (`.field-control`, from `lib/field.js` or by
+class) or a variant named below; the smoke run fails a view with any other. The last families — the first-run setup
+sheet and every control that had been on the base fallback — are under "The rest of the app" at the end.
 
 ## How this was measured
 
@@ -102,11 +102,12 @@ Counts are text-entry controls at 1280px (236 per width).
 
 | Variant | Where | Why it differs |
 |---|---|---|
-| **Headline amount** | `#quickLogAmount` | The one big number you're typing; sized as a figure, not a field |
+| **Headline amount** | `#quickLogAmount`, `#rcvAmount` | The one big number you're typing; sized as a figure, not a field |
 | **Badge select** | `.prop-kind` and similar | A select that reads as a tag (10.5px uppercase) |
-| **Inline rename** | Category names (`.cat-mgmt-name`) | Text edited in place inside a list row |
-| **Compact cell** | Purchase lots, the rental grid | Dense table cells: shared tokens, but 4px horizontal padding |
-| **Search** | `.cf-search-input` | A search box (8px corners), wider and rounder than a form field |
+| **Inline rename** | `.inline-name`: a scenario's and a property's name, row names; category names (`.cat-mgmt-name`) | Text edited in place, borderless until hovered |
+| **Compact cell** | Purchase lots, the rental grid, cost rows, the spending grid | Dense cells: shared tokens, 4px horizontal padding. The spending grid's cells are also borderless until hovered, at its 27px rows (44px on touch) |
+| **Search** | `.cf-search-input`, `.qlog-search`, the global search | A search box, wider and rounder than a form field |
+| **Passcode** | `#lockInput` | The lock screen's one field: 48px, large, centred and spaced like a PIN pad |
 | **Native toggles and ranges** | Checkbox, radio, range | Native controls; colour by `accent-color`, 44px via their label |
 
 ## Open questions for review
@@ -514,3 +515,45 @@ contribution saves. Two journeys keep it: `scenariofields` (the editor with a ch
 and a template's questions) and `scenariocalcfields` (both calculators, label focus, the LMI placeholder). Each fails
 on main. `calcvalidation` still covers the calculators' saves and errors. With this family, every page's fields are
 on the shared skin; what remains under #254 is the first-run setup sheet and the unclassed fallback controls.
+
+## The rest of the app: the first-run setup and the base fallback (#254)
+
+The last families, found by opening every view and subtab of the sample household (every disclosure open, the first
+two rows of each list opened) at 1280 and 390px, then every sheet the sweep can't reach — the first-run setup's five
+steps, quick log, an app dialog, the transfer form — and reading every visible control; then a search of the
+builders for any `<input>`, `<select>` or `<textarea>` without the class, which also finds the ones a sweep can't
+open. About 150 controls in 37 files moved onto the shared skin, among them:
+
+- **First-run setup** (`firstrun.js`): every step's names, ages, accounts, pay, housing and costs. A trip's fields
+  (`trips.js`), which share its `.fr-field` look, came with it.
+- **Cash flow**: Spending's filters, saved-view name, bulk tools, transfer and split forms and a transaction's row
+  editor; the spending grid (as compact cells, above); bills' kind pickers and the confirm list; recurring rules,
+  automatic payments, subscriptions, the lean-month scenario picker, the review queue, bank import's account, group
+  and loan pickers, quick log's note, category and date, and Received's note and date.
+- **Net worth**: an account's name, type, cycle and repayment days, limit, direct debit, balance link and buffer;
+  holdings' sort, the exchange rate, prices pasted or read from a Sheet, broker trades, a target mix, the log date
+  on a row, the month review's statement balances and a Check's fix amount.
+- **Plan and Home**: Projections' assumptions and stress tests, life events, retirement, the scenario comparison and
+  reading pickers, the FIRE ages, Benchmarks' prices, paste box, targets and property market fields, and Ask Claude's
+  key, model, pasted answer and source.
+- **Settings and the rest**: import rules (test, new, find, sort and every rule's fields), the activity log's name,
+  the Dropbox app key, Reports' frame and entity pickers, the cash rate's date — and the app's own dialogs
+  (`lib/dialogs.js`), whose fields had their own 10px skin.
+
+Page rules that re-skinned these (borders, corners, padding, heights, backgrounds) were removed and their layout kept
+— widths, flex, alignment, number fonts. `.trip-add`'s 36px height went too: in the pages layer it would have held a
+trip's fields under 44px on touch. The base fallback keeps its rule for a control with no class at all, as a net,
+but no longer names `.ps-from`, `.ps-url`, `.tax-ytd-asof` or `.pp-dob`, which are all shared fields now. Two fields
+moved to variants instead: a property's name joins the inline name (it was `all:unset`), and the passcode stays its
+own variant. The spending grid was the one place the skin changed a size: its cells measure 28px against main's 27px
+(a select's extra pixel), its hover, focus and new-row looks as before.
+
+Measured after: no view or sheet has a control off the skin; at 1280px every one is 6px, 36px and 13px, on touch 44px
+with 16px text entry. Two stay 40px tall — Ask Claude's key and the target kind — because each shares a flex row with
+a 40px button and stretches to it. The smoke run now fails any view with a field off the skin or a named variant,
+at every width and theme it already measures, and the `setupfields` journey covers the first-run setup's every step
+at 320–1280px in both themes (a typed rent kept through its frequency's redraw, the answers saved on Finish). It
+fails on main at the first step.
+
+**Open, not part of this:** whether selects should join the 16px floor on a real iPhone (the first open question
+above) — Chromium emulation can't answer it.

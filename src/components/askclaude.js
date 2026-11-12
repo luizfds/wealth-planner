@@ -116,18 +116,18 @@ export function askClaudeHtml(){
     '<div class="ai-actions"><button type="button" class="btn btn-sm btn-ghost" data-ai-preview>' + (askUi.preview ? "Hide preview" : "Preview what's copied") + '</button>' +
       '<button type="button" class="btn btn-sm" data-ai-copy>Copy for any AI</button></div>' +
     (askUi.pasteOpen
-      ? '<textarea class="ai-paste" rows="6" data-ai-paste placeholder="Paste the assistant\'s answer here" aria-label="The assistant\'s answer"></textarea>' +
-        '<div class="ai-actions"><input type="text" class="ai-source" data-ai-source placeholder="Which AI? (optional)" aria-label="Which assistant wrote it"><button type="button" class="btn btn-sm" data-ai-save-paste>Save the answer</button><button type="button" class="link-btn" data-ai-paste-toggle>Cancel</button></div>'
+      ? '<textarea class="ai-paste field-control" rows="6" data-ai-paste placeholder="Paste the assistant\'s answer here" aria-label="The assistant\'s answer"></textarea>' +
+        '<div class="ai-actions"><input type="text" class="ai-source field-control" data-ai-source placeholder="Which AI? (optional)" aria-label="Which assistant wrote it"><button type="button" class="btn btn-sm" data-ai-save-paste>Save the answer</button><button type="button" class="link-btn" data-ai-paste-toggle>Cancel</button></div>'
       : '<button type="button" class="link-btn ai-paste-open" data-ai-paste-toggle>Paste an answer back →</button>') +
   '</div>';
   var claude = key
     ? '<div class="ai-claude"><div class="ai-sub">Or ask Claude directly — with your API key</div>' +
-        '<div class="ai-actions"><select data-ai-model aria-label="Model">' + MODELS.map(function(x){ return '<option value="' + x.id + '"' + (x.id === aiModel() ? ' selected' : '') + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>' +
+        '<div class="ai-actions"><select class="field-control" data-ai-model aria-label="Model">' + MODELS.map(function(x){ return '<option value="' + x.id + '"' + (x.id === aiModel() ? ' selected' : '') + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>' +
         '<button type="button" class="btn btn-sm btn-primary" data-ai-ask' + (askUi.busy ? ' disabled' : '') + '>' + (askUi.busy ? 'Thinking…' : askUi.approvalPending ? 'Confirm & send to Claude' : 'Review before sending') + '</button>' +
         '<button type="button" class="link-btn ai-forget" data-ai-forget>Forget key</button></div></div>'
     : '<details class="ai-claude"><summary>Or ask Claude directly, with an API key</summary>' +
         '<p class="ledger-note">Sends the same summary to Anthropic when you press Ask, and shows the answer here — no copying. It needs an Anthropic API key (console.anthropic.com); each review costs a few cents on your account. The key is kept for this browser session only, not in a backup. You may need to enter it again after closing the browser.</p>' +
-        '<div class="ai-key"><input type="password" autocomplete="off" placeholder="sk-ant-…" data-ai-key aria-label="Anthropic API key"><button type="button" class="btn btn-sm" data-ai-save-key>Use key for this session</button></div></details>';
+        '<div class="ai-key"><input class="field-control" type="password" autocomplete="off" placeholder="sk-ant-…" data-ai-key aria-label="Anthropic API key"><button type="button" class="btn btn-sm" data-ai-save-key>Use key for this session</button></div></details>';
   return '<div class="ai-box" id="askClaudeBox"><div class="ai-head"><b>A written review from an AI</b><span>optional · nothing is sent unless you choose to</span></div>' +
     q + anyAi + claude +
     (askUi.preview ? '<details class="ai-preview" open><summary>Exactly what would be copied or sent</summary><pre>' + escapeAttr(askUi.preview) + '</pre><button type="button" class="btn btn-sm btn-ghost" data-ai-cancel>Cancel sharing</button></details>' : '') +

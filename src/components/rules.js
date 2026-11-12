@@ -48,14 +48,14 @@ export function rulesPageHtml(lines){
   var acctOpts = (state.accounts || []).map(function(a){ return { value: a.name, label: a.name }; });
   var test = ruleTest.text.trim();
   var hit = test ? matchRule(test, rules) : null;
-  var testHtml = '<div class="rl-test"><label class="cf-filter"><span>Test a bank description</span><input type="text" data-rl-test value="' + escapeAttr(ruleTest.text) + '" placeholder="e.g. FERN CAFE 1234 SYDNEY"></label>' +
+  var testHtml = '<div class="rl-test"><label class="cf-filter"><span>Test a bank description</span><input class="field-control" type="text" data-rl-test value="' + escapeAttr(ruleTest.text) + '" placeholder="e.g. FERN CAFE 1234 SYDNEY"></label>' +
     '<p class="rl-test-out">' + (!test ? "Type a line from a statement to see which rule would file it."
       : hit ? 'Matched by <b>“' + escapeAttr(hit.match) + '”</b> → ' + escapeAttr(hit.transferAccount ? "transfer with " + hit.transferAccount : hit.incomeTarget ? (incomeOpts.find(function(o){ return o.value === hit.incomeTarget; }) || { label: hit.incomeTarget }).label
         : hit.linkedExpenseId ? (lineOpts.find(function(o){ return o.value === hit.linkedExpenseId; }) || { label: "a deleted line" }).label : (hit.category || "nothing")) + '.'
       : 'No rule matches “' + escapeAttr(normaliseDescription(test)) + '” — the import would fall back to matching budget line names.') + '</p></div>';
   var addHtml = '<div class="rl-add"><b>Add a rule</b><div class="rl-add-grid">' +
-    '<label class="cf-filter"><span>When the description has</span><input type="text" data-rl-new="match" placeholder="e.g. fern cafe"></label>' +
-    '<label class="cf-filter"><span>File under line</span><select data-rl-new="line">' + optionList(lineOpts, "", "— pick a line —") + '</select></label>' +
+    '<label class="cf-filter"><span>When the description has</span><input class="field-control" type="text" data-rl-new="match" placeholder="e.g. fern cafe"></label>' +
+    '<label class="cf-filter"><span>File under line</span><select class="field-control" data-rl-new="line">' + optionList(lineOpts, "", "— pick a line —") + '</select></label>' +
     '<button type="button" class="btn btn-sm" data-rl-add>+ Add rule</button></div></div>';
   if(!rules.length){
     return testHtml + '<p class="ledger-note" style="margin:0 0 10px">No rules yet. Every row you confirm in a bank import teaches one, or add one here before your first import.</p>' + addHtml;
@@ -66,8 +66,8 @@ export function rulesPageHtml(lines){
   };
   var list = rulesShown(rules, labelFor);
   var shown = list.slice(0, Math.max(RULES_PAGE, ruleView.shown || RULES_PAGE));
-  var toolsHtml = '<div class="rl-tools"><label class="cf-filter rl-find"><span>Find a rule</span><input type="search" data-rl-find value="' + escapeAttr(ruleView.q) + '" placeholder="Words, line, category or account"></label>' +
-    '<label class="cf-filter"><span>Sort</span><select data-rl-sort>' +
+  var toolsHtml = '<div class="rl-tools"><label class="cf-filter rl-find"><span>Find a rule</span><input class="field-control" type="search" data-rl-find value="' + escapeAttr(ruleView.q) + '" placeholder="Words, line, category or account"></label>' +
+    '<label class="cf-filter"><span>Sort</span><select class="field-control" data-rl-sort>' +
       [["used", "Most used"], ["new", "Newest first"], ["az", "A–Z"]].map(function(o){ return '<option value="' + o[0] + '"' + (ruleView.sort === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
     '</select></label></div>';
   var moreHtml = '<p class="rl-more">' + (list.length ? 'Showing ' + shown.length + ' of ' + list.length + (ruleView.q.trim() ? ' matching' : '') + ' rule' + (list.length === 1 ? '' : 's') : 'No rule matches “' + escapeAttr(ruleView.q.trim()) + '”.') +
@@ -77,14 +77,14 @@ export function rulesPageHtml(lines){
     var income = !!r.incomeTarget;
     var transfer = !!r.transferAccount;
     return '<div class="rl-row' + (hit === r ? " is-hit" : "") + '">' +
-      '<label class="cf-filter rl-match"><span>When the description has</span><input type="text" data-rl-index="' + i + '" data-rl-key="match" value="' + escapeAttr(r.match) + '" aria-label="Words to match"></label>' +
+      '<label class="cf-filter rl-match"><span>When the description has</span><input class="field-control" type="text" data-rl-index="' + i + '" data-rl-key="match" value="' + escapeAttr(r.match) + '" aria-label="Words to match"></label>' +
       (transfer
-        ? '<label class="cf-filter"><span>Transfer ' + ((r.transferDirection || "debit") === "credit" ? "from" : "to") + '</span><select data-rl-index="' + i + '" data-rl-key="transferAccount">' + optionList(acctOpts, r.transferAccount, "—") + '</select></label><span></span>'
+        ? '<label class="cf-filter"><span>Transfer ' + ((r.transferDirection || "debit") === "credit" ? "from" : "to") + '</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="transferAccount">' + optionList(acctOpts, r.transferAccount, "—") + '</select></label><span></span>'
         : income
-        ? '<label class="cf-filter"><span>Money in, for</span><select data-rl-index="' + i + '" data-rl-key="incomeTarget">' + optionList(incomeOpts, r.incomeTarget, "—") + '</select></label>'
-        : '<label class="cf-filter"><span>File under line</span><select data-rl-index="' + i + '" data-rl-key="linkedExpenseId">' + optionList(lineOpts, r.linkedExpenseId || "", "— no line —") + '</select></label>' +
-          '<label class="cf-filter"><span>or category</span><select data-rl-index="' + i + '" data-rl-key="category"' + (r.linkedExpenseId ? " disabled" : "") + '>' + optionList(catOpts, r.category || "", "—") + '</select></label>') +
-      '<label class="cf-filter"><span>Account</span><select data-rl-index="' + i + '" data-rl-key="account">' + optionList(acctOpts, r.account || "", "— any —") + '</select></label>' +
+        ? '<label class="cf-filter"><span>Money in, for</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="incomeTarget">' + optionList(incomeOpts, r.incomeTarget, "—") + '</select></label>'
+        : '<label class="cf-filter"><span>File under line</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="linkedExpenseId">' + optionList(lineOpts, r.linkedExpenseId || "", "— no line —") + '</select></label>' +
+          '<label class="cf-filter"><span>or category</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="category"' + (r.linkedExpenseId ? " disabled" : "") + '>' + optionList(catOpts, r.category || "", "—") + '</select></label>') +
+      '<label class="cf-filter"><span>Account</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="account">' + optionList(acctOpts, r.account || "", "— any —") + '</select></label>' +
       '<span class="rl-hits" title="Times this rule has been confirmed">' + (r.hits || 0) + '×</span>' +
       '<button type="button" class="btn btn-danger btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">✕</button></div>';
   }).join("");

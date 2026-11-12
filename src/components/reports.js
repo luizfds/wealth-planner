@@ -67,10 +67,10 @@ export function reportOpts(today){
 function frameControlsHtml(rep){
   var fr = rep.frame || {};
   if(!fr.range) return "";
-  var sel = function(attr, list, value){ return '<select data-rf="' + attr + '">' + list.map(function(x){ return '<option value="' + x.key + '"' + (x.key === value ? " selected" : "") + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>'; };
+  var sel = function(attr, list, value){ return '<select class="field-control" data-rf="' + attr + '">' + list.map(function(x){ return '<option value="' + x.key + '"' + (x.key === value ? " selected" : "") + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>'; };
   return '<div class="rf-bar">' +
     '<label class="cf-filter"><span>Period</span>' + sel("range", RANGES, reportFrame.range) + '</label>' +
-    (reportFrame.range === "custom" ? '<label class="cf-filter"><span>From</span><input type="date" data-rf="from" value="' + escapeAttr(reportFrame.from) + '"></label><label class="cf-filter"><span>To</span><input type="date" data-rf="to" value="' + escapeAttr(reportFrame.to) + '"></label>' : '') +
+    (reportFrame.range === "custom" ? '<label class="cf-filter"><span>From</span><input class="field-control" type="date" data-rf="from" value="' + escapeAttr(reportFrame.from) + '"></label><label class="cf-filter"><span>To</span><input class="field-control" type="date" data-rf="to" value="' + escapeAttr(reportFrame.to) + '"></label>' : '') +
     (fr.compare ? '<label class="cf-filter"><span>Compare with</span>' + sel("compare", rep.key === "cashflow" ? COMPARES.filter(function(c){ return c.key !== "budget"; }) : COMPARES, reportFrame.compare) + '</label>' : '') +
     (fr.group ? '<label class="cf-filter"><span>Group by</span>' + sel("group", GROUPS, reportFrame.group) + '</label>' : '') +
   '</div>' + (reportFrame.compare === "budget" && fr.group && (reportFrame.group === "merchant" || reportFrame.group === "person") ? '<p class="ledger-note">The budget isn\'t set by ' + reportFrame.group + ', so there\'s nothing to compare against for this grouping.</p>' : '');
@@ -130,7 +130,7 @@ export function reportSummaryHtml(rep){
   var priorities = SUMMARY_KEYS[rep.key] || [];
   var primary = selected ? [selected] : priorities.map(function(key){ return rep.columns.find(function(c){ return c.key === key; }); }).filter(Boolean).slice(0, 3);
   var remaining = selected ? [] : rep.columns.slice(1).filter(function(c){ return !primary.includes(c); });
-  var selector = entities ? '<label class="rp-entity"><span>' + (rep.key === 'tax' ? 'Person' : 'Property') + '</span><select data-report-entity>' + entities.map(function(c){ return '<option value="' + escapeAttr(c.key) + '"' + (selected && selected.key === c.key ? ' selected' : '') + '>' + escapeAttr(c.label) + '</option>'; }).join('') + '</select></label>' : '';
+  var selector = entities ? '<label class="rp-entity"><span>' + (rep.key === 'tax' ? 'Person' : 'Property') + '</span><select class="field-control" data-report-entity>' + entities.map(function(c){ return '<option value="' + escapeAttr(c.key) + '"' + (selected && selected.key === c.key ? ' selected' : '') + '>' + escapeAttr(c.label) + '</option>'; }).join('') + '</select></label>' : '';
   return '<div data-report-summary="' + escapeAttr(rep.key) + '">' + selector + '<div class="rp-summary-rows">' + rep.rows.map(function(r, index){
     var title = reportRowName(r, rep.columns[0]);
     var headingOnly = r.cls === 'head' && rep.columns.slice(1).every(function(c){ return r.cells[c.key] == null || r.cells[c.key] === ''; });

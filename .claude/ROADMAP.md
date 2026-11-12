@@ -5022,10 +5022,14 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      top-up and payslip controls, preserving validation, premium sourcing and financial calculations.
    - `[x]` Standalone calculator fields (#254) shipped v3.262.0 (PR #343): shared stamp-duty, LMI,
      repayment and borrowing-power controls, preserving session-only inputs and estimates.
-   - `[~]` Scenario fields (#254): the editor, every kind of change, the template questions and the purchase/invest
+   - `[x]` Scenario fields (#254) shipped v3.264.1 (PR #346): the editor, every kind of change, the template questions and the purchase/invest
      calculators — 72 distinct fields, none on the shared skin before — on it now, calculator labels tied, the LMI
      quote readable. Preserves drafts, validation, the changed/unusual tints and every figure. Left under #254: the
      first-run setup sheet and unclassed fallback controls.
+   - `[~]` The last #254 families: the first-run setup sheet and every control still on the base fallback — about 150
+     in 37 files — on the shared skin or a named variant (passcode; spending grid as compact cells; property name as
+     inline name). The smoke run now fails any field off the skin. Closes #254. Also: a background save (the morning's
+     prices) is no longer credited in the activity log to whoever touched the page within the next 1.5s.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

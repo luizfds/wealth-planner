@@ -20,11 +20,8 @@
   .home-block-head-left{ display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; row-gap:6px; }
   .home-block-head h3{ margin:0; font-size:var(--fs-md); font-weight:600; display:flex; align-items:center; gap:8px; min-width:0; max-width:100%; }
   .home-block-head h3 input, .home-block-head h3 select{ min-width:0; }
-  .prop-what{
-    all:unset; box-sizing:border-box; font-family:inherit; font-size:var(--fs-md); font-weight:600; color: var(--ink);
-    padding:3px 6px; border-radius:6px; min-width:60px; max-width:220px; min-height:40px;
-  }
-  .prop-what:hover, .prop-what:focus{ background: var(--paper-sunken); }
+  /* #254: a property's name is the inline-name variant (ledger.css), at its heading's weight. */
+  .prop-what{ font-weight:600; color: var(--ink); min-width:60px; max-width:220px; width:auto; margin-left:0; }
   .prop-what:focus-visible{ box-shadow: var(--focus-ring); }
   .prop-kind{
     all:unset; box-sizing:border-box; font-family:"Inter", sans-serif; font-size:var(--fs-xs); text-transform:uppercase;

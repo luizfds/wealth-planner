@@ -24,7 +24,7 @@ export function txFiltersActive(){ return filterActive(txFilters); }
 export function currentTxFilter(){ return effectiveFilter(txFilters, state.trips); }
 
 function selectHtml(key, label, values, current, labelOf){
-  return '<label class="cf-filter"><span>' + label + '</span><select data-cf-filter="' + key + '" aria-label="Filter by ' + label.toLowerCase() + '">' +
+  return '<label class="cf-filter"><span>' + label + '</span><select class="field-control" data-cf-filter="' + key + '" aria-label="Filter by ' + label.toLowerCase() + '">' +
     '<option value="">All</option>' + values.map(function(v){ return '<option value="' + escapeAttr(v) + '"' + (v === current ? " selected" : "") + '>' + escapeAttr(labelOf ? labelOf(v) : v) + '</option>'; }).join("") +
     (current && values.indexOf(current) === -1 ? '<option value="' + escapeAttr(current) + '" selected>' + escapeAttr(labelOf ? labelOf(current) : current) + '</option>' : '') + '</select></label>';
 }
@@ -42,7 +42,7 @@ export var txFilterPanel = { open: false, search: false };
 var FILTER_KEYS = [["account"], ["category"], ["line"], ["person"], ["trip"], ["min"], ["max"], ["from"], ["to"]];
 function tripName(id){ var t = (state.trips || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
 function inputHtml(key, label, type, value, extra){
-  return '<label class="cf-filter"><span>' + label + '</span><input type="' + type + '" data-cf-filter="' + key + '" value="' + escapeAttr(value || "") + '" aria-label="Filter: ' + label.toLowerCase() + '"' + (extra || '') + '></label>';
+  return '<label class="cf-filter"><span>' + label + '</span><input class="field-control" type="' + type + '" data-cf-filter="' + key + '" value="' + escapeAttr(value || "") + '" aria-label="Filter: ' + label.toLowerCase() + '"' + (extra || '') + '></label>';
 }
 // The saved views as chips over the list; the one you're on is marked. With filters set that aren't a
 // view yet, "Save view" names them; on a view, it can be deleted.
@@ -56,7 +56,7 @@ export function viewsBarHtml(){
     return '<button type="button" class="cf-view' + (cur ? " active" : "") + '" aria-pressed="' + !!cur + '" data-cf-view="' + escapeAttr(v.id) + '">' + escapeAttr(v.name) + '</button>';
   }).join("");
   var tail = txViewForm.open
-    ? '<span class="cf-view-form"><input type="text" data-cf-view-name maxlength="40" placeholder="Name this view" aria-label="Name for this view">' +
+    ? '<span class="cf-view-form"><input class="field-control" type="text" data-cf-view-name maxlength="40" placeholder="Name this view" aria-label="Name for this view">' +
         '<button type="button" class="btn btn-sm" data-cf-view-confirm>Save</button><button type="button" class="btn btn-sm btn-ghost" data-cf-view-cancel>Cancel</button></span>'
     : on ? '<button type="button" class="btn btn-sm btn-danger" data-cf-view-del="' + escapeAttr(on.id) + '">Delete view</button>'
     : active ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-view-save>Save view</button>' : '';
@@ -146,8 +146,8 @@ export function bulkBarHtml(lineOptionsHtml, accountOptionsHtml){
   var n = Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).length;
   return '<div class="cf-bulk" role="region" aria-label="Edit selected transactions"><b>' + n + ' selected</b>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-cf-pick-all>Select all shown</button>' +
-    '<label class="cf-filter"><span>Line</span><select data-cf-bulk="line"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + lineOptionsHtml + '</select></label>' +
-    '<label class="cf-filter"><span>Account</span><select data-cf-bulk="account"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + accountOptionsHtml + '</select></label>' +
+    '<label class="cf-filter"><span>Line</span><select class="field-control" data-cf-bulk="line"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + lineOptionsHtml + '</select></label>' +
+    '<label class="cf-filter"><span>Account</span><select class="field-control" data-cf-bulk="account"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + accountOptionsHtml + '</select></label>' +
     '<button type="button" class="btn btn-sm btn-primary" data-cf-bulk-apply' + (n ? "" : " disabled") + '>Apply</button>' +
     '<button type="button" class="btn btn-sm btn-danger cf-danger" data-cf-bulk-delete' + (n ? "" : " disabled") + '>Delete</button></div>';
 }
@@ -189,11 +189,11 @@ export function transferFormHtml(today){
   return '<div class="cf-transfer-form" role="group" aria-label="New transfer"><b>Move money between your accounts</b>' +
     '<p class="ledger-note" style="margin:0">Not spending — paying off a card, topping up savings or an offset. It doesn\'t count in any budget total.</p>' +
     '<div class="cf-tf-grid">' +
-      '<label class="cf-filter"><span>From</span><select data-tf="from">' + accts(pre.from) + '</select></label>' +
-      '<label class="cf-filter"><span>To</span><select data-tf="to">' + accts(pre.to) + '</select></label>' +
-      '<label class="cf-filter"><span>Amount $</span><input type="number" step="0.01" min="0" data-tf="amount" aria-label="Transfer amount" value="' + (pre.amount > 0 ? pre.amount : "") + '"></label>' +
-      '<label class="cf-filter"><span>Date</span><input type="date" data-tf="date" value="' + today + '"></label>' +
-      '<label class="cf-filter cf-tf-wide"><span>Note <small>(optional)</small></span><input type="text" data-tf="what" placeholder="e.g. Card repayment" value="' + escapeAttr(pre.what || "") + '"></label>' +
+      '<label class="cf-filter"><span>From</span><select class="field-control" data-tf="from">' + accts(pre.from) + '</select></label>' +
+      '<label class="cf-filter"><span>To</span><select class="field-control" data-tf="to">' + accts(pre.to) + '</select></label>' +
+      '<label class="cf-filter"><span>Amount $</span><input class="field-control" type="number" step="0.01" min="0" data-tf="amount" aria-label="Transfer amount" value="' + (pre.amount > 0 ? pre.amount : "") + '"></label>' +
+      '<label class="cf-filter"><span>Date</span><input class="field-control" type="date" data-tf="date" value="' + today + '"></label>' +
+      '<label class="cf-filter cf-tf-wide"><span>Note <small>(optional)</small></span><input class="field-control" type="text" data-tf="what" placeholder="e.g. Card repayment" value="' + escapeAttr(pre.what || "") + '"></label>' +
     '</div>' +
     '<p class="cf-tf-hint" data-tf-hint' + (hint ? '' : ' hidden') + '>' + escapeAttr(hint) + '</p>' +
     '<label class="cf-tf-check"><input type="checkbox" data-tf="balances" checked> Also move the two balances (where each account has one)</label>' +
@@ -208,8 +208,8 @@ export function splitEditorHtml(t, idx, lineOptionsFor){
   var left = Math.round((total - placed) * 100) / 100;
   return '<div class="cf-split" data-cf-split-for="' + idx + '"><b>Split ' + fmtCurrency2.format(total) + ' across budget lines</b>' +
     parts.map(function(p, i){
-      return '<div class="cf-split-row"><select data-cf-split-line="' + i + '" aria-label="Part ' + (i + 1) + ' budget line">' + lineOptionsFor(p.linkedExpenseId) + '</select>' +
-        '<input type="number" step="0.01" data-cf-split-amt="' + i + '" value="' + (p.amount !== "" && p.amount != null ? p.amount : "") + '" aria-label="Part ' + (i + 1) + ' amount">' +
+      return '<div class="cf-split-row"><select class="field-control" data-cf-split-line="' + i + '" aria-label="Part ' + (i + 1) + ' budget line">' + lineOptionsFor(p.linkedExpenseId) + '</select>' +
+        '<input class="field-control" type="number" step="0.01" data-cf-split-amt="' + i + '" value="' + (p.amount !== "" && p.amount != null ? p.amount : "") + '" aria-label="Part ' + (i + 1) + ' amount">' +
         (parts.length > 2 ? '<button type="button" class="btn btn-danger btn-sm" data-cf-split-del="' + i + '" aria-label="Remove part ' + (i + 1) + '">✕</button>' : '<span></span>') + '</div>';
     }).join("") +
     '<div class="cf-split-foot"><button type="button" class="btn btn-sm btn-ghost" data-cf-split-add>+ Part</button>' +
@@ -340,7 +340,7 @@ export function billsCalendarHtml(data, ym, today){
     data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
   var kinds = (data.kinds || []).length ? '<details class="bc-kinds"><summary>Bill or spending budget? Change how a line is treated</summary><p class="ledger-note" style="margin:4px 0 6px">Worked out from what\'s logged: about one payment a period is a bill; many purchases of varying size is a spending budget.</p><ul>' +
     data.kinds.map(function(k){
-      return '<li><span>' + escapeAttr(k.what) + '</span><select class="bc-kind" data-bc-kind="' + escapeAttr(k.id) + '" aria-label="' + escapeAttr(k.what) + ' — bill or spending budget">' +
+      return '<li><span>' + escapeAttr(k.what) + '</span><select class="bc-kind field-control" data-bc-kind="' + escapeAttr(k.id) + '" aria-label="' + escapeAttr(k.what) + ' — bill or spending budget">' +
         '<option value=""' + (!k.setting ? ' selected' : '') + '>Auto (' + (k.auto === "spending" ? "spending" : "bill") + ')</option>' +
         '<option value="bill"' + (k.setting === "bill" ? ' selected' : '') + '>Bill</option>' +
         '<option value="spending"' + (k.setting === "spending" ? ' selected' : '') + '>Spending budget</option></select></li>';
@@ -372,11 +372,11 @@ export function txGridHtml(entries, opts){
   var esc = escapeAttr;
   var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line</th><th>Account</th><th class="num">Amount</th></tr></thead>';
   var newRow = '<tr class="txg-new">' + (opts.picking ? '<td></td>' : '') +
-    '<td><input type="date" class="txg-new-date" value="' + esc(opts.today) + '" aria-label="New transaction date"></td>' +
-    '<td><input type="text" class="txg-new-what" placeholder="New: what was it?" aria-label="New transaction description"></td>' +
-    '<td><select class="txg-new-link" aria-label="New transaction budget line">' + opts.lineOptions(null) + '</select></td>' +
-    '<td><select class="txg-new-account" aria-label="New transaction account">' + opts.accountOptions("") + '</select></td>' +
-    '<td class="num"><input type="number" step="0.01" class="txg-new-amount" placeholder="0.00" aria-label="New transaction amount" title="Enter to add"></td></tr>';
+    '<td><input type="date" class="txg-new-date field-control field-compact" value="' + esc(opts.today) + '" aria-label="New transaction date"></td>' +
+    '<td><input type="text" class="txg-new-what field-control field-compact" placeholder="New: what was it?" aria-label="New transaction description"></td>' +
+    '<td><select class="txg-new-link field-control field-compact" aria-label="New transaction budget line">' + opts.lineOptions(null) + '</select></td>' +
+    '<td><select class="txg-new-account field-control field-compact" aria-label="New transaction account">' + opts.accountOptions("") + '</select></td>' +
+    '<td class="num"><input type="number" step="0.01" class="txg-new-amount field-control field-compact" placeholder="0.00" aria-label="New transaction amount" title="Enter to add"></td></tr>';
   var rows = entries.map(function(e){
     if(e.kind !== "out"){
       var sign = e.kind === "in" ? "+" : "";
@@ -386,11 +386,11 @@ export function txGridHtml(entries, opts){
     var t = opts.transactions[e.ref], i = e.ref;
     return '<tr class="txg-row" data-index="' + i + '">' +
       (opts.picking ? '<td class="txg-pick">' + selectBoxHtml(i) + '</td>' : '') +
-      '<td><input type="date" class="tx-date" data-tx-index="' + i + '" value="' + esc(t.date || "") + '" aria-label="Date"></td>' +
-      '<td><input type="text" class="tx-what" data-tx-index="' + i + '" value="' + esc(t.what || "") + '" placeholder="' + esc(e.label) + '" aria-label="Description"></td>' +
-      '<td><select class="tx-link" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>' +
-      '<td><select class="tx-account" data-tx-index="' + i + '" aria-label="Account">' + opts.accountOptions(t.account || "") + '</select></td>' +
-      '<td class="num"><input type="number" step="0.01" class="tx-amount" data-tx-index="' + i + '" value="' + (Number(t.amount) || 0) + '" aria-label="Amount"></td></tr>';
+      '<td><input type="date" class="tx-date field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.date || "") + '" aria-label="Date"></td>' +
+      '<td><input type="text" class="tx-what field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.what || "") + '" placeholder="' + esc(e.label) + '" aria-label="Description"></td>' +
+      '<td><select class="tx-link field-control field-compact" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>' +
+      '<td><select class="tx-account field-control field-compact" data-tx-index="' + i + '" aria-label="Account">' + opts.accountOptions(t.account || "") + '</select></td>' +
+      '<td class="num"><input type="number" step="0.01" class="tx-amount field-control field-compact" data-tx-index="' + i + '" value="' + (Number(t.amount) || 0) + '" aria-label="Amount"></td></tr>';
   }).join("");
   return '<div class="txg-wrap"><table class="tx-grid">' + head + '<tbody>' + newRow + rows + '</tbody></table></div>';
 }

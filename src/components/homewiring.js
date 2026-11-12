@@ -70,7 +70,7 @@ function onScenarioControlClick(e){
 function renderBenchmarksOther(){
   var sel = benchmarksBody.querySelector("[data-bm-symbol]");
   if(!sel || benchmarksBody.querySelector("[data-bm-other]")) return;
-  sel.closest("label").insertAdjacentHTML("afterend", '<label>ASX code <input type="text" data-bm-other maxlength="8" style="width:80px;text-transform:uppercase" placeholder="A200"></label>');
+  sel.closest("label").insertAdjacentHTML("afterend", '<label>ASX code <input class="field-control" type="text" data-bm-other maxlength="8" style="width:80px;text-transform:uppercase" placeholder="A200"></label>');
   benchmarksBody.querySelector("[data-bm-other]").focus();
 }
 function renderHomeArrange(focusSel){

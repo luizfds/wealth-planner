@@ -562,7 +562,7 @@ function scenarioOverridePanelHtml(section, idx){
     return '<div class="scen-override-row">' +
       '<span class="scen-override-name">' + escapeAttr(name) +
         (isBaseline ? ' <span class="home-baseline-badge">Current situation</span>' : '') + '</span>' +
-      '<input type="number" step="0.01" min="0" class="scen-override-input" data-override-scenario="' + escapeAttr(name) + '" value="' + value + '" aria-label="Amount for ' + escapeAttr(name) + '">' +
+      '<input type="number" step="0.01" min="0" class="scen-override-input field-control" data-override-scenario="' + escapeAttr(name) + '" value="' + value + '" aria-label="Amount for ' + escapeAttr(name) + '">' +
       (hasOverride ? '<button type="button" class="btn btn-ghost btn-sm" data-override-reset="' + escapeAttr(name) + '" title="Use the shared amount instead" aria-label="Use the shared amount instead for ' + escapeAttr(name) + '">↺ Reset</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" data-override-use-everywhere="' + escapeAttr(name) + '" title="Set this amount for every scenario, including Current situation">Use everywhere</button>' +
     '</div>';
@@ -744,8 +744,8 @@ export function renderExpenseReviewPanel(){
     return '<label class="bc-confirm-row" data-confirm-key="' + b.key + '">' +
       '<input type="checkbox" class="bc-confirm-check"' + (b.checked ? ' checked' : '') + ' aria-label="Confirm ' + escapeAttr(b.what) + '">' +
       '<span class="bc-confirm-name">' + escapeAttr(b.what) + '<small>due ' + escapeAttr(fmtDate(b.due)) + (b.estimated ? ' · expected' : '') + '</small></span>' +
-      '<input type="date" class="bc-confirm-date" value="' + escapeAttr(b.due) + '" aria-label="Date paid">' +
-      '<span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount" value="' + b.amount + '" aria-label="Amount paid"></span>' +
+      '<input type="date" class="bc-confirm-date field-control" value="' + escapeAttr(b.due) + '" aria-label="Date paid">' +
+      '<span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount field-control" value="' + b.amount + '" aria-label="Amount paid"></span>' +
     '</label>';
   }).join("");
   root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel review-panel-wide" role="dialog" aria-label="Bills to confirm">' +
@@ -989,7 +989,7 @@ export function quickLogRefundChipsHtml(item){
 function quickLogCategoryHtml(item){
   if(item || !state.categories.length) return "";
   return '<div class="qlog-cat-row"><label class="qlog-cat-label" for="quickLogCategory">Category</label>' +
-    '<select id="quickLogCategory" class="qlog-cat" aria-label="Category (optional)">' +
+    '<select id="quickLogCategory" class="qlog-cat field-control" aria-label="Category (optional)">' +
       '<option value="">— None —</option>' + optionsHtml(sortedCategories(), "") +
     '</select></div>';
 }
@@ -1065,7 +1065,7 @@ function quickLogDateRowHtml(){
   var today = localDateStr();
   if(quickLog.dateOpen){
     return '<div class="qlog-date-row"><label class="qlog-date-label" for="quickLogDate">Date</label>' +
-      '<input type="date" id="quickLogDate" class="qlog-date" value="' + escapeAttr(today) + '" aria-label="Date to log this under"></div>';
+      '<input type="date" id="quickLogDate" class="qlog-date field-control" value="' + escapeAttr(today) + '" aria-label="Date to log this under"></div>';
   }
   // Collapsed by default and showing what it will use, so the overwhelmingly common case (I spent
   // this today) needs no interaction at all, while backdating is still one tap away.
@@ -1102,7 +1102,7 @@ export function renderQuickLogSheet(){
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
       quickLogRefundChipsHtml(item) +
-      '<input type="text" id="quickLogNote" class="qlog-note" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
+      '<input type="text" id="quickLogNote" class="qlog-note field-control" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
@@ -1342,21 +1342,21 @@ function transactionDescriptionPlaceholder(t){
   return linked && linked.what ? linked.what : "Optional note";
 }
 function transactionRowHtml(t, idx){
-  var dateInput = '<input type="date" class="tx-date" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
-  var whatInput = '<input type="text" class="tx-what" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
+  var dateInput = '<input type="date" class="tx-date field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
+  var whatInput = '<input type="text" class="tx-what field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
   // No min="0": a refund is a real transaction with a negative amount, and every sum downstream
   // already reads `s + (Number(t.amount) || 0)` rather than clamping.
   // The −/+ button is not decoration: a phone's numeric keypad has no minus key, so without it a
   // refund cannot be entered on the surface this app is mostly used from. It flips the sign of
   // whatever is in the field, which is also the only way to *undo* a refund with a thumb.
   var amountInput = '<div class="tx-amount-wrap">' +
-    '<input type="number" step="0.01" class="tx-amount" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">' +
+    '<input type="number" step="0.01" class="tx-amount field-control" data-tx-index="' + idx + '" value="' + t.amount + '" aria-label="Amount (negative for a refund)">' +
     '<button type="button" class="tx-sign" data-tx-sign="' + idx + '" aria-label="' +
       (Number(t.amount) < 0 ? "Currently a refund — make it a spend" : "Make this a refund") + '"' +
       ' title="Switch between spend and refund">' + (Number(t.amount) < 0 ? "+" : "−") + '</button>' +
   '</div>';
-  var linkSelect = '<select class="tx-link" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
-  var acctSelect = '<select class="tx-account" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
+  var linkSelect = '<select class="tx-link field-control" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
+  var acctSelect = '<select class="tx-account field-control" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var summary = modernRowSummaryHtml({
     leadHtml: categoryIconHtml(transactionCategory(t)),
     name: transactionDisplayName(t, state.shared),
@@ -2177,7 +2177,7 @@ export function trendNumbersTableHtml(view){
     return "<td>" + fmtCurrency0.format(v) + "</td>";
   }).join("") + "</tr>";
   var month = view.months.includes(trendDisplay.month) ? trendDisplay.month : view.months[lastIdx];
-  var summary = '<div class="trend-month-reading"><label class="rp-entity"><span>Month</span><select data-trend-month>' + view.months.map(function(m,i){ return '<option value="' + escapeAttr(m) + '"' + (m === month ? ' selected' : '') + '>' + escapeAttr(monthKeyLabel(m,view.months[lastIdx]) + (i === lastIdx && !view.complete ? ' (so far)' : '')) + '</option>'; }).join('') + '</select></label>' + view.months.map(function(m,i){
+  var summary = '<div class="trend-month-reading"><label class="rp-entity"><span>Month</span><select class="field-control" data-trend-month>' + view.months.map(function(m,i){ return '<option value="' + escapeAttr(m) + '"' + (m === month ? ' selected' : '') + '>' + escapeAttr(monthKeyLabel(m,view.months[lastIdx]) + (i === lastIdx && !view.complete ? ' (so far)' : '')) + '</option>'; }).join('') + '</select></label>' + view.months.map(function(m,i){
     var rows = view.rows.concat([{category:'Total',values:view.totals}]);
     return '<section class="trend-month" data-trend-summary="' + escapeAttr(m) + '"' + (m === month ? '' : ' hidden') + '><h3>' + escapeAttr(monthKeyLabel(m,view.months[lastIdx]) + (i === lastIdx && !view.complete ? ' · so far' : '')) + '</h3><dl class="trend-month-fields">' + rows.map(function(r,j){ return '<div data-trend-row="' + j + '"' + (j === rows.length - 1 ? ' class="trend-month-total"' : '') + '><dt>' + escapeAttr(r.category) + '</dt><dd>' + fmtCurrency0.format(r.values[i]) + '</dd></div>'; }).join('') + '</dl></section>';
   }).join('') + '</div>';

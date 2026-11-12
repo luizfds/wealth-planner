@@ -25,7 +25,7 @@ export function tradesCardHtml(){
     '<p class="ledger-note" style="margin:8px 0">Your broker\'s trade history — CommSec\'s Transactions CSV, Stake\'s Investment Activity report (.xlsx, one per financial year: choose them all at once), or any file with a date, code, buy/sell, units and price. Each buy becomes a purchase lot; each sell a recorded sale from the oldest lots first. Units held aren\'t changed, and reading the same file twice adds nothing.</p>' +
     '<div class="tr-inputs"><label class="btn btn-sm">Choose CSV or Excel<input type="file" accept=".csv,text/csv,text/plain,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple data-tr-file hidden></label>' +
     '<span class="ledger-note">or paste it:</span></div>' +
-    '<textarea class="tr-text" rows="3" data-tr-text placeholder="Date,Code,Side,Quantity,Price,Brokerage" aria-label="Paste trades CSV"></textarea>' +
+    '<textarea class="tr-text field-control" rows="3" data-tr-text placeholder="Date,Code,Side,Quantity,Price,Brokerage" aria-label="Paste trades CSV"></textarea>' +
     '<div><button type="button" class="btn btn-sm" data-tr-read>Read trades</button></div>' +
     (parsed ? '<div class="tr-preview">' + (parsed.trades.length ? tradesPreviewHtml(currentTradePlan(), state.assets, parsed) : '<p class="ledger-note">No trades found in that file' + (parsed.format ? '' : ' — it needs a header row with a date and either a Details column (CommSec) or code, units and price columns') + '.</p>') + '</div>' : '') +
   '</details>';
@@ -37,7 +37,7 @@ export function tradesPreviewHtml(plan, assets, parsed){
     var pick;
     if(!p.holdings.length) pick = '<span class="tr-none">no holding</span>';
     else if(p.holdings.length === 1) pick = escapeAttr(assets[p.holdings[0]].what || p.code) + ' <label class="tr-skip"><input type="checkbox" data-tr-skip="' + escapeAttr(p.code) + '"' + (p.target == null ? ' checked' : '') + '> leave out</label>';
-    else pick = '<select data-tr-pick="' + escapeAttr(p.code) + '" aria-label="Which ' + escapeAttr(p.code) + ' holding">' +
+    else pick = '<select class="field-control" data-tr-pick="' + escapeAttr(p.code) + '" aria-label="Which ' + escapeAttr(p.code) + ' holding">' +
       p.holdings.map(function(i){ return '<option value="' + i + '"' + (p.target === i ? ' selected' : '') + '>' + escapeAttr(assets[i].what || p.code) + '</option>'; }).join("") +
       '<option value="skip"' + (p.target == null ? ' selected' : '') + '>Leave out</option></select>';
     var news = p.target == null ? '—' : (p.newBuys.length + ' buy' + (p.newBuys.length === 1 ? '' : 's') + ', ' + p.newSales.length + ' sale' + (p.newSales.length === 1 ? '' : 's') + ' new' +

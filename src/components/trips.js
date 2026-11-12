@@ -43,10 +43,10 @@ export function tripsCardHtml(){
   return '<p class="ledger-note">Mark the dates you were away. Spending inside them is filed to the trip\'s line when you import a statement, and what\'s already logged can be moved there too. Regular bills that land on those days, rent and property costs stay where they are.</p>' +
     (list ? '<ul class="trip-list">' + list + '</ul>' : '') +
     '<div class="trip-add">' +
-      '<label class="fr-field"><span>Trip</span><input type="text" data-trip-name placeholder="Melbourne"></label>' +
-      '<label class="fr-field"><span>From</span><input type="date" data-trip-from></label>' +
-      '<label class="fr-field"><span>To</span><input type="date" data-trip-to></label>' +
-      '<label class="fr-field"><span>Line</span><select data-trip-line><option value="">Pick a line…</option>' + budgetLineOptgroupsHtml(defaultTripLine()) + '</select></label>' +
+      '<label class="fr-field"><span>Trip</span><input class="field-control" type="text" data-trip-name placeholder="Melbourne"></label>' +
+      '<label class="fr-field"><span>From</span><input class="field-control" type="date" data-trip-from></label>' +
+      '<label class="fr-field"><span>To</span><input class="field-control" type="date" data-trip-to></label>' +
+      '<label class="fr-field"><span>Line</span><select class="field-control" data-trip-line><option value="">Pick a line…</option>' + budgetLineOptgroupsHtml(defaultTripLine()) + '</select></label>' +
       '<button type="button" class="btn btn-sm" data-trip-add>+ Add trip</button>' +
     '</div>';
 }

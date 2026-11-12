@@ -13,7 +13,7 @@ export function startFirstRun(){
 var STEPS = ["Who's in the household?", "Your accounts", "Your pay", "Home and everyday costs", "Bring in your spending"];
 
 function field(label, attr, value, type, extra){
-  return '<label class="fr-field"><span>' + label + '</span><input type="' + (type || "text") + '" ' + attr + ' value="' + escapeAttr(value == null ? "" : value) + '"' + (extra || "") + '></label>';
+  return '<label class="fr-field"><span>' + label + '</span><input class="field-control" type="' + (type || "text") + '" ' + attr + ' value="' + escapeAttr(value == null ? "" : value) + '"' + (extra || "") + '></label>';
 }
 export function firstRunHtml(){
   var a = firstRun.answers, st = firstRun.step, body = "";
@@ -28,7 +28,7 @@ export function firstRunHtml(){
     body = '<p class="fr-lede">Where your money sits, and roughly what\'s in each today — rename or remove any. For a card, what it owes.</p>' +
       a.accounts.map(function(x, i){
         return '<div class="fr-row fr-acct">' + field("Name", 'data-fr="accounts.' + i + '.name"', x.name) +
-          '<label class="fr-field"><span>Type</span><select data-fr="accounts.' + i + '.type">' + [["everyday", "Everyday"], ["savings", "Savings"], ["offset", "Offset"], ["credit", "Credit card"]].map(function(o){ return '<option value="' + o[0] + '"' + (x.type === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></label>' +
+          '<label class="fr-field"><span>Type</span><select class="field-control" data-fr="accounts.' + i + '.type">' + [["everyday", "Everyday"], ["savings", "Savings"], ["offset", "Offset"], ["credit", "Credit card"]].map(function(o){ return '<option value="' + o[0] + '"' + (x.type === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></label>' +
           field(x.type === "credit" ? "Owes $" : "Balance $", 'data-fr="accounts.' + i + '.balance"', x.balance, "number", ' step="1"') +
           '<button type="button" class="btn btn-danger btn-sm" data-fr-del-acct="' + i + '" aria-label="Remove this account">✕</button></div>';
       }).join("") + '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-acct>+ Another account</button>';
@@ -37,14 +37,14 @@ export function firstRunHtml(){
       a.people.filter(function(p){ return String(p.name || "").trim(); }).map(function(p){
         var i = a.people.indexOf(p);
         return '<div class="fr-row">' + field(escapeAttr(p.name) + "'s pay before tax $", 'data-fr="people.' + i + '.pay"', p.pay, "number", ' step="100"') +
-          '<label class="fr-field"><span>Per</span><select data-fr="people.' + i + '.payFreq">' + ["Yearly", "Monthly", "Fortnightly", "Weekly"].map(function(f){ return '<option' + (p.payFreq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>';
+          '<label class="fr-field"><span>Per</span><select class="field-control" data-fr="people.' + i + '.payFreq">' + ["Yearly", "Monthly", "Fortnightly", "Weekly"].map(function(f){ return '<option' + (p.payFreq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>';
       }).join("") || '<p class="ledger-note">Go back and add a name first.</p>';
   } else if(st === 3){
     var h = a.housing;
     body = '<p class="fr-lede">Roughly what each costs. Blank ones are skipped; everything can be changed on Cash flow → Budget.</p>' +
-      '<div class="fr-row"><label class="fr-field"><span>Home</span><select data-fr="housing.kind"><option value="rent"' + (h.kind === "rent" ? " selected" : "") + '>Rent</option><option value="loan"' + (h.kind === "loan" ? " selected" : "") + '>Home loan</option><option value="none"' + (h.kind === "none" ? " selected" : "") + '>Neither</option></select></label>' +
+      '<div class="fr-row"><label class="fr-field"><span>Home</span><select class="field-control" data-fr="housing.kind"><option value="rent"' + (h.kind === "rent" ? " selected" : "") + '>Rent</option><option value="loan"' + (h.kind === "loan" ? " selected" : "") + '>Home loan</option><option value="none"' + (h.kind === "none" ? " selected" : "") + '>Neither</option></select></label>' +
         field("$", 'data-fr="housing.amount"', h.amount, "number") +
-        '<label class="fr-field"><span>Per</span><select data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
+        '<label class="fr-field"><span>Per</span><select class="field-control" data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
       '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " — a month $", 'data-fr="costs.' + i + '.amount"', c.amount, "number"); }).join("") + '</div>' +
       // v3.161.0 (item 191): what else the household has — a part left unticked stays out of the way until one is added.
       '<div class="fr-own"><span>Do you also have</span>' +

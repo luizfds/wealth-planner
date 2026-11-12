@@ -121,8 +121,8 @@ export function receivedSheetHtml(){
       (cur && cur.kind === "net" ? '<p class="qlog-context">The pay that landed in your account — after tax and super.</p>' : '') +
       (cur && cur.kind === "rent" ? '<p class="qlog-context">What the agent paid you, after their fees.</p>' : '') +
       (cur && cur.kind === "payout" ? '<p class="qlog-context">Recorded as a payment on this holding — it counts toward its return and the tax year.</p>' : '') +
-      '<input type="text" id="rcvNote" class="qlog-note" placeholder="Note (optional)" aria-label="Note (optional)">' +
-      '<div class="qlog-date-row"><label class="qlog-date-label" for="rcvDate">Date</label><input type="date" id="rcvDate" class="qlog-date" value="' + (receivedSheet.date || localDateStr()) + '"></div>' +
+      '<input type="text" id="rcvNote" class="qlog-note field-control" placeholder="Note (optional)" aria-label="Note (optional)">' +
+      '<div class="qlog-date-row"><label class="qlog-date-label" for="rcvDate">Date</label><input type="date" id="rcvDate" class="qlog-date field-control" value="' + (receivedSheet.date || localDateStr()) + '"></div>' +
       '<button type="button" class="btn review-log-btn qlog-submit" data-rcv-submit' + (targets.length ? '' : ' disabled') + '>Log received</button>' +
     '</div></div>';
 }

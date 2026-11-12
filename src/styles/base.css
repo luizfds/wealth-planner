@@ -152,7 +152,7 @@
      or a class nobody styled (the sheet link and its date, the payslip date, dates of birth) — kept
      the browser's grey inset border and square corners. :where() makes this weigh nothing, so a rule
      written for a particular field still wins; fields already styled aren't touched. */
-  :where(input:not([class]):not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob){
+  :where(input:not([class]):not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"]), select:not([class]), textarea:not([class])){
     font: inherit; font-size:var(--fs-md); color: var(--ink); background: var(--field-bg);
     border:1px solid var(--field-border); border-radius:var(--field-radius); padding:5px var(--field-px); min-height:var(--field-h); box-sizing:border-box; max-width:100%;
   }
@@ -184,7 +184,7 @@
   .field-control[readonly]{ background:var(--field-muted-bg); }
   .field-control[aria-invalid="true"]{ border-color:var(--bad-ink); }
   .field-control.is-valid{ border-color:var(--good-ink); }
-  :where(input:not([class]), select:not([class]), textarea:not([class]), .ps-from, .ps-url, .tax-ytd-asof, .pp-dob):focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  :where(input:not([class]), select:not([class]), textarea:not([class])):focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   input[type="number"]{ -moz-appearance:textfield; }
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
@@ -506,9 +506,8 @@ body.help-hidden :is(h2, h3, h4):has(> .help-btn-heading.help-open) ~ .help{ dis
 .app-dialog p{ white-space:pre-wrap; overflow-wrap:anywhere; margin:0 0 14px; }
 .app-dialog-fields{ display:flex; flex-direction:column; gap:12px; min-width:0; }
 .app-dialog-field{ display:flex; flex-direction:column; gap:5px; font-size:var(--fs-md); }
-.app-dialog-field input{ width:100%; min-width:0; min-height:44px; font:inherit; color:var(--ink); background:var(--paper); border:1px solid var(--border); border-radius:var(--inner-radius); padding:8px 10px; }
-.app-dialog-field input:focus-visible{ outline:none; box-shadow:var(--focus-ring); border-color:var(--brass); }
-.app-dialog-field input[aria-invalid=true]{ border-color:var(--bad-ink); }
+/* #254: a dialog's fields are on the shared skin (.field-control, set in lib/dialogs.js). */
+.app-dialog-field input{ width:100%; }
 .app-dialog-error{ color:var(--bad-ink); font-size:var(--fs-sm); }
 .app-dialog-actions{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:16px; }
 .app-dialog-actions .btn{ white-space:normal; }

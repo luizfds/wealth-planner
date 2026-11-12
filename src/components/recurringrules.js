@@ -45,14 +45,14 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
   });
   const r = edit || { what: "", amount: "", kind: "Expense", frequency: "Monthly", startDate: today, endDate: "", intervalDays: 10, category: "" };
   html += '<details' + (edit ? ' open' : '') + '><summary>' + (edit ? 'Edit rule' : 'Add recurring rule') + '</summary>' +
-    '<form id="recurringRuleForm"><label>Description <input name="what" required maxlength="120" value="' + safe(r.what) + '"></label> ' +
-    '<label>Type <select name="kind">' + opt("Expense", r.kind) + opt("Income", r.kind) + '</select></label> ' +
-    '<label>Amount <input name="amount" type="number" min="0.01" step="0.01" required value="' + safe(r.amount) + '"></label> ' +
-    '<label>Frequency <select name="frequency">' + ["Weekly","Fortnightly","Monthly","Custom"].map(function(v){ return opt(v,r.frequency); }).join("") + '</select></label> ' +
-    '<label>Custom interval (days) <input name="intervalDays" type="number" min="1" max="366" value="' + safe(r.intervalDays) + '"></label> ' +
-    '<label>Starts <input name="startDate" type="date" required value="' + safe(r.startDate) + '"></label> ' +
-    '<label>Ends (optional) <input name="endDate" type="date" value="' + safe(r.endDate) + '"></label> ' +
-    '<label>Category <input name="category" maxlength="80" value="' + safe(r.category) + '"></label> ' +
+    '<form id="recurringRuleForm"><label>Description <input class="field-control" name="what" required maxlength="120" value="' + safe(r.what) + '"></label> ' +
+    '<label>Type <select class="field-control" name="kind">' + opt("Expense", r.kind) + opt("Income", r.kind) + '</select></label> ' +
+    '<label>Amount <input class="field-control" name="amount" type="number" min="0.01" step="0.01" required value="' + safe(r.amount) + '"></label> ' +
+    '<label>Frequency <select class="field-control" name="frequency">' + ["Weekly","Fortnightly","Monthly","Custom"].map(function(v){ return opt(v,r.frequency); }).join("") + '</select></label> ' +
+    '<label>Custom interval (days) <input class="field-control" name="intervalDays" type="number" min="1" max="366" value="' + safe(r.intervalDays) + '"></label> ' +
+    '<label>Starts <input class="field-control" name="startDate" type="date" required value="' + safe(r.startDate) + '"></label> ' +
+    '<label>Ends (optional) <input class="field-control" name="endDate" type="date" value="' + safe(r.endDate) + '"></label> ' +
+    '<label>Category <input class="field-control" name="category" maxlength="80" value="' + safe(r.category) + '"></label> ' +
     '<button class="btn btn-sm" type="submit">Save rule</button></form></details></div>';
   return html;
 }

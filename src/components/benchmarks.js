@@ -198,12 +198,12 @@ export function investmentsHtml(d){
       // #261: named for what it is — the visible date alone ("30 Jun 2025") didn't say it's the index's close (and
       // the name still contains it, WCAG 2.5.3).
       var when = dt === "now" ? "Today" + (d.prices.nowDate ? " (" + fmtDate(d.prices.nowDate) + ")" : "") : fmtDate(dt);
-      return '<label><span>' + esc(when) + '</span><input type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price" aria-label="' + esc(d.symbol + " close, " + when) + '" aria-describedby="bmPricesHelp"></label>';
+      return '<label><span>' + esc(when) + '</span><input class="field-control" type="number" step="0.01" min="0" data-bm-price="' + dt + '" value="' + (v > 0 ? v : "") + '" placeholder="price" aria-label="' + esc(d.symbol + " close, " + when) + '" aria-describedby="bmPricesHelp"></label>';
     }).join("") + '</div>' +
     '<div class="bm-paste"><button type="button" class="btn btn-sm btn-ghost" data-bm-copy>⧉ Copy Google Sheets formulas</button>' +
     // #261: a visible label tied to the box — it had a placeholder only, which goes once you type.
     '<label class="field-label" for="bmPaste">Paste ' + esc(d.symbol) + ' prices (the Symbol and Price columns)</label>' +
-    '<textarea id="bmPaste" data-bm-paste rows="3" aria-describedby="bmPricesHelp" placeholder="' + esc(d.symbol) + '@2024-03-01&#9;31.42"></textarea>' +
+    '<textarea class="field-control" id="bmPaste" data-bm-paste rows="3" aria-describedby="bmPricesHelp" placeholder="' + esc(d.symbol) + '@2024-03-01&#9;31.42"></textarea>' +
     '<button type="button" class="btn btn-sm" data-bm-paste-apply>Use pasted prices</button></div></details>';
   return controls +
     '<p class="bm-verdict">' + fmtCurrency0.format(d.invested) + ' put in since ' + esc(fmtDate(d.firstDate)) + (d.withdrawn ? ', ' + fmtCurrency0.format(d.withdrawn) + ' taken out' : '') + ', worth ' + fmtCurrency0.format(d.value) + ' today.</p>' +
@@ -288,13 +288,13 @@ export function targetsHtml(d){
     var g = x.goal, p = x.progress, info = goalKindInfo(g.kind) || { label: g.kind, unit: "" };
     var title = g.kind === "categorySpend" ? esc(g.category || "a category") + " <small>per month</small>" : esc(info.label);
     var targetInput = g.kind === "savingsRate"
-      ? '<input type="number" step="1" min="0" max="100" data-goal-target="' + i + '" value="' + (g.target ? Math.round(g.target * 1000) / 10 : "") + '" aria-label="Target %"> %'
-      : (info.unit === "$" || info.unit === "$/mo" ? '$ <input type="number" step="any" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target">' :
-        '<input type="number" step="0.5" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target months"> months');
+      ? '<input class="field-control" type="number" step="1" min="0" max="100" data-goal-target="' + i + '" value="' + (g.target ? Math.round(g.target * 1000) / 10 : "") + '" aria-label="Target %"> %'
+      : (info.unit === "$" || info.unit === "$/mo" ? '$ <input class="field-control" type="number" step="any" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target">' :
+        '<input class="field-control" type="number" step="0.5" min="0" data-goal-target="' + i + '" value="' + (g.target || "") + '" aria-label="Target months"> months');
     var lowerBetter = g.kind === "categorySpend";
     var tone = STATUS_TONE[p.status] || "";
     var extra = "";
-    if(g.kind === "netWorth") extra = ' <label class="goal-by">by <input type="date" data-goal-by="' + i + '" value="' + esc(g.by || "") + '"></label>' +
+    if(g.kind === "netWorth") extra = ' <label class="goal-by">by <input class="field-control" type="date" data-goal-by="' + i + '" value="' + esc(g.by || "") + '"></label>' +
       (p.projected != null ? '<span class="goal-note">' + esc(d.scenario) + ' projects ' + fmtCurrency0.format(p.projected) + ' by then</span>' : '');
     if(lowerBetter && p.pace != null) extra = '<span class="goal-note">' + fmtCurrency0.format(p.pace) + ' would be on pace today</span>';
     return '<div class="goal-row">' +
@@ -308,8 +308,8 @@ export function targetsHtml(d){
   var kindOpts = GOAL_KINDS.map(function(k){ return '<option value="' + k.kind + '">' + esc(k.label) + '</option>'; }).join("");
   var catOpts = d.categories.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join("");
   return (rows || '<p class="fire-note">Set targets of your own — a savings rate, a net worth by a date, months of expenses in cash, super, or a monthly cap on a spending category — and see how far along each is.</p>') +
-    '<div class="goal-add"><select data-goal-kind aria-label="Kind of target">' + kindOpts + '</select>' +
-      '<select data-goal-category aria-label="Category" hidden>' + (catOpts || '<option value="">No categories yet</option>') + '</select>' +
+    '<div class="goal-add"><select class="field-control" data-goal-kind aria-label="Kind of target">' + kindOpts + '</select>' +
+      '<select class="field-control" data-goal-category aria-label="Category" hidden>' + (catOpts || '<option value="">No categories yet</option>') + '</select>' +
       '<button type="button" class="btn btn-sm" data-goal-add>+ Add goal target</button></div>';
 }
 export function addGoal(kind, category){
@@ -356,7 +356,7 @@ export function gatherPropertyMarket(){
 }
 function pp(v){ return v == null ? "—" : (v < 0 ? "−" : "") + fmtPercent1.format(Math.abs(v)); }
 function marketInput(id, field, value, attrs){
-  return '<input type="' + (attrs.type || "number") + '" data-pm-id="' + esc(id) + '" data-pm-field="' + field + '" value="' + esc(value == null ? "" : value) + '"' +
+  return '<input class="field-control" type="' + (attrs.type || "number") + '" data-pm-id="' + esc(id) + '" data-pm-field="' + field + '" value="' + esc(value == null ? "" : value) + '"' +
     (attrs.step ? ' step="' + attrs.step + '"' : '') + (attrs.placeholder ? ' placeholder="' + esc(attrs.placeholder) + '"' : '') + ' aria-label="' + esc(attrs.label) + '">';
 }
 export function propertyMarketHtml(d){

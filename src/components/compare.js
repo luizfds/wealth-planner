@@ -53,7 +53,7 @@ export function compareHtml(rows){
       return '<div data-cmp-metric="' + escapeAttr(m.label) + '"><dt>' + escapeAttr(m.label) + (m.help ? '<small>' + m.help + '</small>' : '') + '</dt><dd' + (v.cls ? ' class="' + v.cls + '"' : '') + '>' + v.html + '</dd></div>';
     }).join('') + '</dl>';
   }
-  var summaries = '<div class="cmp-mobile-summary"><label class="rp-entity"><span>Scenario</span><select data-cmp-scenario>' + ordered.map(function(r){ return '<option value="' + escapeAttr(r.scenario) + '"' + (r === selected ? ' selected' : '') + '>' + escapeAttr(r.scenario + (r.isBaseline ? ' (as we are)' : '')) + '</option>'; }).join('') + '</select></label>' +
+  var summaries = '<div class="cmp-mobile-summary"><label class="rp-entity"><span>Scenario</span><select class="field-control" data-cmp-scenario>' + ordered.map(function(r){ return '<option value="' + escapeAttr(r.scenario) + '"' + (r === selected ? ' selected' : '') + '>' + escapeAttr(r.scenario + (r.isBaseline ? ' (as we are)' : '')) + '</option>'; }).join('') + '</select></label>' +
     ordered.map(function(r, i){
       return '<section class="cmp-scenario" data-cmp-summary="' + escapeAttr(r.scenario) + '"' + (r === selected ? '' : ' hidden') + '><h3>' + escapeAttr(r.scenario) + '</h3>' +
         '<p class="ledger-note">' + escapeAttr(r.isBaseline ? 'Current household: the basis for comparison.' : 'Compared with ' + base.scenario + ' (as we are).') + '</p>' +

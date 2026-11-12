@@ -45,16 +45,16 @@ export function projectionStressHtml(){
   var v = projectionStress;
   return '<div class="proj-stress-controls" role="group" aria-label="Illustrative correlated downturn">' +
     '<label><input type="checkbox" data-proj-stress-enabled' + (v.enabled ? ' checked' : '') + '> Show correlated downturn</label> ' +
-    '<label>Shares loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-invest value="' + v.investLossPct + '"></label> ' +
-    '<label>Property loss (%) <input type="number" min="0" max="99" step="1" data-proj-stress-property value="' + v.propertyLossPct + '"></label> ' +
-    '<label>Years <input type="number" min="1" max="10" step="1" data-proj-stress-years value="' + v.duration + '"></label>' +
+    '<label>Shares loss (%) <input class="field-control" type="number" min="0" max="99" step="1" data-proj-stress-invest value="' + v.investLossPct + '"></label> ' +
+    '<label>Property loss (%) <input class="field-control" type="number" min="0" max="99" step="1" data-proj-stress-property value="' + v.propertyLossPct + '"></label> ' +
+    '<label>Years <input class="field-control" type="number" min="1" max="10" step="1" data-proj-stress-years value="' + v.duration + '"></label>' +
     '<p class="ledger-note">Illustrative simultaneous losses, not a prediction. Monte Carlo bands assume independent annual returns.</p></div>' +
     '<div class="proj-stress-controls" role="group" aria-label="Illustrative cash flow shocks">' +
     '<label><input type="checkbox" data-proj-cash-enabled' + (cashStress.enabled ? ' checked' : '') + '> Show cash-flow shock</label> ' +
-    '<label>Lost monthly income ($) <input type="number" min="0" step="100" data-proj-cash-income value="' + cashStress.lostIncomeMonthly + '"></label> ' +
-    '<label>Monthly vacancy shortfall ($) <input type="number" min="0" step="100" data-proj-cash-vacancy value="' + cashStress.vacancyCostMonthly + '"></label> ' +
-    '<label>One-off repairs ($) <input type="number" min="0" step="500" data-proj-cash-maintenance value="' + cashStress.maintenanceCost + '"></label> ' +
-    '<label>Years <input type="number" min="1" max="10" step="1" data-proj-cash-years value="' + cashStress.duration + '"></label>' +
+    '<label>Lost monthly income ($) <input class="field-control" type="number" min="0" step="100" data-proj-cash-income value="' + cashStress.lostIncomeMonthly + '"></label> ' +
+    '<label>Monthly vacancy shortfall ($) <input class="field-control" type="number" min="0" step="100" data-proj-cash-vacancy value="' + cashStress.vacancyCostMonthly + '"></label> ' +
+    '<label>One-off repairs ($) <input class="field-control" type="number" min="0" step="500" data-proj-cash-maintenance value="' + cashStress.maintenanceCost + '"></label> ' +
+    '<label>Years <input class="field-control" type="number" min="1" max="10" step="1" data-proj-cash-years value="' + cashStress.duration + '"></label>' +
     '<p class="ledger-note">Estimated net cash impacts starting in year 1. Repairs are charged once; income loss and vacancy costs recur during selected years. Enable both stress scenarios to compare their combined impact. This is not a prediction or tax calculation.</p></div>' +
     '<details class="proj-stress-disclosure"><summary>How to interpret these estimates</summary>' +
     '<p class="ledger-note">These are illustrative estimates, not forecasts or guarantees. The shaded 10th–90th percentile range comes from 300 seeded simulations with independent annual investment and property returns; it does not include job loss, vacancy, repairs or correlated crashes. Stress lines are separate deterministic examples, not probabilities, and are excluded from the saved-plan ranking. Check your input dates, assumptions and cash-flow figures before relying on any comparison.</p></details>';
@@ -271,7 +271,7 @@ export function projectionTablesHtml(series, horizon, realTerms){
     return '<tr data-proj-table-scenario="' + escapeAttr(s.label) + '"><th scope="row"><span class="proj-swatch ' + escapeAttr(s.colorClass) + '"></span>' + escapeAttr(s.label) + (s.label === state.baselineScenario ? ' <span class="home-baseline-badge" title="Your current, real-life situation">Current situation</span>' : '') + '</th>' + years.map(function(y){ return '<td>' + value(s,y) + '</td>'; }).join('') + '</tr>';
   }).join('') + '</tbody></table></div>';
   var detailYears = years.filter(function(y){ return y !== 0 && y !== horizon; });
-  var summary = '<div class="proj-mobile-reading"><label class="rp-entity"><span>Scenario</span><select data-proj-reading-scenario>' + shown.map(function(s){ return '<option value="' + escapeAttr(s.label) + '"' + (s === selected ? ' selected' : '') + '>' + escapeAttr(s.label) + '</option>'; }).join('') + '</select></label>' + shown.map(function(s){
+  var summary = '<div class="proj-mobile-reading"><label class="rp-entity"><span>Scenario</span><select class="field-control" data-proj-reading-scenario>' + shown.map(function(s){ return '<option value="' + escapeAttr(s.label) + '"' + (s === selected ? ' selected' : '') + '>' + escapeAttr(s.label) + '</option>'; }).join('') + '</select></label>' + shown.map(function(s){
     return '<section class="proj-reading-scenario" data-proj-reading="' + escapeAttr(s.label) + '"' + (s === selected ? '' : ' hidden') + '><h4>' + escapeAttr(s.label) + '</h4>' +
       (s.illustrativeStress ? '<p class="ledger-note">Illustrative stress scenario; excluded from the saved-plan ranking. See the assumptions above.</p>' : '') +
       fields(s, years.filter(function(y){ return y === 0 || y === horizon; })) + '<dl class="proj-reading-fields"><div><dt>Loans gone</dt><dd data-proj-reading-loans>' + loanWhenHtml(s.points) + '</dd></div></dl>' +

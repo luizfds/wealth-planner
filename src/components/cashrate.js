@@ -52,7 +52,7 @@ export function cashRateFormHtml(st, today){
           var key = l.propertyId + ":" + l.loanIndex;
           return '<label class="cr-loan"><input type="checkbox" data-cr-loan="' + escapeAttr(key) + '" checked> <span>' + escapeAttr(l.what) + '</span> <b>' + pct(l.from) + ' → ' + pct(l.to) + '</b></label>';
         }).join("") + '</div>' +
-        '<div class="cr-actions"><label class="cr-date">From <input type="date" data-cr-date value="' + escapeAttr(date) + '"></label>' +
+        '<div class="cr-actions"><label class="cr-date">From <input class="field-control" type="date" data-cr-date value="' + escapeAttr(date) + '"></label>' +
         '<button type="button" class="btn btn-sm btn-primary" data-cr-record>Record on the loans ticked</button>' +
         '<button type="button" class="btn btn-sm btn-ghost" data-cr-dismiss>Not now</button></div>'
       : '<p class="cr-note">There are no loans to record it on.</p><div class="cr-actions"><button type="button" class="btn btn-sm btn-primary" data-cr-dismiss>OK</button></div>') +

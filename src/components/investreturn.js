@@ -100,13 +100,13 @@ export function targetMixCardHtml(){
     var r = mix.rows.find(function(x){ return x.cls === c; }) || { value: 0, pct: 0, target: 0, gap: 0 };
     return '<div class="mix-row"><span class="mix-name">' + c + '</span>' +
       '<span class="mix-now">' + money(r.value) + ' <small>' + fmtPercent1.format(r.pct) + '</small></span>' +
-      '<label class="mix-target"><input type="number" min="0" max="100" step="1" inputmode="decimal" data-mix-target="' + escapeAttr(c) + '" value="' + escapeAttr(target[c] != null ? target[c] : "") + '" placeholder="—" aria-label="Target % for ' + c + '">%</label>' +
+      '<label class="mix-target"><input class="field-control" type="number" min="0" max="100" step="1" inputmode="decimal" data-mix-target="' + escapeAttr(c) + '" value="' + escapeAttr(target[c] != null ? target[c] : "") + '" placeholder="—" aria-label="Target % for ' + c + '">%</label>' +
       '<span class="mix-gap ' + (!hasTarget ? "" : r.gap > 0 ? "up" : r.gap < 0 ? "down" : "") + '">' + (!hasTarget ? "" : Math.abs(r.gap) < 1 ? "on target" : (r.gap > 0 ? money(r.gap) + " short" : money(-r.gap) + " over")) + '</span></div>';
   }).join("");
   var next = "";
   if(hasTarget){
     var to = nextGoesTo(mix, bench.nextAmount);
-    next = '<div class="mix-next"><label>The next <input type="number" min="0" step="100" inputmode="decimal" data-mix-next value="' + escapeAttr(bench.nextAmount) + '" aria-label="Amount to invest next"> goes to</label> ' +
+    next = '<div class="mix-next"><label>The next <input class="field-control" type="number" min="0" step="100" inputmode="decimal" data-mix-next value="' + escapeAttr(bench.nextAmount) + '" aria-label="Amount to invest next"> goes to</label> ' +
       (to.length ? to.map(function(t){ return '<b>' + escapeAttr(t.cls) + ' ' + money(t.amount) + '</b>'; }).join(" · ") : '<span>—</span>') + '</div>';
   }
   return card("mixCard", "Target mix", hasTarget && mix.targetSum !== 100 ? '<span class="down">targets add to ' + mix.targetSum + '%</span>' : "",

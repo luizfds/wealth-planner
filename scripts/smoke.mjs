@@ -182,6 +182,17 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       if(r.notices) failures.push(where + ": " + r.notices);
       if(r.wording.length) failures.push(where + ": " + r.wording.slice(0, 6).join(", "));
       if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));
+      // #254: every field is the shared one (.field-control) or a variant docs/design/fields.md names — the headline
+      // amount, a search box, an inline name, the property-kind badge, a section picker. Not in SHOTS mode, which also
+      // photographs an older base checkout.
+      if(!SHOTS){
+        const offSkin = await page.evaluate(() => [...document.querySelectorAll(".app-page:not([hidden]) input, .app-page:not([hidden]) select, .app-page:not([hidden]) textarea")]
+          .filter(e => e.getClientRects().length && !["checkbox", "radio", "range", "file", "hidden", "color"].includes(e.type) &&
+            !e.matches(".field-control, .inline-name, .cat-mgmt-name, .prop-kind, .cf-search-input, .qlog-search, #quickLogAmount, #rcvAmount"))
+          .map(e => e.tagName.toLowerCase() + (e.className ? "." + String(e.className).trim().split(/\s+/)[0] : "") +
+            ([...e.attributes].filter(a => a.name.indexOf("data-") === 0).map(a => "[" + a.name + "]")[0] || "")));
+        if(offSkin.length) failures.push(where + ": fields off the shared skin: " + [...new Set(offSkin)].slice(0, 6).join(", "));
+      }
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){
         await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));

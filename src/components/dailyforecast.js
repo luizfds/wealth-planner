@@ -28,7 +28,7 @@ export function balanceForecastHtml(account, today){
     return '<li><span>' + escapeAttr(fmtDate(e.date)) + '</span><span class="fc-what">' + escapeAttr(e.kind === "pay" ? (e.what && !/^net:/.test(e.what) ? (/^pay\b/i.test(e.what) ? e.what : "Pay — " + e.what) : "Pay") : e.what) + '</span><b class="' + (e.amount >= 0 ? "up" : "") + '">' + (e.amount >= 0 ? "+" : "") + money(e.amount) + '</b></li>';
   }).join("");
   return head + '<div class="dt-chart" id="acctForecastChart"></div>' +
-    '<label class="fc-buffer">Warn me below <input type="number" min="0" step="50" inputmode="decimal" data-acct-buffer="' + escapeAttr(account.id) + '" value="' + escapeAttr(buf == null ? "" : buf) + '" placeholder="a buffer, e.g. 500"></label>' +
+    '<label class="fc-buffer">Warn me below <input class="field-control" type="number" min="0" step="50" inputmode="decimal" data-acct-buffer="' + escapeAttr(account.id) + '" value="' + escapeAttr(buf == null ? "" : buf) + '" placeholder="a buffer, e.g. 500"></label>' +
     (list ? '<ul class="fc-list">' + list + '</ul>' : '') +
     '<p class="ledger-note" style="margin:6px 0 0">From today\'s balance: pay on the rhythm it has landed here before' + (f.payFound ? '' : ' (none logged into this account yet, so none is counted)') +
     ', ' + (f.billCount ? 'the bills paid from this account and card repayments it makes, on their days' : 'bills on their days (none paid from this account are on the calendar)') +

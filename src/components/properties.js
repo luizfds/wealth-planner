@@ -71,9 +71,9 @@ function landTaxFieldsHtml(p){
   }).join("") + '<option value="Other"' + (p.state === "Other" ? " selected" : "") + '>Other / not listed</option>';
   return '<div class="calc-grid">' +
     '<div class="calc-field" title="The state this property is in. Land tax is assessed per state on your combined holdings there, so this decides which scale applies and what it is aggregated with."><label>State</label>' +
-      '<select class="prop-state" aria-label="State">' + stateOpts + '</select></div>' +
+      '<select class="prop-state field-control" aria-label="State">' + stateOpts + '</select></div>' +
     '<div class="calc-field" title="Land value only — the site value from your council or valuer-general notice, NOT the market value of the property. It excludes the building, so it is usually well below Current value above."><label>Land value</label>' +
-      '<input type="number" step="1000" min="0" class="prop-land-value" aria-label="Land value" value="' + (Number(p.landValue) || 0) + '" placeholder="0"></div>' +
+      '<input type="number" step="1000" min="0" class="prop-land-value field-control" aria-label="Land value" value="' + (Number(p.landValue) || 0) + '" placeholder="0"></div>' +
   '</div>' +
   landTaxNoteHtml(p);
 }
@@ -498,7 +498,7 @@ function ownershipSectionHtml(p){
   var rows = people.map(function(person){
     var pct = propertyOwnershipPct(p, person, people);
     return '<div class="calc-field"><label>' + escapeAttr(person) + ' %</label>' +
-      '<input type="number" min="0" max="100" step="1" class="prop-ownership" data-ownership-person="' + escapeAttr(person) + '" value="' + (Math.round(pct * 100) / 100) + '"></div>';
+      '<input type="number" min="0" max="100" step="1" class="prop-ownership field-control" data-ownership-person="' + escapeAttr(person) + '" value="' + (Math.round(pct * 100) / 100) + '"></div>';
   }).join("");
   return propertySectionHtml(p, "ownership",
     '<div class="property-section-title">Ownership</div>' +
@@ -872,9 +872,9 @@ function propertyCardBodyHtml(p, colorIdx){
       propertySectionHtml(p, "value",
       '<div class="property-section-title">Property value</div>',
       '<div class="calc-grid">' +
-        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
-        '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
-        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
+        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value field-control" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
+        '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price field-control" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
+        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date field-control" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       landTaxFieldsHtml(p) +
       '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Record today\'s value</button>' + historyTrendHtml(p) + '</div>') +

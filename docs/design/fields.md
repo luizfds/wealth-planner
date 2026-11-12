@@ -300,7 +300,7 @@ field groups plus error and manual-repayment checks. Normal whole-page coverage 
 
 ## Property acquisition costs and depreciation (#254)
 
-Implemented on `codex/property-field-skin`. Acquisition descriptions/amounts and the quantity surveyor's
+Shipped v3.253.0 (PR #330). Acquisition descriptions/amounts and the quantity surveyor's
 financial year/capital works/plant cells use the shared compact control (4px horizontal padding). Construction
 cost, completion date, plant value and effective life use the standard control. Keep the second-hand checkbox
 as the documented native toggle. Other Property fields remain separate migrations.
@@ -320,3 +320,22 @@ Verification: `propertycostfields` checks actual acquisition/construction/date/s
 errors and bounds/height/radius at 320/390/768/1024/1280px with touch. Existing `property` and `propvalidation`
 journeys pass; render/property unit checks pass. Before/after screenshots and computed styles in both themes
 are under `/tmp/property-field-review/` (review artifacts, not committed).
+
+## Property overview fields (#254)
+
+Implemented on `codex/property-overview-fields`. Current value, purchase price/date, land-tax state/value
+and per-person ownership percentages now use `.field-control`. The shared fallback exclusion introduced in
+PR #330 already lets these controls inherit the common background, border, radius, padding and states.
+Keep the header's property-name and kind controls as the documented inline-rename and badge-select variants.
+Other Property tools and income/fee controls remain separate migrations.
+
+Keep the label/help compatibility adapter, existing constraints and validation, purchase-date handling,
+land-tax aggregation, ownership defaults/warnings, calculations and save handlers. Keep native calendar icons
+on the calculator date fields’ existing light/dark color scheme. No schema changes.
+Standard desktop controls use 36px height, 6px corners and 6px × 8px padding; phones and coarse-pointer
+tablets retain 44px targets and touch text-entry typography. Native selects retain their documented exception.
+
+Verification: `propertyoverviewfields` exercises actual value/date/state saves and focus through a redraw,
+then checks shared styling, sizes and bounds at 320/390/768/1024/1280px in both themes with touch.
+Existing `property` and `propvalidation` journeys, property/render unit checks and static checks pass.
+Before/after screenshots and computed styles are under `/tmp/property-overview-review/` (not committed).

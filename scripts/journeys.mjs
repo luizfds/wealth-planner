@@ -1121,6 +1121,42 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async propertyoverviewfields(page){
+    await quiet(page);
+    await go(page, "properties");
+    await click(page, "[data-prop-edit]");
+    for(const section of ["value", "ownership"]){
+      const toggle = page.locator('.prop-tab-panel:not([hidden]) [data-prop-section-toggle="' + section + '"]');
+      if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+    }
+    const panel = '.prop-tab-panel:not([hidden]) ';
+    const saved = key => stored(page, "state.properties[0]." + key);
+    await page.locator(panel + '.prop-value').fill('600000');
+    check(await saved('value') === 600000, "current value did not save");
+    const date = page.locator(panel + '.prop-purchase-date');
+    await date.fill('2020-01-01'); await date.press('Tab');
+    check(await saved('purchaseDate') === '2020-01-01', "purchase date did not save");
+    const region = page.locator(panel + '.prop-state');
+    await region.selectOption('Other');
+    check(await saved('state') === 'Other', "land-tax state did not save");
+    await region.focus();
+    await page.evaluate(async() => (await import('/src/components/properties.js')).renderProperties());
+    check(await region.evaluate(e => e === document.activeElement), "overview redraw lost focus");
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const colorScheme of ['light','dark']){
+        await page.emulateMedia({colorScheme});
+        const bad = await page.locator(panel + '.calc-field > input, ' + panel + '.calc-field > select').evaluateAll(es => es.filter(e => e.getClientRects().length).flatMap(e => {
+          const style = getComputedStyle(e), rect = e.getBoundingClientRect();
+          return !e.classList.contains('field-control') || style.borderRadius !== '6px' || rect.height < 44 ||
+            rect.left < -1 || rect.right > innerWidth + 1 ||
+            (e.type === 'number' && parseFloat(style.fontSize) < 16) ||
+            (e.type === 'date' && !style.colorScheme.includes('dark')) ? [e.className] : [];
+        }));
+        check(!bad.length, "overview field size/skin/overflow at " + width + "/" + colorScheme + ": " + bad.join(', '));
+      }
+    }
+  },
   async propertycostfields(page){
     await quiet(page);
     await go(page, "properties");
@@ -2906,7 +2942,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

@@ -36,6 +36,10 @@
 //                 saved as 0; hours over 168 aren't clamped; an interest account's share left blank is 100%, not 0%
 //   calcvalidation — the purchase and invest calculators (#263): a cleared price, rate or initial amount isn't 0, and a
 //                 deposit over 100% or a term of 0 years is said, not clamped
+//   scenariocalcfields — the purchase and invest calculators on the shared field (#254): skin, 44px, 16px text and
+//                 tied labels at 320–1280px in both themes; a click on a label focuses its field; the LMI quote reads whole
+//   scenariofields — the scenario editor on the shared field (#254): its name, note, quick-add row, every kind of
+//                 change and the template questions, at 320–1280px in both themes; changed and unusual figures still show
 //   planvalidation — Plan → Projections (#263): a cleared return or inflation rate isn't 0%, a horizon of 80 isn't
 //                 clamped to 50, the slider stays with the saved figure, and a life event's cleared amount isn't $0
 //   cashvalidation — Cash flow → Spending (#263): a transaction's cleared amount isn't $0, and closing it cancels the draft
@@ -1731,6 +1735,132 @@ const JOURNEYS = {
         check(!bad.length, "overview field size/skin/overflow at " + width + "/" + colorScheme + ": " + bad.join(', '));
       }
     }
+  },
+  // #254: the scenario purchase and invest calculators on the shared skin. Saves and validation are calcvalidation's;
+  // this is how the fields look and are named, everywhere a phone or tablet can show them.
+  async scenariocalcfields(page){
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))
+      .find(n => { const c = document.querySelector('#cards [data-edit-scenario="' + n + '"]').closest(".card"); return c && /buy/i.test(c.innerText); }));
+    check(!!name, "no buying scenario in the demo household");
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
+    await click(page, "[data-sc-calc]"); await until(page, () => document.body.getAttribute("data-current-page") === "calc"); await settle(page);
+    const P = "#calcScenarioBody [data-calc-scenario] ", I = "#calcScenarioBody [data-invest-scenario] ";
+    await page.locator(P + ".calc-price").waitFor({ state: "visible" });
+    // Every field shows in one of two states: buying (the typed stamp duty of a state with no table), then investing
+    // instead (turning that on turns buying off), with its manual amount.
+    const sizes = async which => {
+      for(const width of [320, 390, 768, 1024, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        for(const colorScheme of ["light", "dark"]){
+          await page.emulateMedia({ colorScheme });
+          const bad = await page.locator("#calcScenarioBody input:not([type=checkbox]), #calcScenarioBody select").evaluateAll(es => {
+            const panel = el => el.closest("[data-calc-scenario], [data-invest-scenario]");
+            return es.filter(e => panel(e) && e.getClientRects().length).flatMap(e => {
+              const style = getComputedStyle(e), rect = e.getBoundingClientRect(), named = (e.labels && e.labels.length) || e.getAttribute("aria-label");
+              const wrong = [];
+              if(!e.classList.contains("field-control")) wrong.push("skin");
+              if(style.borderTopLeftRadius !== "6px") wrong.push("radius " + style.borderTopLeftRadius);
+              if(rect.height < 44) wrong.push("height " + Math.round(rect.height));
+              if(rect.left < -1 || rect.right > innerWidth + 1) wrong.push("off screen");
+              if(e.tagName === "INPUT" && parseFloat(style.fontSize) < 16) wrong.push("text " + style.fontSize);
+              if(!named) wrong.push("no name");
+              // Only the grid's own fields have a visible label to tie; a cost row's are named by aria-label.
+              if(e.closest(".calc-field") && !(e.labels && e.labels.length)) wrong.push("label not tied");
+              return wrong.length ? [e.className.split(" ")[0] + ": " + wrong.join(", ")] : [];
+            });
+          });
+          check(!bad.length, which + " fields at " + width + "/" + colorScheme + ": " + bad.join("; "));
+          if(which !== "buying") continue;
+          const quote = await page.locator(P + ".calc-lmi-quote").evaluate(e => {
+            const cs = getComputedStyle(e), c = document.createElement("canvas").getContext("2d");
+            c.font = cs.fontSize + " " + cs.fontFamily;
+            return e.clientWidth >= c.measureText(e.placeholder).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+          });
+          check(quote, "the LMI quote's \"blank: estimate\" is cut off at " + width + "/" + colorScheme);
+        }
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    };
+    // A click on a label puts the caret in its field.
+    const labelFocuses = async (label, field) => {
+      await page.locator(label).scrollIntoViewIfNeeded(); await page.locator(label).click();
+      check(await page.evaluate(f => document.activeElement && document.activeElement.matches(f), field), label + " didn't focus " + field);
+    };
+    await page.locator(P + ".calc-state").selectOption("Other");
+    await page.locator(P + ".calc-manual-stampduty").waitFor({ state: "visible" });
+    await labelFocuses(P + 'label[for$="-term"]', ".calc-term");
+    await sizes("buying");
+    await page.evaluate(s => document.querySelector(s).click(), I + ".invest-enabled");
+    await page.locator(I + ".invest-contribmode").waitFor({ state: "visible" });
+    await page.locator(I + ".invest-contribmode").selectOption("manual");
+    await page.locator(I + ".invest-manual-amount").waitFor({ state: "visible" });
+    await labelFocuses(I + 'label[for$="-initial"]', ".invest-initial");
+    await sizes("investing");
+  },
+  // #254: the scenario editor's own fields — the inline name, the note, the quick-add row, the cash-draw picker, every
+  // kind of change's fields and an amount change — and the "What are you weighing?" questions.
+  async scenariofields(page){
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    const name = await page.evaluate(() => [...document.querySelectorAll("#cards [data-edit-scenario]")].map(b => b.getAttribute("data-edit-scenario"))
+      .find(n => { const c = document.querySelector('#cards [data-edit-scenario="' + n + '"]').closest(".card"); return c && /buy/i.test(c.innerText); }));
+    check(!!name, "no buying scenario in the demo household");
+    await click(page, '#cards [data-edit-scenario="' + name + '"]'); await until(page, () => document.body.getAttribute("data-current-page") === "scenario"); await settle(page);
+    const E = "#page-scenario ";
+    const kinds = await page.evaluate(() => { document.querySelector("[data-sc-addsheet]").click();
+      return [...document.querySelectorAll("#addChangeRoot [data-sc-new]")].filter(b => !b.disabled).map(b => b.getAttribute("data-sc-new")); });
+    await page.keyboard.press("Escape"); await until(page, () => !document.querySelector("#addChangeRoot [data-sc-new]"));
+    check(kinds.length >= 5, "the add sheet offered " + kinds.length + " kinds of change");
+    for(const kind of kinds){
+      await click(page, E + "[data-sc-addsheet]");
+      await page.locator('#addChangeRoot [data-sc-new="' + kind + '"]').click();
+      await until(page, () => !document.querySelector("#addChangeRoot [data-sc-new]")); await settle(page);
+    }
+    // A line that costs a different amount, from the quick-add row.
+    const row = await page.evaluate(s => [...document.querySelector(s).options].map(o => o.value).find(Boolean), E + "[data-sc-row]");
+    await page.locator(E + "[data-sc-row]").selectOption(row);
+    await page.locator(E + "[data-sc-new-amount]").fill("123");
+    await click(page, E + "[data-sc-add]");
+    await page.locator(E + "[data-sc-amount]").first().waitFor({ state: "visible" });
+    // An unusual deposit is still marked on its field, and saved to the draft as typed.
+    const dep = page.locator(E + '[data-scf="depositPct"]').first();
+    await dep.fill("2"); await dep.press("Tab");
+    await until(page, s => !!document.querySelector(s).closest(".scf.is-odd"), E + '[data-scf="depositPct"]');
+    check(await page.evaluate(s => { const e = document.querySelector(s); return !!e.closest(".scf.is-odd") && getComputedStyle(e).borderTopColor === getComputedStyle(document.querySelector(".scf-odd")).color; }, E + '[data-scf="depositPct"]'),
+      "an unusual deposit isn't marked on its field");
+    const fields = async (root, where) => {
+      for(const width of [320, 390, 768, 1024, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        for(const colorScheme of ["light", "dark"]){
+          await page.emulateMedia({ colorScheme });
+          await page.evaluate(r => document.querySelectorAll(r + " details").forEach(d => { d.open = true; }), root);
+          // A sheet rises into place on a phone: measured mid-way, its transform shrinks what's in it.
+          await page.evaluate(r => Promise.all(document.querySelector(r).getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))), root);
+          const bad = await page.locator(root + " input:not([type=checkbox]):not([type=radio]):not([type=range]), " + root + " select, " + root + " textarea").evaluateAll(es => es.filter(e => e.getClientRects().length).flatMap(e => {
+            const style = getComputedStyle(e), rect = e.getBoundingClientRect(), wrong = [], inline = e.classList.contains("inline-name");
+            if(!e.classList.contains("field-control") && !inline) wrong.push("skin");
+            if(style.borderTopLeftRadius !== "6px") wrong.push("radius " + style.borderTopLeftRadius);
+            if(rect.height < 44) wrong.push("height " + Math.round(rect.height));
+            if(rect.left < -1 || rect.right > document.documentElement.clientWidth + 1) wrong.push("off screen");
+            if(e.tagName !== "SELECT" && parseFloat(style.fontSize) < 16) wrong.push("text " + style.fontSize);
+            if(!((e.labels && e.labels.length) || e.getAttribute("aria-label"))) wrong.push("no name");
+            return wrong.length ? [(e.getAttribute("data-scf") || e.getAttribute("data-sq") || e.className.split(" ")[0] || e.tagName) + ": " + wrong.join(", ")] : [];
+          }));
+          check(!bad.length, where + " fields at " + width + "/" + colorScheme + ": " + bad.join("; "));
+        }
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    };
+    await fields("#page-scenario", "scenario editor");
+    // The questions a template asks, in the "Add scenario" sheet.
+    await click(page, E + "[data-sc-cancel]");
+    await until(page, () => document.body.getAttribute("data-current-page") !== "scenario");
+    if(await page.locator(".app-dialog").count()) await answerDialog(page, true);
+    await go(page, "plan", "data-plan-sub", "scenarios");
+    await click(page, "#addScenarioBtn");
+    await page.locator('#startSheetRoot [data-sq-pick="buyHome"]').click();
+    await page.locator('#startSheetRoot [data-sq="price"]').waitFor({ state: "visible" });
+    await fields("#startSheetRoot", "template");
   },
   async propertycostfields(page){
     await quiet(page);
@@ -3517,7 +3647,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

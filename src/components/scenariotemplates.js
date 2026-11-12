@@ -16,8 +16,8 @@ export function templateContext(){
 function inputHtml(q){
   var id = "sq-" + q.key;
   var field = q.type === "select"
-    ? '<select id="' + id + '" data-sq="' + q.key + '">' + (q.options || []).map(function(o){ var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(v) + '"' + (String(v) === String(q.value) ? " selected" : "") + '>' + escapeAttr(l) + '</option>'; }).join("") + '</select>'
-    : '<input id="' + id + '" data-sq="' + q.key + '" type="' + (q.type === "number" ? "number" : "text") + '"' + (q.type === "number" ? ' step="any" inputmode="decimal"' : '') + ' value="' + escapeAttr(q.value == null ? "" : q.value) + '"' + (q.placeholder ? ' placeholder="' + escapeAttr(q.placeholder) + '"' : '') + '>';
+    ? '<select id="' + id + '" class="field-control" data-sq="' + q.key + '">' + (q.options || []).map(function(o){ var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(v) + '"' + (String(v) === String(q.value) ? " selected" : "") + '>' + escapeAttr(l) + '</option>'; }).join("") + '</select>'
+    : '<input id="' + id + '" class="field-control" data-sq="' + q.key + '" type="' + (q.type === "number" ? "number" : "text") + '"' + (q.type === "number" ? ' step="any" inputmode="decimal"' : '') + ' value="' + escapeAttr(q.value == null ? "" : q.value) + '"' + (q.placeholder ? ' placeholder="' + escapeAttr(q.placeholder) + '"' : '') + '>';
   return '<label class="fr-field" for="' + id + '"><span>' + escapeAttr(q.label) + '</span>' + field + '</label>';
 }
 export function startSheetHtml(ctx){

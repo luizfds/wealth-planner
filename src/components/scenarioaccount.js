@@ -28,8 +28,8 @@ export function scenarioAccountHtml(key, today){
   today = today || localDateStr();
   var x = result(key, today);
   if(!x) return "";
-  var pick = '<label class="sca-field"><span>Account</span><select data-try-account>' + x.accounts.map(function(a){ return '<option value="' + escapeAttr(a.id) + '"' + (a === x.account ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>'; }).join("") + '</select></label>' +
-    '<label class="sca-field"><span>Settles on</span><input type="date" data-try-settle value="' + escapeAttr(x.settle) + '" min="' + escapeAttr(addDays(today, 1)) + '"></label>' +
+  var pick = '<label class="sca-field"><span>Account</span><select class="field-control" data-try-account>' + x.accounts.map(function(a){ return '<option value="' + escapeAttr(a.id) + '"' + (a === x.account ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>'; }).join("") + '</select></label>' +
+    '<label class="sca-field"><span>Settles on</span><input type="date" class="field-control" data-try-settle value="' + escapeAttr(x.settle) + '" min="' + escapeAttr(addDays(today, 1)) + '"></label>' +
     (x.r && x.r.settlement ? '<label class="sca-check"><input type="checkbox" data-try-settlement' + (tryQ.settlementHere ? ' checked' : '') + '> Pay the ' + money(x.r.settlement) + ' at settlement from this account</label>' : '');
   var body;
   if(!x.r) body = '<p class="ledger-note">Record ' + escapeAttr(x.account.name) + '\'s balance once (on Accounts) to see its days.</p>';

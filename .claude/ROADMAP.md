@@ -5022,8 +5022,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      top-up and payslip controls, preserving validation, premium sourcing and financial calculations.
    - `[x]` Standalone calculator fields (#254) shipped v3.262.0 (PR #343): shared stamp-duty, LMI,
      repayment and borrowing-power controls, preserving session-only inputs and estimates.
-   - `[~]` Scenario purchase and investment fields (#254): the scenario editor's and the purchase/invest
-     calculators' controls on the shared skin, preserving drafts, the leave guard, validation and every figure.
+   - `[~]` Scenario fields (#254): the editor, every kind of change, the template questions and the purchase/invest
+     calculators — 72 distinct fields, none on the shared skin before — on it now, calculator labels tied, the LMI
+     quote readable. Preserves drafts, validation, the changed/unusual tints and every figure. Left under #254: the
+     first-run setup sheet and unclassed fallback controls.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

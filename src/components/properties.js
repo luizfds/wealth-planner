@@ -397,11 +397,11 @@ export function loanStrategyHtml(p){
   var money = function(v){ return fmtCurrency0.format(v); };
   var yrs = function(m){ return m == null ? "never" : (Math.floor(m / 12) ? Math.floor(m / 12) + "y " : "") + (m % 12) + "m"; };
   var input = function(key, label, attrs){
-    return '<label>' + label + ' <input type="number" data-strategy-field="' + key + '" data-strategy-loan="' + idx + '" value="' + escapeAttr(st[key] == null ? "" : st[key]) + '"' +
+    return '<label>' + label + ' <input type="number" class="field-control" data-strategy-field="' + key + '" data-strategy-loan="' + idx + '" value="' + escapeAttr(st[key] == null ? "" : st[key]) + '"' +
       ' step="' + (attrs.step || "1") + '" min="0" placeholder="' + escapeAttr(attrs.placeholder || "") + '"></label>';
   };
   var card = function(title, inputs, body){ return '<div class="ls-card"><div class="ls-title">' + title + '</div><div class="ls-inputs">' + inputs + '</div><div class="ls-body">' + body + '</div></div>'; };
-  var picker = loans.length > 1 ? '<label class="ls-pick">Loan <select data-strategy-pick>' + loans.map(function(l, i){ return '<option value="' + i + '"' + (i === li ? " selected" : "") + '>' + escapeAttr(l.what || ("Loan " + (i + 1))) + '</option>'; }).join("") + '</select></label>' : '';
+  var picker = loans.length > 1 ? '<label class="ls-pick">Loan <select class="field-control" data-strategy-pick>' + loans.map(function(l, i){ return '<option value="' + i + '"' + (i === li ? " selected" : "") + '>' + escapeAttr(l.what || ("Loan " + (i + 1))) + '</option>'; }).join("") + '</select></label>' : '';
   var baseLine = r.io ? "Interest only: " + money(r.repayment) + " a month, and the balance doesn't fall."
     : money(r.repayment) + " a month · paid off in " + yrs(r.base.months) + " · " + money(r.base.interest) + " interest to go" + (Number(loan.offsetBalance) ? " (with today's offset)" : "") + ".";
   var extraBody = r.io ? "An interest-only loan doesn't take extra repayments into its schedule — see offset."
@@ -464,11 +464,11 @@ export function saleWhatIfHtml(p, d){
       line("Cash in hand after tax", money(o.cash), "sale-total") + '</div>';
   }).join("");
   return '<div class="sale-inputs">' +
-      '<label>Sell on <input type="date" data-sale-field="date" value="' + escapeAttr(i.date) + '"></label>' +
-      '<label>Sale price <input type="number" step="1000" min="0" data-sale-field="price" value="' + escapeAttr(i.price) + '" placeholder="' + r.salePrice + '"></label>' +
-      '<label>Agent % <input type="number" step="0.1" min="0" max="10" data-sale-field="agentPct" value="' + i.agentPct + '"></label>' +
+      '<label>Sell on <input type="date" class="field-control" data-sale-field="date" value="' + escapeAttr(i.date) + '"></label>' +
+      '<label>Sale price <input type="number" step="1000" min="0" class="field-control" data-sale-field="price" value="' + escapeAttr(i.price) + '" placeholder="' + r.salePrice + '"></label>' +
+      '<label>Agent % <input type="number" step="0.1" min="0" max="10" class="field-control" data-sale-field="agentPct" value="' + i.agentPct + '"></label>' +
       // #261: what counts was a title tooltip; it shows, and describes the field.
-      '<label>Other costs $ <input type="number" step="100" min="0" data-sale-field="otherCosts" value="' + i.otherCosts + '" aria-describedby="sale-other-help-' + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") + '">' +
+      '<label>Other costs $ <input type="number" step="100" min="0" class="field-control" data-sale-field="otherCosts" value="' + i.otherCosts + '" aria-describedby="sale-other-help-' + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") + '">' +
         '<small class="field-help" id="sale-other-help-' + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") + '">Conveyancing, marketing, styling, any break costs.</small></label>' +
     '</div>' +
     (i.price ? '' : '<p class="ledger-note" style="margin:0 0 8px">Sale price left blank: today\'s value grown at ' + d.growthPct + '% a year (Projections) to the sale date.</p>') +
@@ -552,7 +552,7 @@ export function fixedExpiryHtml(p, today){
     var up = v.change >= 0;
     return '<div class="fx-row"><div class="fx-main"><b>' + escapeAttr(l.what || "Loan") + '</b> — fixed at ' + v.rateNow + '% until ' + escapeAttr(monthYear(v.fixedUntil)) + ' (' + (v.months < 1 ? "this month" : Math.round(v.months) + " months") + ').' +
       '<small>Then at <b>' + v.rateAfter + '%</b>: repayments ' + fmtCurrency0.format(v.monthlyNow) + ' → <b>' + fmtCurrency0.format(v.monthlyAfter) + '/mo</b> <span class="' + (up ? "down" : "up") + '">(' + (up ? "+" : "−") + fmtCurrency0.format(Math.abs(v.change)) + ')</span>, interest about ' + fmtCurrency0.format(v.yearlyInterestAfter) + ' a year.</small></div>' +
-      '<label class="fx-whatif"><span>What if it rolls to</span><input type="number" step="0.05" min="0" data-fixed-whatif="' + escapeAttr(key) + '" value="' + (fixedWhatIf[key] != null ? fixedWhatIf[key] : "") + '" placeholder="' + v.rateAfter + '" aria-label="What-if rate for ' + escapeAttr(l.what || "loan") + '">%</label></div>';
+      '<label class="fx-whatif"><span>What if it rolls to</span><input type="number" step="0.05" min="0" class="field-control" data-fixed-whatif="' + escapeAttr(key) + '" value="' + (fixedWhatIf[key] != null ? fixedWhatIf[key] : "") + '" placeholder="' + v.rateAfter + '" aria-label="What-if rate for ' + escapeAttr(l.what || "loan") + '">%</label></div>';
   }).join("");
   return rows ? '<div class="fx"><div class="property-section-title">When fixed rates end</div>' + rows + '</div>' : "";
 }

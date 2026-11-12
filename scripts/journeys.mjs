@@ -1121,6 +1121,79 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async propertytoolsfields(page){
+    await quiet(page);
+    await page.evaluate(async() => {
+      const s = await import('/src/state.js'), p = s.state.properties[0];
+      p.loans[0].fixedUntil = '2028-01-01';
+      p.loans.push({...p.loans[0], id:'sample-second-loan', what:'Sample second loan with a deliberately long name', balance:100000, fixedUntil:''});
+      s.commit(['properties']);
+    });
+    await go(page, 'properties');
+    await click(page, '[data-prop-edit]');
+    const saved = key => stored(page, 'state.properties[0].' + key);
+    const actual = await saved('loans.map(l => ({balance:l.balance,rate:l.rate}))');
+    const value = await saved('value');
+    const tab = async (name, sections) => {
+      await page.locator('[data-prop-tab][data-tab="' + name + '"]').first().evaluate(e => e.click());
+      for(const section of sections){
+        const toggle = page.locator('.prop-tab-panel:not([hidden]) [data-prop-section-toggle="' + section + '"]');
+        if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+      }
+      await settle(page);
+    };
+    const inspect = async selector => {
+      for(const width of [320,390,768,1024,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const colorScheme of ['light','dark']){
+          await page.emulateMedia({colorScheme});
+          const bad = await page.locator(selector).evaluateAll((es, viewportWidth) => es.filter(e => e.getClientRects().length).flatMap(e => {
+            const st = getComputedStyle(e), r = e.getBoundingClientRect();
+            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== '6px' || r.height < 44 ||
+              r.left < -1 || r.right > viewportWidth + 1 ||
+              (e.type === 'number' && parseFloat(st.fontSize) < 16) ||
+              (e.type === 'date' && !st.colorScheme.includes('dark')) ? [e.outerHTML.slice(0,140)] : [];
+          }), width);
+          check(!bad.length, 'Property tool skin/size/overflow at ' + width + '/' + colorScheme + ': ' + bad.join(', '));
+        }
+      }
+    };
+    await tab('loans', ['loans','strategy']);
+    await page.locator('[data-strategy-pick]').selectOption('1');
+    check(await saved('strategyLoan') === 1, 'strategy loan choice did not save');
+    for(const [key,value] of Object.entries({extra:500,offsetAdd:10000,newRate:5,refiRate:4,refiCosts:1000,cashback:500})){
+      const field = page.locator('[data-strategy-field="' + key + '"]');
+      await field.fill(String(value)); await field.press('Tab');
+      check(await saved('loans[1].strategy.' + key) === value, 'strategy ' + key + ' did not save');
+    }
+    const extra = page.locator('[data-strategy-field="extra"]');
+    await extra.fill('-1'); await extra.press('Tab');
+    check(await saved('loans[1].strategy.extra') === 500 && await extra.getAttribute('aria-invalid') === 'true', 'negative strategy amount accepted');
+    await extra.fill(''); await extra.press('Tab');
+    check(await saved('loans[1].strategy.extra') == null, 'blank strategy did not restore no extra repayment');
+    const fixed = page.locator('[data-fixed-whatif]').first();
+    const fixedKey = await fixed.getAttribute('data-fixed-whatif');
+    await fixed.fill('8');
+    check(await page.evaluate(async key => (await import('/src/components/properties.js')).fixedWhatIf[key] === 8, fixedKey), 'fixed-rate what-if did not update');
+    check(await fixed.evaluate(e => e === document.activeElement), 'fixed-rate redraw lost focus');
+    await inspect('[data-strategy-field], [data-strategy-pick], [data-fixed-whatif]');
+    await tab('sale', ['sale']);
+    for(const [key,value] of Object.entries({date:'2028-01-01',price:700000,agentPct:2,otherCosts:1000})){
+      const field = page.locator('[data-sale-field="' + key + '"]');
+      await field.fill(String(value)); await field.press('Tab');
+      check(await saved('saleWhatIf.' + key) === value, 'sale assumption ' + key + ' did not save');
+    }
+    const agent = page.locator('[data-sale-field="agentPct"]');
+    await agent.fill('11'); await agent.press('Tab');
+    check(await saved('saleWhatIf.agentPct') === 2 && await agent.getAttribute('aria-invalid') === 'true', 'out-of-range sale fee accepted');
+    await agent.fill('2'); await agent.press('Tab');
+    const price = page.locator('[data-sale-field="price"]');
+    await price.fill(''); await price.press('Tab');
+    check(await saved('saleWhatIf.price') == null, 'blank sale price did not restore estimate');
+    await inspect('[data-sale-field]');
+    check(JSON.stringify(await saved('loans.map(l => ({balance:l.balance,rate:l.rate}))')) === JSON.stringify(actual) && await saved('value') === value,
+      'what-if controls changed actual loan/property figures');
+  },
   async propertyincomefields(page){
     await quiet(page);
     await go(page, "properties");
@@ -2991,7 +3064,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

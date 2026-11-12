@@ -2,7 +2,7 @@
 // and the Tax & Super breakdown-flip cards on mobile. A touch that starts inside a horizontally
 // scrollable element (a .table-scroll'd ledger/holdings table) is ignored entirely, so swiping to
 // see a table's hidden columns doesn't also flip a card or jump a tab underneath it — and the same
-// for a transaction row, which swipes open its own actions.
+// for a transaction row, which swipes open its own actions, or a financial range strip.
 export function onHorizontalSwipe(el, handlers){
   var threshold = (handlers && handlers.threshold) || 56;
   var maxDurationMs = 600;
@@ -11,7 +11,7 @@ export function onHorizontalSwipe(el, handlers){
   el.addEventListener("touchstart", function(e){
     if(e.touches.length !== 1){ tracking = false; return; }
     // v3.167.0: nor one on a transaction row, whose own swipe opens its Edit/Split/Delete tray.
-    tracking = !e.target.closest(".table-scroll, .m-row.tx-row");
+    tracking = !e.target.closest(".table-scroll, .range-strip, .m-row.tx-row");
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
     startTime = Date.now();

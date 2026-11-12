@@ -7,7 +7,7 @@ Roadmap: Simplify and finish, step 3; also #255 step 5.
 
 - Each affected list has one toolbar: title and total, Filters (with an active count), and a labelled actions menu (⋯).
 - Applied filters remain readable beside the summary, with Clear; the default state adds no extra row.
-- Shares: keep the price-change period beside gain/loss for quick checks; put person, winners/losers and sort in Filters. Move prices and trade import into actions.
+- Shares: keep a visible price-change range strip below the total and gain/loss for quick checks; put person, winners/losers and sort in Filters. Move prices and trade import into actions.
 - Super: put person selection in Filters and keep its summary to one line.
 - Spending: keep Search directly accessible; move period, transaction type and advanced filters into Filters. Move bulk selection and transfer creation into actions. Keep In/Out/Net in one summary line. Saved views and deep links still populate the same filters.
 - Property: retain step 2's cash-rate dialog and quiet rate line; align its list toolbar with the other lists.
@@ -46,7 +46,7 @@ so restoring history selects the same section.
 ## List toolbar implementation
 
 Shares and Super have one header with title, total, Filters and tools. Person selection is inside Filters on those
-two views; Shares also keeps gain and sort there. Its price-change period stays beside gain/loss. Counts and a readable applied-filter line remain
+two views; Shares also keeps gain and sort there. Its price-change strip stays below the total and gain/loss. Counts and a readable applied-filter line remain
 outside the panel. Prices and broker import open from the tools menu. The gain breakdown and contributions are
 retained below the records. Property's cards now precede the statistics, equity bar and history chart, and its
 loan export is in the list's toolbar.
@@ -82,25 +82,26 @@ rows lack cell roles, holding rows contain nested Details buttons, and holding-a
 contrast. Small Details targets are also flagged at 320px. These are recorded as follow-up work rather than
 changing holding-row interactions or the financial table in this toolbar change.
 
-## Shares quick price-change review
+## Shares quick price-change range strip
 
-The owner reviewed and approved bringing Change out of Filters: always visible beside gain/loss, with the
-shared native picker on narrow screens and range buttons where they fit. Implementation on
-`codex/shares-change-review`. Person, gain and sort stay in Filters; the period is excluded from the active
-count/applied-filter line, and Clear preserves it. Keep all eight ranges, price-history rules, year basis,
-missing-history behavior and session-only state unchanged.
+The owner chose an always-visible, financial-app-style range strip on phones and desktop: all eight choices
+remain buttons, with a selected pill. The strip fills the card width so they fit at 390px; narrower screens
+scroll horizontally with 44px targets. This is an explicit exception to section pickers. Other navigation
+and range controls retain their existing adaptive picker behavior.
 
-Place the existing time-range control beside `#sharesGlance`, so live quantity/price edits patch only the
-summary and retain the period control. A compact native picker uses a 75px rail and 44px target, with no
-second track border. No horizontal navigation or reduced targets. The first holding remains above the
-half-screen limits at 390×844 and 1280×800. At 320px the summary wraps while both controls remain visible.
+Keep gain/loss beside the total in the list header and give the range strip its own row. Live holding
+edits patch only `#sharesGlance`, preserving the controls. Person, gain and sort stay in Filters; the period
+is excluded from its count/applied-filter line, and Clear preserves it. Range calculations, price-history
+rules, year basis, missing-history behavior and session-only state are unchanged.
 
-The `sharesquickperiod` touch journey checks every range without opening Filters, gain/loss refresh, focus
-after redraw, Clear independence, filter count, idle picker stability, responsive bounds/first-record
-position, desktop buttons and unchanged saved holdings. Existing `sectionpickers`, `recordtools` and
-`mobileinvestments` journeys pass. Screenshots cover 320/390/768/1024/1280px in both themes; review artifacts
-are under `/tmp/shares-period-final/` (not committed).
+After a range tap redraw, reveal the selected button horizontally without scrolling the page vertically.
+Swiping the range strip must never switch Investment sections. The `sharesquickperiod` touch journey
+checks every range button, gain/loss refresh, focus after redraw, Clear/count independence, real touch
+scrolling at 320px, selected-button visibility, 44px targets, all-eight fit at 390px and saved holdings.
+Existing `sectionpickers`, `recordtools` and `mobileinvestments` journeys pass. The shared renderer has an
+explicit strip option; its default picker behavior remains covered by render checks.
 
-CI exposed the system-font header wrapping onto an extra line: the first holding was at 422.7px.
-Retain the 44px native target and use a 4px gap below the summary; the wrapped-header case is now
-explicitly checked at 390px, keeping the first holding at about 418.7px without changing the 422px limit.
+First holdings start at about 383px at 390×844 and 370px at 1280×800. The wrapped phone-header regression
+keeps the same 422px first-record limit. Screenshots cover five widths and both themes; review artifacts
+are under `/tmp/shares-period-final/` (not committed). The reference image is used only for interaction/style;
+it and its personal figures are not committed.

@@ -90,9 +90,10 @@ export function bestFitRange(dates, opts){
 // The segmented control, as an HTML string. One markup definition so the two places that show it
 // can't drift apart visually — the caller supplies the data-attribute name its own click handler
 // listens for, since event registration lives in app.js per this project's convention.
+// picker:false keeps a scrollable strip of range buttons at every width.
 export function timeRangeControlHtml(selectedKey, attrName, opts){
   opts = opts || {};
-  return '<div class="seg-control time-range-control"' + (opts.id ? ' id="' + opts.id + '"' : "") +
+  return '<div class="seg-control time-range-control' + (opts.picker === false ? ' range-strip' : '') + '"' + (opts.id ? ' id="' + opts.id + '"' : "") +
     ' role="group" aria-label="' + (opts.ariaLabel || "Time range") + '">' +
     TIME_RANGES.filter(function(r){ return !opts.omit || opts.omit.indexOf(r.key) === -1; }).map(function(r){
       var label = rangeLabel(r, opts.yearBasis);

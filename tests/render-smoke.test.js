@@ -244,6 +244,8 @@ test("timeRangeControlHtml marks the selection and can omit windows", function()
   assert.ok(html.indexOf('aria-pressed="true"') !== -1, "the active option is announced, not just coloured");
   assert.ok(html.indexOf('data-tx-range="1d"') === -1, "omitted windows are absent, not disabled");
   assert.ok(html.indexOf('data-tx-range="all"') !== -1);
+  assert.match(timeRangeControlHtml("3m", "shares-change-window", {picker:false}), /time-range-control range-strip/);
+  assert.doesNotMatch(html, /range-strip/, "other range controls retain the adaptive picker");
 });
 
 // Actual vs. planned: an irregular (reserve) row is drillable, and over its own year.

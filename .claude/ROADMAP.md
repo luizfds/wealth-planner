@@ -5020,7 +5020,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      preserving validation, rental estimates, saved rows and open sections.
    - `[x]` Tax → This year fields (#254) shipped v3.261.0 (PR #342): shared household, sacrifice,
      top-up and payslip controls, preserving validation, premium sourcing and financial calculations.
-   - `[~]` Standalone calculator fields (#254) on `codex/calculator-fields`: shared stamp-duty, LMI,
+   - `[x]` Standalone calculator fields (#254) shipped v3.262.0 (PR #343): shared stamp-duty, LMI,
      repayment and borrowing-power controls, preserving session-only inputs and estimates.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
@@ -5066,3 +5066,9 @@ Keep the completed debt/offset field work separate (PR #328; all six checks pass
 `[x]` Shipped v3.258.0 (PR #335). The owner chose all eight range buttons as a financial-app-style strip
 on phones and desktop, a selected pill and horizontal scrolling only where needed. Gain/loss sits with
 the total. Preserve 44px targets, Clear independence, existing ranges/calculations and section pickers elsewhere.
+
+## Budget clarity — issues #336–#338
+
+`[~]` On `codex/budget-clarity`: totals-first planned Cash flow with expandable detail and an explained running
+balance; baseline/scenario Needs–Wants charts reconciled with the existing financial totals. Approved as one
+PR, followed by a separate optional tour (#339), integrated with the existing first-run experience (#309).

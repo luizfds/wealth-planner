@@ -1121,6 +1121,55 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async propertyincomefields(page){
+    await quiet(page);
+    await go(page, "properties");
+    await click(page, "[data-prop-edit]");
+    await page.locator('[data-prop-tab][data-tab="income"]').first().evaluate(e => e.click());
+    for(const section of ['income','expenses']){
+      const toggle = page.locator('.prop-tab-panel:not([hidden]) [data-prop-section-toggle="' + section + '"]');
+      if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+    }
+    const saved = key => stored(page, "state.properties[0]." + key);
+    const fee = page.locator('.prop-pmfee-percent').first();
+    const before = await saved('pmFee.percent');
+    await fee.fill('101'); await fee.press('Tab');
+    check(await saved('pmFee.percent') === before && await fee.getAttribute('aria-invalid') === 'true', "invalid manager fee was accepted");
+    await fee.fill('2'); await fee.press('Tab');
+    check(await saved('pmFee.percent') === 2, "manager percentage did not save");
+    const flat = page.locator('.prop-pmfee-flat').first();
+    await flat.fill('10'); await flat.press('Tab');
+    check(await saved('pmFee.flat') === 10, "flat manager fee did not save");
+    await page.locator('.prop-income-paid-freq').first().selectOption('Weekly');
+    check(await saved('incomePaidFreq') === 'Weekly', "receipt frequency did not save");
+    const next = page.locator('[data-rent-next]').first();
+    await next.fill('2028-01-01'); await next.press('Tab');
+    check(await saved('nextRentReview') === '2028-01-01', "rent review date did not save");
+    await page.locator('[data-rent-new]').first().fill('600');
+    await page.locator('[data-rent-review]').first().click();
+    check(await saved('income[0].amount') === 600 && (await saved('rentReviews')).at(-1).to === 600, "rent review did not update rent/history");
+    const count = (await saved('vacancies') || []).length;
+    await page.locator('[data-vac-from]').first().fill('2026-01-01');
+    await page.locator('[data-vac-to]').first().fill('2026-02-01');
+    await page.locator('[data-vac-add]').first().click();
+    const vacancy = (await saved('vacancies')).at(-1);
+    check((await saved('vacancies')).length === count + 1 && vacancy.from === '2026-01-01' && vacancy.to === '2026-02-01', "vacancy did not save");
+    const controls = '.prop-pmfee-panel .field-control, .prop-income-paid-freq, [data-rent-next], [data-rent-new], [data-vac-from], [data-vac-to]';
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const colorScheme of ['light','dark']){
+        await page.emulateMedia({colorScheme});
+        const bad = await page.locator(controls).evaluateAll(es => es.filter(e => e.getClientRects().length).flatMap(e => {
+          const st = getComputedStyle(e), rect = e.getBoundingClientRect();
+          return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== '6px' || rect.height < 44 ||
+            rect.right > innerWidth + 1 || rect.left < -1 ||
+            (e.type === 'number' && parseFloat(st.fontSize) < 16) ||
+            (e.type === 'date' && (!st.colorScheme.includes('dark') || rect.width < 150)) ? [e.outerHTML.slice(0,120)] : [];
+        }));
+        check(!bad.length, "income control skin/size/overflow at " + width + "/" + colorScheme + ": " + bad.join(', '));
+      }
+    }
+  },
   async propertyoverviewfields(page){
     await quiet(page);
     await go(page, "properties");
@@ -2942,7 +2991,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

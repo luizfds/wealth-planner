@@ -20,22 +20,17 @@
   .wi-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .proj-field{ display:flex; flex-direction:column; gap:3px; }
   .proj-field label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .proj-field input[type="number"]{
+  .proj-field input[type="number"]:not(.field-control){
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
     padding:6px 8px; border-radius:7px; font-size:var(--fs-sm); width:110px; text-align:right; min-height:40px;
   }
-  .proj-field input[type="number"]:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
-  /* Properties' "Actually received" (prop-income-paid-freq) is the one .proj-field that holds a
-     <select> instead of a number input — it had no rule of its own anywhere, so it fell through
-     to the plain unstyled browser default (grey background, square corners, Arial) sitting right
-     next to this same panel's themed number inputs. Same visual recipe as the number input above,
-     just without its width/text-align (a dropdown should size to its own content, not be forced
-     into a right-aligned number column). */
-  .proj-field select{
+  .proj-field input[type="number"]:focus:not(.field-control){ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
+  /* Fallback for projection selects that have not moved to the shared field. */
+  .proj-field select:not(.field-control){
     border:1px solid var(--border); background: var(--paper-raised); color: var(--ink);
     padding:6px 8px; border-radius:7px; font-size:var(--fs-sm); font-family:inherit; min-height:40px;
   }
-  .proj-field select:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
+  .proj-field select:focus:not(.field-control){ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); transition: border-color .18s ease, box-shadow .18s ease; }
   /* 16px was the whole control — track, thumb and every pixel you could grab. The track and thumb
      are unchanged; only the box around them grows, so the slider looks the same and can actually
      be caught with a thumb. */

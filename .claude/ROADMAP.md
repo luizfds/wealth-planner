@@ -5006,8 +5006,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      property-loan controls and rate changes; preserve inline names, mirrored offsets, labels and validation.
    - `[x]` Property acquisition-cost and depreciation fields (#254) shipped v3.253.0 (PR #330): shared controls,
      preserving the existing labels, constraints, calculations and saves.
-   - `[~]` Property overview fields (#254) on `codex/property-overview-fields`: shared value, purchase, land-tax
+   - `[x]` Property overview fields (#254) merged in PR #331: shared value, purchase, land-tax
      and ownership controls; preserve name/kind variants and all existing save/calculation rules.
+   - `[~]` Property income fields (#254) on `codex/property-income-fields`: shared manager-fee, receipt-frequency,
+     rent-review and vacancy-date controls, preserving calculations and save rules.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

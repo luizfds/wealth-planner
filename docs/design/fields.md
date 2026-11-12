@@ -323,7 +323,7 @@ are under `/tmp/property-field-review/` (review artifacts, not committed).
 
 ## Property overview fields (#254)
 
-Implemented on `codex/property-overview-fields`. Current value, purchase price/date, land-tax state/value
+Merged in PR #331. Current value, purchase price/date, land-tax state/value
 and per-person ownership percentages now use `.field-control`. The shared fallback exclusion introduced in
 PR #330 already lets these controls inherit the common background, border, radius, padding and states.
 Keep the header's property-name and kind controls as the documented inline-rename and badge-select variants.
@@ -339,3 +339,21 @@ Verification: `propertyoverviewfields` exercises actual value/date/state saves a
 then checks shared styling, sizes and bounds at 320/390/768/1024/1280px in both themes with touch.
 Existing `property` and `propvalidation` journeys, property/render unit checks and static checks pass.
 Before/after screenshots and computed styles are under `/tmp/property-overview-review/` (not committed).
+
+## Property income controls (#254)
+
+Implemented on `codex/property-income-fields`. The manager's percentage/flat fees, receipt frequency,
+next review date, new rent and vacancy start/end dates use `.field-control`. Fallback projection/filter
+skins exclude shared controls; manager fees retain their 110px layout, and rent controls keep the panel's
+responsive layout. Vacancy dates get visible linked labels, including the optional end date. Their labels
+wrap with the inputs; native calendar icons support light/dark rendering. Statement/import forms remain
+separate work, as do loan/sale tools and the documented property-name/kind variants.
+
+Preserve existing fee validation, receipt-frequency semantics, rent-review history/Undo and vacancy save
+handlers, calculations and schemas. The new `propertyincomefields` touch journey verifies fee rejection,
+fee/frequency/date saves, a recorded rent change and vacancy dates, linked labels, shared dimensions,
+readable date widths and bounds at 320/390/768/1024/1280px in both themes. Existing Property, validation and
+rent-statement journeys and property/render/static checks pass. Before/after screenshots and measurements
+are in `/tmp/property-income-review/` (not committed). Standard desktop fields use 36px height, 6px corners
+and 6px × 8px padding; phone/touch-tablet targets remain 44px with touch text-entry typography. Native selects
+retain the documented text-size exception.

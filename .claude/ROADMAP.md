@@ -5052,3 +5052,9 @@ select. Idle rail mutations fell from 242 in two seconds to zero. Add a touch jo
 choosing Shares/Super/Summary, checking idle stability, going back, and entering again. Chrome journeys and a
 WebKit reproduction pass; native Android installed-app confirmation remains for the released fix.
 Keep the completed debt/offset field work separate (PR #328; all six checks passed).
+
+## Shares quick price-change checks
+
+`[~]` Owner reviewed an always-visible Change control beside gain/loss: compact native picker on phones,
+range tabs where they fit. Implement on `codex/shares-change-review`. Keep person, gain and sort in Filters;
+exclude the period from filter counts/applied filters and preserve it when Clear is used. No calculation changes.

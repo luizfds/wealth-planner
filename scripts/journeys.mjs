@@ -602,6 +602,10 @@ const JOURNEYS = {
     }
     await shares.locator('[data-shares-change-window="3m"]').click();
     check(await page.evaluate(async() => (await import('/src/components/assets.js')).sharesChangeWindow === '3m'), 'wide-screen period tabs did not work');
+    await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
+    check(await strip.locator('[aria-pressed="true"]').evaluate(e => {
+      const s = getComputedStyle(e); return e === document.activeElement && s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2;
+    }), 'keyboard selection lacks visible focus');
     check(await stored(page, 'JSON.stringify(state.assets)') === before, 'period/filter controls changed holdings');
   },
   async sectionpickers(page){

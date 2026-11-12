@@ -129,6 +129,7 @@
     background:var(--brass-wash); color:var(--brass-strong); border-radius:999px;
     box-shadow:inset 0 0 0 1px var(--brass-strong);
   }
+  .range-strip .seg-option:focus-visible{ outline:2px solid var(--field-focus); outline-offset:-3px; }
 
   /* Trim's own segmented control (moved from ledger.css, item 238: it adjusts .seg-option, so it comes after it). */
   .tr-seg .seg-option{ min-height:32px; padding:4px 10px; font-size:var(--fs-sm); }

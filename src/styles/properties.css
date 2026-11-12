@@ -303,7 +303,8 @@
   /* v3.39.0 — If you sold. */
   .sale-inputs{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px 12px; margin-bottom:10px; }
   .sale-inputs label{ display:flex; flex-direction:column; gap:4px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-  .sale-inputs input{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); text-transform:none; letter-spacing:0; font-weight:400; }
+  .sale-inputs input{ text-transform:none; letter-spacing:0; font-weight:400; }
+  .sale-inputs input[type="date"]{ color-scheme:light dark; }
   .sale-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:14px 24px; }
   @media (max-width: 700px){ .sale-grid{ grid-template-columns: 1fr; } }
   .sale-line{ display:flex; justify-content:space-between; gap:10px; font-size:var(--fs-sm); padding:3px 0; color: var(--ink-soft); }
@@ -317,15 +318,14 @@
   .sale-line.sale-gap{ margin-top:14px; }
 
   /* v3.41.0 — Loan strategy. */
-  .ls-pick{ display:inline-flex; gap:6px; align-items:center; font-size:var(--fs-sm); color: var(--ink-soft); margin-bottom:8px; }
-  .ls-pick select{ min-height:34px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; padding:3px 8px; }
+  .ls-pick{ display:inline-flex; max-width:100%; gap:6px; align-items:center; font-size:var(--fs-sm); color: var(--ink-soft); margin-bottom:8px; }
   .ls-base{ margin:0 0 10px; font-size:var(--fs-sm); }
   .ls-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:10px; }
   .ls-card{ border:1px solid var(--border); border-radius:10px; padding:10px 12px; background: var(--paper); }
   .ls-title{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin-bottom:6px; }
   .ls-inputs{ display:flex; flex-wrap:wrap; gap:6px 10px; margin-bottom:8px; }
   .ls-inputs label{ display:flex; flex-direction:column; gap:3px; font-size:var(--fs-xs); color: var(--ink-soft); flex:1 1 80px; }
-  .ls-inputs input{ min-height:34px; padding:3px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper-raised); color: var(--ink); font:inherit; font-size:var(--fs-sm); text-align:right; width:100%; box-sizing:border-box; }
+  .ls-inputs input{ text-align:right; width:100%; }
   .ls-body{ font-size:var(--fs-sm); line-height:1.5; }
 
 /* Loan rate changes (v3.53.0) */
@@ -364,7 +364,7 @@
 .fx-main small{ display:block; color: var(--ink-soft); font-size:var(--fs-sm); margin-top:2px; }
 .fx-main .up{ color: var(--good-ink); } .fx-main .down{ color: var(--bad-ink); }
 .fx-whatif{ display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
-.fx-whatif input{ width:80px; min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper-raised); color: var(--ink); font: inherit; }
+.fx-whatif input{ width:80px; }
 .rentp-figs{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; margin:6px 0 10px; }
 .rentp-figs > div{ display:flex; flex-direction:column; gap:1px; }
 .rentp-figs span, .cf-filter-l{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }

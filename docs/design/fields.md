@@ -342,7 +342,7 @@ Before/after screenshots and computed styles are under `/tmp/property-overview-r
 
 ## Property income controls (#254)
 
-Implemented on `codex/property-income-fields`. The manager's percentage/flat fees, receipt frequency,
+Shipped v3.255.0 (PR #332). The manager's percentage/flat fees, receipt frequency,
 next review date, new rent and vacancy start/end dates use `.field-control`. Fallback projection/filter
 skins exclude shared controls; manager fees retain their 110px layout, and rent controls keep the panel's
 responsive layout. Vacancy dates get visible linked labels, including the optional end date. Their labels
@@ -357,3 +357,25 @@ rent-statement journeys and property/render/static checks pass. Before/after scr
 are in `/tmp/property-income-review/` (not committed). Standard desktop fields use 36px height, 6px corners
 and 6px × 8px padding; phone/touch-tablet targets remain 44px with touch text-entry typography. Native selects
 retain the documented text-size exception.
+
+## Property what-if controls (#254)
+
+Implemented on `codex/property-tools-fields`. Loan strategies' six assumptions and loan picker, the fixed-rate
+rollover input and the four sale-estimate fields use `.field-control`. Remove their independent skins,
+keeping layout widths, amount alignment and the sale labels' normal input typography. Constrain the loan
+picker to its container so long loan names cannot overflow a phone; verify bounds against the requested
+viewport width rather than the mobile layout's potentially expanded innerWidth. Native sale dates
+support light/dark calendar icons. Statements/imports remain separate work; property name/kind keep their
+existing documented variants.
+
+Keep validation, blank/default meanings, saved strategy/sale assumptions and the session-only fixed-rate
+what-if map. No changes to actual loan/property figures, calculations, schemas or save handlers.
+
+`propertytoolsfields` uses an invented second loan with a long name and a fixed-rate fixture. It verifies
+loan selection, all six strategy saves, negative rejection, cleared defaults, fixed-rate updates/focus,
+all sale inputs, invalid agent-fee rejection and blank sale-price estimates. Actual balances/rates/value
+must remain unchanged. Shared styling, linked labels, touch targets, text sizing, date theme support and
+bounds are checked at 320/390/768/1024/1280px in both themes. Existing `property` and `propvalidation`
+journeys pass. Before/after screenshots and measurements for phone/desktop and both themes are in
+`/tmp/property-tools-review/` (not committed). Desktop controls use 36px height/6px corners; phones and
+coarse-pointer tablets retain 44px targets and the documented touch typography/select exception.

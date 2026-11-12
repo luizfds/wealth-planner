@@ -112,7 +112,7 @@
 .ty-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
 .ty-top label{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
 .ty-top select{ font:inherit; font-size:var(--fs-md); font-weight:600; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); }
-.ty-person{ border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:12px 0; background:var(--paper-raised); }
+.ty-person{ container-type:inline-size; border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:12px 0; background:var(--paper-raised); }
 .ty-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
 .ty-person-head h3{ margin:0; font-size:var(--fs-lg); }
 .ty-refund{ display:flex; flex-direction:column; align-items:flex-end; }
@@ -122,13 +122,15 @@
 .ty-refund.down b{ color:var(--bad-ink); }
 .ty-refund.muted{ font-size:var(--fs-xs); color:var(--ink-soft); }
 .ty-row{ display:grid; gap:6px; align-items:center; padding:3px 0; }
+.ty-cell{ min-width:0; display:flex; flex-direction:column; gap:4px; }
+.ty-cell > span{ display:none; font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
 .ty-row-is{ grid-template-columns: minmax(0,1.3fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) 32px; }
 .ty-row-int{ grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,.6fr) 32px; }
 .ty-row-ded{ grid-template-columns: 64px minmax(0,1.6fr) minmax(0,1fr) 32px; }
 .ty-head-row{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-soft); }
-/* #263: a figure's message spans the row under its fields — each names the figure it's about. */
-.ty-row .field-error{ grid-column: 1 / -1; margin:0; }
-.ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; font-size:var(--fs-sm); padding:6px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font-family:inherit; }
+/* #263: keep each validation message beneath its labelled figure. */
+.ty-row .field-error{ margin:0; }
+.ty-row input, .ty-row select, .ty-rent-in{ min-width:0; width:100%; }
 .ty-row input[type="number"], .ty-rent-in{ font-family:var(--font-num); text-align:right; }
 .ty-row .icon-btn{ width:32px; height:32px; }
 .ty-rent-grid{ display:flex; flex-direction:column; }
@@ -154,10 +156,10 @@
 .ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:var(--fs-md); font-weight:600; margin:14px 0 6px; }
 .ty-docs-count{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
 .ty-evidence{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
-/* Phone width: four fields on one line cut "98400" to "9840". The payer takes the first line,
-   the three amounts and delete share the second — and the header row follows the same shape, so
-   its labels still sit over their columns. */
-@media (max-width:480px){
+/* Reflow by card width, including beside the desktop sidebar; labels follow their fields. */
+@container (max-width:800px){
+  .ty-row-is.ty-head-row{ display:none; }
+  .ty-row-is .ty-cell > span{ display:block; }
   /* payer · row / gross · allowances · withheld · delete / RESC · RFBA (v3.47.0: + the income row) */
   .ty-row-is{ grid-template-columns: minmax(0,1fr) minmax(0,.8fr) minmax(0,1fr) 32px; row-gap:4px;
     grid-template-areas: "payer payer row row" "gross allow withheld del" "resc rfba . ."; }
@@ -170,6 +172,15 @@
   .ty-row-is > :nth-child(7){ grid-area: rfba; }
   .ty-row-is > :nth-child(8){ grid-area: del; }
   .ty-row-is:not(.ty-head-row){ padding-bottom:8px; border-bottom:1px solid var(--border); }
+}
+
+@container (max-width:400px){
+  .ty-row-int.ty-head-row, .ty-row-ded.ty-head-row{ display:none; }
+  .ty-row-int .ty-cell > span, .ty-row-ded .ty-cell > span{ display:block; }
+  .ty-row-int, .ty-row-ded{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ty-row-is{ grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-areas:"payer row" "gross allow" "withheld resc" "rfba del"; }
+  .ty-row-is .icon-btn{ justify-self:end; }
 }
 
 /* ---------------- Printing the worksheet (v3.31.0) ----------------

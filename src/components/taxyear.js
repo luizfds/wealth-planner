@@ -1,3 +1,4 @@
+import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
 import { getTaxPeople, computePersonTax, currentTaxFy, todayTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
@@ -31,21 +32,23 @@ export function setTaxYearSelected(fy){ if(Number(fy) !== currentTaxFy()) applyT
 function money(n){ return fmtCurrency2.format(Number(n) || 0); }
 function num(v){ return v == null || v === "" ? "" : Number(v); }
 
-function rowsEditorHtml(kind, person, rows, cols, addLabel){
+function rowsEditorHtml(kind, person, rows, cols, addLabel, fy){
   var body = rows.map(function(r, i){
     return '<div class="ty-row ty-row-' + kind + '">' + cols.map(function(c){
+      var id = escapeAttr("ty-" + fy + "-" + kind + "-" + encodeURIComponent(person) + "-" + i + "-" + c.key);
+      var start = '<label class="ty-cell"><span>' + escapeAttr(c.label) + '</span>';
       if(c.type === "label"){
-        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
-          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select>';
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
+          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select></label>';
       }
       if(c.type === "incomeRow"){
-        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
-          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select>';
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
+          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select></label>';
       }
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
-      return '<input class="ty-in" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
+      return start + '<input class="ty-in field-control field-compact" id="' + id + '" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
         ' data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="' + c.key + '"' +
-        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '">';
+        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '"></label>';
     }).join("") +
     '<button type="button" class="icon-btn btn-danger" data-ty-del="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" aria-label="Delete row ' + (i + 1) + '">✕</button></div>';
   }).join("");
@@ -198,7 +201,7 @@ function personCardHtml(person, fy){
         { key: "allowances", label: "Allow.", aria: "Allowances", placeholder: "0" },
         { key: "withheld", label: "Withheld", placeholder: "0" },
         { key: "resc", label: "RESC", placeholder: "0" },
-        { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement") +
+        { key: "rfba", label: "RFBA", placeholder: "0" }], "+ Add income statement", fy) +
       statementChecksHtml(py, grossRows, fy) +
       (!py.incomeStatements.length && grossRows.length ? '<button type="button" class="btn btn-sm btn-ghost" data-ty-fill="' + escapeAttr(person) + '" title="One statement per Gross income row, with the gross its pay history says it paid this year — type the withholding from the real statement">Fill from income rows</button>' : '') +
       '<p class="ledger-note help" style="margin-left:0">RESC is reportable employer super (salary sacrifice), RFBA reportable fringe benefits — both on the income statement. Neither is taxed as income, but both count toward the surcharge, rebate and HELP income tests.</p>' +
@@ -207,7 +210,7 @@ function personCardHtml(person, fy){
       rowsEditorHtml("int", person, py.interest, [
         { key: "account", label: "Account", type: "text", placeholder: "Bank" },
         { key: "gross", label: "Gross", placeholder: "0" },
-        { key: "sharePct", label: "Your %", placeholder: "100" }], "+ Add account") +
+        { key: "sharePct", label: "Your %", placeholder: "100" }], "+ Add account", fy) +
     '</details>' +
     '<details class="row-more-options"' + (py.deductions.length || lineDeds.length ? " open" : "") + '><summary>Deductions</summary>' +
       budgetLinesDeductionHtml(person, fy, py, lineDeds) +
@@ -215,7 +218,7 @@ function personCardHtml(person, fy){
       rowsEditorHtml("ded", person, py.deductions, [
         { key: "label", label: "Label", type: "label" },
         { key: "what", label: "What", type: "text", placeholder: "Description" },
-        { key: "amount", label: "Amount", placeholder: "0" }], "+ Add deduction") +
+        { key: "amount", label: "Amount", placeholder: "0" }], "+ Add deduction", fy) +
     '</details>' +
     '<div class="ty-ws">' + sections.join("") + '</div>' +
     '<details class="row-more-options"><summary>Compared with ' + fyLabel(fy - 1) + '</summary>' + compareHtml(person, fy, r) + '</details>' +
@@ -268,7 +271,7 @@ function rentHtml(fy){
     var rows = sch.lines.map(function(l){
       var lg = logged.has[l.key] ? '<small class="ty-logged">Logged ' + money(logged.lines[l.key]) + (logged.wholeYear ? '' : ' so far') + '</small>' : '';
       return '<div class="ty-rent-row' + (l.actual != null ? " has-actual" : "") + '"><span>' + l.label + lg + '</span>' +
-        '<input class="ty-rent-in" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
+        '<input class="ty-rent-in field-control field-compact" id="ty-rent-' + fy + '-' + escapeAttr(encodeURIComponent(p.id) + "-" + l.key) + '" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
     }).join("");
     return '<details class="row-more-options ty-rent"' + (sch.actualCount ? " open" : "") + '><summary>' + escapeAttr(p.what || "Property") + ' — rental schedule</summary>' +
       '<p class="ledger-note" id="' + helpId + '" style="margin-left:0">Whole-property totals for ' + fyLabel(fy) + ' (' + shares + '). Grey figures are estimates from the property\'s rows, loans and depreciation; type the agent\'s summary, loan statement and bills over them — a line left blank uses its estimate. ' + sch.actualCount + ' of ' + RENT_LINES.length + ' lines from documents.</p>' +
@@ -282,7 +285,8 @@ function rentHtml(fy){
   }).join("");
 }
 
-export function renderTaxYear(){
+export function renderTaxYear(){ return keepUi(drawTaxYear); }
+function drawTaxYear(){
   // Returns and Documents share the selected year; both are rendered together so switching tab
   // never shows a stale year (v3.43.0).
   var el = document.getElementById("taxYearBody");

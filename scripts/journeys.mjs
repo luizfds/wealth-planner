@@ -1191,6 +1191,64 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async taxreturnfields(page){
+    await quiet(page);
+    await go(page, 'tax', 'data-tax-sub', 'returns');
+    const person = await page.locator('[data-ty-add="is"]').first().getAttribute('data-ty-person');
+    const fy = await page.evaluate(async() => (await import('/src/components/taxyear.js')).taxYearSelected());
+    const saved = expr => stored(page, 'state.taxYears[' + fy + '].people[' + JSON.stringify(person) + '].' + expr);
+    const open = () => page.evaluate(() => document.querySelectorAll('#taxYearBody details').forEach(d => { d.open = true; }));
+    for(const [kind,fields,array] of [
+      ['is',{payer:'Employer A',gross:'100000',allowances:'1000',withheld:'20000',resc:'1000',rfba:'1000'},'incomeStatements'],
+      ['int',{account:'Bank One',gross:'100',sharePct:'50'},'interest'],
+      ['ded',{what:'Sample equipment',amount:'100'},'deductions']
+    ]){
+      await page.locator('[data-ty-add="' + kind + '"][data-ty-person="' + person + '"]').click();
+      await open();
+      for(const [key,value] of Object.entries(fields)){
+        const input = page.locator('[data-ty-kind="' + kind + '"][data-ty-person="' + person + '"][data-ty-key="' + key + '"]').last();
+        await input.fill(value); await input.press('Tab');
+        check(await saved(array + '.slice(-1)[0].' + key) === (['payer','account','what'].includes(key) ? value : Number(value)), kind + '/' + key + ' did not save');
+      }
+    }
+    const label = page.locator('[data-ty-kind="ded"][data-ty-person="' + person + '"][data-ty-key="label"]').last();
+    await label.selectOption('D5');
+    check(await saved('deductions.slice(-1)[0].label') === 'D5', 'deduction label did not save');
+    const gross = page.locator('[data-ty-kind="is"][data-ty-person="' + person + '"][data-ty-key="gross"]').last();
+    await gross.fill('-100'); await gross.dispatchEvent('change'); await gross.focus();
+    await page.evaluate(async() => (await import('/src/components/taxyear.js')).renderTaxYear());
+    check(await gross.evaluate(e => e === document.activeElement && e.value === '-100' && e.getAttribute('aria-invalid') === 'true' && !!document.getElementById(e.id + '-error').textContent), 'redraw lost invalid entry, focus or message');
+    check(await saved('incomeStatements.slice(-1)[0].gross') === 100000, 'invalid gross saved');
+    await gross.fill('100000'); await gross.press('Tab');
+    const share = page.locator('[data-ty-kind="int"][data-ty-person="' + person + '"][data-ty-key="sharePct"]').last();
+    await share.fill(''); await share.press('Tab');
+    check(await saved('interest.slice(-1)[0].sharePct') == null, 'blank share did not restore whole share');
+    await open();
+    const rent = page.locator('[data-ty-rent]').first();
+    const property = await rent.getAttribute('data-ty-rent'), key = await rent.getAttribute('data-ty-key');
+    const rental = () => stored(page, 'state.taxYears[' + fy + '].properties[' + JSON.stringify(property) + '].lines[' + JSON.stringify(key) + ']');
+    const estimate = await rent.getAttribute('placeholder');
+    await rent.fill('10000'); await rent.press('Tab');
+    check(await rental() === 10000, 'rental override did not save');
+    await rent.fill(''); await rent.press('Tab');
+    check(await rental() == null && await rent.getAttribute('placeholder') === estimate, 'blank rental did not restore estimate');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const theme of ['light','dark']){
+        await page.evaluate(t => document.documentElement.setAttribute('data-theme',t), theme);
+        const bad = await page.locator('#taxYearBody .ty-in, #taxYearBody .ty-rent-in').evaluateAll((es,width) => es.filter(e => e.getClientRects().length).flatMap(e => {
+          const s = getComputedStyle(e), r = e.getBoundingClientRect();
+          return !e.classList.contains('field-control') || s.borderRadius !== '6px' || r.height < 44 || r.left < -1 || r.right > width + 1 || (e.type === 'number' && r.width < 95) || !e.getAttribute('aria-label') ? [e.outerHTML.slice(0,150)] : [];
+        }),width);
+        check(!bad.length, 'Returns field size/skin/name/overflow at ' + width + '/' + theme + ': ' + bad.join(', '));
+      }
+    }
+    // A draft belongs to its financial year; keeping focus must not copy it into another year's fields.
+    await rent.focus(); await rent.evaluate(e => { e.value = '12345'; });
+    await page.evaluate(async fy => (await import('/src/components/taxyear.js')).setTaxYearSelected(fy - 1), fy);
+    await settle(page);
+    check(await rent.inputValue() !== '12345', 'year switch carried a rental draft into a different return');
+  },
   async peoplefields(page){
     await quiet(page);
     await go(page, 'tax', 'data-tax-sub', 'people');
@@ -3252,7 +3310,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

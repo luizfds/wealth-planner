@@ -5014,8 +5014,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      rollover and sale-estimate controls; preserve validation, saved assumptions and financial calculations.
    - `[x]` Property record-entry fields (#254) shipped v3.257.0 (PR #334): shared manager-statement
      and Activity controls, visible labels, preserving statement/interest logging and removal.
-   - `[~]` Tax → People fields (#254) on `codex/tax-people-fields`: shared date/money/hour controls and the
+   - `[x]` Tax → People fields (#254) shipped v3.259.0 (PR #340): shared date/money/hour controls and the
      inline-name variant, preserving validation, person references and calculations.
+   - `[~]` Tax → Returns fields (#254) on `codex/tax-year-fields`: shared compact worksheet controls,
+     preserving validation, rental estimates, saved rows and open sections.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

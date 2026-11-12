@@ -5018,8 +5018,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      inline-name variant, preserving validation, person references and calculations.
    - `[x]` Tax → Returns fields (#254) merged in PR #341: shared compact worksheet controls,
      preserving validation, rental estimates, saved rows and open sections.
-   - `[~]` Tax → This year fields (#254) on `codex/tax-planning-fields`: shared household, sacrifice,
+   - `[x]` Tax → This year fields (#254) shipped v3.261.0 (PR #342): shared household, sacrifice,
      top-up and payslip controls, preserving validation, premium sourcing and financial calculations.
+   - `[~]` Standalone calculator fields (#254) on `codex/calculator-fields`: shared stamp-duty, LMI,
+     repayment and borrowing-power controls, preserving session-only inputs and estimates.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

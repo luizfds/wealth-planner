@@ -37,9 +37,9 @@ function field(path, label, type, opts){
   opts = opts || {};
   var parts = path.split("."), v = calcQ[parts[0]][parts[1]];
   var input = type === "select"
-    ? '<select data-cq="' + path + '">' + opts.options.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>'
-    : '<input type="number" inputmode="decimal" step="' + (opts.step || "any") + '" data-cq="' + path + '" value="' + escapeAttr(v == null ? "" : v) + '">';
-  return '<label class="cq-field"><span>' + label + '</span>' + input + '</label>';
+    ? '<select class="field-control" data-cq="' + path + '">' + opts.options.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>'
+    : '<input class="field-control" type="number" inputmode="decimal" step="' + (opts.step || "any") + '" data-cq="' + path + '" value="' + escapeAttr(v == null ? "" : v) + '">';
+  return '<label class="cq-field' + (opts.wide ? ' cq-field-wide' : '') + '"><span>' + label + '</span>' + input + '</label>';
 }
 export function calcOutHtml(tool){
   var q = calcQ[tool];
@@ -79,7 +79,7 @@ export function calcToolsHtml(){
     card("lmi", "Lenders mortgage insurance", [field("lmi.price", "Price", "number", { step: 1000 }), field("lmi.deposit", "Deposit %", "number", { step: 1 })],
       "Typical premiums by how much of the price is borrowed; lenders and insurers differ.") +
     card("rep", "Loan repayments", [field("rep.loan", "Loan", "number", { step: 1000 }), field("rep.rate", "Interest %", "number", { step: 0.05 }), field("rep.term", "Years", "number", { step: 1 }),
-      field("rep.type", "Type", "select", { options: [["PI", "Principal & interest"], ["IO", "Interest only"]] })]) +
+      field("rep.type", "Type", "select", { wide: true, options: [["PI", "Principal & interest"], ["IO", "Interest only"]] })]) +
     card("bp", "What a lender might lend", [field("bp.income", "Take-home a month", "number", { step: 100 }), field("bp.living", "Living costs a month", "number", { step: 100 }),
       field("bp.other", "Other repayments a month", "number", { step: 50 }), field("bp.adults", "Adults", "select", { options: [["1", "One"], ["2", "Two"]] }), field("bp.dependants", "Dependants", "number", { step: 1 }), field("bp.rate", "Interest %", "number", { step: 0.05 }), field("bp.term", "Years", "number", { step: 1 })],
       "Starts from your household's take-home and budget (loan lines left out). Assessed at the rate plus 3 points, and at the higher of your living costs and a benchmark like lenders' for the household (an estimate, not their tables); take rent out of living costs if buying would end it.") +

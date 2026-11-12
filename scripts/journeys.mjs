@@ -1121,6 +1121,64 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async propertycostfields(page){
+    await quiet(page);
+    await go(page, "properties");
+    await click(page, "[data-prop-edit]");
+    const tab = async (name, section) => {
+      await page.locator('[data-prop-tab][data-tab="' + name + '"]').first().evaluate(e => e.click());
+      const toggle = page.locator('.prop-tab-panel:not([hidden]) [data-prop-section-toggle="' + section + '"]');
+      if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+      await settle(page);
+    };
+    const saved = key => stored(page, "state.properties[0]." + key);
+    await tab("overview", "acquisition");
+    const amount = page.locator('.prop-tab-panel:not([hidden]) .cc-amount').first();
+    const amountKey = "acquisitionCosts[" + await amount.getAttribute("data-acq-cost-index") + "].amount";
+    const before = await saved(amountKey);
+    await amount.fill(''); await amount.press('Tab');
+    check(await saved(amountKey) === before, "blank acquisition cost saved");
+    check(await amount.getAttribute('aria-invalid') === 'true', "invalid acquisition amount lacks error state");
+    await amount.fill('2000'); await amount.press('Tab');
+    check(await saved(amountKey) === 2000, "acquisition amount did not save");
+    const inspect = async selector => {
+      const bad = await page.locator(selector).evaluateAll(els => els.filter(e => e.getClientRects().length).flatMap(e => {
+        const st = getComputedStyle(e), rect = e.getBoundingClientRect();
+        return !e.classList.contains('field-control') || st.borderRadius !== '6px' ||
+          rect.height < (matchMedia('(pointer:coarse)').matches || innerWidth <= 880 ? 44 : 36) ||
+          rect.right > innerWidth + 1 || rect.left < -1 ||
+          (e.matches(".dep-sched-cw, .dep-sched-plant") && innerWidth <= 480 && rect.width < 90) ? [e.className] : [];
+      }));
+      check(!bad.length, "property cost field skin/size/overflow: " + bad.join(', '));
+    };
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      await inspect('.prop-tab-panel:not([hidden]) .cc-what, .prop-tab-panel:not([hidden]) .cc-amount');
+    }
+    await tab("tax", "depreciation");
+    const cost = page.locator('.prop-construction-cost').first();
+    await cost.fill('100000'); await cost.press('Tab');
+    check(await saved("constructionCost") === 100000, "construction cost did not save");
+    const date = page.locator('.prop-construction-date').first();
+    await date.fill('2020-01-01'); await date.press('Tab');
+    check(await saved("constructionDate") === '2020-01-01', "construction date did not save");
+    await page.locator('[data-dep-sched-add]').first().click();
+    const capital = page.locator('.dep-sched-cw').last();
+    await capital.fill(''); await capital.press('Tab');
+    check(await capital.getAttribute('aria-invalid') === 'true', "blank schedule amount lacks error state");
+    await capital.fill('3000'); await capital.press('Tab');
+    check((await saved("depreciationSchedule")).at(-1).capitalWorks === 3000, "schedule capital works did not save");
+    const plant = page.locator('.dep-sched-plant').last();
+    await plant.fill('1000'); await plant.press('Tab');
+    check((await saved("depreciationSchedule")).at(-1).plant === 1000, "schedule plant did not save");
+    await plant.focus();
+    await page.evaluate(async() => (await import('/src/components/properties.js')).renderProperties());
+    check(await plant.evaluate(e => e === document.activeElement), "schedule redraw lost focus");
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      await inspect('.prop-tab-panel:not([hidden]) .field-control');
+    }
+  },
   async property(page){
     await quiet(page);
     await go(page, "properties");
@@ -2848,7 +2906,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:name === "mobileinvestments"});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

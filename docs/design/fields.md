@@ -297,3 +297,26 @@ touch tablets and desktop. Whole-form review starts at the dialog’s stable ini
 accessibility script checks every loan field with its label/help fully in view, avoiding contrast sampling of
 fragments clipped at the modal/backdrop boundary. No accessibility rule is disabled. Local accessibility runs pass at 390px/light and 1280px/light; the 85-state desktop run includes all 16 loan
 field groups plus error and manual-repayment checks. Normal whole-page coverage remains in place.
+
+## Property acquisition costs and depreciation (#254)
+
+Implemented on `codex/property-field-skin`. Acquisition descriptions/amounts and the quantity surveyor's
+financial year/capital works/plant cells use the shared compact control (4px horizontal padding). Construction
+cost, completion date, plant value and effective life use the standard control. Keep the second-hand checkbox
+as the documented native toggle. Other Property fields remain separate migrations.
+
+Remove the independent cost/schedule skins and exclude shared controls from the old calculator fallback.
+Keep existing labels, help, validation, sorting, calculations, schemas and save handlers. In particular,
+acquisition amounts retain their existing signed-value policy; blank amounts remain invalid.
+
+Desktop measurements: construction cost changes from 40px/7px corners to 36px/6px; schedule amounts change
+from 28px to 36px and the financial-year select from 30px to 36px. Standard padding is 6px × 8px; compact
+padding is 6px × 4px. Phone fields retain 44px targets and 17px text entry. The native select retains its
+existing text-size exception. Coarse-pointer tablets retain the shared 44px floor. At ≤480px the schedule
+puts year/delete above its two amount cells, avoiding the previous 30px-wide amounts; the journey requires
+at least 90px per amount on narrow phones.
+
+Verification: `propertycostfields` checks actual acquisition/construction/date/schedule saves, blank-value
+errors and bounds/height/radius at 320/390/768/1024/1280px with touch. Existing `property` and `propvalidation`
+journeys pass; render/property unit checks pass. Before/after screenshots and computed styles in both themes
+are under `/tmp/property-field-review/` (review artifacts, not committed).

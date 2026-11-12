@@ -5002,8 +5002,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - Investment transaction fields (#254) shipped v3.252.0 (PR #327): shared control skin
      for lots/distributions and shared labelled statement fields. Holdings/sale fields already use the adapter.
      Preserve all calculations and saves; use the existing 13px desktop standard and compact-cell variant.
-   - Debt/offset/loan fields (#254) implemented on `codex/debt-offset-fields`, awaiting PR review: shared skins for balances,
+   - Debt/offset/loan fields (#254) merged in PR #328: shared skins for balances,
      property-loan controls and rate changes; preserve inline names, mirrored offsets, labels and validation.
+   - `[~]` Property acquisition-cost and depreciation fields (#254) on `codex/property-field-skin`: shared controls,
+     preserving the existing labels, constraints, calculations and saves.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is
@@ -5035,7 +5037,7 @@ two journeys; the click now reports what was in its way. The Transfer journey's 
 
 ## Urgent mobile Investments navigation regression
 
-`[~]` Reported after PR #327 in Android Chrome's installed app: Investments cannot leave Summary or return to Net worth.
+`[x]` Merged in PR #329. Reported after PR #327 in Android Chrome's installed app: Investments cannot leave Summary or return to Net worth.
 On `codex/fix-mobile-investments`, wire the mobile back button through normal navigation. Restrict the picker observer
 to navigation mutations so it and help decoration stop waking each other and continuously hiding the native
 select. Idle rail mutations fell from 242 in two seconds to zero. Add a touch journey entering from Net worth,

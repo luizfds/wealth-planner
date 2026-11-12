@@ -3233,7 +3233,9 @@ const JOURNEYS = {
       await until(page,e=>e.scrollLeft>0,await scroll.elementHandle());
     }
     await page.locator('[data-proj-reading-full-toggle]').uncheck();
-    check(await page.evaluate(async original=>JSON.stringify((await import('/src/state.js')).state)===original,original),'projection display changed saved household');
+    const changed=await page.evaluate(async original=>{ const now=(await import('/src/state.js')).state, was=JSON.parse(original);
+      return Object.keys(Object.assign({},was,now)).filter(k=>JSON.stringify(was[k])!==JSON.stringify(now[k])).map(k=>k+': '+JSON.stringify(was[k]).slice(0,80)+' → '+JSON.stringify(now[k]).slice(0,400)); },original);
+    check(!changed.length,'projection display changed saved household: '+changed.join('; '));
     if(!await page.locator('#projAssumptions').evaluate(d=>d.open)) await page.locator('#projAssumptions > summary').click();
     for(const horizon of [1,7,50])for(const basis of ['real','nominal']){
       await page.locator('#projHorizon').fill(String(horizon));

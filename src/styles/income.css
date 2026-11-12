@@ -214,8 +214,12 @@
 .pp-card{ border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--paper); }
 .pp-head{ display:flex; align-items:center; gap:10px; }
 .pp-head .m-avatar{ width:30px; height:30px; font-size:var(--fs-sm); flex:none; }
-.pp-name{ flex:1 1 auto; min-width:0; font:inherit; font-size:var(--fs-lg); font-weight:600; color:var(--ink); background:transparent; border:1px solid transparent; border-radius:8px; padding:6px 8px; }
-.pp-name:hover, .pp-name:focus{ border-color:var(--border); background:var(--paper-raised); outline:none; }
+.pp-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-lg); font-weight:600; }
+.pp-fields{ grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+.pp-fields .field-control{ width:100%; }
+.pp-dob{ color-scheme:light dark; }
+:root[data-theme="light"] .pp-dob{ color-scheme:light; }
+:root[data-theme="dark"] .pp-dob{ color-scheme:dark; }
 .pp-age{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); white-space:nowrap; }
 .pp-age::after{ content:" yrs"; }
 .pp-uses{ font-size:var(--fs-sm); color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }

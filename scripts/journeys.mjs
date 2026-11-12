@@ -1191,6 +1191,55 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async peoplefields(page){
+    await quiet(page);
+    await go(page, 'tax', 'data-tax-sub', 'people');
+    const card = page.locator('#peopleTable .pp-card').first();
+    const person = await card.locator('.pp-name').inputValue();
+    const setting = key => stored(page, '(state.tax.settings[' + JSON.stringify(person) + '] || {}).' + key);
+    for(const [cls,key,value] of [
+      ['pp-dob','dateOfBirth','1980-01-01'],['pp-help','helpBalance',10000],
+      ['pp-cap','concessionalCap',30000],['pp-carry','carryForward',1000],
+      ['pp-losses','capitalLossCarriedForward',1000],['pp-week','hoursPerWeek',40]
+    ]){
+      const input = card.locator('.' + cls);
+      await input.fill(String(value)); await input.press('Tab');
+      check(await setting(key) === value, cls + ' did not save');
+    }
+    const cap = card.locator('.pp-cap');
+    await cap.fill('-1'); await cap.press('Tab');
+    check(await setting('concessionalCap') === 30000 && await cap.getAttribute('aria-invalid') === 'true', 'negative cap accepted');
+    await cap.fill('30000'); await cap.press('Tab');
+    const hours = card.locator('.pp-wfh').first(), fy = await hours.getAttribute('data-fy');
+    await hours.fill('200'); await hours.press('Tab');
+    check(await setting('wfhHours[' + fy + ']') === 200, 'working-from-home hours did not save');
+    await hours.fill(''); await hours.press('Tab');
+    check(await setting('wfhHours[' + fy + ']') == null, 'blank WFH hours did not clear');
+    await card.locator('.pp-week').fill(''); await card.locator('.pp-week').press('Tab');
+    check(await setting('hoursPerWeek') == null, 'blank weekly hours did not restore default');
+    await hours.focus();
+    await page.evaluate(async() => (await import('/src/components/people.js')).renderPeople());
+    check(await hours.evaluate(e => e === document.activeElement), 'People redraw lost field focus');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const colorScheme of ['light','dark']){
+        await page.emulateMedia({colorScheme:colorScheme === 'dark' ? 'light' : 'dark'});
+        await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), colorScheme);
+        const bad = await card.locator('.field-control, .inline-name').evaluateAll((es,options) => es.flatMap(e => {
+          const st = getComputedStyle(e), r = e.getBoundingClientRect();
+          return st.borderRadius !== '6px' || r.height < 44 || r.right > options.width + 1 || r.left < -1 ||
+            (e.type === 'number' && (!e.labels.length || parseFloat(st.fontSize) < 16)) ||
+            (e.type === 'date' && (st.colorScheme !== options.colorScheme || r.width < 150)) ? [e.className] : [];
+        }),{width,colorScheme});
+        check(!bad.length, 'People field skin/size/overflow at ' + width + '/' + colorScheme + ': ' + bad.join(', '));
+      }
+    }
+    const linked = await stored(page, 'state.income.filter(x => x.person === ' + JSON.stringify(person) + ').length');
+    await card.locator('.pp-name').fill('Sample person'); await card.locator('.pp-name').press('Tab');
+    check(await stored(page, 'state.income.filter(x => x.person === "Sample person").length') === linked, 'renaming lost income references');
+    check(await stored(page, 'state.tax.settings["Sample person"].concessionalCap') === 30000, 'renaming lost person settings');
+    check(!await stored(page, '!!state.tax.settings[' + JSON.stringify(person) + ']'), 'renaming left old person settings');
+  },
   async propertyrecordfields(page){
     await quiet(page);
     await page.evaluate(async() => {
@@ -3203,7 +3252,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

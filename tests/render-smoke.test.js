@@ -926,7 +926,7 @@ test("People tab: a card per person with their details and where they're used", 
     assert.match(html, /data-pp-card="Sam"/);
     assert.match(html, /class="pp-age">36</);
     assert.match(html, /1 income row · 100% of 2 Sample Rd/);
-    assert.match(html, /class="pp-in pp-help"[^>]*value="1200"/);
+    assert.match(html, /class="[^"]*\bpp-help\b[^"]*"[^>]*value="1200"/);
     assert.match(html, /data-fy="2025"[^>]*value="410"/);
     assert.match(html, /data-pp-remove="Sam"/);
     state.income = [];

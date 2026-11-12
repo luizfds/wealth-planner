@@ -1,4 +1,5 @@
 import { pageTransitionDone } from "../lib/pagetransition.js";
+import { overlayOpen } from "../lib/overlaystack.js";
 import { renderCalcTools } from "./calculators.js";
 import { renderHomeBody, renderScenarioEditor, renderCalcScenario } from "./scenarios.js";
 import { drawStale } from "../lib/views.js";
@@ -360,6 +361,10 @@ export function showPage(id, opts){
     }
   }
   currentPage = id;
+  // The editor or sheet open as this was asked for is the one leaving the page closes. One opened while the change
+  // waits for its transition stays: on a slow device the app's first page change applied after an empty household's
+  // setup sheet had opened by itself, closed it, and recorded setup as skipped before anyone touched anything.
+  var closesOverlay = overlayOpen();
 
   function applyPageChange(){
     // A view transition runs this later, so a second showPage() in the same tick (showPage("accounts")
@@ -370,7 +375,7 @@ export function showPage(id, opts){
     // appended outside any .app-page section, so it would otherwise stay visible on top of
     // whatever page the user navigates to next.
     closeScenarioOverridePanel();
-    if(overlayCleanup) overlayCleanup();
+    if(overlayCleanup && closesOverlay) overlayCleanup();
     var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
     // v3.205.0 (item 236a): what a full redraw left for later, drawn before the page shows.
     drawStale(id);

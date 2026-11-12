@@ -401,3 +401,23 @@ agent-statement/property-actual/render/static checks pass. Before/after phone/de
 measurements in both themes are under `/tmp/property-record-review/` (not committed). Desktop shared controls
 use 36px height/6px corners; phones and coarse-pointer tablets retain 44px targets and touch typography.
 Other page families remain under #254.
+
+## Tax → People (#254)
+
+Implemented on `codex/tax-people-fields`. Date of birth, HELP balance, concessional cap/carry-forward,
+capital losses, weekly hours and four annual WFH hour controls use the shared field skin. Names use the
+shared inline-rename variant, keeping their headline typography; the withholding-variation checkbox stays
+native. Preserve linked labels/help and all numeric, blank/default, reference and tax rules.
+
+The People grid uses 160px minimum columns so native dates stay readable. Standard controls use 36px
+height/6px corners/6px × 8px padding on desktop, retaining 44px targets and touch typography on phones and
+coarse-pointer tablets. Inline names keep the 40px desktop/44px touch variant. Native dates follow the
+chosen app theme, including when it differs from the OS theme.
+
+Verified an existing focus loss on direct People redraw, then applied `keepUi` to retain the active field.
+No schema, calculation or save-handler changes. `peoplefields` exercises all scalar settings, rejected
+negative caps, clearing hours to defaults, focus through redraw and rename propagation/settings retention.
+It checks shared dimensions, labels, readable dates and viewport bounds at 320/390/768/1024/1280px in both
+explicit app themes with the opposite OS preference. Existing `taxlabels` and `taxvalidation` journeys,
+People/tax/render tests and static checks pass. Before/after screenshots and measurements are under
+`/tmp/people-field-review/` (not committed). Other Tax and remaining page families stay under #254.

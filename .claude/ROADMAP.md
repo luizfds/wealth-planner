@@ -5058,3 +5058,8 @@ Keep the completed debt/offset field work separate (PR #328; all six checks pass
 `[~]` Owner reviewed an always-visible Change control beside gain/loss: compact native picker on phones,
 range tabs where they fit. Implement on `codex/shares-change-review`. Keep person, gain and sort in Filters;
 exclude the period from filter counts/applied filters and preserve it when Clear is used. No calculation changes.
+
+Owner revised the in-review preference for PR #335: show all eight range buttons as a financial-app-style
+strip on phones too, with a clear selected pill and horizontal scrolling only where needed. Keep gain/loss
+with the total so the range strip gets its own row without pushing holdings down. Retain 44px targets,
+Clear independence, existing ranges/calculations and section pickers elsewhere.

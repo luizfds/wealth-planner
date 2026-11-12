@@ -4,7 +4,8 @@ import { escapeAttr } from "../lib/html.js";
 // ---------------- The first-run setup sheet (v3.74.0) ----------------
 // Five short steps in the app's usual bottom sheet. Answers are held here until Finish; nothing is
 // written before then, so closing half-way leaves the app as it was.
-export var firstRun = { open: false, step: 0, answers: null };
+// `pending`: an empty household's sheet is about to open by itself (#309) — Home's first month waits for it.
+export var firstRun = { open: false, pending: false, step: 0, answers: null };
 export function startFirstRun(){
   firstRun.open = true; firstRun.step = 0;
   firstRun.answers = { people: [{ name: "", age: "", pay: "", payFreq: "Yearly" }], accounts: [{ name: "Everyday", type: "everyday", balance: "" }, { name: "Savings", type: "savings", balance: "" }, { name: "Credit card", type: "credit", balance: "" }],

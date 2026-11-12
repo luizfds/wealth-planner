@@ -136,12 +136,16 @@ function updateThemeButtonLabel(){
 }
 function openFirstRun(){
   startFirstRun(); renderFirstRun();
+  // #309: the first month steps aside while the sheet is open — one setup, one count, at a time.
+  renderDashboardStats();
   pushActiveOverlay(closeFirstRunUi);
   var f = firstRunRoot.querySelector("input"); if(f) f.focus();
 }
 function closeFirstRunUi(){
   if(firstRun.open && !state.firstRunDone){ state.firstRunSkipped = true; persist(); }
   firstRun.open = false; renderFirstRun();
+  // Drawn now, before renderFirstRun's deferred focus looks for the "Guided setup" it was opened from (#282).
+  renderDashboardStats();
 }
 function readFirstRunFields(){
   firstRunRoot.querySelectorAll("[data-fr]").forEach(function(el){
@@ -375,7 +379,10 @@ export function wireFirstRun(){  document.addEventListener("click", function(e){
     if(e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
   });
-  if(shouldOfferFirstRun()) setTimeout(function(){ if(shouldOfferFirstRun()) openFirstRun(); }, 300);
+  if(shouldOfferFirstRun()){
+    firstRun.pending = true;
+    setTimeout(function(){ firstRun.pending = false; if(shouldOfferFirstRun()) openFirstRun(); else renderDashboardStats(); }, 300);
+  }
 }
 
 export { buildDemoState, importBackupText };

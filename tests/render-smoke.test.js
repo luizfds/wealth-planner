@@ -1125,6 +1125,24 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
   } finally { Object.assign(state, keep); }
 });
 
+test("Home summary for an empty household: the month and net worth say what's missing, not $0 (#309)", async function(){
+  const { homeSummaryHtml } = await import("../src/components/home.js");
+  var keys = ["netWorthLog", "transactions", "income", "incomeLog", "monthReviews", "assets", "properties", "debts", "shared", "home"];
+  var keep = {}; keys.forEach(function(k){ keep[k] = state[k]; });
+  try {
+    state.netWorthLog = []; state.transactions = []; state.income = []; state.incomeLog = []; state.monthReviews = {};
+    state.assets = []; state.properties = []; state.debts = []; state.shared = [];
+    var html = homeSummaryHtml("2026-10-14", { netWorth: 0, items: [], todos: [] });
+    assert.match(html, /home-month is-empty[\s\S]*Nothing planned or logged yet[\s\S]*data-home-sub="income">Go to Income →/);
+    assert.match(html, /home-nw is-empty[\s\S]*Nothing you own or owe is entered yet[\s\S]*data-home-go="networth">Go to Net worth →/);
+    assert.doesNotMatch(html, /\$0\b/, "no $0 figures for a household with nothing in it");
+    assert.doesNotMatch(html, /undefined|NaN/);
+    // Something owned: the card is the figure again.
+    state.assets = [{ id: "a1", what: "Bank One savings", category: "Cash", amount: 500 }];
+    assert.match(homeSummaryHtml("2026-10-14", { netWorth: 500, items: [], todos: [] }), /<b class="home-big">\$500<\/b>/);
+  } finally { Object.assign(state, keep); }
+});
+
 test("the period button and menu render the selected year and its months", async function(){
   const { periodMenuHtml, periodButtonHtml } = await import("../src/components/period.js");
   const { setPeriod } = await import("../src/calc/ledger.js");

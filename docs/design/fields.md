@@ -330,7 +330,8 @@ Keep the header's property-name and kind controls as the documented inline-renam
 Other Property tools and income/fee controls remain separate migrations.
 
 Keep the label/help compatibility adapter, existing constraints and validation, purchase-date handling,
-land-tax aggregation, ownership defaults/warnings, calculations and save handlers. No schema changes.
+land-tax aggregation, ownership defaults/warnings, calculations and save handlers. Keep native calendar icons
+on the calculator date fields’ existing light/dark color scheme. No schema changes.
 Standard desktop controls use 36px height, 6px corners and 6px × 8px padding; phones and coarse-pointer
 tablets retain 44px targets and touch text-entry typography. Native selects retain their documented exception.
 

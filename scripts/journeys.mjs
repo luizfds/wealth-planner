@@ -1150,7 +1150,8 @@ const JOURNEYS = {
           const style = getComputedStyle(e), rect = e.getBoundingClientRect();
           return !e.classList.contains('field-control') || style.borderRadius !== '6px' || rect.height < 44 ||
             rect.left < -1 || rect.right > innerWidth + 1 ||
-            (e.type === 'number' && parseFloat(style.fontSize) < 16) ? [e.className] : [];
+            (e.type === 'number' && parseFloat(style.fontSize) < 16) ||
+            (e.type === 'date' && !style.colorScheme.includes('dark')) ? [e.className] : [];
         }));
         check(!bad.length, "overview field size/skin/overflow at " + width + "/" + colorScheme + ": " + bad.join(', '));
       }

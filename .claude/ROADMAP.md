@@ -5012,8 +5012,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      rent-review and vacancy-date controls, preserving calculations and save rules.
    - `[x]` Property what-if fields (#254) shipped v3.256.0 (PR #333): shared loan-strategy, fixed-rate
      rollover and sale-estimate controls; preserve validation, saved assumptions and financial calculations.
-   - `[~]` Property record-entry fields (#254) on `codex/property-statement-fields`: shared manager-statement
+   - `[x]` Property record-entry fields (#254) shipped v3.257.0 (PR #334): shared manager-statement
      and Activity controls, visible labels, preserving statement/interest logging and removal.
+   - `[~]` Tax → People fields (#254) on `codex/tax-people-fields`: shared date/money/hour controls and the
+     inline-name variant, preserving validation, person references and calculations.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is
@@ -5055,11 +5057,6 @@ Keep the completed debt/offset field work separate (PR #328; all six checks pass
 
 ## Shares quick price-change checks
 
-`[~]` Owner reviewed an always-visible Change control beside gain/loss: compact native picker on phones,
-range tabs where they fit. Implement on `codex/shares-change-review`. Keep person, gain and sort in Filters;
-exclude the period from filter counts/applied filters and preserve it when Clear is used. No calculation changes.
-
-Owner revised the in-review preference for PR #335: show all eight range buttons as a financial-app-style
-strip on phones too, with a clear selected pill and horizontal scrolling only where needed. Keep gain/loss
-with the total so the range strip gets its own row without pushing holdings down. Retain 44px targets,
-Clear independence, existing ranges/calculations and section pickers elsewhere.
+`[x]` Shipped v3.258.0 (PR #335). The owner chose all eight range buttons as a financial-app-style strip
+on phones and desktop, a selected pill and horizontal scrolling only where needed. Gain/loss sits with
+the total. Preserve 44px targets, Clear independence, existing ranges/calculations and section pickers elsewhere.

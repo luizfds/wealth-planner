@@ -35,7 +35,7 @@
   .tax-inputs-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; margin:2px 0 6px; }
   .tax-inputs-panel{ background: var(--paper-raised); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:12px; }
   .tax-inputs-panel .tax-inputs{ margin-bottom:0; }
-  .tax-inputs{ display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px 14px; margin-bottom:10px; }
+  .tax-inputs{ display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:10px 14px; margin-bottom:10px; }
   .tax-inputs .proj-field label{ min-height:30px; display:flex; align-items:flex-start; }
   .tax-advanced{ margin-bottom:0; margin-top:10px; }
   .tax-advanced summary{ cursor:pointer; font-size:var(--fs-sm); color: var(--ink); font-weight:600; padding:8px 0; min-height:40px; box-sizing:border-box; user-select:none; }
@@ -216,7 +216,7 @@
   .tax-topup-field{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .tax-topup-field .field-error{ flex-basis:100%; text-transform:none; letter-spacing:normal; font-weight:400; }
   .tax-topup-field span{ text-transform:none; font-weight:400; margin-left:auto; }
-  .tax-topup-amt{ width:120px; min-height:36px; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--paper); color: var(--ink); font:inherit; font-size:var(--fs-md); font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:right; text-transform:none; letter-spacing:0; }
+  .tax-topup-amt{ width:120px; font-family:var(--font-num); font-variant-numeric:tabular-nums; text-align:right; text-transform:none; letter-spacing:0; }
   .tax-topup-out{ margin:8px 0 0; font-size:var(--fs-sm); line-height:1.5; }
   .tax-topup-out .warn{ color: var(--bad-ink); }
 
@@ -340,3 +340,11 @@
 .income-showas{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 12px; }
 .income-showas .seg-control{ max-width:100%; overflow-x:auto; }
 .income-showas small{ font-size:var(--fs-xs); color: var(--ink-soft); flex-basis:100%; }
+
+/* #254: Tax planning fields share their skin; only layout and numeric alignment live here. */
+#taxSuperBody .proj-field{ min-width:0; max-width:100%; }
+#taxSuperBody .proj-field .field-control{ width:100%; }
+#taxSuperBody input[type="number"].field-control{ font-family:var(--font-num); text-align:right; }
+.tax-ytd-asof{ color-scheme:light dark; }
+:root[data-theme="light"] .tax-ytd-asof{ color-scheme:light; }
+:root[data-theme="dark"] .tax-ytd-asof{ color-scheme:dark; }

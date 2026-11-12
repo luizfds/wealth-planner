@@ -438,3 +438,22 @@ focus/input/message through redraw and isolation across financial years, restore
 measures shared skins, 44px targets, accessible names, readable numeric widths and viewport bounds at
 320/390/768/1024/1280px in both themes. Existing Tax validation/label journeys and tax-year/render tests
 also pass. Review screenshots and measurements are under `/tmp/returns-field-review/` (not committed).
+
+## Tax → This year (#254)
+
+SG rate, premium source/amount/tier, manual sacrifice, personal super top-up and payslip date/figures/text
+use the shared standard control skin. Native hospital-cover/family checkboxes and the PDF picker stay as
+before. Existing accessible labels/help, premium source groups/deleted-line fallback, disabled modeled
+premiums, validation, calculations and save handlers remain unchanged.
+
+The payslip grid uses 160px minimum columns so native dates are readable; dates follow the explicit app
+theme even when the OS preference differs. Controls keep 36px desktop height, 6px corners and 6px × 8px
+padding, with 44px touch targets. Numeric alignment and the paste box's monospace face remain page layout
+choices; their independent skins are removed.
+
+The `taxplanningfields` touch journey checks household saves/toggles, premium source switching and typed
+amount retention, sacrifice/top-up saves and negative rejection, payslip scalar saves and paste-draft
+retention during recalculation. It measures shared skins, linked labels, date readability, touch targets
+and viewport bounds at 320/390/768/1024/1280px in both explicit app themes with the opposite OS preference.
+Existing Tax validation/label journeys, tax/withholding/top-up/render tests and static checks pass.
+Before/after screenshots and measurements are under `/tmp/tax-planning-review/` (not committed).

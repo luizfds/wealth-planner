@@ -1191,6 +1191,66 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async taxplanningfields(page){
+    await quiet(page);
+    await go(page, 'tax', 'data-tax-sub', 'year');
+    await page.evaluate(() => document.querySelectorAll('#taxSuperBody details').forEach(d => { d.open = true; }));
+    const panel = page.locator('#taxSuperBody [data-tax-person]').first();
+    const person = await panel.getAttribute('data-tax-person');
+    const setting = key => stored(page, 'state.tax.settings[' + JSON.stringify(person) + '].' + key);
+    const fill = async(input,value) => { await input.fill(value); await input.press('Tab'); };
+    await fill(page.locator('#taxSgRate'),'13');
+    check(await stored(page,'state.tax.sgRate') === 13, 'SG rate did not save');
+    await fill(page.locator('#taxSgRate'),'');
+    check(await stored(page,'state.tax.sgRate') === 13 && await page.locator('#taxSgRate').getAttribute('aria-invalid') === 'true', 'blank SG rate accepted');
+    await fill(page.locator('#taxSgRate'),'13');
+    await page.locator('#taxPhiLine').selectOption('');
+    await fill(page.locator('#taxPhiPremiums'),'2000');
+    check(await stored(page,'state.tax.phiPremiums') === 2000, 'typed premiums did not save');
+    const line = await page.locator('#taxPhiLine option[value]:not([value=""])').first().getAttribute('value');
+    await page.locator('#taxPhiLine').selectOption(line);
+    check(await stored(page,'state.tax.phiLineId') === line && await page.locator('#taxPhiPremiums').isDisabled(), 'linked premiums did not disable the modeled amount');
+    await page.locator('#taxPhiTier').selectOption('2');
+    check(await stored(page,'state.tax.phiTierClaimed') === 2, 'rebate tier did not save');
+    await page.locator('#taxPhiLine').selectOption('');
+    check(!await page.locator('#taxPhiPremiums').isDisabled() && await page.locator('#taxPhiPremiums').inputValue() === '2000', 'switching back lost typed premiums');
+    const cover = await page.locator('#taxPrivateCover').isChecked();
+    await page.locator('#taxPrivateCover').setChecked(!cover);
+    check(await stored(page,'state.tax.privateHospitalCover') === !cover, 'hospital cover toggle did not save');
+    const family = await page.locator('#taxFamilyThresholds').isChecked();
+    await page.locator('#taxFamilyThresholds').setChecked(!family);
+    check(await stored(page,'state.tax.familyThresholds') === !family, 'family threshold toggle did not save');
+    for(const [cls,key,value] of [['tax-sacrifice','superSacrificeAnnual','2000'],['tax-topup-amt','topUpAmount','1000']]){
+      const input = panel.locator('.' + cls);
+      await fill(input,value);
+      check(await setting(key) === Number(value), cls + ' did not save');
+      await fill(input,'-100');
+      check(await setting(key) === Number(value) && await input.getAttribute('aria-invalid') === 'true', cls + ' accepted negative amount');
+      await fill(input,value);
+    }
+    for(const [cls,key,value] of [['tax-ytd-asof','asOf','2026-08-01'],['tax-ytd-gross','gross','10000'],['tax-ytd-withheld','withheld','2000']]){
+      await fill(panel.locator('.' + cls),value);
+      check(await setting('ytd.' + key) === (key === 'asOf' ? value : Number(value)), cls + ' did not save');
+    }
+    const paste = panel.locator('[data-slip-text]');
+    await paste.fill('Employer A\nSample payslip text');
+    await fill(panel.locator('.tax-ytd-gross'),'12000');
+    check(await paste.inputValue() === 'Employer A\nSample payslip text', 'updating withholding erased payslip draft');
+    check((await panel.locator('.tax-ytd-out').textContent()).trim().length > 0, 'withholding output missing');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const theme of ['light','dark']){
+        await page.emulateMedia({colorScheme:theme === 'dark' ? 'light' : 'dark'});
+        await page.evaluate(t => document.documentElement.setAttribute('data-theme',t),theme);
+        const bad = await page.locator('#taxSuperBody input:not([type="checkbox"]):not([type="file"]), #taxSuperBody select, #taxSuperBody textarea').evaluateAll((es,{width,theme}) => es.filter(e => e.getClientRects().length).flatMap(e => {
+          const s = getComputedStyle(e), r = e.getBoundingClientRect();
+          return !e.classList.contains('field-control') || !e.labels.length || s.borderRadius !== '6px' || r.height < 44 || r.left < -1 || r.right > width + 1 ||
+            (e.type === 'date' && (r.width < 150 || s.colorScheme !== theme)) || (e.type === 'number' && parseFloat(s.fontSize) < 16) ? [e.id || e.className] : [];
+        }),{width,theme});
+        check(!bad.length, 'Tax planning field skin/name/size/overflow at ' + width + '/' + theme + ': ' + bad.join(', '));
+      }
+    }
+  },
   async taxreturnfields(page){
     await quiet(page);
     await go(page, 'tax', 'data-tax-sub', 'returns');
@@ -3310,7 +3370,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

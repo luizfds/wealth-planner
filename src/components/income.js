@@ -696,10 +696,10 @@ export function renderTaxSuper(){
   // v3.154.0: the household's settings fold away below the people — set once a year, read past every day.
   var settingsHtml = '<details class="tax-advanced tax-household"' + (taxUi.householdOpen ? ' open' : '') + ' data-tax-household><summary>Household settings <span class="ps-summary-line">SG, hospital cover' + (ipResult ? ', the rental' : '') + '</span></summary>' +
     '<div class="tax-global">' +
-    '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
+    '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" class="field-control" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
     phiPremiumFieldsHtml() +
-    '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select id="taxPhiTier">' +
+    '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select class="field-control" id="taxPhiTier">' +
       [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
     '</select></div>' +
     '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
@@ -762,7 +762,7 @@ function payslipReadHtml(person){
   var out = '<div class="slip-read"><label class="btn btn-sm btn-ghost slip-pick">Read a payslip (PDF)<input type="file" accept=".pdf,application/pdf" data-slip-file="' + pid + '" hidden></label>' +
     // #261: a label the box keeps once something's typed — it had a placeholder only.
     '<details class="slip-paste"><summary>or paste its text</summary><label class="field-label" for="slip-text-' + k + '">Payslip text<span class="visually-hidden"> for ' + pid + '</span></label>' +
-      '<textarea rows="5" id="slip-text-' + k + '" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
+      '<textarea rows="5" class="field-control" id="slip-text-' + k + '" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
     '<button type="button" class="btn btn-sm" data-slip-read="' + pid + '">Read it</button></details>';
   if(!p) return out + '</div>';
   if(p.error) return out + '<p class="slip-out warn">' + escapeAttr(p.error) + '</p></div>';
@@ -804,10 +804,10 @@ export function withholdingCheckHtml(person){
   return '<details class="tax-ytd"' + (y.asOf ? " open" : "") + '><summary>Check a payslip</summary>' +
     '<p class="field-help" style="margin:6px 0 0">Refund or bill? Check the year so far against your latest payslip.</p>' +
     '<div class="tax-inputs" style="margin-top:8px">' +
-      '<div class="proj-field"><label for="ytd-asof-' + k + '">Payslip date' + who + '</label><input type="date" class="tax-ytd-asof" id="ytd-asof-' + k + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
-      '<div class="proj-field"><label for="ytd-gross-' + k + '">Gross so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-gross" id="ytd-gross-' + k + '" aria-describedby="ytd-gross-' + k + '-help" value="' + (y.gross || "") + '">' +
+      '<div class="proj-field"><label for="ytd-asof-' + k + '">Payslip date' + who + '</label><input type="date" class="tax-ytd-asof field-control" id="ytd-asof-' + k + '" value="' + escapeAttr(y.asOf || "") + '"></div>' +
+      '<div class="proj-field"><label for="ytd-gross-' + k + '">Gross so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-gross field-control" id="ytd-gross-' + k + '" aria-describedby="ytd-gross-' + k + '-help" value="' + (y.gross || "") + '">' +
         '<p class="field-help" id="ytd-gross-' + k + '-help">Year to date on the payslip, before tax — not counting super.</p></div>' +
-      '<div class="proj-field"><label for="ytd-withheld-' + k + '">Tax withheld so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-withheld" id="ytd-withheld-' + k + '" value="' + (y.withheld || "") + '"></div>' +
+      '<div class="proj-field"><label for="ytd-withheld-' + k + '">Tax withheld so far $' + who + '</label><input type="number" min="0" step="100" class="tax-ytd-withheld field-control" id="ytd-withheld-' + k + '" value="' + (y.withheld || "") + '"></div>' +
     '</div><p class="tax-ytd-out">' + withholdingCheckText(person) + '</p>' + payslipReadHtml(person) + '</details>';
 }
 export function withholdingCheckText(person){
@@ -839,7 +839,7 @@ export function topUpHtml(person, r){
       fmtCurrency0.format(t.outOfPocket) + ' · <b>' + fmtCurrency0.format(t.netGain) + '</b> better off than as pay.' +
       (t.overRoom ? ' <span class="warn">' + fmtCurrency0.format(t.overRoom) + ' is over the cap and left out.</span>' : '')
     : 'No concessional cap room left this year.';
-  return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="number" min="0" step="500" class="tax-topup-amt" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + (amount || "") + '" placeholder="' + Math.round(room) + '"></label>' +
+  return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="number" min="0" step="500" class="tax-topup-amt field-control" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + (amount || "") + '" placeholder="' + Math.round(room) + '"></label>' +
     '<p class="tax-topup-out">' + out + '</p>' +
     '<p class="tax-topup-how help">A personal contribution you claim as a deduction is taxed 15% in the fund (more under Division 293), and saves tax at your marginal rate. The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.</p></div>';
 }
@@ -887,7 +887,7 @@ function taxPersonFrontBodyHtml(person, r){
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
     // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
     '<div class="tax-inputs pp-on-tax">' +
-      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
+      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
     '</div>' +
     '<p class="ledger-note pp-link-note" style="margin:8px 0 0" title="Date of birth, HELP, super caps, capital losses and home hours">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
 }
@@ -998,13 +998,13 @@ function phiPremiumFieldsHtml(){
   var cur = state.tax.phiLineId || "";
   var line = phiLine();
   var opt = function(i){ return '<option value="' + escapeAttr(i.id) + '"' + (i.id === cur ? " selected" : "") + '>' + escapeAttr(i.what || "Line") + '</option>'; };
-  return '<div class="proj-field"><label for="taxPhiLine" title="The budget line you pay the policy from. Its amount is after the rebate your insurer applies, so the premium is worked back up from it at the tier below.">Premiums from</label><select id="taxPhiLine">' +
+  return '<div class="proj-field"><label for="taxPhiLine" title="The budget line you pay the policy from. Its amount is after the rebate your insurer applies, so the premium is worked back up from it at the tier below.">Premiums from</label><select class="field-control" id="taxPhiLine">' +
       '<option value="">Typed in</option>' +
       (healthy.length ? '<optgroup label="Looks like health cover">' + healthy.map(opt).join("") + '</optgroup>' : '') +
       (others.length ? '<optgroup label="Other budget lines">' + others.map(opt).join("") + '</optgroup>' : '') +
       (cur && !line ? '<option value="' + escapeAttr(cur) + '" selected>(deleted line)</option>' : '') +
     '</select></div>' +
-    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" id="taxPhiPremiums" value="' + (line ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0)) + '"' + (line ? ' disabled title="Worked out from ' + escapeAttr(line.what || "the line") + '"' : '') + '></div>';
+    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" class="field-control" id="taxPhiPremiums" value="' + (line ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0)) + '"' + (line ? ' disabled title="Worked out from ' + escapeAttr(line.what || "the line") + '"' : '') + '></div>';
 }
 function phiNoteText(){
   var a = phiRebateAdjustment();

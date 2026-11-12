@@ -1683,6 +1683,21 @@ test("Your first month: the month's three figures and one next step (item 192)",
   assert.match(html, /Look around with sample data/);
 });
 
+test("the quick tour: every step draws, and the last lists the first-month steps (#339)", async function(){
+  const { TOUR_STEPS } = await import("../src/lib/tour.js");
+  const { tourStepHtml, tourShellHtml, tourOfferHtml } = await import("../src/components/tour.js");
+  const { setupSteps } = await import("../src/lib/setup.js");
+  var steps = setupSteps({ income: [{ id: "i1" }], assets: [], properties: [], transactions: [] }, {});
+  TOUR_STEPS.forEach(function(step, i){
+    var html = tourStepHtml(step, i, TOUR_STEPS.length, steps);
+    assert.match(html, new RegExp("Step " + (i + 1) + " of " + TOUR_STEPS.length));
+    assert.doesNotMatch(html, /undefined|NaN/);
+    assert.equal((html.match(/data-tour-go=/g) || []).length, step.checklist ? steps.length : 0);
+  });
+  assert.match(tourShellHtml(), /role="dialog"/);
+  assert.match(tourOfferHtml(), /Start tour/);
+});
+
 test("the review queue: one card, keep and change, then the rule question (item 193)", async function(){
   const { txReviewHtml, txReview, reviewBannerHtml } = await import("../src/components/reviewqueue.js");
   var keep = state.transactions;

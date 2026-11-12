@@ -38,7 +38,7 @@ const b = await chromium.launch();
 const results = [];
 for (const [mode, width] of [["demo", 390], ["demo", 1280], ["empty", 390]]) {
   const ctx = await b.newContext({ viewport: { width, height: 844 } });
-  await ctx.addInitScript(() => localStorage.setItem("wealthPlanner.hasSeenIntro", "1"));
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const p = await ctx.newPage();
   await p.goto(base + "/index.html" + (mode === "demo" ? "?mock=1" : ""));

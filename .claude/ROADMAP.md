@@ -5069,6 +5069,11 @@ the total. Preserve 44px targets, Clear independence, existing ranges/calculatio
 
 ## Budget clarity — issues #336–#338
 
-`[~]` On `codex/budget-clarity`: totals-first planned Cash flow with expandable detail and an explained running
-balance; baseline/scenario Needs–Wants charts reconciled with the existing financial totals. Approved as one
-PR, followed by a separate optional tour (#339), integrated with the existing first-run experience (#309).
+`[x]` Shipped v3.263.0 (PR #344): totals-first planned Cash flow with expandable detail and an explained running
+balance; baseline/scenario Needs–Wants charts reconciled with the existing financial totals.
+
+## A quick tour — issue #339
+
+`[~]` Optional and replayable: offered once after the first-run setup closes or the sample household loads (never
+beside the setup sheet — #309's one path), remembered per browser, and always in the avatar menu. It walks the real
+navigation, then ends on the first-month steps (`lib/setup.js`) instead of a second checklist.

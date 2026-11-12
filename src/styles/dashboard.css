@@ -122,6 +122,14 @@
     border-radius:14px; padding:16px 16px 14px;
   }
   .setup-panel[hidden]{ display:none; }
+  /* #339: the tour's offer — one line and two buttons, quieter still than the panel under it. */
+  .tour-offer{
+    display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap;
+    border:1px solid var(--border); border-radius:14px; padding:10px 12px 10px 16px; background: var(--paper-raised);
+  }
+  .tour-offer[hidden]{ display:none; }
+  .tour-offer-text{ margin:0; font-size:var(--fs-sm); line-height:1.5; flex:1 1 240px; }
+  .tour-offer-actions{ display:flex; gap:8px; margin-left:auto; }
   .setup-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   .setup-head b{ font-size:var(--fs-md); }
   .setup-count{ font-size:var(--fs-xs); color: var(--ink-soft); margin-left:4px; white-space:nowrap; }

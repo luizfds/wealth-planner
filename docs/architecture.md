@@ -89,6 +89,13 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe
   left for Edit / Split / Delete; pulling the page down refreshes prices and sync.
+- **The quick tour** (`lib/tour.js`, `components/tour.js`, `components/tourwiring.js`): a card that walks the menu with
+  each place on screen behind it, ending on the first-month steps (`lib/setup.js`). Offered once on Home — after the
+  setup sheet closes or the sample household loads, never beside the sheet — and always under the avatar menu. Its
+  answer is kept per browser (`wealthPlanner.tour` in localStorage, not `state`). Pages change under it with
+  `skipUrl`, so the address bar still names the page it started from and closing puts that page back; it has its own
+  history entry (`pushModalOverlay`), so a phone's Back closes it. A step whose target isn't on screen is shown
+  without a ring. The test scripts start as someone who has answered it.
 - **Scenario editor**: two columns with results pinned beside, a Save bar on a phone, a leave guard (`setLeaveGuard`),
   one "+ Add a change" sheet, saved-vs-draft marks, a timeline, `state.scenarioNotes`; Side by side adds the odds
   (`cashLastsOdds`), a bad first year (`badStartSeries`) and a lender check (`lenderCheck`).

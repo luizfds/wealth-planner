@@ -26,7 +26,7 @@ const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : [
 for(const width of widths)for(const scheme of schemes){
  const context=await browser.newContext({viewport:{width,height:844},colorScheme:scheme,isMobile:width<700,hasTouch:width<700});
  await context.route(/fonts\.(googleapis|gstatic)\.com|docs\.google\.com|coingecko|frankfurter|dropboxapi|anthropic/,r=>r.abort());
- await context.addInitScript(()=>localStorage.setItem('wealthPlanner.hasSeenIntro','1'));
+ await context.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
  const page=await context.newPage();
  const cdp=await context.newCDPSession(page);
  await page.goto(base+'/index.html?mock=1');await page.waitForFunction(()=>document.documentElement.hasAttribute('data-wp-ready'));await page.waitForTimeout(1200);

@@ -421,3 +421,20 @@ It checks shared dimensions, labels, readable dates and viewport bounds at 320/3
 explicit app themes with the opposite OS preference. Existing `taxlabels` and `taxvalidation` journeys,
 People/tax/render tests and static checks pass. Before/after screenshots and measurements are under
 `/tmp/people-field-review/` (not committed). Other Tax and remaining page families stay under #254.
+
+## Tax → Returns (#254)
+
+Income statements, interest, deductions and rental overrides use the shared compact field skin.
+Existing accessible names, right-aligned figures, numeric validation and blank/default rules remain.
+Statement, interest and deduction rows reflow by the person card's width so amount fields stay readable
+on phones and beside the desktop sidebar. Native checkboxes retain their existing behavior.
+
+A direct redraw previously dropped the active field. `keepUi` now preserves focus and unfinished input;
+stable worksheet field IDs also retain the validation message when an invalid field is redrawn. Existing
+open/closed disclosure restoration remains. No financial calculations, state schema or save handlers change.
+
+The `taxreturnfields` touch journey edits all three row families, rejects invalid gross income, checks
+focus/input/message through redraw, restores blank interest shares and modeled rental estimates, and
+measures shared skins, 44px targets, accessible names, readable numeric widths and viewport bounds at
+320/390/768/1024/1280px in both themes. Existing Tax validation/label journeys and tax-year/render tests
+also pass. Review screenshots and measurements are under `/tmp/returns-field-review/` (not committed).

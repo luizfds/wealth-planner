@@ -1,3 +1,4 @@
+import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
 import { getTaxPeople, computePersonTax, currentTaxFy, todayTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
@@ -34,18 +35,20 @@ function num(v){ return v == null || v === "" ? "" : Number(v); }
 function rowsEditorHtml(kind, person, rows, cols, addLabel){
   var body = rows.map(function(r, i){
     return '<div class="ty-row ty-row-' + kind + '">' + cols.map(function(c){
+      var id = escapeAttr("ty-" + kind + "-" + encodeURIComponent(person) + "-" + i + "-" + c.key);
+      var start = '<label class="ty-cell"><span>' + escapeAttr(c.label) + '</span>';
       if(c.type === "label"){
-        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
-          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select>';
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
+          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select></label>';
       }
       if(c.type === "incomeRow"){
-        return '<select class="ty-in" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
-          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select>';
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
+          '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select></label>';
       }
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
-      return '<input class="ty-in" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
+      return start + '<input class="ty-in field-control field-compact" id="' + id + '" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
         ' data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="' + c.key + '"' +
-        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '">';
+        ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '"></label>';
     }).join("") +
     '<button type="button" class="icon-btn btn-danger" data-ty-del="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" aria-label="Delete row ' + (i + 1) + '">✕</button></div>';
   }).join("");
@@ -268,7 +271,7 @@ function rentHtml(fy){
     var rows = sch.lines.map(function(l){
       var lg = logged.has[l.key] ? '<small class="ty-logged">Logged ' + money(logged.lines[l.key]) + (logged.wholeYear ? '' : ' so far') + '</small>' : '';
       return '<div class="ty-rent-row' + (l.actual != null ? " has-actual" : "") + '"><span>' + l.label + lg + '</span>' +
-        '<input class="ty-rent-in" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
+        '<input class="ty-rent-in field-control field-compact" id="ty-rent-' + escapeAttr(encodeURIComponent(p.id) + "-" + l.key) + '" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
     }).join("");
     return '<details class="row-more-options ty-rent"' + (sch.actualCount ? " open" : "") + '><summary>' + escapeAttr(p.what || "Property") + ' — rental schedule</summary>' +
       '<p class="ledger-note" id="' + helpId + '" style="margin-left:0">Whole-property totals for ' + fyLabel(fy) + ' (' + shares + '). Grey figures are estimates from the property\'s rows, loans and depreciation; type the agent\'s summary, loan statement and bills over them — a line left blank uses its estimate. ' + sch.actualCount + ' of ' + RENT_LINES.length + ' lines from documents.</p>' +
@@ -282,7 +285,8 @@ function rentHtml(fy){
   }).join("");
 }
 
-export function renderTaxYear(){
+export function renderTaxYear(){ return keepUi(drawTaxYear); }
+function drawTaxYear(){
   // Returns and Documents share the selected year; both are rendered together so switching tab
   // never shows a stale year (v3.43.0).
   var el = document.getElementById("taxYearBody");

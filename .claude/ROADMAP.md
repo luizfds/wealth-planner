@@ -5010,8 +5010,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      and ownership controls; preserve name/kind variants and all existing save/calculation rules.
    - `[x]` Property income fields (#254) shipped v3.255.0 (PR #332): shared manager-fee, receipt-frequency,
      rent-review and vacancy-date controls, preserving calculations and save rules.
-   - `[~]` Property what-if fields (#254) on `codex/property-tools-fields`: shared loan-strategy, fixed-rate
+   - `[x]` Property what-if fields (#254) shipped v3.256.0 (PR #333): shared loan-strategy, fixed-rate
      rollover and sale-estimate controls; preserve validation, saved assumptions and financial calculations.
+   - `[~]` Property record-entry fields (#254) on `codex/property-statement-fields`: shared manager-statement
+     and Activity controls, visible labels, preserving statement/interest logging and removal.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

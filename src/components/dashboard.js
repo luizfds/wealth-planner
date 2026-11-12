@@ -1,7 +1,7 @@
 import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
-import { planningReadiness } from "../calc/planningreadiness.js";
+import { firstRun } from "./firstrun.js";
 import { sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, appendHistorySnapshot, periodsOf } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification, fyLabel, loanBalance, ipProperties } from "../calc/property.js";
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
@@ -146,13 +146,14 @@ export function renderSetupPanel(nothingEntered){
   var el = document.getElementById("dashboardSetup");
   if(!el) return;
   var opts = setupOpts();
-  var show = shouldShowSetup(state, opts);
+  // #309: one setup at a time — the first month waits while the setup sheet is open, or about to open by itself at
+  // startup, and appears once setup is finished or skipped. (Not whenever setup is merely due: after Reset, nothing
+  // opens the sheet, and the card's Guided setup is the way in.) One count too: the planning profile's "0 of 5
+  // sections" was a second one beside "step 1 of 4" (Reports still has it).
+  var show = shouldShowSetup(state, opts) && !firstRun.open && !firstRun.pending;
   el.hidden = !show;
   if(!show){ el.innerHTML = ""; return; }
-  var readiness = planningReadiness(state, localDateStr());
-  el.innerHTML = firstMonthHtml(state, setupProgress(state, opts), nothingEntered) +
-    '<p class="ledger-note" role="status">Planning profile: ' + readiness.done + ' of ' + readiness.total +
-    ' sections entered (income, expenses, assets, loans and goals). Loans and goals are optional; missing entries do not mean zero balances.</p>';
+  el.innerHTML = firstMonthHtml(state, setupProgress(state, opts), nothingEntered);
 }
 // What the budget step needs to know: whether a budget can be proposed from the spending yet.
 export function setupOpts(){
@@ -344,7 +345,8 @@ export function renderDashboardStats(){
   // v3.106.0: the intro is help (behind the ⓘ) once there's data; on an empty app it's the instruction.
   if(introEl) introEl.classList.toggle("help", !nothingEntered);
   if(introEl) introEl.textContent = nothingEntered
-    ? "Your household finances at a glance. Nothing is pre-filled — start with your income, or load sample data to see what a filled-in plan looks like."
+    // #309: the first month below offers sample data; the intro doesn't offer it a second time.
+    ? "Your household finances at a glance. Nothing is entered yet — it all starts from your pay."
     : "Your money at a glance — what you're worth, how the month is going, and what needs doing." + (isComparing ? "" : " Add a second scenario under Plan to compare renting against buying.");
   renderSetupPanel(nothingEntered);
   var active = currentScenario();

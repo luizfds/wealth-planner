@@ -87,6 +87,11 @@ export function homeSummaryHtml(today, opts){
     '<small>Recorded balances · as of ' + escapeAttr(today) + (stale ? ' · ' + stale + ' values need updating' : '') + '</small>' +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
+  // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
+  if(nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length)
+    nwCard = '<div class="home-card home-nw is-empty" data-home-card="nw"><span class="home-k">Net worth</span>' +
+      '<p class="home-note">Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.</p>' +
+      '<button type="button" class="link-btn home-link" data-home-go="networth">Go to Net worth →</button></div>';
 
   var ym = selectedMonth(today);
   // Planned against the household as it is (Current situation), not whichever scenario is selected.
@@ -105,7 +110,12 @@ export function homeSummaryHtml(today, opts){
 
   var planned = scenarioTotals(currentScenario());
   var reserve = emergencyFund();
-  monthCard += '<p class="home-plan-context">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) +
+  // #309 (pages.md §4): a month with no pay, no budget and nothing logged says so, with the first step — not six $0s.
+  var monthEmpty = !r.income.length && !r.incomePlanned && !r.plannedSpend && !r.transactions && !r.spent && !r.incomeReceived;
+  if(monthEmpty) monthCard = '<div class="home-card home-month is-empty" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
+    '<p class="home-note">Nothing planned or logged yet — the month fills in from your pay and your budget.</p>' +
+    '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="income">Go to Income →</button></div>';
+  else monthCard += '<p class="home-plan-context">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) +
     '</b> · estimate from your budget' + (reserve.coveredMonths != null ? '<br>Cash and offsets cover <b>' + reserve.coveredMonths.toFixed(1) + ' months</b> of essential costs' : '<br>Add essential costs to assess your reserve') + '</p></div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);

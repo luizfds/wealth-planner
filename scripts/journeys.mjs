@@ -38,6 +38,8 @@
 //                 deposit over 100% or a term of 0 years is said, not clamped
 //   scenariocalcfields — the purchase and invest calculators on the shared field (#254): skin, 44px, 16px text and
 //                 tied labels at 320–1280px in both themes; a click on a label focuses its field; the LMI quote reads whole
+//   firstrunpath — #309: "Start from scratch" to a household — one setup flow and one progress count at a time, sample
+//                 data offered once, one way back into a skipped setup (after Reset too), no $0 cards or to-dos
 //   setupfields — the first-run setup on the shared field (#254): every step at 320–1280px in both themes, a typed
 //                 figure kept through a select's redraw, and the answers saved on Finish
 //   scenariofields — the scenario editor on the shared field (#254): its name, note, quick-add row, every kind of
@@ -220,6 +222,17 @@ async function go(page, pageId, subAttr, sub){
 }
 // "Guided setup", and if the click can't land, what was in its way. On PR #311 it timed out behind setup's own
 // backdrop, and the log couldn't say whether setup was already open or hadn't finished closing (#282).
+// #309: how many progress counts are on screen — "Step 1 of 5", "step 1 of 4", "0 of 5 sections" — with their words.
+const progressCounts = page => page.evaluate(() => {
+  const seen = [];
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for(let n = walk.nextNode(); n; n = walk.nextNode()){
+    const el = n.parentElement;
+    if(!el || !el.getClientRects().length || el.closest('[hidden], [aria-hidden="true"], .visually-hidden') || getComputedStyle(el).visibility === 'hidden') continue;
+    (n.textContent.match(/\b(step \d+ of \d+|\d+ of \d+ sections)\b/gi) || []).forEach(m => seen.push(m));
+  }
+  return seen;
+});
 async function openSetup(page){
   await page.locator('#dashboardSetup [data-firstrun-open]').click().catch(async e => {
     const seen = await page.evaluate(() => { const d = document.querySelector('#firstRunRoot [role="dialog"]');
@@ -1914,6 +1927,54 @@ const JOURNEYS = {
     check(!!rent && rent[0] === 450 && rent[1] === 'Fortnightly', 'setup saved the rent as ' + JSON.stringify(rent));
     check(await st(page, 'state.firstRunDone') === true, 'setup did not finish');
   },
+  // #309: what a person starting from scratch meets, from an empty household's first load to a saved pay row.
+  async firstrunpath(page){
+    // An empty household, loaded the way "Start from scratch" opens it (no ?mock): the setup sheet opens by itself.
+    await page.evaluate(() => { localStorage.removeItem('wealthPlanner.v1'); localStorage.setItem('wealthPlanner.tour', 'skipped'); });
+    await page.goto(base + '/index.html');
+    await ready(page, 'an empty household');
+    const R = '#firstRunRoot ';
+    await page.locator(R + '[role="dialog"]').waitFor();
+    const onScreen = sel => page.locator(sel).evaluateAll(es => es.filter(e => e.getClientRects().length && !e.closest('[hidden]')).length);
+    let counts = await progressCounts(page);
+    check(counts.length === 1 && /Step 1 of 5/.test(counts[0]), 'on arrival: ' + counts.join(' · '));
+    check(await onScreen('#dashboardSetup .setup-head') === 0, 'the first month showed beside the open setup sheet');
+    // Skipped: the first month, its one count, one offer of sample data and one way back into setup.
+    await page.locator(R + '[data-fr-close]').click();
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    await page.locator('#dashboardSetup .setup-head').waitFor();
+    counts = await progressCounts(page);
+    check(counts.length === 1, 'after skipping, ' + counts.length + ' progress counts: ' + counts.join(' · '));
+    const sample = await page.evaluate(() => [...document.querySelectorAll('.app-page:not([hidden]) button, .app-page:not([hidden]) a, #dashboardIntro')]
+      .filter(e => e.getClientRects().length && /sample/i.test(e.textContent)).length);
+    check(sample === 1, 'sample data is offered ' + sample + ' times on Home');
+    check(await onScreen('.app-page:not([hidden]) [data-firstrun-open]') === 1, 'skipping setup did not leave one way back into it');
+    // Nothing entered: no $0 cards and nothing to do.
+    const zeros = await page.evaluate(() => [...document.querySelectorAll('[data-home-card]')].filter(c => c.getClientRects().length && /\$0\b/.test(c.innerText)).map(c => c.getAttribute('data-home-card')));
+    check(!zeros.length, 'cards showing $0 for an empty household: ' + zeros.join(', '));
+    check(await onScreen('[data-home-card="todo"] .home-todo-btn') === 0, 'an empty household was given to-dos');
+    check(await onScreen('[data-home-card="month"] [data-home-sub="income"]') === 1, "the empty month doesn't offer its next step");
+    // Back in, from the one way back: the sheet, and its count alone again; through to a first pay row.
+    await click(page, '#dashboardSetup [data-firstrun-open]');
+    await page.locator(R + '[role="dialog"]').waitFor();
+    counts = await progressCounts(page);
+    check(counts.length === 1, 'setup reopened with ' + counts.length + ' progress counts: ' + counts.join(' · '));
+    await page.locator(R + '[data-fr="people.0.name"]').fill('Alex');
+    await click(page, R + '[data-fr-next]'); await click(page, R + '[data-fr-next]');
+    await page.locator(R + '[data-fr="people.0.pay"]').fill('60000');
+    await click(page, R + '[data-fr-next]'); await click(page, R + '[data-fr-next]');
+    await click(page, R + '[data-fr-finish="home"]');
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    check(await st(page, 'state.income.length') > 0, 'finishing setup saved no pay');
+    counts = await progressCounts(page);
+    check(counts.length <= 1, 'after finishing, ' + counts.length + ' progress counts: ' + counts.join(' · '));
+    // Reset everything: nothing opens the sheet, so the first month's Guided setup has to be there.
+    await page.locator('#avatarBtn').click();
+    await page.locator('#resetBtn').click();
+    await answerDialog(page, true);
+    await until(page, () => !!document.querySelector('#dashboardSetup [data-firstrun-open]'));
+    check(await onScreen('#dashboardSetup [data-firstrun-open]') === 1, 'after Reset, there was no way into setup');
+  },
   async propertycostfields(page){
     await quiet(page);
     await go(page, "properties");
@@ -3048,11 +3109,17 @@ const JOURNEYS = {
     await openSetup(page);
     const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
     check((await dialog.innerText()).includes('Step 1 of 5'), 'setup has no readable progress');
+    // #309: one progress count on screen at a time — the sheet's, while it's open.
+    let counts = await progressCounts(page);
+    check(counts.length === 1, 'with setup open, ' + counts.length + ' progress counts show: ' + counts.join(' · '));
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
     await dialog.locator('[data-fr-next]').click();
     check((await dialog.innerText()).includes('Step 2 of 5'), 'setup did not advance');
     await dialog.locator('[data-fr-close]').click();
     check(await st(page, 'state.income.length') === 0, 'cancelling setup saved an incomplete draft');
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    counts = await progressCounts(page);
+    check(counts.length === 1, 'after skipping setup, ' + counts.length + ' progress counts show: ' + counts.join(' · '));
     await openSetup(page);
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
     await dialog.locator('[data-fr-next]').click();
@@ -3062,6 +3129,9 @@ const JOURNEYS = {
     await dialog.locator('[data-fr-next]').click();
     await dialog.locator('[data-fr-finish="home"]').click();
     check(await st(page, 'state.income.length') > 0, 'finishing setup did not save income');
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    counts = await progressCounts(page);
+    check(counts.length <= 1, 'after finishing setup, ' + counts.length + ' progress counts show: ' + counts.join(' · '));
     await go(page, 'reports');
     const progress = page.locator('[aria-label="Planning setup progress"]');
     await progress.locator('summary').click();

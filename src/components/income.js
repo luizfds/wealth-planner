@@ -15,6 +15,7 @@ import { historyTrendHtml, ledgerFields, timingFieldsHtml, endDateNoteHtml, hasE
 import { parseCsv } from "../lib/backup.js";
 import { renderTaxYear } from "./taxyear.js";
 import { SHOW_AS, showAsOption, fromMonthly, DEFAULT_HOURS_PER_WEEK } from "../calc/showas.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---- Show as (v3.138.0): the Income tab read per year, month, fortnight, week, day or hour ----
 // A way of reading, not data: kept per device, like the ⓘ preference. calc/showas.js converts.
@@ -687,7 +688,7 @@ export function renderTaxSuper(){
   if(!container) return;
   var people = getTaxPeople();
   if(!people.length){
-    container.innerHTML = '<p class="tax-empty">Mark an Income row\'s Type as "Gross" and give it a Person to see their estimated tax, Medicare levy, and super here.</p>';
+    container.innerHTML = emptyStateHtml('Mark an Income row\'s Type as "Gross" and give it a Person to see their estimated tax, Medicare levy, and super here.', { go: "expenses/income", label: "Go to Income →", className: "tax-empty" });
     return;
   }
   var ipResult = ipNetResultAnnual();

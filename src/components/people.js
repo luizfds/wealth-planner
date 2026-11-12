@@ -5,6 +5,7 @@ import { fyLabel } from "../calc/property.js";
 import { personReferences, ageOn } from "../calc/people.js";
 import { localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Accounts → People (v3.44.0) ----------------
 //
@@ -81,7 +82,7 @@ function ownsRentalLoss(person){ try { return computePersonTax(person).ipTaxEffe
 export function peopleHtml(today){
   today = today || localDateStr();
   var people = getTaxPeople();
-  if(!people.length) return '<p class="ledger-note" style="margin:0">Nobody yet. A person appears once an income row is marked Gross and names them — or add one below.</p>';
+  if(!people.length) return emptyStateHtml("Nobody yet. A person appears once an income row is marked Gross and names them — or add one.", { add: "#addPersonBtn", label: "+ Add person" });
   return '<div class="pp-list">' + people.map(function(p, i){ return personCardHtml(p, i, today); }).join("") + '</div>';
 }
 

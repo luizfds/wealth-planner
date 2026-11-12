@@ -7,14 +7,16 @@ import { localDateStr, fmtDate } from "../lib/format.js";
 import { storageUsedChars, storageLineText, receiptsLineText } from "../lib/storageuse.js";
 import { receiptsStorageUse } from "../lib/receipts.js";
 import { errorLog, errorLogHtml } from "../lib/errorlog.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Settings → Preferences → Keeping your data safe (v3.63.0) ----------------
 export function safekeepingHtml(folderName, today){
   today = today || localDateStr();
   var last = state.lastBackupDate;
   var age = last ? Math.round((Date.parse(today) - Date.parse(last)) / 86400000) : null;
-  var backup = '<div class="sk-block"><b>Backups</b><p class="ledger-note" style="margin:2px 0 8px">' +
-    (last ? "Last backup " + escapeAttr(fmtDate(last)) + (age > 30 ? " — " + age + " days ago, worth making a new one." : ".") : "No backup yet. Everything lives only in this browser; a backup file is how it survives a cleared browser or a new device.") + '</p>' +
+  var backup = '<div class="sk-block"><b>Backups</b>' +
+    (last ? '<p class="ledger-note" style="margin:2px 0 8px">Last backup ' + escapeAttr(fmtDate(last)) + (age > 30 ? " — " + age + " days ago, worth making a new one." : ".") + '</p>'
+      : emptyStateHtml("No backup yet. Everything lives only in this browser; a backup file is how it survives a cleared browser or a new device.", { beside: true })) +
     '<button type="button" class="btn btn-sm" data-sk="export">Back up now</button></div>';
   var folder = folderBackupSupported()
     ? '<div class="sk-block"><b>Automatic backups to a folder</b><p class="ledger-note" style="margin:2px 0 8px">' +

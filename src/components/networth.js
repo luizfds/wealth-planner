@@ -8,6 +8,7 @@ import { localDateStr } from "../lib/format.js";
 import { detailLinkHtml } from "./detail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Net worth (v3.129.0) ----------------
 // The overview the rail above Accounts, Investments and Property opens on: everything owned and
@@ -17,7 +18,7 @@ export function netWorthPageHtml(){
   var today = localDateStr();
   var l = netWorthList(state, toAudAmount, loggedSinceRecorded(today).byRecord);
   var est = estimatesUplift(state, today);
-  if(!l.groups.length) return '<p class="ledger-note">Nothing here yet. Add an account, a holding or a property and it appears in this list.</p>' + hiddenPartsLineHtml();
+  if(!l.groups.length) return emptyStateHtml("Nothing here yet. Add an account, a holding or a property and it appears in this list.", { go: "accounts", label: "Go to Accounts →" }) + hiddenPartsLineHtml();
   var owned = l.groups.filter(function(g){ return g.key !== "debts"; }).reduce(function(s, g){ return s + g.total; }, 0);
   var owed = l.groups.filter(function(g){ return g.key === "debts"; }).reduce(function(s, g){ return s - g.total; }, 0);
   var nw = totalNetWorthValue();

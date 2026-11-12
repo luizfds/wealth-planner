@@ -3,6 +3,7 @@ import { trimReport, leanLevel, leanEffect } from "../calc/trim.js";
 import { canBuy } from "../calc/canbuy.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Cash flow → Budget → Trim (v3.100.0) — calc/trim.js ----------------
 export var trimUi = { scenario: "", markOpen: false };
@@ -50,9 +51,9 @@ export function trimHtml(r, scenario, today){
       var opt = function(v, label){ return '<button type="button" class="seg-option' + (lvl === v ? ' active' : '') + '" data-trim-level="' + v + '" data-trim-line="' + escapeAttr(f.id) + '" aria-pressed="' + (lvl === v) + '">' + label + '</button>'; };
       return '<li><span class="tr-flex-name">' + escapeAttr(f.what) + '<small>' + money(f.yearly) + '/yr · half frees ' + money(f.monthly / 2) + '/mo</small></span>' +
         '<span class="seg-control tr-seg" role="group" aria-label="' + escapeAttr(f.what) + ' in ' + escapeAttr(scenario) + '">' + opt("keep", "Keep") + opt("half", "Half") + opt("pause", "Pause") + '</span></li>';
-    }).join("") + '</ul>' : '<p class="ledger-note">No flexible lines yet — mark some below.</p>') +
+    }).join("") + '</ul>' : emptyStateHtml("No flexible lines yet — open a line in the budget above and set how fixed it is.", { scroll: "#sharedGroups", label: "Go to the budget lines ↑" })) +
     (eff ? '<div class="tr-effect"><div><span>A normal month in ' + escapeAttr(scenario) + '</span><b>' + leaves(eff.fullMonthly) + (eff.freedMonthly ? ' → ' + leaves(eff.leanMonthly) : '') + '</b></div>' +
-      (eff.freedMonthly ? '<small>' + money(eff.freedMonthly) + '/mo (' + money(eff.freedYearly) + '/yr) freed by ' + eff.changed.length + ' line' + (eff.changed.length === 1 ? '' : 's') + '</small> <button type="button" class="link-btn" data-trim-clear>Back to the full budget</button>' : '<small>Nothing trimmed yet.</small>') +
+      (eff.freedMonthly ? '<small>' + money(eff.freedMonthly) + '/mo (' + money(eff.freedYearly) + '/yr) freed by ' + eff.changed.length + ' line' + (eff.changed.length === 1 ? '' : 's') + '</small> <button type="button" class="link-btn" data-trim-clear>Back to the full budget</button>' : '<small class="empty-state" data-empty="done">Nothing trimmed yet.</small>') +
       (buy ? '<small class="tr-buy">' + (buy.short > 0 ? money(buy.short) + ' short of the cash at settlement' : money(buy.left) + ' left after settlement') + ' · new loan ' + money(buy.repaymentMonthly) + '/mo</small>' : '') + '</div>' : '');
   // 3. Similar subscriptions.
   if(r.duplicates.length){

@@ -30,6 +30,7 @@ import { renderProjectionOutputs } from "./projections.js";
 import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
 import { loanInterestCharged, loanFeesCharged, bankRepaymentNudge } from "../calc/loancharges.js";
 import { propertyActivityHtml } from "./propertyactivity.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
@@ -493,7 +494,7 @@ function ownershipSectionHtml(p){
   if(!people.length){
     return propertySectionHtml(p, "ownership",
       '<div class="property-section-title">Ownership</div>',
-      '<p class="ledger-note" style="margin-left:0">Mark an Income row\'s Type as "Gross" and give it a Person on Cash flow → Income, and they\'ll show up here to take a share of this property\'s result.</p>');
+      emptyStateHtml('Mark an Income row\'s Type as "Gross" and give it a Person, and they\'ll show up here to take a share of this property\'s result.', { go: "expenses/income", label: "Go to Income →" }));
   }
   var rows = people.map(function(person){
     var pct = propertyOwnershipPct(p, person, people);
@@ -1071,7 +1072,7 @@ function drawProperties(){
   if(!container) return;
   container.innerHTML = state.properties.length
     ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
-    : '<p class="ledger-note" style="margin:0">No properties yet — add one below to start tracking its value, loans, and (for an investment property) rent and expenses.</p>';
+    : emptyStateHtml("No properties yet — add one to start tracking its value, loans, and (for an investment property) rent and expenses.", { add: "#addPropertyBtn", label: "+ Add property" });
   renderPropertyExpensesSummary();
   renderPropertiesSummary();
   renderPropertiesValueHistoryChart();

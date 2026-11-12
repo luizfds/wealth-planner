@@ -46,7 +46,7 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   renderers (`ledger-table.js`), the SVG charts (`charts.js`), notifications, search, the setup checklist, help (each
   page's ⓘ and ⋯), storage use, backup (`backup.js`), sync (`foldersync.js`, `dropbox.js`), receipts, the activity log,
   the views registry (`views.js`), sections (`sections.js`), the overlay stack (`overlaystack.js`), the theme, the
-  error log, pdf text (`pdftext.js`, loading `vendor/pdfjs/`), the shared field (`field.js`) and reading one before it's
+  error log, pdf text (`pdftext.js`, loading `vendor/pdfjs/`), the shared field (`field.js`), an empty state with its next step (`empty.js`) and reading one before it's
   saved (`validate.js`), keeping focus and drafts through a redraw (`keepui.js`), and ARIA tabs by keyboard (`tabs.js`).
 - `src/styles/` — the stylesheets, each in a cascade layer (decision 0009).
 - `prices/`, `scripts/prices/` — the daily price file (decision 0012).

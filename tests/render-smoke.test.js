@@ -1133,14 +1133,38 @@ test("Home summary for an empty household: the month and net worth say what's mi
     state.netWorthLog = []; state.transactions = []; state.income = []; state.incomeLog = []; state.monthReviews = {};
     state.assets = []; state.properties = []; state.debts = []; state.shared = [];
     var html = homeSummaryHtml("2026-10-14", { netWorth: 0, items: [], todos: [] });
-    assert.match(html, /home-month is-empty[\s\S]*Nothing planned or logged yet[\s\S]*data-home-sub="income">Go to Income →/);
-    assert.match(html, /home-nw is-empty[\s\S]*Nothing you own or owe is entered yet[\s\S]*data-home-go="networth">Go to Net worth →/);
+    assert.match(html, /home-month is-empty[\s\S]*Nothing planned or logged yet[\s\S]*data-go="expenses\/income">Go to Income →/);
+    assert.match(html, /home-nw is-empty[\s\S]*Nothing you own or owe is entered yet[\s\S]*data-go="networth">Go to Net worth →/);
     assert.doesNotMatch(html, /\$0\b/, "no $0 figures for a household with nothing in it");
     assert.doesNotMatch(html, /undefined|NaN/);
     // Something owned: the card is the figure again.
     state.assets = [{ id: "a1", what: "Bank One savings", category: "Cash", amount: 500 }];
     assert.match(homeSummaryHtml("2026-10-14", { netWorth: 500, items: [], todos: [] }), /<b class="home-big">\$500<\/b>/);
   } finally { Object.assign(state, keep); }
+});
+
+test("an empty state names its next step as a control, or says there's nothing to do (#255 step 3)", async function(){
+  const { emptyStateHtml } = await import("../src/lib/empty.js");
+  assert.match(emptyStateHtml("No accounts <yet>.", { add: "#addAccountBtn", label: "+ Add account" }),
+    /^<p class="ledger-note empty-state">No accounts &lt;yet>\. <button type="button" class="link-btn empty-state-go" data-empty-add="#addAccountBtn">\+ Add account<\/button><\/p>$/);
+  assert.match(emptyStateHtml("Needs a person.", { go: "expenses/income", label: "Go to Income →" }), /data-go="expenses\/income">Go to Income →/);
+  assert.match(emptyStateHtml("Up above.", { scroll: "#sharedGroups", label: "Go ↑" }), /data-empty-scroll="#sharedGroups"/);
+  assert.match(emptyStateHtml("Pick one.", { attrs: { "data-asset-person-filter": "" }, label: "Show everyone" }), /data-asset-person-filter="">Show everyone/);
+  assert.match(emptyStateHtml("All clear.", { done: true }), /data-empty="done">All clear\.<\/p>$/);
+  assert.match(emptyStateHtml("Add one below.", { beside: true }), /data-empty="beside">Add one below\.<\/p>$/);
+  assert.throws(function(){ emptyStateHtml("No next step."); }, /needs its next step/);
+  assert.throws(function(){ emptyStateHtml("x", { attrs: { onclick: "y" }, label: "z" }); }, /Not a data attribute/);
+});
+
+test("a report with nothing to show says what it needs, not a table of $0 (#255 step 3)", async function(){
+  const { reportIsEmpty, reportEmptyHtml } = await import("../src/components/reports.js");
+  const columns = [{ key: "m", label: "Month" }, { key: "in", label: "In", num: true }, { key: "out", label: "Out", num: true }];
+  assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [] }), true);
+  assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [{ cells: { m: "Jul", in: 0, out: 0 } }, { cells: { m: "Aug", in: "", out: null } }] }), true);
+  assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [{ cells: { m: "Jul", in: 0, out: 12.5 } }] }), false);
+  assert.match(reportEmptyHtml({ key: "cashflow" }), /needs money in and out[\s\S]*data-go="expenses\/spending">Go to Spending →/);
+  assert.match(reportEmptyHtml({ key: "tax" }), /Gross income row with a Person[\s\S]*data-go="expenses\/income"/);
+  assert.match(reportEmptyHtml({ key: "unknown" }), /data-empty="done"/);
 });
 
 test("the period button and menu render the selected year and its months", async function(){

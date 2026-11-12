@@ -3,6 +3,7 @@ import { matchRule, mergeSimilarRules } from "../calc/import-rules.js";
 import { normaliseDescription } from "../calc/bank-import.js";
 import { incomeTargets } from "../calc/received.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Settings → Import rules (v3.60.0) ----------------
 // The bank import learns a rule every time a row is confirmed ("FERN CAFE" → Coffee), and until
@@ -58,7 +59,7 @@ export function rulesPageHtml(lines){
     '<label class="cf-filter"><span>File under line</span><select class="field-control" data-rl-new="line">' + optionList(lineOpts, "", "— pick a line —") + '</select></label>' +
     '<button type="button" class="btn btn-sm" data-rl-add>+ Add rule</button></div></div>';
   if(!rules.length){
-    return testHtml + '<p class="ledger-note" style="margin:0 0 10px">No rules yet. Every row you confirm in a bank import teaches one, or add one here before your first import.</p>' + addHtml;
+    return testHtml + emptyStateHtml("No rules yet. Every row you confirm in a bank import teaches one, or add one here before your first import.", { beside: true }) + addHtml;
   }
   var labelFor = function(r){
     if(r.incomeTarget) return (incomeOpts.find(function(o){ return o.value === r.incomeTarget; }) || {}).label || "";

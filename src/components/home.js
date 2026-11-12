@@ -22,6 +22,7 @@ import { transactionDisplayName } from "../calc/ledger.js";
 import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
 import { autoPayCardHtml } from "./autopay.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -90,8 +91,7 @@ export function homeSummaryHtml(today, opts){
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
   if(nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length)
     nwCard = '<div class="home-card home-nw is-empty" data-home-card="nw"><span class="home-k">Net worth</span>' +
-      '<p class="home-note">Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.</p>' +
-      '<button type="button" class="link-btn home-link" data-home-go="networth">Go to Net worth →</button></div>';
+      emptyStateHtml("Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.", { go: "networth", label: "Go to Net worth →", className: "home-note" }) + '</div>';
 
   var ym = selectedMonth(today);
   // Planned against the household as it is (Current situation), not whichever scenario is selected.
@@ -113,8 +113,7 @@ export function homeSummaryHtml(today, opts){
   // #309 (pages.md §4): a month with no pay, no budget and nothing logged says so, with the first step — not six $0s.
   var monthEmpty = !r.income.length && !r.incomePlanned && !r.plannedSpend && !r.transactions && !r.spent && !r.incomeReceived;
   if(monthEmpty) monthCard = '<div class="home-card home-month is-empty" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
-    '<p class="home-note">Nothing planned or logged yet — the month fills in from your pay and your budget.</p>' +
-    '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="income">Go to Income →</button></div>';
+    emptyStateHtml("Nothing planned or logged yet — the month fills in from your pay and your budget.", { go: "expenses/income", label: "Go to Income →", className: "home-note" }) + '</div>';
   else monthCard += '<p class="home-plan-context">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) +
     '</b> · estimate from your budget' + (reserve.coveredMonths != null ? '<br>Cash and offsets cover <b>' + reserve.coveredMonths.toFixed(1) + ' months</b> of essential costs' : '<br>Add essential costs to assess your reserve') + '</p></div>';
 
@@ -124,7 +123,7 @@ export function homeSummaryHtml(today, opts){
       var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
       return '<li><span title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + (b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "") + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
     }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
-    : '<p class="home-note">Nothing expected. Bills appear here once a payment has been logged against their budget line.</p>') + '</div>';
+    : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Spending →", className: "home-note" })) + '</div>';
 
   var todos = opts.todos || homeTodos();
   var more = todos.length - HOME_TODO_MAX;

@@ -5,6 +5,7 @@ import { monthDetail, monthTrend, shiftMonth } from "../calc/monthdetail.js";
 import { ipLoansMonthly } from "../calc/property.js";
 import { netWorthCheck, gapReading } from "../calc/nwcheck.js";
 import { budgetLineItems, transactionCategory } from "./expenses.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Reports → Month in detail (v3.81.0) ----------------
 var NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -54,7 +55,7 @@ export function monthDetailHtml(){
   var head = '<div class="md-head"><button type="button" class="icon-btn" data-md-step="-1" aria-label="Previous month">‹</button><h2>' + escapeAttr(label(ym)) + '</h2>' +
     '<button type="button" class="icon-btn" data-md-step="1" aria-label="Next month"' + (ym >= thisMonth ? ' disabled' : '') + '>›</button></div>';
   if(!f.count && !f.in){
-    return '<section class="rp-sheet md">' + head + strip + '<p class="ledger-note">Nothing logged for ' + escapeAttr(label(ym)) + '. Import a statement for it on Cash flow → Spending.</p></section>';
+    return '<section class="rp-sheet md">' + head + strip + emptyStateHtml("Nothing logged for " + label(ym) + ". Import a statement for it on Cash flow → Spending.", { go: "expenses/spending", label: "Go to Spending →" }) + '</section>';
   }
   var soFar = d.inProgress ? '<p class="ledger-note md-sofar">' + escapeAttr(label(ym)) + ' so far, up to day ' + d.throughDay + ' — “usual” here is a normal month up to the same day.</p>' : '';
   var base = d.baseline.length ? 'Usual is the middle of ' + d.baseline.length + ' month' + (d.baseline.length === 1 ? '' : 's') + ' before it (' + d.baseline.map(short).reverse().join(", ") + ').' : 'No earlier months logged yet, so there\'s no usual to compare with.';

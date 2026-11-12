@@ -3,6 +3,7 @@ import { goalsOverview } from "../calc/savegoals.js";
 import { fmtCurrency0, fmtPercent0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { fieldHtml } from "../lib/field.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Accounts → Savings goals (v3.65.0) ----------------
 export var goalOpen = {};
@@ -60,7 +61,7 @@ export function goalCardHtml(g, i, opts){
 
 export function goalsSectionHtml(today, surplusMonthly){
   var ov = goalsOverview(today || localDateStr(), surplusMonthly);
-  if(!ov.goals.length) return '<p class="ledger-note" style="margin:0 0 10px">No goals yet. A goal is a target by a date — a house deposit, an emergency fund — measured on the accounts you keep it in, so it moves whenever their balances do.</p>' +
+  if(!ov.goals.length) return emptyStateHtml("No goals yet. A goal is a target by a date — a house deposit, an emergency fund — measured on the accounts you keep it in, so it moves whenever their balances do.", { beside: true }) +
     '<button type="button" class="btn btn-sm" data-goal-add>+ Add goal</button>';
   var cover = ov.surplusMonthly == null || !ov.neededMonthly ? '' :
     '<p class="sgl-cover ' + (ov.covered ? "ok" : "warn") + '">Your goals need <b>' + money(ov.neededMonthly) + '/mo</b> together; the plan leaves <b>' + money(ov.surplusMonthly) + '/mo</b>' +

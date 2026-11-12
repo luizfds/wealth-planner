@@ -38,6 +38,8 @@
 //                 deposit over 100% or a term of 0 years is said, not clamped
 //   scenariocalcfields — the purchase and invest calculators on the shared field (#254): skin, 44px, 16px text and
 //                 tied labels at 320–1280px in both themes; a click on a label focuses its field; the LMI quote reads whole
+//   emptystates — #255 step 3: an empty household's empty states take you on — a link to the page and tab where the
+//                 step is done, the page's own add, a scroll to the list it means — and a report says what it needs
 //   firstrunpath — #309: "Start from scratch" to a household — one setup flow and one progress count at a time, sample
 //                 data offered once, one way back into a skipped setup (after Reset too), no $0 cards or to-dos
 //   setupfields — the first-run setup on the shared field (#254): every step at 320–1280px in both themes, a typed
@@ -222,6 +224,21 @@ async function go(page, pageId, subAttr, sub){
 }
 // "Guided setup", and if the click can't land, what was in its way. On PR #311 it timed out behind setup's own
 // backdrop, and the log couldn't say whether setup was already open or hadn't finished closing (#282).
+// An empty household, loaded the way "Start from scratch" opens it. The app is left first, for a plain file on the same
+// site: a save the sample household still had pending (the activity log's, a second after its last change) landed after
+// the storage was cleared and before the reload, and the "empty" household loaded with everything in it.
+async function emptyHousehold(page){
+  await page.goto(base + '/styles.css');
+  await page.evaluate(() => { localStorage.removeItem('wealthPlanner.v1'); localStorage.setItem('wealthPlanner.tour', 'skipped'); });
+  await page.goto(base + '/index.html');
+  await ready(page, 'an empty household');
+  // It opens by itself on an empty household: if it doesn't, say what the household had.
+  await page.waitForSelector('#firstRunRoot [role="dialog"]', { timeout: 15000 }).catch(async () => {
+    throw new Error('the empty household opened no setup: ' + JSON.stringify(await page.evaluate(async () => { const m = await import('/src/state.js'), f = await import('/src/components/firstrun.js');
+      return { income: m.state.income.length, shared: m.state.shared.length, accounts: (m.state.accounts || []).length, assets: m.state.assets.length, done: m.state.firstRunDone, skipped: m.state.firstRunSkipped,
+        open: f.firstRun.open, pending: f.firstRun.pending, stored: (localStorage.getItem('wealthPlanner.v1') || '').length, page: document.body.getAttribute('data-current-page'), dialogs: document.querySelectorAll('.app-dialog').length }; })));
+  });
+}
 // #309: how many progress counts are on screen — "Step 1 of 5", "step 1 of 4", "0 of 5 sections" — with their words.
 const progressCounts = page => page.evaluate(() => {
   const seen = [];
@@ -1930,9 +1947,7 @@ const JOURNEYS = {
   // #309: what a person starting from scratch meets, from an empty household's first load to a saved pay row.
   async firstrunpath(page){
     // An empty household, loaded the way "Start from scratch" opens it (no ?mock): the setup sheet opens by itself.
-    await page.evaluate(() => { localStorage.removeItem('wealthPlanner.v1'); localStorage.setItem('wealthPlanner.tour', 'skipped'); });
-    await page.goto(base + '/index.html');
-    await ready(page, 'an empty household');
+    await emptyHousehold(page);
     const R = '#firstRunRoot ';
     await page.locator(R + '[role="dialog"]').waitFor();
     const onScreen = sel => page.locator(sel).evaluateAll(es => es.filter(e => e.getClientRects().length && !e.closest('[hidden]')).length);
@@ -1953,7 +1968,7 @@ const JOURNEYS = {
     const zeros = await page.evaluate(() => [...document.querySelectorAll('[data-home-card]')].filter(c => c.getClientRects().length && /\$0\b/.test(c.innerText)).map(c => c.getAttribute('data-home-card')));
     check(!zeros.length, 'cards showing $0 for an empty household: ' + zeros.join(', '));
     check(await onScreen('[data-home-card="todo"] .home-todo-btn') === 0, 'an empty household was given to-dos');
-    check(await onScreen('[data-home-card="month"] [data-home-sub="income"]') === 1, "the empty month doesn't offer its next step");
+    check(await onScreen('[data-home-card="month"] [data-go="expenses/income"]') === 1, "the empty month doesn't offer its next step");
     // Back in, from the one way back: the sheet, and its count alone again; through to a first pay row.
     await click(page, '#dashboardSetup [data-firstrun-open]');
     await page.locator(R + '[role="dialog"]').waitFor();
@@ -1974,6 +1989,51 @@ const JOURNEYS = {
     await answerDialog(page, true);
     await until(page, () => !!document.querySelector('#dashboardSetup [data-firstrun-open]'));
     check(await onScreen('#dashboardSetup [data-firstrun-open]') === 1, 'after Reset, there was no way into setup');
+  },
+  // #255 step 3: an empty state's next step works, of each kind, in an empty household.
+  async emptystates(page){
+    await emptyHousehold(page);
+    await page.locator('#firstRunRoot [data-fr-close]').click();
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    const at = () => page.evaluate(() => {
+      const p = document.body.getAttribute('data-current-page'), pick = sel => { const a = document.querySelector(sel); return a ? a.getAttribute(sel.match(/\[([a-z-]+)\]/)[1]) : null; };
+      return p + '/' + (pick('#expensesSubnav [data-expenses-sub][aria-current="page"]') || pick('#taxSubnav [data-tax-sub][aria-current="page"]') || '');
+    });
+    // A link: Tax → Returns has no one to make a return for yet, and goes to Income to add them.
+    await go(page, 'tax', 'data-tax-sub', 'returns');
+    await click(page, '#page-tax .empty-state [data-go="expenses/income"]');
+    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="income"][aria-current="page"]'));
+    check((await at()) === 'expenses/income', 'Tax → Returns went to ' + await at() + ', not Cash flow → Income');
+    // The page's own add: Spending's opens quick log, Accounts' a new account, People's a new person.
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    await click(page, '#page-expenses .empty-state [data-empty-add="#quickLogBtn"]');
+    await page.locator('#quickLogRoot [role="dialog"]').waitFor();
+    await page.keyboard.press('Escape');
+    await until(page, () => !document.querySelector('#quickLogRoot [role="dialog"]'));
+    await go(page, 'accounts');
+    const accounts = await st(page, '(state.accounts || []).length');
+    await click(page, '#page-accounts .empty-state [data-empty-add="#addAccountBtn"]');
+    await eventually(async () => await st(page, '(state.accounts || []).length') > accounts);
+    check(await st(page, '(state.accounts || []).length') === accounts + 1, '+ Add account in the empty state added no account');
+    await go(page, 'tax', 'data-tax-sub', 'people');
+    await click(page, '#page-tax .empty-state [data-empty-add="#addPersonBtn"]');
+    await answerDialog(page, true, 'Alex');
+    await until(page, () => /Alex/.test(document.getElementById('page-tax').innerText));
+    check(/Alex/.test(await page.locator('#page-tax').innerText()), '+ Add person in the empty state added no one');
+    // A scroll: the trim card's "budget lines" are above it, and the link brings them into view.
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await page.evaluate(() => { const c = document.getElementById('trimCard'); if(c){ c.open = true; c.scrollIntoView(); } });
+    await click(page, '#trimCard .empty-state [data-empty-scroll]');
+    // In view: its top in the upper half of the screen (a header or line above can sit over its first few pixels).
+    await page.waitForFunction(() => { const r = document.getElementById('sharedGroups').getBoundingClientRect(); return r.top > -40 && r.top < innerHeight / 2; }, null, { timeout: 5000 })
+      .catch(async () => { throw new Error('the budget lines did not come into view: ' + JSON.stringify(await page.evaluate(() => ({ top: Math.round(document.getElementById('sharedGroups').getBoundingClientRect().top), y: scrollY, page: document.body.getAttribute('data-current-page'), modal: !!document.querySelector('[role="dialog"]'), active: document.activeElement && document.activeElement.className })))); });
+    // A report with nothing to show: what it needs, and the way there — no table of $0.
+    await go(page, 'reports', 'data-report', 'cashflow');
+    check(!await page.locator('#reportSheet .rp-table').count(), 'an empty Monthly cash flow drew its table');
+    check(/needs money in and out/.test(await page.locator('#reportSheet .empty-state').innerText()), "an empty report doesn't say what it needs");
+    await click(page, '#reportSheet .empty-state [data-go="expenses/spending"]');
+    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="spending"][aria-current="page"]'));
+    check((await at()) === 'expenses/spending', 'the report went to ' + await at() + ', not Spending');
   },
   async propertycostfields(page){
     await quiet(page);

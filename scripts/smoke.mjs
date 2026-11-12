@@ -325,6 +325,56 @@ if(!SHOTS){
   errors.splice(0).forEach(e => failures.push(where + ": " + e));
   await ctx.close();
 }
+// #255 step 3 (pages.md §4): every view of an empty household, every empty state with its next step. One made with
+// lib/empty.js (.empty-state) has a control in it, controls straight after it (data-empty="beside") or says there's
+// nothing to do (data-empty="done"). A sentence that reads as an empty state but was written by hand fails, unless
+// the row it's in has its own button (a checklist step) — an intro or a setting's value isn't one.
+if(!SHOTS){
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const page = await ctx.newPage();
+  await page.goto(base + "/index.html");
+  await page.waitForFunction(() => document.documentElement.hasAttribute("data-wp-settled"), null, { timeout: 15000 });
+  await page.evaluate(() => { const c = document.querySelector("[data-fr-close]"); if(c) c.click(); });
+  await page.waitForTimeout(300);
+  for (const [pg, attr, subs] of VIEWS) {
+    await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b) b.click(); }, pg);
+    await page.waitForTimeout(300);
+    for (const sub of subs) {
+      if(sub){
+        await page.evaluate(([a, s]) => { if(a === 'report'){ const c = document.querySelector('[data-report-choose]'); if(c) c.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);
+        await page.waitForTimeout(300);
+      }
+      await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
+      await page.waitForTimeout(150);
+      const where = "empty household 390px " + pg + (sub ? "/" + sub : "");
+      const bad = await page.evaluate(() => {
+        const out = [], shown = e => e.getClientRects().length && !e.closest("[hidden]");
+        const pageEl = document.querySelector(".app-page:not([hidden])");
+        const control = el => !!el && !!el.querySelector('button:not([disabled]), a[href], input, select, textarea, [role="button"]');
+        pageEl.querySelectorAll(".empty-state").forEach(e => {
+          if(!shown(e)) return;
+          const kind = e.getAttribute("data-empty"), text = e.textContent.trim().slice(0, 60);
+          if(kind === "done") return;
+          if(kind === "beside"){ const next = e.nextElementSibling; if(!(next && (next.matches('button, a[href], input, select, form') || control(next)))) out.push('"' + text + '" says its controls follow, and none do'); return; }
+          if(!control(e)) out.push('"' + text + '" has no next step');
+        });
+        const EMPTY = /\b(no|nothing|none)\b[^.]{0,80}\b(yet|here|to (show|report|flag|fix|suggest))\b|appears? here once|will (appear|show) (here )?once|\bnot (set|entered) yet\b|nothing (to|in|logged|planned|expected)/i;
+        [...pageEl.querySelectorAll("p, li, small, span, div")].filter(shown).forEach(e => {
+          if(e.closest(".empty-state, .page-intro, .parts-auto") || !EMPTY.test(e.textContent) || e.textContent.trim().length > 260) return;
+          if([...e.children].some(c => EMPTY.test(c.textContent) && shown(c))) return;
+          const row = e.closest("li, .sk-block, tr");
+          if(row && control(row)) return;
+          out.push('"' + e.textContent.trim().replace(/\s+/g, " ").slice(0, 60) + '" is an empty state not made with emptyStateHtml');
+        });
+        return out;
+      });
+      bad.forEach(f => failures.push(where + ": " + f));
+    }
+  }
+  await ctx.close();
+}
 await browser.close();
 server.close();
 if(failures.length && SHOTS){

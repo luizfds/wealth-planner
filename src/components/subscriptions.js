@@ -7,6 +7,7 @@ import { state } from "../state.js";
 import { subscriptionList, subscriptionsYearly, homeLineIds } from "../calc/subscriptions.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 export var subsUi = { showHidden: false };
 
@@ -16,7 +17,7 @@ export function subscriptionsHtml(today, st){
   var list = subscriptionList(st.transactions, today, st.subscriptionNotes || {}, { homeLines: homeLineIds(st) });
   var shown = list.filter(function(s){ return subsUi.showHidden || !s.ignored; });
   var hidden = list.length - list.filter(function(s){ return !s.ignored; }).length;
-  if(!list.length) return '<p class="ledger-note" style="margin:0">Nothing charges on a steady rhythm in the spending logged yet. Once a payee has charged about the same amount three times on a regular beat, it shows here.</p>';
+  if(!list.length) return emptyStateHtml("Nothing charges on a steady rhythm in the spending logged yet. Once a payee has charged about the same amount three times on a regular beat, it shows here.", { go: "expenses/spending", label: "Go to Spending →" });
   var row = function(s){
     var name = s.name || s.label;
     var when = s.stopped ? '<span class="sub-stopped">Stopped — last charged ' + escapeAttr(fmtDate(s.last)) + '</span>'

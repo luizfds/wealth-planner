@@ -5035,8 +5035,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      sample data beside the card's button, and an empty household's This month and Net worth say what's missing with
      a link onward instead of $0. Guided setup stays the one way back, after Reset too. Journey: `firstrunpath`.
    - `[~]` #255 step 3, empty states: every empty, no-results and report-empty state says what fills it, with the next
-     step as a control (pages.md §4), and the smoke run checks each one in the empty household. Step 4 (tooltip help
-     to ⓘ) follows in its own PR.
+     step as a control (pages.md §4) — `emptyStateHtml()` in `lib/empty.js`, about 30 states and every report — and
+     the smoke run checks each one in the empty household. Also: a page change no longer closes a sheet opened while it
+     waited to apply (on a slow device, startup closed an empty household's setup and marked it skipped). Step 4
+     (tooltip help to ⓘ) follows in its own PR.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

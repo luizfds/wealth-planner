@@ -100,8 +100,8 @@
    keyboard and never triggers the zoom, and forcing 16px on one would blow out the badge-styled
    dropdowns (.prop-kind is 10.5px uppercase by design).
    In the phone layer it beats every component's own size for a field (.m-edit-field input, .calc-field input…)
-   by layer; it stays !important for the two fields sized by an inline style (the stamp duty override, the shares
-   paste box), which a layered rule can only beat that way. */
+   by layer; it stays !important for the field sized by an inline style (the shares paste box), which a layered rule
+   can only beat that way. */
 /* #254: every text-entry type — url, month, time, week and datetime-local had been left out (the price Sheet's link
    and the month picker zoomed) — and on any touch screen, not only up to 640px: a tablet is touch too, and at 768px
    its fields were 13px. These touch floors can apply above 880px (a large touch screen); a desktop

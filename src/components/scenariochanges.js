@@ -58,7 +58,7 @@ var ODD = {
 function field(c, scenario, key, label, type, extra){
   var v = c[key] == null ? "" : c[key];
   var marked = !!(fieldMarks[key] || (key === "fromYear" && (fieldMarks.when || fieldMarks.whenAge || fieldMarks.whenCash)));
-  var attrs = ' data-scf="' + key + '" data-scf-id="' + escapeAttr(c.id) + '" data-scf-scenario="' + escapeAttr(scenario) + '"';
+  var attrs = ' class="field-control" data-scf="' + key + '" data-scf-id="' + escapeAttr(c.id) + '" data-scf-scenario="' + escapeAttr(scenario) + '"';
   var input;
   if(type === "select") input = '<select' + attrs + '>' + extra.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>';
   else input = '<input type="' + type + '"' + (type === "number" ? ' step="any"' : '') + attrs + ' value="' + escapeAttr(v) + '"' + (extra || "") + '>';
@@ -137,7 +137,7 @@ function amountChangeHtml(c, scenario){
   var monthlyDiff = periodsOf(Number(c.amount) || 0, r.freq).monthly - periodsOf(today, r.freq).monthly;
   return '<div class="sc-change"><span class="sc-what"><b>' + escapeAttr(r.what || "A line") + '</b><small>' + hit.where + ' · today ' + fmtCurrency2.format(today) + ' ' + escapeAttr(String(r.freq || "").toLowerCase()) +
       (Math.abs(monthlyDiff) >= 0.5 ? ' · ' + (monthlyDiff > 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(monthlyDiff)) + '/mo' : '') + '</small></span>' +
-    '<label class="sc-amt"><span class="visually-hidden">Amount in ' + escapeAttr(scenario) + '</span><input type="number" step="0.01" min="0" value="' + (Number(c.amount) || 0) + '" data-sc-amount="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr((r.what || "Line") + " in " + scenario + ", " + String(r.freq || "").toLowerCase()) + '"><small>' + escapeAttr(String(r.freq || "").toLowerCase()) + '</small></label>' +
+    '<label class="sc-amt"><span class="visually-hidden">Amount in ' + escapeAttr(scenario) + '</span><input type="number" step="0.01" min="0" class="field-control" value="' + (Number(c.amount) || 0) + '" data-sc-amount="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr((r.what || "Line") + " in " + scenario + ", " + String(r.freq || "").toLowerCase()) + '"><small>' + escapeAttr(String(r.freq || "").toLowerCase()) + '</small></label>' +
     '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove the change to " + (r.what || "this line")) + '">✕</button></div>';
 }
 function includeChangeHtml(c, scenario, draftName){
@@ -155,7 +155,7 @@ function includeChangeHtml(c, scenario, draftName){
   var a = ' data-scf-id="' + escapeAttr(c.id) + '" data-scf-scenario="' + escapeAttr(scenario) + '"';
   return '<div class="sc-change sc-include"><span class="sc-what"><b>' + escapeAttr(changeSummary(c)) + badge + '</b>' +
       '<small>' + (c.scenario ? (list.length ? escapeAttr(list.join(" · ")) : "Nothing in it differs from today yet") + (left.length ? " — " + escapeAttr(left.join(" and ")) + " stay" + (left.length === 1 ? "s" : "") + " with it" : "") : "") + '</small>' +
-      '<label class="scf"><span>Include</span><select data-scf="scenario"' + a + '>' + (c.scenario ? '' : '<option value="">— pick a scenario —</option>') +
+      '<label class="scf"><span>Include</span><select class="field-control" data-scf="scenario"' + a + '>' + (c.scenario ? '' : '<option value="">— pick a scenario —</option>') +
         options.map(function(n){ return '<option value="' + escapeAttr(n) + '"' + (n === c.scenario ? " selected" : "") + '>' + escapeAttr(n) + '</option>'; }).join("") + '</select></label></span>' +
     '<button type="button" class="btn btn-danger btn-sm" data-sc-del="' + escapeAttr(c.id) + '" data-sc-scenario="' + escapeAttr(scenario) + '" aria-label="' + escapeAttr("Remove: " + changeSummary(c)) + '">✕</button></div>';
 }
@@ -204,8 +204,8 @@ export function scenarioChangesHtml(scenario){
       starter("rent", "<b>Rent somewhere new</b><small>a bigger place, a cheaper one</small>") + starter("ip", "<b>Buy an investment property</b><small>its rent, costs, loan and tax</small>") +
       starter("cost", "<b>A new cost or saving</b><small>childcare, a car, a gym you'd stop</small>") + '</div></div>') +
     '<div class="sc-adders"><button type="button" class="btn btn-sm" data-sc-addsheet="' + escapeAttr(scenario) + '">+ Add change</button></div>' +
-    '<div class="sc-add"><select data-sc-row="' + escapeAttr(scenario) + '" aria-label="A line that would be different in ' + escapeAttr(scenario) + '">' + rowOptionsHtml() + '</select>' +
-      '<input type="number" step="0.01" min="0" data-sc-new-amount="' + escapeAttr(scenario) + '" placeholder="Amount, same frequency" aria-label="Its amount in ' + escapeAttr(scenario) + '">' +
+    '<div class="sc-add"><select class="field-control" data-sc-row="' + escapeAttr(scenario) + '" aria-label="A line that would be different in ' + escapeAttr(scenario) + '">' + rowOptionsHtml() + '</select>' +
+      '<input type="number" step="0.01" min="0" class="field-control" data-sc-new-amount="' + escapeAttr(scenario) + '" placeholder="Amount, same frequency" aria-label="Its amount in ' + escapeAttr(scenario) + '">' +
       '<button type="button" class="btn btn-sm" data-sc-add="' + escapeAttr(scenario) + '">A line costs a different amount</button></div></div>';
 }
 // The baseline's block: today's home is in Budget now, so this says where, and what it adds up to.

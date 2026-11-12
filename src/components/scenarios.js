@@ -72,7 +72,7 @@ export function scenarioEditorHeadHtml(){
   var name = editing.name, changed = editing.key !== name && draftChanged(name);
   return '<div class="sc-edit-head"><button type="button" class="link-btn" data-sc-cancel>← Scenarios</button>' +
     // v3.194.0 (item 225): renamed in place.
-    '<h2><input class="sc-name" data-sc-rename-inline value="' + escapeAttr(name || "") + '" aria-label="Scenario name" maxlength="60"></h2>' +
+    '<h2><input class="sc-name inline-name" data-sc-rename-inline value="' + escapeAttr(name || "") + '" aria-label="Scenario name" maxlength="60"></h2>' +
     (editing.key !== name ? '<span class="sc-edit-state' + (changed ? ' is-changed' : '') + '">' + (changed ? "Unsaved changes" : "No changes yet") + '</span>' +
       '<span class="sc-edit-actions"><button type="button" class="btn btn-sm btn-ghost" data-sc-cancel>Cancel</button>' +
       '<button type="button" class="btn btn-sm btn-primary" data-sc-save' + (changed ? '' : ' disabled') + '>Save</button></span>' : '') + '</div>' +
@@ -84,7 +84,7 @@ export function scenarioEditorHeadHtml(){
 export function scenarioEditorSubHtml(){
   var name = editing.name, key = editing.key, elsewhere = key && key !== name && livesElsewhere(key);
   if(!name) return "";
-  return '<div class="sc-edit-sub"><textarea class="sc-note" data-sc-note rows="1" placeholder="Why you\'re looking at this — a note for later (shows on its card)" aria-label="A note on this scenario">' + escapeAttr((state.scenarioNotes || {})[name] || "") + '</textarea>' +
+  return '<div class="sc-edit-sub"><textarea class="sc-note field-control" data-sc-note rows="1" placeholder="Why you\'re looking at this — a note for later (shows on its card)" aria-label="A note on this scenario">' + escapeAttr((state.scenarioNotes || {})[name] || "") + '</textarea>' +
       (elsewhere ? '<p class="sc-elsewhere">Lives somewhere else — <b>' + fmtCurrency0.format(scenarioHomeMonthly(key)) + '/mo</b> to live there (rent and home costs), instead of today\'s home.</p>' : '') + '</div>';
 }
 // Item 257: a scenario's month against today's — added, gone, the net, what of a new loan is principal, what isn't
@@ -415,6 +415,13 @@ function modernCostCompBarHtml(rowMeta){
     return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
   }).join("") + '</div>';
 }
+// #254: an id for a calculator field, so its label is tied to it. One scenario's panels show at a time; its place
+// among the scenarios keeps two ids apart even so, and a name with spaces or quotes never reaches an id.
+function calcFieldId(scenario, name){
+  return "calc" + Math.max(0, Object.keys(state.purchase || {}).indexOf(scenario)) + "-" + name;
+}
+function calcLabel(scenario, name, text){ return '<label for="' + calcFieldId(scenario, name) + '">' + text + '</label>'; }
+function calcAttrs(scenario, name, cls){ return 'id="' + calcFieldId(scenario, name) + '" class="' + cls + ' field-control"'; }
 function renderPurchasePanelHtml(scenario){
   var cfg = state.purchase[scenario];
   if(!cfg) return "";
@@ -428,31 +435,31 @@ function renderPurchasePanelHtml(scenario){
     var modernCostsRows = costRowMeta(cfg).map(function(m){
       return '<div class="cc-row m-cost-row">' +
         '<span class="m-row-dot series-color-' + m.colorIdx + '" aria-hidden="true"></span>' +
-        '<input type="text" class="cc-what" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
+        '<input type="text" class="cc-what field-control field-compact" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
         // Item 254: a government fee follows the state and price (titled so); typing a figure makes it yours.
-        '<input type="number" step="0.01" min="0" class="cc-amount" value="' + Math.round(m.amount * 100) / 100 + '" aria-label="Cost amount"' + (m.cost.fee ? ' data-cc-fee="' + escapeAttr(m.cost.fee) + '" title="Worked out from the state and price — type a figure to use your own"' : '') + '>' +
+        '<input type="number" step="0.01" min="0" class="cc-amount field-control field-compact" value="' + Math.round(m.amount * 100) / 100 + '" aria-label="Cost amount"' + (m.cost.fee ? ' data-cc-fee="' + escapeAttr(m.cost.fee) + '" title="Worked out from the state and price — type a figure to use your own"' : '') + '>' +
         '<button type="button" class="btn btn-danger btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
       '</div>';
     }).join("");
     var modernCostsCompBar = modernCostCompBarHtml(costRowMeta(cfg));
     var stampDutyHtml = out.stampDuty === null
-      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty" value="' + (Number(cfg.manualStampDuty) || 0) + '" style="width:100%;font-family:var(--font-num);font-size:var(--fs-lg);background:transparent;border:1px solid var(--border);border-radius:6px;padding:2px 4px;">'
+      ? '<input type="number" step="1" min="0" class="calc-manual-stampduty field-control" value="' + (Number(cfg.manualStampDuty) || 0) + '" aria-label="Stamp duty">'
       : fmtCurrency0.format(out.stampDuty);
     body =
       '<div class="calc-body">' +
         '<div class="calc-grid">' +
-          '<div class="calc-field"><label>Property price</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="1000" min="0" class="calc-price" value="' + cfg.price + '"></div></div>' +
-          '<div class="calc-field" title="Below 20% usually means paying Lenders Mortgage Insurance (LMI) — see the settlement costs below."><label>Deposit %</label><input type="number" step="1" min="0" max="100" class="calc-depositPct" value="' + cfg.depositPct + '"><span class="calc-hint" data-out="deposit">' + fmtCurrency0.format(out.depositAmt) + '</span></div>' +
-          '<div class="calc-field"><label>Loan term (years)</label><input type="number" step="1" min="1" class="calc-term" value="' + cfg.termYears + '"></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "price", "Property price") + '<div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="1000" min="0" ' + calcAttrs(scenario, "price", "calc-price") + ' value="' + cfg.price + '"></div></div>' +
+          '<div class="calc-field" title="Below 20% usually means paying Lenders Mortgage Insurance (LMI) — see the settlement costs below.">' + calcLabel(scenario, "deposit", "Deposit %") + '<input type="number" step="1" min="0" max="100" ' + calcAttrs(scenario, "deposit", "calc-depositPct") + ' value="' + cfg.depositPct + '"><span class="calc-hint" data-out="deposit">' + fmtCurrency0.format(out.depositAmt) + '</span></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "term", "Loan term (years)") + '<input type="number" step="1" min="1" ' + calcAttrs(scenario, "term", "calc-term") + ' value="' + cfg.termYears + '"></div>' +
           // Item 251: bought now, or in a month to come — renting until then is a change of its own.
-          '<div class="calc-field" title="Leave blank to buy now. A later month: the projection owns nothing and pays nothing for it until then, and its cash leaves that year."><label>When you buy</label><input type="month" class="calc-buy-month" value="' + escapeAttr(cfg.buyMonth || "") + '"><span class="calc-hint">' + (cfg.buyMonth ? "" : "now") + '</span></div>' +
-          '<div class="calc-field"><label>State</label><select class="calc-state">' + stateOptions + '</select></div>' +
-          '<div class="calc-field" title="Overrides the global Property growth % p.a. (Projections tab) for this scenario only. Leave blank to use the global rate for every scenario alike."><label>Property growth % p.a. <span style="text-transform:none;font-weight:400">(this scenario)</span></label><input type="number" step="0.1" min="-10" max="30" class="calc-growth-override" placeholder="Global: ' + (Number(state.projection.propertyAppreciationRate) || 0) + '%" value="' + (cfg.propertyGrowthRate != null ? cfg.propertyGrowthRate : '') + '"><span class="calc-hint">' + (STATE_GROWTH_RATES[cfg.state] != null ? (cfg.state + ' long-run avg ' + STATE_GROWTH_RATES[cfg.state] + '%/yr (1980–2022) — <button type="button" class="calc-hint-link" data-use-growth="' + STATE_GROWTH_RATES[cfg.state] + '">use this</button>') : '') + '</span></div>' +
-          '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison."><label>Interest rate % p.a. (P&amp;I)</label><input type="number" step="0.05" min="0" class="calc-rate" value="' + cfg.rate + '">' +
+          '<div class="calc-field" title="Leave blank to buy now. A later month: the projection owns nothing and pays nothing for it until then, and its cash leaves that year.">' + calcLabel(scenario, "buymonth", "When you buy") + '<input type="month" ' + calcAttrs(scenario, "buymonth", "calc-buy-month") + ' value="' + escapeAttr(cfg.buyMonth || "") + '"><span class="calc-hint">' + (cfg.buyMonth ? "" : "now") + '</span></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "state", "State") + '<select ' + calcAttrs(scenario, "state", "calc-state") + '>' + stateOptions + '</select></div>' +
+          '<div class="calc-field" title="Overrides the global Property growth % p.a. (Projections tab) for this scenario only. Leave blank to use the global rate for every scenario alike."><label for="' + calcFieldId(scenario, "growth") + '">Property growth % p.a. <span style="text-transform:none;font-weight:400">(this scenario)</span></label><input type="number" step="0.1" min="-10" max="30" ' + calcAttrs(scenario, "growth", "calc-growth-override") + ' placeholder="Global: ' + (Number(state.projection.propertyAppreciationRate) || 0) + '%" value="' + (cfg.propertyGrowthRate != null ? cfg.propertyGrowthRate : '') + '"><span class="calc-hint">' + (STATE_GROWTH_RATES[cfg.state] != null ? (cfg.state + ' long-run avg ' + STATE_GROWTH_RATES[cfg.state] + '%/yr (1980–2022) — <button type="button" class="calc-hint-link" data-use-growth="' + STATE_GROWTH_RATES[cfg.state] + '">use this</button>') : '') + '</span></div>' +
+          '<div class="calc-field" title="Rate for a standard principal &amp; interest loan — get your bank/broker\'s quoted rate for an accurate comparison.">' + calcLabel(scenario, "rate", "Interest rate % p.a. (P&amp;I)") + '<input type="number" step="0.05" min="0" ' + calcAttrs(scenario, "rate", "calc-rate") + ' value="' + cfg.rate + '">' +
             // Item 249: or moved by as much as the RBA moves the cash rate.
             '<label class="calc-check-inline calc-follows" title="When the RBA moves the cash rate, both rates here move by the same amount — the rate you type is your lender\'s margin over it."><input type="checkbox" class="calc-rate-follows"' + (cfg.rateFollowsCash ? " checked" : "") + '> Moves with the RBA cash rate' + (state.cashRate && state.cashRate.rate >= 0 ? ' (' + Number(state.cashRate.rate.toFixed(2)) + '%)' : '') + '</label></div>' +
-          '<div class="calc-field" title="Interest-only rate — lenders usually price this higher than P&amp;I. Get the actual IO rate quoted by your bank, don\'t assume it matches P&amp;I."><label>Interest rate % p.a. (IO)</label><input type="number" step="0.05" min="0" class="calc-iorate" value="' + cfg.ioRate + '"></div>' +
-          '<div class="calc-field" title="Which repayment feeds your budget below and the long-term projection. Both are shown for comparison regardless of this choice."><label>Repayment type used</label><select class="calc-repaymenttype"><option value="PI"' + (cfg.repaymentType !== "IO" ? " selected" : "") + '>Principal &amp; interest</option><option value="IO"' + (cfg.repaymentType === "IO" ? " selected" : "") + '>Interest only</option></select></div>' +
+          '<div class="calc-field" title="Interest-only rate — lenders usually price this higher than P&amp;I. Get the actual IO rate quoted by your bank, don\'t assume it matches P&amp;I.">' + calcLabel(scenario, "iorate", "Interest rate % p.a. (IO)") + '<input type="number" step="0.05" min="0" ' + calcAttrs(scenario, "iorate", "calc-iorate") + ' value="' + cfg.ioRate + '"></div>' +
+          '<div class="calc-field" title="Which repayment feeds your budget below and the long-term projection. Both are shown for comparison regardless of this choice.">' + calcLabel(scenario, "repayment", "Repayment type used") + '<select ' + calcAttrs(scenario, "repayment", "calc-repaymenttype") + '><option value="PI"' + (cfg.repaymentType !== "IO" ? " selected" : "") + '>Principal &amp; interest</option><option value="IO"' + (cfg.repaymentType === "IO" ? " selected" : "") + '>Interest only</option></select></div>' +
           '<div class="calc-field"><label>First home buyer <span class="calc-help" title="Applies first-home-buyer stamp duty savings: full exemption below $800k (NSW) / $600k (VIC), tapering down to no discount at $1M (NSW) / $750k (VIC). No effect when State is \'Other\' — stamp duty is entered manually there.">ⓘ</span></label><label class="calc-check-inline"><span class="switch"><input type="checkbox" class="calc-fhb"' + (cfg.firstHomeBuyer ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span> Yes</label></div>' +
         '</div>' +
         '<div class="calc-outputs-label">At settlement — one-off</div>' +
@@ -465,7 +472,7 @@ function renderPurchasePanelHtml(scenario){
           '<div class="calc-out" title="Lenders Mortgage Insurance — a one-off premium lenders charge when your deposit is under 20% (LVR over 80%), protecting the lender, not you. $0 below 80% LVR."><span>LMI</span><b data-out="lmi">' + fmtCurrency0.format(out.lmi) + '</b>' +
             // Item 254: an estimate by LVR and loan size, or the quote a broker or lender gave.
             '<small data-out="lmisrc" class="calc-lmi-src">' + (out.lmi > 0 ? (out.lmiEstimated ? "estimate — by LVR and loan size" : "your quote") : "") + '</small>' +
-            '<label class="calc-lmi-quote-wrap">Your quote <input type="number" step="1" min="0" class="calc-lmi-quote" placeholder="blank: estimate" value="' + (cfg.lmiQuote != null && cfg.lmiQuote !== "" ? escapeAttr(cfg.lmiQuote) : "") + '" aria-label="LMI quote from a broker or lender"></label>' +
+            '<label class="calc-lmi-quote-wrap">Your quote <input type="number" step="1" min="0" class="calc-lmi-quote field-control field-compact" placeholder="Estimate" value="' + (cfg.lmiQuote != null && cfg.lmiQuote !== "" ? escapeAttr(cfg.lmiQuote) : "") + '" aria-label="LMI quote from a broker or lender"></label>' +
             '<label class="calc-check-inline" data-out="lmicapwrap" style="margin-top:4px;font-size:var(--fs-xs);padding:3px 6px' + (out.lmi > 0 ? '' : ';display:none') + '"><span class="switch" style="width:26px;height:15px"><input type="checkbox" class="calc-lmi-capitalize"' + (out.lmiCapitalized ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb" style="width:11px;height:11px"></span></span></span> Capitalize into loan <span class="calc-help" title="Add the LMI premium to your loan balance instead of paying it as cash at settlement — increases your loan amount and repayments, but reduces the cash you need on hand. Most lenders default to this.">ⓘ</span></label>' +
           '</div>' +
           '<div class="calc-out"><span>Other costs</span><b data-out="othercosts">' + fmtCurrency0.format(out.otherTotal) + '</b></div>' +
@@ -517,11 +524,11 @@ function renderInvestPanelHtml(scenario){
     body =
       '<div class="calc-body">' +
         '<div class="calc-grid">' +
-          '<div class="calc-field"><label>Invest in</label><select class="invest-assettype">' + typeOptions + '</select></div>' +
-          '<div class="calc-field"><label>Starting amount</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="100" min="0" class="invest-initial" value="' + cfg.initialAmount + '"></div></div>' +
-          '<div class="calc-field"><label>Growth % p.a.</label><input type="number" step="0.1" class="invest-growth" value="' + cfg.growthRatePct + '"></div>' +
-          '<div class="calc-field"><label>Monthly contribution</label><select class="invest-contribmode"><option value="auto"' + (cfg.contributionMode !== "manual" ? " selected" : "") + '>Auto — freed-up cash flow</option><option value="manual"' + (cfg.contributionMode === "manual" ? " selected" : "") + '>Manual amount</option></select></div>' +
-          (cfg.contributionMode === "manual" ? '<div class="calc-field"><label>Manual amount / mo</label><div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="10" min="0" class="invest-manual-amount" value="' + cfg.monthlyContribution + '"></div></div>' : "") +
+          '<div class="calc-field">' + calcLabel(scenario, "investin", "Invest in") + '<select ' + calcAttrs(scenario, "investin", "invest-assettype") + '>' + typeOptions + '</select></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "initial", "Starting amount") + '<div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="100" min="0" ' + calcAttrs(scenario, "initial", "invest-initial") + ' value="' + cfg.initialAmount + '"></div></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "investgrowth", "Growth % p.a.") + '<input type="number" step="0.1" ' + calcAttrs(scenario, "investgrowth", "invest-growth") + ' value="' + cfg.growthRatePct + '"></div>' +
+          '<div class="calc-field">' + calcLabel(scenario, "contribmode", "Monthly contribution") + '<select ' + calcAttrs(scenario, "contribmode", "invest-contribmode") + '><option value="auto"' + (cfg.contributionMode !== "manual" ? " selected" : "") + '>Auto — freed-up cash flow</option><option value="manual"' + (cfg.contributionMode === "manual" ? " selected" : "") + '>Manual amount</option></select></div>' +
+          (cfg.contributionMode === "manual" ? '<div class="calc-field">' + calcLabel(scenario, "manual", "Manual amount / mo") + '<div class="calc-input-wrap"><span class="calc-currency-prefix" aria-hidden="true">$</span><input type="number" step="10" min="0" ' + calcAttrs(scenario, "manual", "invest-manual-amount") + ' value="' + cfg.monthlyContribution + '"></div></div>' : "") +
         '</div>' +
         '<p class="calc-note" data-invest-resolved>Monthly contribution used in the projection: <b>' + investResolvedMonthlyLabel(scenario, cfg) + '</b></p>' +
         '<p class="calc-note">A simple alternative to buying: your starting amount plus the monthly contribution above, compounding at the growth rate you set — no loan, stamp duty, or property math. "Auto" keeps this honestly comparable to a purchase scenario by using whatever this scenario\'s own cash flow actually frees up; switch to Manual to test a fixed contribution instead.</p>' +

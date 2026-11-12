@@ -472,3 +472,45 @@ themes, including touch tablets. Shared fields have 6px corners and 6px × 8px p
 height and 44px touch targets. Calculator/render tests and static checks pass. Review artifacts are
 under `/tmp/calculator-fields-review/` (not committed). Scenario purchase/investment fields remain a
 separate family under #254.
+
+## Scenarios: the editor, its changes, templates and calculators (#254)
+
+The last page family. Inventoried in the browser by adding one change of every kind to a draft, opening every
+"What are you weighing?" template and both calculators, then reading every visible control: 72 distinct fields, none of
+them on the shared skin.
+
+| Where | Controls | Was |
+|---|---|---|
+| A change's fields (`field()` in `scenariochanges.js`, every kind: rent elsewhere, investment property, cost, sell, extra repayment, one-off, include) | 25 kinds of field | `.scf` skin, 7px / 40px |
+| An amount change, the quick-add row | 3 | 7px / 40px |
+| Template questions (`scenariotemplates.js`) | 15 | `.fr-field`, 6px / 38px, no skin |
+| The note | 1 | dashed, 10px corners |
+| The cash-draw picker | 2 | 6px / 36px, no skin |
+| The name | 1 | its own 8px rename skin, 35px |
+| Purchase calculator | 20 | 7px / 40px; five bare browser fields (22px at 1280px); the typed stamp duty had an inline skin |
+| Invest calculator | 5 | 7px / 40px |
+
+All of them are now on the shared standard skin. The name uses the documented inline-name variant (ledger.css) at a
+heading's size. The calculator's cost rows and LMI quote use the compact variant, as Property's acquisition-cost
+list does. A change's *changed* and *unusual* states still tint the border (brass, `--warn-ink`) over the skin. The
+note keeps its autosize, starting one field tall. Classes, wiring, drafts, the leave guard, validation and every
+figure are unchanged.
+
+Each calculator grid field's visible label is now tied to it (`for`/`id`, from the scenario's place among the
+purchase configs), so a click on the label focuses the field and it is the field's name. A change's fields and the
+template questions were labelled already, by their wrapping `<label>` and by `for`. The calculators' `title` tooltips
+stay as they are: `labelFields()` would turn them into visible help lines, a larger change to these long panels than
+a skin, so that is left for #255's tooltip-help step. The typed stamp duty gains the name "Stamp duty", which it had
+lacked. The LMI quote now wraps under "Your quote" when there's no room beside it, and its placeholder is "Estimate" (what
+a blank quote uses): main's "blank: estimate" was cut off at 390 and 1280px (a 95px field), and was still too wide
+for 390px in CI's fallback font after the wrap. It reads whole at every width, for 22px more on the settlement card.
+
+Browser verification drives the real paths (a buying scenario's editor, its add-change sheet, its calculators, and
+Add scenario's templates) at 320/390/768/1024/1280px in both themes, touch below desktop. It checks 36px desktop /
+44px touch, 6px corners, 16px+ text entry on touch, and every field inside the viewport and named. It also checks
+behaviour: a price change moves the loan, an out-of-range deposit is marked with its message and not saved, an
+unusual change deposit is tinted and saved as typed, an amount change saves, the note grows, and the manual
+contribution saves. Two journeys keep it: `scenariofields` (the editor with a change of every kind, an amount change,
+and a template's questions) and `scenariocalcfields` (both calculators, label focus, the LMI placeholder). Each fails
+on main. `calcvalidation` still covers the calculators' saves and errors. With this family, every page's fields are
+on the shared skin; what remains under #254 is the first-run setup sheet and the unclassed fallback controls.

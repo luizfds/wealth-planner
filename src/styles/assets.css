@@ -81,9 +81,10 @@
 
   /* ---------------- Shares: winners/losers filter, sort, and change-window ---------------- */
   .shares-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  /* Label then control, left to right — space-between would shove the window picker to the far
-     right, away from the word that names it. */
-  .shares-toolbar-start{ justify-content:flex-start; }
+  .shares-change-summary{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-bottom:8px; }
+  .shares-change-summary .record-summary{ margin:0; }
+  .shares-change-choice{ display:flex; align-items:center; gap:6px; min-width:0; max-width:100%; }
+  .shares-change-choice .has-section-picker{ width:75px; flex:none; padding:0; border:0; background:transparent; }
   .shares-toolbar-label{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:600; }
   /* Both of these used to be .subnav containers with .subnav-item children, borrowed purely for
      the pill look. That was always a category error — they're controls inside a card, not page

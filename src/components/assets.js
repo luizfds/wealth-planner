@@ -471,7 +471,7 @@ function assetPersonLabel(){
 export var assetListUi = { filters: "", tool: "" };
 export function clearAssetListFilters(cat){
   assetPersonFilter = "";
-  if(cat === "Shares"){ sharesGainFilter = ""; sharesSortMode = ""; sharesChangeWindow = "1d"; }
+  if(cat === "Shares"){ sharesGainFilter = ""; sharesSortMode = ""; }
   renderAssets();
 }
 export function assetPersonSelectHtml(){
@@ -487,7 +487,6 @@ function assetAppliedHtml(cat){
   if(cat === "Shares"){
     if(sharesGainFilter) labels.push(SHARES_GAIN_FILTERS.find(function(f){ return f.key === sharesGainFilter; }).label);
     if(sharesSortMode) labels.push(SHARES_SORT_OPTIONS.find(function(s){ return s.key === sharesSortMode; }).label);
-    if(sharesChangeWindow !== "1d") labels.push(rangeLabel(rangeByKey(sharesChangeWindow), householdYearBasis()));
   }
   return labels.length ? '<div class="record-applied"><span>' + labels.map(escapeAttr).join(' · ') + '</span><button type="button" class="btn btn-sm btn-ghost" data-asset-list-clear="' + escapeAttr(cat) + '">Clear</button></div>' : '';
 }
@@ -877,8 +876,7 @@ function sharesGainLossGlanceHtml(items){
 function sharesCompactGlanceHtml(items){
   var s = sharesGainLossSummary(items);
   if(!s.trackedCount) return "";
-  var label = sharesWindowLabel(rangeByKey(sharesChangeWindow));
-  return '<p class="record-summary">' + escapeAttr(label) + ' gain/loss <b class="asset-trend ' + (s.gainDollar >= 0 ? 'up' : 'down') + '">' +
+  return '<p class="record-summary">Gain/loss <b class="asset-trend ' + (s.gainDollar >= 0 ? 'up' : 'down') + '">' +
     (s.gainDollar >= 0 ? '+' : '−') + fmtCurrency0.format(Math.abs(s.gainDollar)) + ' (' + fmtPercent1.format(Math.abs(s.pct)) + ')</b></p>';
 }
 
@@ -957,10 +955,7 @@ function sharesFilterSortHtml(){
   var sortHtml = '<select id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
     return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
   }).join("") + '</select>';
-  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>' +
-    '<div class="shares-toolbar shares-toolbar-start">' +
-      '<span class="shares-toolbar-label">Change</span>' + sharesChangeWindowHtml() +
-    '</div>';
+  return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>';
 }
 
 export function renderSharesSubpage(){ return keepUi(drawSharesSubpage); }
@@ -1040,12 +1035,13 @@ function drawSharesSubpage(){
     ? '<details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Shares value over time</h2></div></summary>' +
       '<div class="ledger-body"><div id="sharesHistoryPanel"></div></div></details>'
     : "";
-  var activeCount = (assetPersonFilter ? 1 : 0) + (sharesGainFilter ? 1 : 0) + (sharesSortMode ? 1 : 0) + (sharesChangeWindow !== '1d' ? 1 : 0);
+  var activeCount = (assetPersonFilter ? 1 : 0) + (sharesGainFilter ? 1 : 0) + (sharesSortMode ? 1 : 0);
   var controls = assetListControlsHtml('Shares', activeCount,
     '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="prices">Prices</button><button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="trades">Import trades</button>');
   container.innerHTML = '<div class="ledgers"><section class="ledger record-list">' + listToolbarHtml('Shares', fmtCurrency0.format(total), controls) +
     '<div class="ledger-body"><div id="assetListFilters-Shares" class="record-filter-panel"' + (assetListUi.filters === 'Shares' ? '' : ' hidden') + '><div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-asset-list-filters="Shares">Done</button></div>' + assetPersonSelectHtml() + toolbar + '</div>' + assetAppliedHtml('Shares') +
-    '<div id="sharesGlance">' + sharesCompactGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>' + fxWarn +
+    '<div class="shares-change-summary"><div class="shares-change-choice"><span class="shares-toolbar-label">Change</span>' + sharesChangeWindowHtml() + '</div>' +
+    '<div id="sharesGlance">' + sharesCompactGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div></div>' + fxWarn +
     '<div class="record-tool-panel" data-asset-tool-panel="prices"' + (assetListUi.tool === 'prices' ? '' : ' hidden') + '><button type="button" class="btn btn-sm" data-asset-list-tool="">Done</button>' + (pasteTool || '<p class="record-summary">Add a holding to set its prices.</p>') + '</div>' +
     '<div class="record-tool-panel" data-asset-tool-panel="trades"' + (assetListUi.tool === 'trades' ? '' : ' hidden') + '><button type="button" class="btn btn-sm" data-asset-list-tool="">Done</button>' + tradesCardHtml() + '</div>' + body + '</div></section>' +
     (allData.items.length ? '<details class="ledger"><summary><h2 class="section-title">Gain/loss breakdown</h2></summary><div class="ledger-body">' + sharesGainLossGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div></details>' : '') +

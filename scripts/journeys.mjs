@@ -532,6 +532,55 @@ const JOURNEYS = {
     await page.locator('.investments-back').tap();
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
   },
+  async sharesquickperiod(page){
+    await quiet(page);
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    const shares = page.locator('#assetsSub-Shares');
+    const before = await stored(page, 'JSON.stringify(state.assets)');
+    const picker = shares.locator('#sharesChangeWindow > select');
+    await picker.waitFor({state:'visible'});
+    check(!await shares.locator('#assetListFilters-Shares').isVisible(), 'period still requires opening Filters');
+    check(await picker.locator('option').count() === 8, 'price-change windows missing');
+    const initial = await shares.locator('#sharesGlance').textContent();
+    const keys = ['1d','1w','1m','3m','6m','1y','ytd','all'];
+    for(const [index,key] of keys.entries()){
+      await picker.focus(); await picker.selectOption(String(index));
+      await page.waitForFunction(async key => (await import('/src/components/assets.js')).sharesChangeWindow === key, key);
+      await page.waitForFunction(() => document.activeElement === document.querySelector('#sharesChangeWindow > select'));
+    }
+    await picker.selectOption('1');
+    await settle(page);
+    check(await shares.locator('#sharesGlance').textContent() !== initial, 'quick period did not refresh gain/loss');
+    check((await shares.locator('.record-toolbar [data-asset-list-filters]').textContent()).trim() === 'Filters', 'period counted as a filter');
+    check(!await shares.locator('.record-applied').count(), 'period adds an applied-filter row');
+    await shares.locator('.record-toolbar [data-asset-list-filters]').click();
+    await shares.locator('[data-shares-gain-filter="winners"]').click();
+    await shares.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
+    check((await shares.locator('.record-toolbar [data-asset-list-filters]').textContent()).includes('(1)'), 'gain filter count includes period');
+    await shares.locator('[data-asset-list-clear]').click();
+    check(await picker.inputValue() === '1' && !await shares.locator('.record-applied').count(), 'Clear changed period or left filters active');
+    // The native popup must stay displayed at rest (Android installed-app regression).
+    await settle(page);
+    await page.evaluate(() => {
+      window.__periodChanges = 0;
+      window.__periodObserver = new MutationObserver(ms => { window.__periodChanges += ms.length; });
+      window.__periodObserver.observe(document.getElementById('sharesChangeWindow'), {attributes:true,attributeFilter:['class']});
+    });
+    await page.waitForTimeout(250);
+    check(await page.evaluate(() => { window.__periodObserver.disconnect(); return window.__periodChanges < 10; }), 'period picker relays out continuously');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844}); await settle(page);
+      const bad = await shares.locator('.shares-change-summary').evaluate((e,width) => e.getBoundingClientRect().right > width + 1 || e.scrollWidth > e.clientWidth + 1, width);
+      check(!bad, 'quick period row overflows at ' + width);
+      if(width === 390 || width === 1280){
+        const top = await shares.locator('.m-asset-rows .m-row').first().evaluate(e => e.getBoundingClientRect().top);
+        check(top < (width === 390 ? 422 : 400), 'quick period pushes first holding below half-screen: ' + top);
+      }
+    }
+    await shares.locator('[data-shares-change-window="3m"]').click();
+    check(await page.evaluate(async() => (await import('/src/components/assets.js')).sharesChangeWindow === '3m'), 'wide-screen period tabs did not work');
+    check(await stored(page, 'JSON.stringify(state.assets)') === before, 'period/filter controls changed holdings');
+  },
   async sectionpickers(page){
     await quiet(page);
     for(const width of [320, 390]){
@@ -543,14 +592,13 @@ const JOURNEYS = {
       check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
       check(await page.locator('.investments-back').isVisible(), "Investments has no Net worth back link");
       const range = page.locator('#sharesChangeWindow > select');
-      await page.locator('#assetsSub-Shares .record-toolbar [data-asset-list-filters]').click();
+      await range.waitFor({ state: "visible" });
       await range.focus();
       await range.selectOption({ index: 1 });
       await page.waitForFunction(() => {
         const picker = document.querySelector('#sharesChangeWindow > select');
         return picker && picker.value === '1' && document.activeElement === picker;
       });
-      await page.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
       await picker.focus();
       await page.keyboard.press('End');
       await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
@@ -3133,7 +3181,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

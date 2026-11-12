@@ -35,10 +35,21 @@ export function noteChanges(){
   return entries.length;
 }
 
+// Someone touched the page (a click, a key, an input) — what's saved in the next few seconds may be theirs.
+export function noteTouch(){ lastTouch = Date.now(); }
+// After a save. One nobody made (a price refresh, the cash rate) is where things now start, at once: waiting the
+// quiet spell would credit it to whoever clicked meanwhile — a person opening a menu 1s after the morning's prices
+// landed was logged as having changed them. While a person's edit is waiting to be logged, a background save
+// doesn't reset its timer; it's logged with that edit, as it always was.
+export function afterSaved(info){
+  if(info && info.background){ if(!timer) rebaselineActivity(); return; }
+  clearTimeout(timer); timer = setTimeout(noteChanges, QUIET_MS);
+}
+
 export function startActivityLog(){
   if(typeof document === "undefined") return;
   rebaselineActivity();
-  ["pointerdown", "keydown", "input", "change"].forEach(function(t){ document.addEventListener(t, function(){ lastTouch = Date.now(); }, true); });
-  onSaved(function(){ clearTimeout(timer); timer = setTimeout(noteChanges, QUIET_MS); });
+  ["pointerdown", "keydown", "input", "change"].forEach(function(t){ document.addEventListener(t, noteTouch, true); });
+  onSaved(afterSaved);
   onStateReplaced(function(){ clearTimeout(timer); timer = null; rebaselineActivity(); });
 }

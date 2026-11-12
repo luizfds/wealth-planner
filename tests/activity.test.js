@@ -88,3 +88,29 @@ test("an edit on device A reaches device B with A's name, merged with B's own", 
   assert.deepEqual(log.map(function(e){ return e.by + ": " + e.what; }), ["Sam: horizon years: 20 → 30", "Alex: Groceries: amount 600 → 650"]);
   assert.equal(r.merged.shared[0].amount, 650);
 });
+
+test("a background save (a price refresh) is never credited to whoever touches the page next", async function(){
+  const S = await import("../src/state.js");
+  const log = await import("../src/lib/activity.js");
+  const keep = S.state;
+  // Logging saves, and a save shows its status in the header: just enough of a document for that.
+  const stubbed = typeof globalThis.document === "undefined";
+  if(stubbed) globalThis.document = { getElementById: function(){ return { className: "", textContent: "" }; } };
+  try {
+    var s = S.defaultState();
+    s.assets = [{ id: "h1", category: "Shares", what: "Example ETF", symbol: "EXA", units: 10, price: 100, amount: 1000 }];
+    S.setState(s);
+    log.rebaselineActivity();
+    // The morning's prices land and save in the background…
+    S.state.assets[0].price = 110; S.state.assets[0].amount = 1100;
+    log.afterSaved({ background: true });
+    // …and a second later someone opens a menu. Nothing they did changed a price.
+    log.noteTouch();
+    assert.equal(log.noteChanges(), 0, "the refresh was logged as the person's edit");
+    assert.equal((S.state.activity || []).length, 0);
+    // An edit they do make is still logged (the quiet spell's timer is what calls noteChanges in the app).
+    S.state.assets[0].units = 12;
+    log.noteTouch();
+    assert.equal(log.noteChanges(), 1);
+  } finally { S.setState(keep); if(stubbed) delete globalThis.document; }
+});

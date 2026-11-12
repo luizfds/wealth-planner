@@ -3262,7 +3262,9 @@ const JOURNEYS = {
     const scroll=page.locator('.cmp-table-view .cmp-scroll').first();await scroll.focus();await page.keyboard.press('ArrowRight');
     await until(page,e=>e.scrollLeft>0,await scroll.elementHandle());
     await page.locator('[data-cmp-full-table-toggle]').uncheck();
-    check(await page.evaluate(async original=>JSON.stringify((await import('/src/state.js')).state)===original,original),'display controls changed saved household data');
+    const changed=await page.evaluate(async original=>{ const now=(await import('/src/state.js')).state, was=JSON.parse(original);
+      return Object.keys(Object.assign({},was,now)).filter(k=>JSON.stringify(was[k])!==JSON.stringify(now[k])).map(k=>k+': '+JSON.stringify(was[k]).slice(0,80)+' → '+JSON.stringify(now[k]).slice(0,400)); },original);
+    check(!changed.length,'display controls changed saved household data: '+changed.join('; '));
     for(const width of [320,390,768,1280]){
       await page.setViewportSize({width,height:844});
       check(await page.locator('.cmp-mobile-summary').isVisible()===(width<768),'wrong summary mode at '+width);

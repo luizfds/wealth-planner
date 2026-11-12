@@ -411,7 +411,8 @@ export function renderBillsCalendar(){
   renderSubscriptions(); // v3.179.0 (item 205)
 }
 // "Your month, planned" (v3.59.0) — components/cashflow.js budgetPlanHtml.
-export function renderBudgetPlan(){
+export function renderBudgetPlan(){ return keepUi(drawBudgetPlan); }
+function drawBudgetPlan(){
   var el = typeof document !== "undefined" && document.getElementById("budgetPlanBody");
   if(!el) return;
   var scen = currentScenario();
@@ -425,7 +426,7 @@ export function renderBudgetPlan(){
   var groups = computeSharedGroups().map(function(g){ return { label: g.key === "N/A" ? "Other" : g.key, monthly: g.monthly }; });
   var grouped = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   var other = totals.expensesMonthly - grouped;
-  el.innerHTML = budgetPlanHtml({ income: income, groups: groups, other: other > 0.5 ? other : 0, net: totals.netMonthly });
+  el.innerHTML = budgetPlanHtml({ income: income, groups: groups, other: Math.abs(other) > 0.005 ? other : 0, net: totals.netMonthly, summary: true });
   var netEl = document.getElementById("budgetPlanNet");
   // A normal month, as the header and Home say it (v3.139.0).
   var normalNet = totals.regularNetMonthly != null ? totals.regularNetMonthly : totals.netMonthly;

@@ -1,3 +1,4 @@
+import { budgetComparisonHtml } from "./budgetcomparison.js";
 import { textDialog } from "../lib/dialogs.js";
 import { renderProjectionsWhenSeen } from "./projections.js";
 import { state, persist, defaultHomeBlock, defaultPurchaseConfig, defaultInvestConfig, deepClone, genId } from "../state.js";
@@ -132,6 +133,7 @@ export function scenarioEditorSummaryHtml(){
     '</div>' +
     // Item 257: what it adds to a month and what goes, against today.
     scenarioMonthlyChangeHtml(scenarioMonthlyChange(key)) +
+    budgetComparisonHtml(currentScenario(),key,name) +
     // v3.187.0 (item 218): the rest folds under the figures on a phone (open beside the controls on a desktop).
     '<details class="sc-more"' + (editorUi.moreOpen ? ' open' : '') + ' data-sc-more><summary>The verdict, the chart and an account</summary>' +
     '<p class="sc-edit-verdict">' + escapeAttr(c.verdict) + '</p>' +

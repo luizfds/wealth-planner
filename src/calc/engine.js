@@ -764,3 +764,33 @@ export function savingsBreakdown(scenario){
     regular: t.regularNetMonthly, oneOffMonthly: t.oneOffYearly / 12, average: t.netMonthly, notes: notes
   };
 }
+
+// Needs/Wants is a view of cash spending, never another expense added to the scenario.
+// Reconcile unclassified items/changes explicitly so the chart agrees with the financial totals.
+export function scenarioBudgetComposition(scenario){
+  var t = scenarioTotals(scenario), needs = 0, wants = 0, other = 0;
+  var add = function(item, amount, housing){
+    if(housing || item.id === "homeLoanRow" || item.classification === "Needs") needs += amount;
+    else if(item.classification === "Wants") wants += amount;
+    else other += amount;
+  };
+  scenarioSharedItems(scenario).forEach(function(item){ add(item, sumFieldForScenario([item],scenario,"monthly"), item.homeCost && (!item.classification || item.classification === "N/A")); });
+  (state.home[scenario] || []).forEach(function(item){ add(item, sumField([item],"monthly"), !item.classification || item.classification === "N/A"); });
+  ipProperties().forEach(function(p){
+    (p.expenses || []).forEach(function(item){ add(item,sumField([item],"monthly"),false); });
+    needs += (p.loans || []).reduce(function(n,l){ return n + loanRepaymentMonthly(l); },0);
+  });
+  var legs = scenarioLegChanges(scenario), ctx = scenarioLegContext(scenario);
+  legs.forEach(function(c){
+    var amount = legsMonthly([c],ctx).expensesMonthly;
+    if(c.kind === "rent" || c.kind === "extra" || c.kind === "ip") needs += amount;
+    else if(c.kind === "cost") add(c,amount,false);
+  });
+  needs += t.drawInterestMonthly;
+  // Includes credits and changes that have no Needs/Wants classification. Never hide a discrepancy.
+  other += t.expensesMonthly - needs - wants - other;
+  var round = function(v){ return Math.round(v * 100) / 100 || 0; };
+  var regularIncome = t.incomeMonthly - t.oneOffYearly / 12;
+  return { income: round(regularIncome), expenses: round(t.expensesMonthly), needs: round(needs), wants: round(wants),
+    other: round(other), buffer: round(t.regularNetMonthly), annualAverage: round(t.netMonthly) };
+}

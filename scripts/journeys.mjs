@@ -1191,6 +1191,43 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async budgetclarity(page){
+    await quiet(page);
+    await go(page,'expenses','data-expenses-sub','budget');
+    const plan=page.locator('#budgetPlanBody');
+    check(await plan.locator('.bp-overview > div').count()===3,'monthly summary missing');
+    check(await plan.locator('details[open]').count()===0,'statement details open by default');
+    await plan.locator('.bp-fold').first().locator('summary').click();
+    check(await plan.locator('.bp-row').first().isVisible(),'income detail unavailable');
+    await page.evaluate(async()=> (await import('/src/components/expenses.js')).renderBudgetPlan());
+    check(await plan.locator('.bp-fold').first().getAttribute('open')!==null,'redraw collapsed an open section');
+    check((await plan.textContent()).includes('Running balance means'),'running balance explanation missing');
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      const overflow=await plan.evaluate((e,w)=>[...e.querySelectorAll('.bp-overview,.bp-row,summary')].filter(x=>x.getClientRects().length).some(x=>x.getBoundingClientRect().right>w+1),width);
+      check(!overflow,'planned month overflow at '+width);
+    }
+    await page.setViewportSize({width:390,height:844});
+    await go(page,'plan','data-plan-sub','scenarios');
+    await page.locator('#cards .card-edit-link[data-edit-scenario]').nth(1).click();
+    await until(page,()=>document.body.dataset.currentPage==='scenario');await settle(page);
+    const comparison=page.locator('.budget-comparison');
+    check(await comparison.locator('.budget-pie').count()===2,'baseline/scenario rings missing');
+    const before=await comparison.textContent();
+    await click(page,'[data-sc-calc]');await until(page,()=>document.body.dataset.currentPage==='calc');await settle(page);
+    const price=page.locator('#calcScenarioBody .calc-price');
+    await price.fill('900000');await price.press('Tab');
+    // The editor summary is kept up to date while calculator controls retain focus.
+    check((await comparison.textContent())!==before,'scenario composition did not follow the purchase edit');
+    await page.locator('[data-calc-done]').click();await until(page,()=>document.body.dataset.currentPage==='scenario');await settle(page);
+    for(const width of [320,390,768,1280]){
+      await page.setViewportSize({width,height:844});
+      for(const theme of ['light','dark']){
+        await page.evaluate(t=>document.documentElement.setAttribute('data-theme',t),theme);
+        check(!await comparison.evaluate((e,w)=>e.getBoundingClientRect().right>w+1||e.scrollWidth>e.clientWidth+1,width),'comparison overflow at '+width+'/'+theme);
+      }
+    }
+  },
   async taxplanningfields(page){
     await quiet(page);
     await go(page, 'tax', 'data-tax-sub', 'year');
@@ -3370,7 +3407,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

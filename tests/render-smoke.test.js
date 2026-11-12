@@ -2428,3 +2428,13 @@ test('statement fields have holding-scoped linked labels, help and unique reserv
   assert.doesNotMatch(html,/ title=/);
   assert.match(html,/value="-100"/);
 });
+
+
+test("budget comparison has explicit amounts and a text alternative to its rings",async function(){
+  const {budgetComparisonHtml}=await import("../src/components/budgetcomparison.js");
+  const name=state.scenarios[0];
+  const html=budgetComparisonHtml(name,name,'Example <scenario>');
+  assert.match(html,/Example &lt;scenario/);assert.match(html,/Needs change/);
+  assert.match(html,/Other spending \/ allocations/);assert.match(html,/Loan principal is not added again/);
+  assert.doesNotMatch(html,/NaN|Infinity|undefined/);
+});

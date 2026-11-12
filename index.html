@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-yBrixX0auKLLepid2piSdfOH9NCWbweMKBOOwGD5MZM='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-DVDpld0WTk9LqGQFwBkW+QbPC/AzCaWbLIAMThyzeW4='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -425,7 +425,7 @@
               <div class="ledger-total">Left over in a normal month <b id="budgetPlanNet">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Income and spending as one statement: what comes in, what each group of spending takes, and what's left after each — in <b id="budgetPlanScenario">—</b>. Income is after tax; change it on the Income tab.</p>
+              <p class="ledger-note help" style="margin-left:0">Your regular monthly plan for <b id="budgetPlanScenario">—</b>. Change pay on Income and spending in the budget below.</p>
               <div id="budgetPlanBody"></div>
             </div>
           </details>
@@ -1100,6 +1100,7 @@
   "./src/calc/bills.js": "./src/calc/bills.js?v=3.262.0",
   "./src/calc/brokertrades.js": "./src/calc/brokertrades.js?v=3.262.0",
   "./src/calc/budgetfromhistory.js": "./src/calc/budgetfromhistory.js?v=3.262.0",
+  "./src/calc/budgetplan.js": "./src/calc/budgetplan.js?v=3.262.0",
   "./src/calc/calculators.js": "./src/calc/calculators.js?v=3.262.0",
   "./src/calc/canbuy.js": "./src/calc/canbuy.js?v=3.262.0",
   "./src/calc/cashdraw.js": "./src/calc/cashdraw.js?v=3.262.0",
@@ -1203,6 +1204,7 @@
   "./src/components/bank-import.js": "./src/components/bank-import.js?v=3.262.0",
   "./src/components/benchmarks.js": "./src/components/benchmarks.js?v=3.262.0",
   "./src/components/brokertrades.js": "./src/components/brokertrades.js?v=3.262.0",
+  "./src/components/budgetcomparison.js": "./src/components/budgetcomparison.js?v=3.262.0",
   "./src/components/budgethistory.js": "./src/components/budgethistory.js?v=3.262.0",
   "./src/components/budgettoolswiring.js": "./src/components/budgettoolswiring.js?v=3.262.0",
   "./src/components/calculators.js": "./src/components/calculators.js?v=3.262.0",
@@ -1341,6 +1343,7 @@
 <link rel="modulepreload" href="./src/calc/bills.js?v=3.262.0">
 <link rel="modulepreload" href="./src/calc/brokertrades.js?v=3.262.0">
 <link rel="modulepreload" href="./src/calc/budgetfromhistory.js?v=3.262.0">
+<link rel="modulepreload" href="./src/calc/budgetplan.js?v=3.262.0">
 <link rel="modulepreload" href="./src/calc/calculators.js?v=3.262.0">
 <link rel="modulepreload" href="./src/calc/canbuy.js?v=3.262.0">
 <link rel="modulepreload" href="./src/calc/cashdraw.js?v=3.262.0">
@@ -1444,6 +1447,7 @@
 <link rel="modulepreload" href="./src/components/bank-import.js?v=3.262.0">
 <link rel="modulepreload" href="./src/components/benchmarks.js?v=3.262.0">
 <link rel="modulepreload" href="./src/components/brokertrades.js?v=3.262.0">
+<link rel="modulepreload" href="./src/components/budgetcomparison.js?v=3.262.0">
 <link rel="modulepreload" href="./src/components/budgethistory.js?v=3.262.0">
 <link rel="modulepreload" href="./src/components/budgettoolswiring.js?v=3.262.0">
 <link rel="modulepreload" href="./src/components/calculators.js?v=3.262.0">

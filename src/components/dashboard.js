@@ -155,7 +155,7 @@ export function renderSetupPanel(nothingEntered){
     ' sections entered (income, expenses, assets, loans and goals). Loans and goals are optional; missing entries do not mean zero balances.</p>';
 }
 // What the budget step needs to know: whether a budget can be proposed from the spending yet.
-function setupOpts(){
+export function setupOpts(){
   var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var budget = null;
   try { budget = proposeBudget(state.transactions || [], lines, localDateStr()); } catch(e){ budget = null; }

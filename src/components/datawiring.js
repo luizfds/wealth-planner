@@ -22,6 +22,7 @@ import { showToast, showPersistentToast } from "../lib/toast.js";
 import { state, setState, persist, defaultState, migrateState, genId, onStorageConflict, onPendingWork, onAdopted, onSaved, onCommit, takeOtherTabsSave, adoptStoredCopy, keepThisTabsCopy, hasPendingWork, setStatus } from "../state.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { firstRun, startFirstRun } from "./firstrun.js";
+import { offerTour } from "./tourwiring.js";
 import { showPage, showAssetsSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { setPart } from "./parts.js";
 import { renderAll } from "./redraw.js";
@@ -126,6 +127,7 @@ async function loadSampleData(){
   renderAll();
   persist();
   showToast("Sample data generated");
+  offerTour();
 }
 function updateThemeButtonLabel(){
   var mode = getThemePref();

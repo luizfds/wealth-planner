@@ -93,6 +93,8 @@ async function fresh(opts){
   await ctx.addInitScript(([stored]) => {
     if(sessionStorage.getItem("journeyLoaded")) return;
     localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
+    // #339: a journey is someone who has been here before; the tour's own journey clears this to be asked.
+    localStorage.setItem("wealthPlanner.tour", "skipped");
     if(stored) localStorage.setItem("wealthPlanner.v1", stored);
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
@@ -258,6 +260,114 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  // #339: the quick tour — asked once on arrival, walks the real menu without moving the address bar, answers to
+  // the keyboard and the phone's Back, is remembered, and replays from the avatar menu.
+  async tour(page){
+    const tourState = () => page.evaluate(() => {
+      const card = document.querySelector('.tour-card'), spot = document.querySelector('.tour-spot');
+      if(!card) return { open: false, flag: localStorage.getItem('wealthPlanner.tour'), offer: !document.getElementById('tourOffer').hidden,
+        page: document.body.getAttribute('data-current-page'), path: location.pathname, inert: !!document.querySelector('.app-shell').inert };
+      const c = card.getBoundingClientRect(), s = spot.hidden ? null : spot.getBoundingClientRect();
+      // By its box, not a hit test: the app under the tour is inert, and inert elements aren't hit.
+      const ringed = s && Array.from(document.querySelectorAll('.mobile-tab, .nav-item')).find(el => { const r = el.getBoundingClientRect();
+        return r.width > 0 && r.left >= s.left - 1 && r.right <= s.right + 1 && r.top >= s.top - 1 && r.bottom <= s.bottom + 1; });
+      return { open: true, count: card.querySelector('.tour-count').textContent, title: card.querySelector('.tour-title').textContent,
+        inside: c.left >= 0 && c.top >= 0 && c.right <= innerWidth && c.bottom <= innerHeight,
+        covers: !!s && !(c.right <= s.left || c.left >= s.right || c.bottom <= s.top || c.top >= s.bottom), ring: !!s,
+        ringedLabel: ringed ? (ringed.querySelector('.mobile-tab-label') || ringed).textContent.trim() : null,
+        focusInCard: card.contains(document.activeElement), focus: document.activeElement.textContent.trim(),
+        page: document.body.getAttribute('data-current-page'), path: location.pathname, inert: !!document.querySelector('.app-shell').inert,
+        targets: Array.from(card.querySelectorAll('button')).filter(b => !b.hidden).every(b => b.getBoundingClientRect().height >= 44) };
+    });
+    const onStep = n => waited(page, n => { const c = document.querySelector('.tour-count'); return !!c && c.textContent.indexOf('Step ' + n + ' of') === 0 && !!document.querySelector('.tour-card[data-side]'); }, 'tour step ' + n, n);
+    const closedTour = () => waited(page, () => !document.querySelector('.tour-card') && !document.querySelector('.app-shell').inert, 'the tour to close');
+
+    // Someone who has been here before is never asked.
+    check(!(await tourState()).offer, 'a returning household was offered the tour');
+    // A first arrival on the sample household: asked once, on Home.
+    await page.evaluate(() => localStorage.removeItem('wealthPlanner.tour'));
+    await page.goto(base + '/index.html?mock=1');
+    await answerDialog(page, true);
+    await ready(page, 'the app after loading the sample household');
+    await waited(page, () => !document.getElementById('tourOffer').hidden, 'the tour to be offered');
+    check(await page.locator('#tourOffer [data-tour-skip]').count() === 1 && await page.locator('#tourOffer [data-tour-start]').count() === 1, 'the offer needs Skip and Start tour');
+    const startPath = await page.evaluate(() => location.pathname);
+    await page.locator('#tourOffer [data-tour-start]').click();
+    await onStep(1);
+    let s = await tourState();
+    check(s.inert && s.focusInCard && s.focus === 'Next', 'the tour did not open as a modal with focus on Next: ' + JSON.stringify(s));
+    check(!s.offer && await page.locator('#tourOffer').isHidden(), 'the offer stayed on screen under the tour');
+    // The five places, each named as its own tab names it, ringed, with the card beside it.
+    const places = [['Home', 'dashboard'], ['Cash flow', 'expenses'], ['Net worth', 'networth'], ['Tax', 'tax'], ['Plan', 'plan']];
+    for(let i = 0; i < places.length; i++){
+      await onStep(i + 1);
+      // The ring slides to its place; wait for it to arrive around this step's own tab, not for a length of time.
+      await waited(page, label => { const sp = document.querySelector('.tour-spot'); if(!sp || sp.hidden) return false; const b = sp.getBoundingClientRect();
+        return Array.from(document.querySelectorAll('.mobile-tab, .nav-item')).some(el => { const r = el.getBoundingClientRect();
+          return r.width > 0 && (el.querySelector('.mobile-tab-label') || el).textContent.trim() === label && r.left >= b.left - 1 && r.right <= b.right + 1 && r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }); },
+        'the ring to settle on ' + places[i][0], places[i][0]);
+      s = await tourState();
+      check(s.title === places[i][0] && s.page === places[i][1], 'step ' + (i + 1) + ' is not ' + places[i][0] + ' on its page: ' + JSON.stringify(s));
+      check(s.ring && s.ringedLabel === places[i][0], 'step ' + (i + 1) + ' rings ' + s.ringedLabel + ', not ' + places[i][0]);
+      check(s.inside && !s.covers && s.targets, 'step ' + (i + 1) + ' card off screen, over its target, or with small buttons: ' + JSON.stringify(s));
+      check(s.path === startPath, 'the tour moved the address bar to ' + s.path);
+      await page.locator('[data-tour-next]').click();
+    }
+    await onStep(6);
+    check((await tourState()).title === 'Scenarios', 'step 6 is not Scenarios');
+    // The keyboard: arrows move, Tab stays in the card, Escape leaves — and puts back the page it started on.
+    await page.keyboard.press('ArrowLeft'); await onStep(5);
+    await page.keyboard.press('ArrowRight'); await onStep(6);
+    for(let i = 0; i < 6; i++){ await page.keyboard.press('Tab'); check((await tourState()).focusInCard, 'Tab left the tour'); }
+    await page.keyboard.press('Escape');
+    await closedTour();
+    await waited(page, () => document.body.getAttribute('data-current-page') === 'dashboard', 'Home to come back after the tour');
+    s = await tourState();
+    check(s.flag === 'skipped' && !s.offer && s.path === startPath, 'leaving the tour was not remembered: ' + JSON.stringify(s));
+    // Remembered across a reload; still in the menu. The phone's Back closes it without leaving the page.
+    await page.reload(); await ready(page, 'the app after a reload');
+    check(!(await tourState()).offer, 'the tour was offered again after a reload');
+    await go(page, 'expenses');
+    const before = await page.evaluate(() => location.pathname);
+    await page.locator('#avatarBtn').click();
+    await page.locator('.avatar-menu [data-tour-start]').click();
+    await onStep(1);
+    await page.locator('[data-tour-next]').click(); await onStep(2);
+    await page.goBack();
+    await closedTour();
+    s = await tourState();
+    check(s.page === 'expenses' && s.path === before, 'Back out of the tour left ' + s.page + ' at ' + s.path + ', not Cash flow');
+    await waited(page, () => document.activeElement && document.activeElement.id === 'avatarBtn', 'focus to return to the menu button');
+    // To the end: the first-month steps, and one of them taken.
+    await page.locator('#avatarBtn').click();
+    await page.locator('.avatar-menu [data-tour-start]').click();
+    for(let n = 1; n < 9; n++){ await onStep(n); await page.locator('[data-tour-next]').click(); }
+    await onStep(9);
+    s = await tourState();
+    check(s.title === 'Getting started' && s.focus === 'Done' && s.inside, 'the last step: ' + JSON.stringify(s));
+    check(await page.locator('.tour-card [data-tour-go]').count() === 4 && await page.locator('.tour-card [data-tour-skip-btn]').isHidden(), 'the last step needs the four first steps and no Skip');
+    await page.locator('.tour-card [data-tour-go]').last().click();
+    await closedTour();
+    await waited(page, () => document.body.getAttribute('data-current-page') === 'networth' && /networth/.test(location.pathname), 'the chosen first step to open Net worth');
+    check((await tourState()).flag === 'done', 'finishing the tour was not remembered');
+    // A household starting from scratch: nothing beside the setup sheet; the offer once it closes; Skip puts it away.
+    await page.evaluate(async () => {
+      localStorage.removeItem('wealthPlanner.tour');
+      const m = await import('/src/state.js'); m.setState(m.defaultState());
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/redraw.js')).renderAll();
+    });
+    await go(page, 'dashboard');
+    await page.locator('#dashboardSetup [data-firstrun-open]').click();
+    await page.locator('#firstRunRoot [role="dialog"]').waitFor();
+    check(!(await tourState()).offer, 'the tour was offered beside the setup sheet');
+    await page.locator('#firstRunRoot [data-fr-close]').click();
+    await waited(page, () => !document.querySelector('#firstRunRoot [role="dialog"]') && !document.getElementById('tourOffer').hidden, 'the tour to be offered once setup closes');
+    await page.locator('#tourOffer [data-tour-skip]').click();
+    await waited(page, () => document.getElementById('tourOffer').hidden, 'Skip to put the offer away');
+    s = await tourState();
+    check(s.flag === 'skipped' && !s.open, 'Skip was not remembered: ' + JSON.stringify(s));
+  },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
   async categories(page){

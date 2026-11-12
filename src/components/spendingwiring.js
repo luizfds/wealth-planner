@@ -23,6 +23,7 @@ import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxG
 import { afterReceivedChange } from "./cashflowwiring.js";
 import { trendDisplay, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
 import { firstRun, firstRunHtml } from "./firstrun.js";
+import { offerTour } from "./tourwiring.js";
 import { renderHomeSummary } from "./home.js";
 import { showPage, showExpensesSubpage } from "./nav.js";
 import { receiptHolder } from "./receipts.js";
@@ -214,6 +215,8 @@ function renderFirstRun(){
   } else if(wasOpen){
     firstRunInertSiblings.forEach(function(el){ el.inert = false; });
     firstRunInertSiblings = [];
+    // #339: the setup is over, finished or not — now, and not beside it, is when the tour is offered.
+    offerTour();
     var opener = firstRunReturnFocus;
     firstRunReturnFocus = null;
     // A redraw may have replaced the opener while the sheet was open.

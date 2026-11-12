@@ -41,6 +41,7 @@ import { wireReports } from "./components/reportswiring.js";
 import { wireNotifications } from "./components/notifpanel.js";
 import { wireAttentionLine } from "./components/attentionline.js";
 import { wireUpdates } from "./components/updates.js";
+import { wireTour, offerTour } from "./components/tourwiring.js";
 import { applyTheme, getThemePref } from "./lib/theme.js";
 import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.js";
 
@@ -242,7 +243,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   // after confirming replacement if a household already exists. A sample link can be
   // revisited after setup, so the URL alone is never permission to discard saved data.
   var wantsSample = new URLSearchParams(location.search).get("mock") === "1";
-  function fillSample(){ buildDemoState(); renderAll(); persist(); showToast("Sample data generated"); }
+  function fillSample(){ buildDemoState(); renderAll(); persist(); showToast("Sample data generated"); offerTour(); }
   if(wantsSample && !hasRealUserData()) fillSample();
   else if(wantsSample) queueMicrotask(function(){
     confirmDialog("Replace this household with sample data? Export a backup first to keep your data.", {title:"Use sample data",accept:"Replace with sample",danger:true})
@@ -264,3 +265,4 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
 wireNotifications();
 wireAttentionLine();
 wireUpdates();
+wireTour();

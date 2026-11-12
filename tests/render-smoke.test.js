@@ -1034,7 +1034,7 @@ test("tax card: the payslip check asks, then answers", async function(){
     state.income = [{ id: "a", what: "Pay", person: "Sam", incomeType: "Gross", amount: 90000, freq: "Yearly", superMode: "On top" }];
     state.properties = []; state.assets = []; state.taxYears = {};
     state.tax = Object.assign({}, state.tax, { settings: { Sam: {} } });
-    assert.match(withholdingCheckHtml("Sam"), /class="tax-ytd-asof"/);
+    assert.match(withholdingCheckHtml("Sam"), /class="[^"\n]*\btax-ytd-asof\b[^"\n]*"/);
     assert.match(withholdingCheckText("Sam"), /Type the year-to-date figures/);
     var fy = currentTaxFy();
     state.tax.settings.Sam.ytd = { asOf: fy + "-12-31", gross: 45000, withheld: 12000 };

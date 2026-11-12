@@ -1245,7 +1245,7 @@
   .bh-actions{ display:flex; gap:12px; align-items:center; margin-top:10px; }
   .slip-read{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
   .slip-pick{ align-self:flex-start; cursor:pointer; }
-  .slip-paste textarea{ width:100%; margin:6px 0; font-family: var(--font-num); font-size:var(--fs-xs); }
+  .slip-paste textarea{ width:100%; margin:6px 0; font-family: var(--font-num); }
   .slip-out{ margin:0; font-size:var(--fs-sm); color: var(--ink); display:flex; flex-wrap:wrap; gap:4px 12px; }
   /* v3.148.0: the payslip against the plan, a line each. */
   .slip-check{ list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:var(--fs-sm); line-height:1.45; }

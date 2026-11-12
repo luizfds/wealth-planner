@@ -513,6 +513,7 @@
 .cq-card h3{ margin:0; font-size:var(--fs-lg); }
 .cq-fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 10px; }
 .cq-field{ display:flex; flex-direction:column; gap:3px; font-size:var(--fs-xs); color: var(--ink-soft); min-width:0; }
+.cq-field-wide{ grid-column:1 / -1; }
 .cq-field input, .cq-field select{ width:100%; box-sizing:border-box; }
 .cq-out{ border-top:1px dashed var(--border); padding-top:8px; }
 .cq-big{ margin:0; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size:var(--fs-xl); font-weight:600; }

@@ -457,3 +457,18 @@ retention during recalculation. It measures shared skins, linked labels, date re
 and viewport bounds at 320/390/768/1024/1280px in both explicit app themes with the opposite OS preference.
 Existing Tax validation/label journeys, tax/withholding/top-up/render tests and static checks pass.
 Before/after screenshots and measurements are under `/tmp/tax-planning-review/` (not committed).
+
+## Standalone calculators (#254)
+
+The 16 stamp-duty, LMI, repayment and borrowing-power controls use the shared standard skin via their
+existing field builder. Labels, options, decimal input modes, step sizes and all calculations stay the
+same. The repayment type selector spans the card's field grid so “Principal & interest” stays readable
+on narrow phones. Existing field/card layout rules otherwise remain unchanged.
+
+Browser verification exercises every input and select, the interest-only repayment and 20% deposit
+estimates, and reload behavior. Standalone figures remain session-only; dependants retain their existing
+household save behavior. Measurements and before/after screenshots cover 320/390/768/1024/1280px in both
+themes, including touch tablets. Shared fields have 6px corners and 6px × 8px padding, 36px desktop
+height and 44px touch targets. Calculator/render tests and static checks pass. Review artifacts are
+under `/tmp/calculator-fields-review/` (not committed). Scenario purchase/investment fields remain a
+separate family under #254.

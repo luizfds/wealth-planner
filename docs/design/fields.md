@@ -430,11 +430,11 @@ Statement, interest and deduction rows reflow by the person card's width so amou
 on phones and beside the desktop sidebar. Native checkboxes retain their existing behavior.
 
 A direct redraw previously dropped the active field. `keepUi` now preserves focus and unfinished input;
-stable worksheet field IDs also retain the validation message when an invalid field is redrawn. Existing
+stable worksheet field IDs, scoped to the financial year, also retain the validation message when an invalid field is redrawn. Existing
 open/closed disclosure restoration remains. No financial calculations, state schema or save handlers change.
 
 The `taxreturnfields` touch journey edits all three row families, rejects invalid gross income, checks
-focus/input/message through redraw, restores blank interest shares and modeled rental estimates, and
+focus/input/message through redraw and isolation across financial years, restores blank interest shares and modeled rental estimates, and
 measures shared skins, 44px targets, accessible names, readable numeric widths and viewport bounds at
 320/390/768/1024/1280px in both themes. Existing Tax validation/label journeys and tax-year/render tests
 also pass. Review screenshots and measurements are under `/tmp/returns-field-review/` (not committed).

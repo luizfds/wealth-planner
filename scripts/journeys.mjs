@@ -1243,6 +1243,11 @@ const JOURNEYS = {
         check(!bad.length, 'Returns field size/skin/name/overflow at ' + width + '/' + theme + ': ' + bad.join(', '));
       }
     }
+    // A draft belongs to its financial year; keeping focus must not copy it into another year's fields.
+    await rent.focus(); await rent.evaluate(e => { e.value = '12345'; });
+    await page.evaluate(async fy => (await import('/src/components/taxyear.js')).setTaxYearSelected(fy - 1), fy);
+    await settle(page);
+    check(await rent.inputValue() !== '12345', 'year switch carried a rental draft into a different return');
   },
   async peoplefields(page){
     await quiet(page);

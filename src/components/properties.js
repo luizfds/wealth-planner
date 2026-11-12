@@ -573,11 +573,11 @@ export function rentPanelHtml(p, today){
       (r.received ? '<div><span>Difference</span><b class="' + (r.gap >= -1 ? "up" : "down") + '">' + (r.gap < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(r.gap)) + '</b><small>' + (r.gap < -1 ? "less than expected" : "on or above") + '</small></div></div>'
         : '<div><span>Difference</span><b>—</b><small>log rent as it arrives (Cash flow → Income)</small></div></div>') +
     '<div class="rentp-grid">' +
-      '<label class="cf-filter"><span>Next rent review</span><input type="date" data-rent-next value="' + escapeAttr(r.nextReview) + '"></label>' +
-      (row ? '<div class="rentp-review"><label class="cf-filter"><span>Record a review — new rent ' + escapeAttr(String(row.freq || "").toLowerCase()) + '</span><input type="number" min="0" step="1" data-rent-new placeholder="' + (Number(row.amount) || 0) + '"></label>' +
+      '<label class="cf-filter"><span>Next rent review</span><input type="date" class="field-control" data-rent-next value="' + escapeAttr(r.nextReview) + '"></label>' +
+      (row ? '<div class="rentp-review"><label class="cf-filter"><span>Record a review — new rent ' + escapeAttr(String(row.freq || "").toLowerCase()) + '</span><input type="number" min="0" step="1" class="field-control" data-rent-new placeholder="' + (Number(row.amount) || 0) + '"></label>' +
         '<button type="button" class="btn btn-sm" data-rent-review>Record</button></div>' : '') +
       '<div class="rentp-vac"><span class="cf-filter-l">Vacancies</span>' + (vac ? '<ul>' + vac + '</ul>' : '<p class="ledger-note" style="margin:0">None recorded.</p>') +
-        '<div class="rentp-vac-add"><input type="date" data-vac-from aria-label="Vacant from"><input type="date" data-vac-to aria-label="Vacant until (blank if still vacant)"><button type="button" class="btn btn-sm btn-ghost" data-vac-add>+ Add vacancy</button></div></div>' +
+        '<div class="rentp-vac-add"><label class="cf-filter"><span>Vacant from</span><input type="date" class="field-control" data-vac-from aria-label="Vacant from"></label><label class="cf-filter"><span>Vacant until <small>(optional)</small></span><input type="date" class="field-control" data-vac-to aria-label="Vacant until (blank if still vacant)"></label><button type="button" class="btn btn-sm btn-ghost" data-vac-add>+ Add vacancy</button></div></div>' +
     '</div>' + (reviews ? '<div class="rentp-reviews"><span class="cf-filter-l">Past reviews</span><ul>' + reviews + '</ul></div>' : '') +
     agentStatementHtml(p, win) + '</div>';
 }
@@ -762,8 +762,8 @@ function propertyCardBodyHtml(p, colorIdx){
   var hasPmFee = p.kind === "IP";
   var pmFeePanel = hasPmFee
     ? '<div class="proj-controls prop-pmfee-panel">' +
-        '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent" aria-label="Property manager fee, % of rent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
-        '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat" aria-label="Property manager flat fee per month" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
+        '<div class="proj-field" title="Applied to this property\'s Property Manager Fee expense row, worked out from its own rent — each property manager can charge a different rate"><label>PM fee % of rent</label><input type="number" min="0" max="100" step="0.1" class="prop-pmfee-percent field-control" aria-label="Property manager fee, % of rent" value="' + (Number(p.pmFee.percent) || 0) + '"></div>' +
+        '<div class="proj-field"><label>+ flat $/month</label><input type="number" min="0" step="0.5" class="prop-pmfee-flat field-control" aria-label="Property manager flat fee per month" value="' + (Number(p.pmFee.flat) || 0) + '"></div>' +
       '</div>'
     : "";
   // Purely informational — the amount/frequency on each income row below is still the rate used
@@ -777,7 +777,7 @@ function propertyCardBodyHtml(p, colorIdx){
   // #261: drawn outside the card's labelFields pass below, so tied here too.
   var incomePaidPanel = labelFields(
     '<div class="proj-controls prop-income-paid-panel">' +
-      '<div class="proj-field" title="Doesn\'t change any calculation below — the amount/frequency on each row is still the rate used for planning. This just notes when the money actually lands, e.g. a property manager batching weekly-quoted rent into one monthly payout."><label>Actually received</label><select class="prop-income-paid-freq" aria-label="How often income from this property actually arrives">' + optionsHtml(PAYMENT_FREQS, p.incomePaidFreq || "Monthly") + '</select></div>' +
+      '<div class="proj-field" title="Doesn\'t change any calculation below — the amount/frequency on each row is still the rate used for planning. This just notes when the money actually lands, e.g. a property manager batching weekly-quoted rent into one monthly payout."><label>Actually received</label><select class="prop-income-paid-freq field-control" aria-label="How often income from this property actually arrives">' + optionsHtml(PAYMENT_FREQS, p.incomePaidFreq || "Monthly") + '</select></div>' +
     '</div>', "pip-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_"));
   var gearingBadge = "";
   var yieldBadge = "";

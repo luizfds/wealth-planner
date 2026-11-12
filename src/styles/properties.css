@@ -376,8 +376,8 @@
 .rentp-review .cf-filter{ flex:1 1 auto; }
 .rentp-vac{ grid-column: 1 / -1; }
 .rentp-vac ul, .rentp-reviews ul{ margin:4px 0; padding-left:18px; font-size:var(--fs-sm); }
-.rentp-vac-add{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
-.rentp-vac-add input{ min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper-raised); color: var(--ink); font: inherit; }
+.rentp-vac-add{ display:flex; gap:6px; flex-wrap:wrap; align-items:end; margin-top:4px; }
+.rentp-vac-add .cf-filter{ flex:1 1 160px; }
 .rentp-reviews{ margin-top:8px; }
 @media (max-width: 560px){ .fx-row{ grid-template-columns: 1fr; } .rentp-grid{ grid-template-columns: 1fr; } .rentp-figs{ grid-template-columns: 1fr 1fr; } }
 
@@ -637,3 +637,8 @@
 .scd-notes li{ margin:2px 0; }
 .scd-notes b{ color: var(--ink); font-family: var(--font-num); }
 .scd-warn{ color: var(--warn-ink); }
+
+/* Property income controls use the shared skin while retaining their panel layout. */
+.prop-pmfee-panel .field-control{ width:110px; text-align:right; }
+.rentp .cf-filter .field-control{ width:100%; }
+.rentp input[type="date"].field-control{ color-scheme:light dark; }

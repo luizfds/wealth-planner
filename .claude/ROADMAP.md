@@ -5022,6 +5022,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      top-up and payslip controls, preserving validation, premium sourcing and financial calculations.
    - `[x]` Standalone calculator fields (#254) shipped v3.262.0 (PR #343): shared stamp-duty, LMI,
      repayment and borrowing-power controls, preserving session-only inputs and estimates.
+   - `[~]` Scenario purchase and investment fields (#254): the scenario editor's and the purchase/invest
+     calculators' controls on the shared skin, preserving drafts, the leave guard, validation and every figure.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is
@@ -5074,6 +5076,6 @@ balance; baseline/scenario Needs–Wants charts reconciled with the existing fin
 
 ## A quick tour — issue #339
 
-`[~]` Optional and replayable: offered once after the first-run setup closes or the sample household loads (never
+`[x]` Shipped v3.264.0 (PR #345). Optional and replayable: offered once after the first-run setup closes or the sample household loads (never
 beside the setup sheet — #309's one path), remembered per browser, and always in the avatar menu. It walks the real
 navigation, then ends on the first-month steps (`lib/setup.js`) instead of a second checklist.

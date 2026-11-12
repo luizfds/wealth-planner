@@ -5030,10 +5030,13 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      in 37 files — on the shared skin or a named variant (passcode; spending grid as compact cells; property name as
      inline name). The smoke run now fails any field off the skin. Closes #254. Also: a background save (the morning's
      prices) is no longer credited in the activity log to whoever touched the page within the next 1.5s.
-   - `[~]` One first-run path (#309): the first month waits while the setup sheet is open (or about to open by
+   - `[x]` One first-run path (#309), shipped v3.265.0 (PR #348): the first month waits while the setup sheet is open (or about to open by
      itself), the planning profile's second count is gone from Home (Reports keeps it), the intro no longer offers
      sample data beside the card's button, and an empty household's This month and Net worth say what's missing with
      a link onward instead of $0. Guided setup stays the one way back, after Reset too. Journey: `firstrunpath`.
+   - `[~]` #255 step 3, empty states: every empty, no-results and report-empty state says what fills it, with the next
+     step as a control (pages.md §4), and the smoke run checks each one in the empty household. Step 4 (tooltip help
+     to ⓘ) follows in its own PR.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

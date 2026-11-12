@@ -1121,6 +1121,75 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  async propertyrecordfields(page){
+    await quiet(page);
+    await page.evaluate(async() => {
+      const s = await import('/src/state.js'), p = s.state.properties[0];
+      p.loans.push({...p.loans[0], id:'sample-record-loan', what:'Sample loan with a deliberately long name', charges:[]});
+      s.commit(['properties']);
+    });
+    await go(page, 'properties');
+    const tab = async name => {
+      await page.locator('[data-prop-tab][data-tab="' + name + '"]').first().evaluate(e => e.click());
+      await settle(page);
+    };
+    const saved = key => stored(page, 'state.properties[0].' + key);
+    const inspect = async selector => {
+      for(const width of [320,390,768,1024,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const colorScheme of ['light','dark']){
+          await page.emulateMedia({colorScheme});
+          const bad = await page.locator(selector).evaluateAll((es, width) => es.filter(e => e.getClientRects().length).flatMap(e => {
+            const st = getComputedStyle(e), r = e.getBoundingClientRect();
+            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== '6px' || r.height < 44 ||
+              r.left < -1 || r.right > width + 1 || (e.type === 'number' && parseFloat(st.fontSize) < 16) ||
+              (e.type === 'date' && (!st.colorScheme.includes('dark') || r.width < 150)) ||
+              (e.matches('[data-pa-line]') && r.width < 120) ? [e.outerHTML.slice(0,140)] : [];
+          }), width);
+          check(!bad.length, 'Property record field skin/size/overflow at ' + width + '/' + colorScheme + ': ' + bad.join(', '));
+        }
+      }
+    };
+    await tab('income');
+    const panel = page.locator('[data-as-panel]').first();
+    await panel.locator('summary').click();
+    check(await panel.locator('[data-as]').count() === 8, 'statement control count changed');
+    await inspect('[data-as]');
+    for(const [key,value] of Object.entries({date:'2026-08-01',rent:1000,water:100,fees:100,waterRates:50,otherAmount:50})){
+      await panel.locator('[data-as="' + key + '"]').fill(String(value));
+    }
+    const account = await panel.locator('[data-as="account"] option').last().getAttribute('value');
+    // Account options use their visible text as the value.
+    const accountName = account || await panel.locator('[data-as="account"] option').last().textContent();
+    await panel.locator('[data-as="account"]').selectOption({label:accountName});
+    check((await panel.locator('[data-as-net]').textContent()).includes('900.00'), 'statement net preview changed');
+    await panel.locator('[data-as-log]').click();
+    const statement = (await saved('agentStatements')).at(-1);
+    check(statement.net === 900 && statement.txIds.length === 2, 'statement did not record its net and bills');
+    check(await stored(page, 'state.incomeLog.find(x => x.id === ' + JSON.stringify(statement.incomeId) + ').account') === accountName, 'statement receipt account changed');
+    await tab('activity');
+    const line = page.locator('[data-pa-line="' + statement.txIds[0] + '"]');
+    const destination = await line.locator('option').last().getAttribute('value');
+    await line.selectOption(destination);
+    check(await stored(page, 'state.transactions.find(x => x.id === ' + JSON.stringify(statement.txIds[0]) + ').linkedExpenseId') === destination, 'cost-line reassignment did not save');
+    const add = page.locator('.pa-add').first();
+    await add.locator('summary').click();
+    await add.locator('[data-pa-charge-loan]').selectOption('sample-record-loan');
+    await add.locator('[data-pa-charge-date]').fill('2026-08-01');
+    await add.locator('[data-pa-charge-amount]').fill('-1');
+    await add.locator('[data-pa-charge-add]').click();
+    check((await saved('loans[1].charges')).length === 0, 'negative interest charge saved');
+    await add.locator('[data-pa-charge-amount]').fill('500');
+    await add.locator('[data-pa-charge-add]').click();
+    check((await saved('loans[1].charges')).at(-1).amount === 500, 'manual interest charge did not save to selected loan');
+    if(!await add.evaluate(e => e.open)) await add.locator('summary').click();
+    await inspect('[data-pa] .field-control');
+    await tab('income');
+    await panel.locator('[data-as-del="' + statement.id + '"]').click();
+    check(!(await saved('agentStatements')).some(x => x.id === statement.id), 'statement removal failed');
+    check(!await stored(page, 'state.incomeLog.some(x => x.id === ' + JSON.stringify(statement.incomeId) + ')'), 'statement removal left its income receipt');
+    check(!await stored(page, 'state.transactions.some(x => ' + JSON.stringify(statement.txIds) + '.includes(x.id))'), 'statement removal left its bills');
+  },
   async propertytoolsfields(page){
     await quiet(page);
     await page.evaluate(async() => {
@@ -3064,7 +3133,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

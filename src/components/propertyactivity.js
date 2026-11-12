@@ -45,11 +45,11 @@ function recordHtml(p, r){
   // A payment can go on another of the property's own cost lines (its return line follows).
   var move = "";
   if(r.ref.kind === "tx" && r.source !== "claimed" && (p.expenses || []).length){
-    move = '<select class="pa-line" data-pa-line="' + escapeAttr(r.ref.id) + '" aria-label="Which of the property\'s cost lines this payment is for">' +
+    move = '<label class="cf-filter"><span>Cost line</span><select class="pa-line field-control" data-pa-line="' + escapeAttr(r.ref.id) + '" aria-label="Cost line for this payment">' +
       (r.lineId ? '' : '<option value="">— no line —</option>') +
       (p.expenses || []).filter(function(x){ return x && x.id; }).map(function(x){
         return '<option value="' + escapeAttr(x.id) + '"' + (x.id === r.lineId ? ' selected' : '') + '>' + escapeAttr(x.what || "Cost") + '</option>';
-      }).join("") + '</select>';
+      }).join("") + '</select></label>';
   }
   var del = '<button type="button" class="btn btn-danger btn-sm" data-pa-del="' + escapeAttr(r.ref.kind + ":" + r.ref.id + (r.ref.loanId ? ":" + r.ref.loanId : "")) + '" aria-label="Remove ' + escapeAttr(r.what) + ' of ' + escapeAttr(r.date) + '">Remove</button>';
   return '<div class="pa-row" data-pa-record="' + escapeAttr(r.key) + '">' +
@@ -71,10 +71,10 @@ export function propertyActivityHtml(p, today){
   var addCharge = loans.length ? '<details class="pa-add"><summary>+ Type a loan interest charge</summary>' +
     '<p class="ledger-note">For a bank whose statement you can\'t import: the interest it charged, as the statement shows it.</p>' +
     '<div class="pa-add-row">' +
-      (loans.length > 1 ? '<select data-pa-charge-loan aria-label="Which loan">' + loans.map(function(l){ return '<option value="' + escapeAttr(l.id) + '">' + escapeAttr(l.what || "Loan") + '</option>'; }).join("") + '</select>'
+      (loans.length > 1 ? '<label class="cf-filter"><span>Loan</span><select class="field-control" data-pa-charge-loan>' + loans.map(function(l){ return '<option value="' + escapeAttr(l.id) + '">' + escapeAttr(l.what || "Loan") + '</option>'; }).join("") + '</select></label>'
         : '<input type="hidden" data-pa-charge-loan value="' + escapeAttr(loans[0].id) + '">') +
-      '<input type="date" data-pa-charge-date value="' + escapeAttr(end) + '" aria-label="Date charged">' +
-      '<input type="number" step="0.01" min="0" data-pa-charge-amount placeholder="Interest $" aria-label="Interest charged">' +
+      '<label class="cf-filter"><span>Date charged</span><input type="date" class="field-control" data-pa-charge-date value="' + escapeAttr(end) + '" aria-label="Date charged"></label>' +
+      '<label class="cf-filter"><span>Interest charged $</span><input type="number" step="0.01" min="0" class="field-control" data-pa-charge-amount placeholder="Interest $" aria-label="Interest charged $"></label>' +
       '<button type="button" class="btn btn-sm" data-pa-charge-add="' + escapeAttr(p.id) + '">+ Add interest</button>' +
     '</div></details>' : '';
   return '<div class="pa" data-pa="' + escapeAttr(p.id) + '">' +

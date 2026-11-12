@@ -360,7 +360,7 @@ retain the documented text-size exception.
 
 ## Property what-if controls (#254)
 
-Implemented on `codex/property-tools-fields`. Loan strategies' six assumptions and loan picker, the fixed-rate
+Shipped v3.256.0 (PR #333). Loan strategies' six assumptions and loan picker, the fixed-rate
 rollover input and the four sale-estimate fields use `.field-control`. Remove their independent skins,
 keeping layout widths, amount alignment and the sale labels' normal input typography. Constrain the loan
 picker to its container so long loan names cannot overflow a phone; verify bounds against the requested
@@ -379,3 +379,25 @@ bounds are checked at 320/390/768/1024/1280px in both themes. Existing `property
 journeys pass. Before/after screenshots and measurements for phone/desktop and both themes are in
 `/tmp/property-tools-review/` (not committed). Desktop controls use 36px height/6px corners; phones and
 coarse-pointer tablets retain 44px targets and the documented touch typography/select exception.
+
+## Property record-entry forms (#254)
+
+Implemented on `codex/property-statement-fields`. The eight property-manager statement controls, Activity's
+cost-line selector and manual loan-interest form use `.field-control`. Activity controls now have visible
+linked labels; the single-loan hidden input and statement PDF file trigger keep their native variants.
+Remove independent Activity skins and keep legacy setup height floors off shared statement controls.
+The statement grid's minimum column is 160px so native dates remain readable. On phones ≤480px, each
+Activity record's date sits above its content/actions, allowing at least 120px for the cost-line picker
+instead of the previous 93px at 320px. Native dates support light/dark calendar icons.
+
+Keep the original blank-to-zero statement handling, net preview, duplicate-payment check, PDF fill, logging,
+removal/Undo, cost-line reassignment and manual-interest validation. No financial, schema or save-handler changes.
+
+`propertyrecordfields` verifies the eight statement controls, expected net/receipt account/bills, Activity
+reassignment, rejection of negative interest, selected-loan logging, and statement removal with its receipt
+and bills. It checks linked labels, shared styling, touch targets, date/select readability and actual viewport
+bounds at 320/390/768/1024/1280px in both themes. Existing `property` and `rentstatement` journeys and
+agent-statement/property-actual/render/static checks pass. Before/after phone/desktop screenshots and
+measurements in both themes are under `/tmp/property-record-review/` (not committed). Desktop shared controls
+use 36px height/6px corners; phones and coarse-pointer tablets retain 44px targets and touch typography.
+Other page families remain under #254.

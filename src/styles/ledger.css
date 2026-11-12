@@ -1535,7 +1535,8 @@
   .fr-acct > .fr-field:first-child{ flex:1.4 1 0; }
   .fr-field{ display:flex; flex-direction:column; gap:3px; min-width:0; }
   .fr-field > span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
-  .fr-field input, .fr-field select{ width:100%; min-width:0; min-height:38px; }
+  .fr-field input, .fr-field select{ width:100%; min-width:0; }
+  .fr-field input:not(.field-control), .fr-field select:not(.field-control){ min-height:38px; }
   .fr-field input[type="number"]{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
   .fr-costs{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 10px; }
   .fr-foot{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:16px; flex-wrap:wrap; }

@@ -387,8 +387,9 @@
 .ps-statement b{ color: var(--ink); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
 .agent-stmt{ margin-top:14px; border-top:1px dashed var(--border); padding-top:10px; }
 .agent-stmt > summary{ cursor:pointer; font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
-.agent-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:8px 10px; margin-top:8px; }
-.agent-grid input, .agent-grid select{ width:100%; min-width:0; min-height:36px; }
+.agent-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:8px 10px; margin-top:8px; }
+.agent-grid input, .agent-grid select{ width:100%; min-width:0; }
+.agent-grid input[type="date"]{ color-scheme:light dark; }
 .agent-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
 .agent-foot b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .agent-sum{ font-size:var(--fs-sm); color: var(--ink-soft); margin:10px 0 4px; line-height:1.5; }
@@ -579,14 +580,20 @@
 .pa-sub{ font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.4; }
 .pa-sub small{ font-size:var(--fs-xs); }
 .pa-tools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
-.pa-tools select{ min-height:34px; max-width:100%; padding:4px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:var(--fs-sm); }
 .pa-amt{ font-family: var(--font-num); font-weight:600; text-align:right; white-space:nowrap; }
 .pa-amt.is-in{ color: var(--good-ink); }
 .pa-end{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
 .pa-add{ margin-top:12px; font-size:var(--fs-sm); }
 .pa-add summary{ cursor:pointer; font-weight:600; }
-.pa-add-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.pa-add-row input, .pa-add-row select{ flex:1 1 120px; min-width:0; min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }
+.pa-add-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+.pa-add-row > .cf-filter{ flex:1 1 160px; }
+.pa-add-row .field-control{ width:100%; }
+.pa-add-row input[type="date"]{ color-scheme:light dark; }
+.pa-tools > .cf-filter{ max-width:100%; }
+@media (max-width:480px){
+  .pa-row{ grid-template-columns:minmax(0, 1fr) auto; }
+  .pa-date{ grid-column:1 / -1; }
+}
 
 /* Item 249: the RBA cash rate on Net worth → Property — a line, or a move to record on the loans. */
 .cash-rate[hidden]{ display:none; }

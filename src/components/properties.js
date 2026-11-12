@@ -606,7 +606,7 @@ function agentStatementHtml(p, win){
   // #261: help shows in the field, described — it was a title tooltip.
   var field = function(key, label, help){
     var hid = help ? "as-" + key + "-help-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") : "";
-    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" data-as="' + key + '"' + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
+    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" class="field-control" data-as="' + key + '"' + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
       (help ? '<small class="field-help" id="' + hid + '">' + escapeAttr(help) + '</small>' : "") + '</label>';
   };
   var accounts = (state.accounts || []).map(function(a){ return a.name; });
@@ -615,12 +615,12 @@ function agentStatementHtml(p, win){
     '<p class="ledger-note">One statement in one go: what was collected, what was paid out of it, and what reached you. Rent received and any bills paid from the rent are logged for you.</p>' +
     '<p class="agent-pdf"><label class="btn btn-sm btn-ghost">Fill from the statement PDF<input type="file" accept=".pdf,application/pdf" data-as-pdf hidden></label></p>' +
     '<div class="agent-grid">' +
-      '<label class="fr-field"><span>Statement date</span><input type="date" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
+      '<label class="fr-field"><span>Statement date</span><input type="date" class="field-control" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
       field("rent", "Rent collected $") + field("water", "Water usage recovered $") +
       field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? "" : "No water line on this property — it will be logged without one.") +
       field("otherAmount", "Other cost paid $") +
-      '<label class="fr-field"><span>Other cost is for</span><select data-as="otherLine">' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '">' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
-      '<label class="fr-field"><span>Paid into</span><select data-as="account"><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
+      '<label class="fr-field"><span>Other cost is for</span><select class="field-control" data-as="otherLine">' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '">' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
+      '<label class="fr-field"><span>Paid into</span><select class="field-control" data-as="account"><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
     '</div>' +
     '<div class="agent-foot"><span>Paid to you <b data-as-net>$0.00</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log>Log statement</button></div>' +
     (sum.count ? '<p class="agent-sum">' + escapeAttr(fyLabel(fy)) + ' from ' + sum.count + ' statement' + (sum.count === 1 ? '' : 's') + ': rent ' + fmtCurrency0.format(sum.rent) + ' · water back ' + fmtCurrency0.format(sum.water) + ' · fees ' + fmtCurrency0.format(sum.fees) + ' · bills paid ' + fmtCurrency0.format(sum.waterRates + sum.other) + ' · to you ' + fmtCurrency0.format(sum.net) + '</p>' : '') +

@@ -194,7 +194,8 @@ async function quiet(page){
 // A wait named for what the step needs, rather than for its code (nameWaits does that for the rest).
 const waited = (page, fn, what, arg) => page.waitForFunction(fn, arg, { timeout: 30000 }).catch(e => { throw new Error("timed out waiting for " + what + " (" + String(e.message).split("\n")[0] + ")"); });
 // The app loaded and its startup reads finished — after a load, a reload, or in a tab just opened.
-const ready = (page, what) => waited(page, () => document.documentElement.hasAttribute("data-wp-ready") && document.documentElement.hasAttribute("data-wp-settled"), what);
+// documentElement is null for a moment while a reload swaps the document: that is "not yet", not a failure.
+const ready = (page, what) => waited(page, () => !!document.documentElement && document.documentElement.hasAttribute("data-wp-ready") && document.documentElement.hasAttribute("data-wp-settled"), what);
 // Until fn (run in the page, with arg) is true, up to 10s. It doesn't fail by itself: the step's own check after it
 // says what was wrong.
 const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
@@ -1777,7 +1778,7 @@ const JOURNEYS = {
             c.font = cs.fontSize + " " + cs.fontFamily;
             return e.clientWidth >= c.measureText(e.placeholder).width + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
           });
-          check(quote, "the LMI quote's \"blank: estimate\" is cut off at " + width + "/" + colorScheme);
+          check(quote, "the LMI quote's placeholder is cut off at " + width + "/" + colorScheme);
         }
       }
       await page.setViewportSize({ width: 390, height: 844 });
@@ -2781,8 +2782,12 @@ const JOURNEYS = {
     await other.close();
     await page.locator('[data-storage-reload]').click(); await answerDialog(page, false);
     check(await st(page, 'state.shared[0].amount') === 280, 'cancelled reload discarded the recoverable copy');
+    // The new page, not "a navigation": closing the question steps back in history first, which Playwright counts as
+    // one, and waiting on that let the ready check run while the old page was being torn down (#346's CI).
+    await page.evaluate(() => { window.__journeyBeforeReload = true; });
     await page.locator('[data-storage-reload]').click();
-    await Promise.all([page.waitForNavigation({waitUntil:'domcontentloaded'}), answerDialog(page, true)]);
+    await answerDialog(page, true);
+    await waited(page, () => !window.__journeyBeforeReload && !!document.documentElement, 'the page Reload latest loads');
     await ready(page, 'the app after Reload latest');
     check(await st(page, 'state.shared[0].amount') === 320, 'Reload latest did not adopt the saved household');
     await page.goto(base + '/index.html?mock=1');

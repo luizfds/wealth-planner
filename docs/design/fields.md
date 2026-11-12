@@ -501,8 +501,9 @@ purchase configs), so a click on the label focuses the field and it is the field
 template questions were labelled already, by their wrapping `<label>` and by `for`. The calculators' `title` tooltips
 stay as they are: `labelFields()` would turn them into visible help lines, a larger change to these long panels than
 a skin, so that is left for #255's tooltip-help step. The typed stamp duty gains the name "Stamp duty", which it had
-lacked. The LMI quote now wraps under "Your quote" when there's no room beside it: "blank: estimate" was cut off at
-390 and 1280px on main (a 95px field), and is read whole at every width, for 22px more on the settlement card.
+lacked. The LMI quote now wraps under "Your quote" when there's no room beside it, and its placeholder is "Estimate" (what
+a blank quote uses): main's "blank: estimate" was cut off at 390 and 1280px (a 95px field), and was still too wide
+for 390px in CI's fallback font after the wrap. It reads whole at every width, for 22px more on the settlement card.
 
 Browser verification drives the real paths (a buying scenario's editor, its add-change sheet, its calculators, and
 Add scenario's templates) at 320/390/768/1024/1280px in both themes, touch below desktop. It checks 36px desktop /

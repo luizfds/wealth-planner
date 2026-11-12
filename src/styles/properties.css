@@ -634,8 +634,8 @@
 
 /* Item 254: where the LMI figure comes from, and a box for an actual quote. */
 .calc-lmi-src{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:400; }
-/* #254: the field goes under "Your quote" when there's no room beside it, so "blank: estimate" is read whole — it was
-   cut off at 390 and 1280px, beside the label in a 95px field. */
+/* #254: the field goes under "Your quote" when there's no room beside it, so its placeholder is read whole — main's
+   "blank: estimate" was cut off at 390 and 1280px, beside the label in a 95px field. */
 .calc-lmi-quote-wrap{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; margin-top:4px; font-size:var(--fs-xs); color: var(--ink-soft); }
 .calc-lmi-quote-wrap input{ flex:1 1 140px; min-width:0; font-family: var(--font-num); text-align:right; }
 

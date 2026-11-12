@@ -1,3 +1,4 @@
+import { budgetPlanData } from "../calc/budgetplan.js";
 import { state } from "../state.js";
 import { filterChoices } from "../calc/cashflowlist.js";
 import { incomeTargets } from "../calc/received.js";
@@ -224,32 +225,26 @@ export function splitEditorHtml(t, idx, lineOptionsFor){
 // surplus go" is answered line by line. opts: { income: [{label, monthly}], groups: [{label, monthly}],
 // other: number (costs not in a group, e.g. investment loan repayments), net: number }.
 export function budgetPlanHtml(opts){
-  var run = 0;
-  var row = function(label, amount, sign, cls){
-    run += sign * amount;
-    return '<div class="bp-row ' + (cls || "") + '"><span>' + escapeAttr(label) + '</span><b>' + (sign < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(amount)) + '</b>' +
-      '<em class="' + (run < 0 ? "neg" : "") + '">' + (run < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(run)) + '</em></div>';
-  };
-  var all = (opts.income || []).filter(function(r){ return Math.abs(r.monthly) >= 0.5; });
-  // v3.139.0 (item 172): a bonus comes once a year, so it isn't part of a normal month — the header
-  // and Home leave it out, and this said "each month" with it spread in. Now the normal month first,
-  // then the bonuses averaged over the year, each total labelled for what it is.
-  var income = all.filter(function(r){ return !r.oneOff; }), bonuses = all.filter(function(r){ return r.oneOff; });
-  var groups = (opts.groups || []).filter(function(g){ return Math.abs(g.monthly) >= 0.5; });
-  var total = function(label, v){ return '<div class="bp-row bp-total"><span>' + label + '</span><b></b><em class="' + (v < 0 ? "neg" : "pos") + '">' + (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)) + '</em></div>'; };
-  var html = '<div class="bp-head"><span></span><span>per month</span><span>left</span></div>' +
-    // v3.151.0: money in can be negative — tax to pay at lodgement, pay that has stopped.
-    '<div class="bp-sec">Money in</div>' + income.map(function(r){ return row(r.label, Math.abs(r.monthly), r.monthly < 0 ? -1 : 1, "in"); }).join("") +
-    '<div class="bp-sec">Money out</div>' + groups.map(function(g){ return row(g.label, g.monthly, -1); }).join("") +
-    (Math.abs(opts.other || 0) >= 0.5 ? row("Investment loan repayments", opts.other, -1) : "");
-  if(!bonuses.length){
-    var net = opts.net != null ? opts.net : run;
-    return html + total("Left over each month", net);
+  var data = budgetPlanData(opts);
+  var signed = function(v){ return (v < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(v)); };
+  var rows = function(list, cls){ return list.map(function(r){
+    return '<div class="bp-row ' + (cls || '') + '"><span>' + escapeAttr(r.label) + '</span><b>' + signed(r.amount) + '</b><em class="' + (r.balance < 0 ? 'neg' : '') + '">' + (r.balance < 0 ? '−' : '') + fmtCurrency0.format(Math.abs(r.balance)) + '</em></div>';
+  }).join(''); };
+  var head = '<div class="bp-head"><span></span><span>Per month</span><span>Running balance</span></div>';
+  var note = '<p class="bp-explain">Running balance means the balance after each item is included. Each income row adds to the previous one; spending takes it away.</p>';
+  var total = function(label, v){ return '<div class="bp-row bp-total"><span>' + label + '</span><b></b><em class="' + (v < 0 ? 'neg' : 'pos') + '">' + (v < 0 ? '−' : '') + fmtCurrency0.format(Math.abs(v)) + '</em></div>'; };
+  var annualLabel = 'Once a year, averaged over twelve months';
+  if(opts.summary){
+    var metric = function(label, value){ return '<div><span>' + label + '</span><b>' + (value < 0 ? '−' : '') + fmtCurrency0.format(Math.abs(value)) + '</b></div>'; };
+    var fold = function(label, amount, list, cls){ return '<details class="bp-fold" data-bp-section="' + escapeAttr(label) + '"><summary><span>' + label + '</span><b>' + signed(amount) + '</b></summary>' + head + rows(list,cls) + '</details>'; };
+    return '<div class="bp-overview" aria-label="A normal month">' + metric('Money in',data.moneyIn) + metric('Money out',data.moneyOut) + metric('Left over',data.normal) + '</div>' +
+      '<p class="bp-explain">A normal month, after tax. Open a section for the figures and running balance.</p>' +
+      fold('Money in',data.moneyIn,data.income,'in') + fold('Money out',-data.moneyOut,data.out,'') +
+      (data.annual.length ? fold(annualLabel,data.average-data.normal,data.annual,'in') + '<p class="bp-average">Including annual income and tax adjustments: <b>' + signed(data.average) + '/mo</b> across the year. These amounts do not arrive every month.</p>' : '') + note;
   }
-  var normal = run;
-  html += total("Left over in a normal month", normal);
-  html += '<div class="bp-sec">Once a year, averaged over twelve months</div>' + bonuses.map(function(r){ return row(r.label, Math.abs(r.monthly), r.monthly < 0 ? -1 : 1, "in"); }).join("");
-  return html + total("Left over a month across the year", opts.net != null ? opts.net : run);
+  var html = note + head + '<div class="bp-sec">Money in</div>' + rows(data.income,'in') + '<div class="bp-sec">Money out</div>' + rows(data.out,'');
+  if(!data.annual.length) return html + total('Left over each month',data.average);
+  return html + total('Left over in a normal month',data.normal) + '<div class="bp-sec">' + annualLabel + '</div>' + rows(data.annual,'in') + total('Left over a month across the year',data.average);
 }
 
 // ---------------- Cash flow → Bills (v3.60.0) ----------------

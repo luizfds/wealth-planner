@@ -38,6 +38,8 @@
 //                 deposit over 100% or a term of 0 years is said, not clamped
 //   scenariocalcfields — the purchase and invest calculators on the shared field (#254): skin, 44px, 16px text and
 //                 tied labels at 320–1280px in both themes; a click on a label focuses its field; the LMI quote reads whole
+//   setupfields — the first-run setup on the shared field (#254): every step at 320–1280px in both themes, a typed
+//                 figure kept through a select's redraw, and the answers saved on Finish
 //   scenariofields — the scenario editor on the shared field (#254): its name, note, quick-add row, every kind of
 //                 change and the template questions, at 320–1280px in both themes; changed and unusual figures still show
 //   planvalidation — Plan → Projections (#263): a cleared return or inflation rate isn't 0%, a horizon of 80 isn't
@@ -1863,6 +1865,55 @@ const JOURNEYS = {
     await page.locator('#startSheetRoot [data-sq="price"]').waitFor({ state: "visible" });
     await fields("#startSheetRoot", "template");
   },
+  // #254: the first-run setup sheet, which only an empty household sees — every step's fields on the shared skin.
+  async setupfields(page){
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); s.setState(s.defaultState());
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/redraw.js')).renderAll();
+    });
+    await go(page, 'dashboard');
+    await click(page, '#dashboardSetup [data-firstrun-open]');
+    const R = '#firstRunRoot ';
+    await page.locator(R + '[role="dialog"]').waitFor();
+    const sizes = async step => {
+      for(const width of [320, 390, 768, 1024, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        for(const colorScheme of ['light', 'dark']){
+          await page.emulateMedia({ colorScheme });
+          // A sheet rises into place on a phone: measured mid-way, its transform shrinks what's in it.
+          await page.evaluate(r => Promise.all(document.querySelector(r).getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))), '#firstRunRoot');
+          const bad = await page.locator(R + 'input:not([type=checkbox]), ' + R + 'select').evaluateAll(es => es.filter(e => e.getClientRects().length).flatMap(e => {
+            const style = getComputedStyle(e), rect = e.getBoundingClientRect(), wrong = [];
+            if(!e.classList.contains('field-control')) wrong.push('skin');
+            if(style.borderTopLeftRadius !== '6px') wrong.push('radius ' + style.borderTopLeftRadius);
+            if(rect.height < 43.5) wrong.push('height ' + Math.round(rect.height));
+            if(rect.left < -1 || rect.right > document.documentElement.clientWidth + 1) wrong.push('off screen');
+            if(e.tagName === 'INPUT' && parseFloat(style.fontSize) < 16) wrong.push('text ' + style.fontSize);
+            if(!(e.labels && e.labels.length) && !e.getAttribute('aria-label')) wrong.push('no name');
+            return wrong.length ? [(e.getAttribute('data-fr') || e.tagName) + ': ' + wrong.join(', ')] : [];
+          }));
+          check(!bad.length, 'setup step ' + step + ' at ' + width + '/' + colorScheme + ': ' + bad.join('; '));
+        }
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+    };
+    await sizes(1);
+    await page.locator(R + '[data-fr="people.0.name"]').fill('Alex');
+    await click(page, R + '[data-fr-next]'); await sizes(2);
+    await click(page, R + '[data-fr-next]'); await sizes(3);
+    await click(page, R + '[data-fr-next]'); await sizes(4);
+    // A typed figure stays when a select beside it redraws the step.
+    await page.locator(R + '[data-fr="housing.amount"]').fill('450');
+    await page.locator(R + '[data-fr="housing.freq"]').selectOption('Fortnightly');
+    check(await page.locator(R + '[data-fr="housing.amount"]').inputValue() === '450', "the rent typed was lost when its frequency changed");
+    await click(page, R + '[data-fr-next]');
+    await click(page, R + '[data-fr-finish="home"]');
+    await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
+    const rent = await st(page, '(state.shared || []).filter(function(l){ return /rent/i.test(l.what || ""); }).map(function(l){ return [Number(l.amount), l.freq]; })[0]');
+    check(!!rent && rent[0] === 450 && rent[1] === 'Fortnightly', 'setup saved the rent as ' + JSON.stringify(rent));
+    check(await st(page, 'state.firstRunDone') === true, 'setup did not finish');
+  },
   async propertycostfields(page){
     await quiet(page);
     await go(page, "properties");
@@ -3654,7 +3705,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

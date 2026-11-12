@@ -26,13 +26,13 @@ function autoPayRowHtml(ap, today){
   var f = function(label, control, wide){ return '<label class="acct-field' + (wide ? " acct-field-wide" : "") + '"><span>' + label + '</span>' + control + '</label>'; };
   var a = escapeAttr(ap.id);
   return '<div class="ap-row" data-ap-row="' + a + '">' +
-    f("What it's for", '<input type="text" data-ap-id="' + a + '" data-ap-field="what" value="' + escapeAttr(ap.what || "") + '" placeholder="' + escapeAttr(autoPayName(ap)) + '" aria-label="What the automatic payment is for">', true) +
-    f("From", '<select data-ap-id="' + a + '" data-ap-field="from" aria-label="Paid from">' + accountOptions(ap.from) + '</select>') +
-    f("To", '<select data-ap-id="' + a + '" data-ap-field="to" aria-label="Paid to">' + accountOptions(ap.to) + '</select>') +
-    f("Amount $", '<input type="number" min="0" step="0.01" data-ap-id="' + a + '" data-ap-field="amount" value="' + (Number(ap.amount) || "") + '" aria-label="Amount">') +
-    f("How often", '<select data-ap-id="' + a + '" data-ap-field="freq" aria-label="How often">' + AUTOPAY_FREQS.map(function(q){ return '<option' + (q === ap.freq ? " selected" : "") + '>' + q + '</option>'; }).join("") + '</select>') +
-    f("A day it comes out", '<input type="date" data-ap-id="' + a + '" data-ap-field="start" value="' + escapeAttr(ap.start || "") + '" aria-label="A day it comes out">') +
-    f("Stands for the Budget line", '<select data-ap-id="' + a + '" data-ap-field="line" aria-label="The Budget line it stands for">' + lineOptions(ap.line) + '</select>') +
+    f("What it's for", '<input class="field-control" type="text" data-ap-id="' + a + '" data-ap-field="what" value="' + escapeAttr(ap.what || "") + '" placeholder="' + escapeAttr(autoPayName(ap)) + '" aria-label="What the automatic payment is for">', true) +
+    f("From", '<select class="field-control" data-ap-id="' + a + '" data-ap-field="from" aria-label="Paid from">' + accountOptions(ap.from) + '</select>') +
+    f("To", '<select class="field-control" data-ap-id="' + a + '" data-ap-field="to" aria-label="Paid to">' + accountOptions(ap.to) + '</select>') +
+    f("Amount $", '<input class="field-control" type="number" min="0" step="0.01" data-ap-id="' + a + '" data-ap-field="amount" value="' + (Number(ap.amount) || "") + '" aria-label="Amount">') +
+    f("How often", '<select class="field-control" data-ap-id="' + a + '" data-ap-field="freq" aria-label="How often">' + AUTOPAY_FREQS.map(function(q){ return '<option' + (q === ap.freq ? " selected" : "") + '>' + q + '</option>'; }).join("") + '</select>') +
+    f("A day it comes out", '<input class="field-control" type="date" data-ap-id="' + a + '" data-ap-field="start" value="' + escapeAttr(ap.start || "") + '" aria-label="A day it comes out">') +
+    f("Stands for the Budget line", '<select class="field-control" data-ap-id="' + a + '" data-ap-field="line" aria-label="The Budget line it stands for">' + lineOptions(ap.line) + '</select>') +
     '<p class="ledger-note acct-field-wide" style="margin:0">' + (next ? "Next on " + escapeAttr(fmtDate(next.date)) + ". " : "") +
       "On the day, Home and the bell ask whether it went through — yes records the transfer." + (ap.line ? " Its Budget line is shown as this payment on the calendar." : "") + '</p>' +
     '<div class="acct-field-wide"><button type="button" class="btn btn-danger btn-sm" data-ap-del="' + a + '">Delete automatic payment</button></div>' +
@@ -61,7 +61,7 @@ export function autoPayCardHtml(today){
       var k = ' data-ap-id="' + escapeAttr(p.id) + '" data-ap-date="' + p.date + '"';
       return '<li class="ap-due-row"><div class="ap-due-what"><b>' + escapeAttr(p.what) + '</b><span>' + money(p.amount) + ' · ' + escapeAttr(p.from) + ' → ' + escapeAttr(p.to) + ' · ' + escapeAttr(when) + '</span></div>' +
         (other
-          ? '<div class="ap-due-other"><label><span>It was $</span><input type="number" min="0" step="0.01" class="ap-other-amount" value="' + Number(p.amount) + '"' + k + ' aria-label="The amount that went out"></label>' +
+          ? '<div class="ap-due-other"><label><span>It was $</span><input type="number" min="0" step="0.01" class="ap-other-amount field-control" value="' + Number(p.amount) + '"' + k + ' aria-label="The amount that went out"></label>' +
               '<label class="pref-check"><input type="checkbox" class="ap-other-keep" checked> The amount from now on</label>' +
               '<button type="button" class="btn btn-sm btn-primary" data-ap-other-save' + k + '>Save</button><button type="button" class="btn btn-sm btn-ghost" data-ap-other-cancel>Cancel</button></div>'
           : '<div class="ap-due-actions"><button type="button" class="btn btn-sm btn-primary" data-ap-yes' + k + '>Yes, ' + money(p.amount) + '</button>' +

@@ -26,7 +26,7 @@ export function subscriptionsHtml(today, st){
       '<span class="sub-name"><b>' + escapeAttr(name) + '</b><small>' + escapeAttr(String(s.freq).toLowerCase()) + ' · ' + fmtCurrency2.format(s.amount) + (s.line ? ' · on a budget line' : ' · not in the budget') + '</small>' + rise + '</span>' +
       '<span class="sub-year"><b>' + fmtCurrency0.format(s.yearly) + '</b><small>a year</small></span>' +
       '<span class="sub-when">' + when + '</span>' +
-      '<span class="sub-cancel">' + (s.stopped ? '' : '<label><small>Cancel by</small><input type="date" data-sub-cancel="' + escapeAttr(s.key) + '" value="' + escapeAttr(s.cancelBy) + '" aria-label="Cancel ' + escapeAttr(name) + ' by"></label>') +
+      '<span class="sub-cancel">' + (s.stopped ? '' : '<label><small>Cancel by</small><input class="field-control" type="date" data-sub-cancel="' + escapeAttr(s.key) + '" value="' + escapeAttr(s.cancelBy) + '" aria-label="Cancel ' + escapeAttr(name) + ' by"></label>') +
         '<button type="button" class="link-btn" data-sub-ignore="' + escapeAttr(s.key) + '">' + (s.ignored ? "It is one" : "Not a subscription") + '</button></span></li>';
   };
   return '<p class="sub-total">About <b>' + fmtCurrency0.format(subscriptionsYearly(list)) + '</b> a year on ' + list.filter(function(s){ return !s.stopped && !s.ignored; }).length + ' repeating charges, at what each charged last.</p>' +

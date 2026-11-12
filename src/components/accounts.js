@@ -29,12 +29,12 @@ function daysSince(iso, today){ return iso ? Math.round((Date.parse(today) - Dat
 function sourceSelectHtml(a, idx){
   var opts = accountSourceOptions(a);
   if(isAgentType(a.type)){
-    return '<label class="acct-field acct-field-wide"><span>Manages</span><select class="acct-mgmt-link" data-acct-index="' + idx + '">' +
+    return '<label class="acct-field acct-field-wide"><span>Manages</span><select class="acct-mgmt-link field-control" data-acct-index="' + idx + '">' +
       '<option value="">— pick the property —</option>' +
       opts.map(function(o){ return '<option value="' + escapeAttr(o.key) + '"' + (a.link === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + (o.usedBy ? " (also on " + escapeAttr(o.usedBy) + ")" : "") + '</option>'; }).join("") + '</select></label>';
   }
   var none = a.type === "offset" ? "— pick the loan it offsets —" : isOwedType(a.type) ? "Nothing yet — the first balance adds a debt" : "Nothing yet — the first balance adds it to Cash";
-  return '<label class="acct-field acct-field-wide"><span>Balance comes from</span><select class="acct-mgmt-link" data-acct-index="' + idx + '">' +
+  return '<label class="acct-field acct-field-wide"><span>Balance comes from</span><select class="acct-mgmt-link field-control" data-acct-index="' + idx + '">' +
     '<option value="">' + escapeAttr(none) + '</option>' +
     opts.map(function(o){
       return '<option value="' + escapeAttr(o.key) + '"' + (a.link === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + (o.usedBy ? " (also on " + escapeAttr(o.usedBy) + ")" : "") + '</option>';
@@ -78,7 +78,7 @@ export function accountRowHtml(a, idx, today){
       amount + actions +
     '</div>';
   var balanceRow = editing
-    ? '<div class="acct-bal-edit"><label><span>' + (owed ? "Owed today" : "Balance today") + ' $</span><input type="number" step="0.01" class="acct-bal-input" data-acct-index="' + idx + '" value="' + (bal.balance != null ? bal.balance : "") + '" aria-label="' + escapeAttr((a.name || "Account") + (owed ? " amount owed" : " balance")) + '"></label>' +
+    ? '<div class="acct-bal-edit"><label><span>' + (owed ? "Owed today" : "Balance today") + ' $</span><input type="number" step="0.01" class="acct-bal-input field-control" data-acct-index="' + idx + '" value="' + (bal.balance != null ? bal.balance : "") + '" aria-label="' + escapeAttr((a.name || "Account") + (owed ? " amount owed" : " balance")) + '"></label>' +
         '<button type="button" class="btn btn-sm btn-primary" data-acct-bal-save="' + idx + '">Save</button>' +
         '<button type="button" class="btn btn-sm btn-ghost" data-acct-bal-cancel="' + escapeAttr(a.id) + '">Cancel</button></div>'
     : '';
@@ -86,17 +86,17 @@ export function accountRowHtml(a, idx, today){
     ? '<div class="acct-card-edit">' +
         // v3.67.0: the balance over time, drawn after render (renderAccountCharts).
         (agent ? '' : '<div class="acct-field-wide acct-chart" data-acct-chart="' + escapeAttr(a.id) + '"></div>') +
-        '<label class="acct-field acct-field-wide"><span>Name</span><input type="text" class="acct-mgmt-name" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name"></label>' +
-        '<label class="acct-field"><span>Type</span><select class="acct-mgmt-type" data-acct-index="' + idx + '" aria-label="Account type">' +
+        '<label class="acct-field acct-field-wide"><span>Name</span><input type="text" class="acct-mgmt-name field-control" data-acct-index="' + idx + '" value="' + escapeAttr(a.name || "") + '" placeholder="Account name" aria-label="Account name"></label>' +
+        '<label class="acct-field"><span>Type</span><select class="acct-mgmt-type field-control" data-acct-index="' + idx + '" aria-label="Account type">' +
           ACCOUNT_TYPES.map(function(t){ return '<option value="' + t.key + '"' + (a.type === t.key ? " selected" : "") + '>' + t.label + '</option>'; }).join("") + '</select></label>' +
         (a.type === "credit"
-          ? '<label class="acct-field"><span>Cycle starts on day</span><input type="number" min="1" max="28" step="1" class="acct-mgmt-day" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)"></label>' +
-            '<label class="acct-field"><span>Limit $</span><input type="number" min="0" step="100" class="acct-mgmt-limit" data-acct-index="' + idx + '" value="' + (a.limit != null ? a.limit : "") + '" placeholder="optional" aria-label="Credit limit"></label>' +
+          ? '<label class="acct-field"><span>Cycle starts on day</span><input type="number" min="1" max="28" step="1" class="acct-mgmt-day field-control" data-acct-index="' + idx + '" value="' + (a.statementStartDay || 1) + '" aria-label="Statement start day (1-28)"></label>' +
+            '<label class="acct-field"><span>Limit $</span><input type="number" min="0" step="100" class="acct-mgmt-limit field-control" data-acct-index="' + idx + '" value="' + (a.limit != null ? a.limit : "") + '" placeholder="optional" aria-label="Credit limit"></label>' +
             // v3.139.0: paid in full by direct debit — the repayment is then taken as made on its day.
-            '<label class="acct-field"><span>Paid in full by direct debit from</span><select class="acct-mgmt-autopay" data-acct-index="' + idx + '" aria-label="Paid in full by direct debit from">' +
+            '<label class="acct-field"><span>Paid in full by direct debit from</span><select class="acct-mgmt-autopay field-control" data-acct-index="' + idx + '" aria-label="Paid in full by direct debit from">' +
               '<option value="">— not set: I log each repayment —</option>' + (state.accounts || []).filter(function(x){ return x && x.name && x !== a && ["everyday", "savings", "offset"].indexOf(x.type) !== -1; }).map(function(x){ return '<option value="' + escapeAttr(x.name) + '"' + (a.autoPayFrom === x.name ? " selected" : "") + '>' + escapeAttr(x.name) + '</option>'; }).join("") +
               (a.autoPayFrom && !(state.accounts || []).some(function(x){ return x.name === a.autoPayFrom; }) ? '<option value="' + escapeAttr(a.autoPayFrom) + '" selected>' + escapeAttr(a.autoPayFrom) + ' (deleted)</option>' : '') + '</select></label>' +
-            '<label class="acct-field"><span>Repayment on day</span><input type="number" min="1" max="31" step="1" class="acct-mgmt-payday" data-acct-index="' + idx + '" value="' + (a.payDay || "") + '" placeholder="from your repayments" aria-label="Repayment day of the month"></label>'
+            '<label class="acct-field"><span>Repayment on day</span><input type="number" min="1" max="31" step="1" class="acct-mgmt-payday field-control" data-acct-index="' + idx + '" value="' + (a.payDay || "") + '" placeholder="from your repayments" aria-label="Repayment day of the month"></label>'
           : '') +
         sourceSelectHtml(a, idx) +
         '<p class="ledger-note acct-field-wide" style="margin:0">' + (a.type === "credit"

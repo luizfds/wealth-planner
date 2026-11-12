@@ -27,7 +27,7 @@ function question(message, options){
       wrap.className = "app-dialog-field";
       var span = document.createElement("span"); span.textContent = label;
       var el = document.createElement("input");
-      el.id = id; el.type = o.password ? "password" : "text";
+      el.id = id; el.className = "field-control"; el.type = o.password ? "password" : "text";
       el.autocomplete = o.password ? (o.repeat ? "new-password" : "current-password") : "off";
       el.setAttribute("aria-describedby", "appDialogMessage appDialogError");
       wrap.append(span, el); d.querySelector(".app-dialog-fields").appendChild(wrap);

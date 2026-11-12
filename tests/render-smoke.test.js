@@ -1166,7 +1166,7 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /−\$700/);
     assert.match(html, /\$4,300 of \$5,000 available/);
     assert.match(html, /no balance/);
-    assert.match(html, /class="acct-mgmt-limit"[^>]*value="5000"/);
+    assert.match(html, /class="acct-mgmt-limit field-control"[^>]*value="5000"/);
     assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
     assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
   } finally { Object.assign(state, keep); }
@@ -1415,7 +1415,7 @@ test("txGridHtml puts editable spending rows, read-only money in and an entry ro
     { kind: "in", date: "2026-10-02", label: "Pay", amount: 1000, account: "Everyday" }
   ], { transactions: tx, lineOptions: id => '<option value="g"' + (id === "g" ? " selected" : "") + '>Groceries</option>', accountOptions: a => '<option>' + a + '</option>', today: "2026-10-05", picking: true });
   assert.match(html, /<tr class="txg-new">/);
-  assert.match(html, /class="tx-amount" data-tx-index="0" value="42.5"/);
+  assert.match(html, /class="tx-amount field-control field-compact" data-tx-index="0" value="42.5"/);
   assert.match(html, /placeholder="Groceries"/);
   assert.match(html, /txg-ro txg-in.*\+\$1,000\.00/s);
   assert.match(html, /data-cf-pick="0"/);
@@ -1526,7 +1526,7 @@ test("a Check's fix can ask for an amount first", async function(){
   const { healthHtml } = await import("../src/components/health.js");
   const html = healthHtml([{ id: "card-unlogged:Card A:2026-10-21", severity: "info", title: "Card A repayment on 21 Oct 2026 isn't logged", detail: "…",
     where: { page: "expenses", sub: "bills", label: "Open Bills" }, fix: { label: "Save repayment", kind: "card-log", arg: "Card A|2026-10-21", amount: 432.1, amountLabel: "Statement balance $" } }], []);
-  assert.match(html, /Statement balance \$<\/span><input type="number"[^>]*data-hc-fix-amount value="432.1">/);
+  assert.match(html, /Statement balance \$<\/span><input class="field-control" type="number"[^>]*data-hc-fix-amount value="432.1">/);
   assert.match(html, /data-hc-fix="card-log" data-hc-fix-arg="Card A\|2026-10-21">Save repayment/);
   assert.match(html, />Open Bills</);
 });

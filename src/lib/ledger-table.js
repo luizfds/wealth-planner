@@ -31,7 +31,7 @@ function todayStr(){ return localDateStr(); }
 // budget line is picked from chips instead of being fixed by whichever row you happened to open.
 export function logControlsHtml(section, idx, item){
   // #261: no title tooltip — it said what the field already shows (today's date) and its name says.
-  return '<input type="date" class="log-date" value="' + todayStr() + '" aria-label="Date to log this amount under">' +
+  return '<input type="date" class="log-date field-control" value="' + todayStr() + '" aria-label="Date to log this amount under">' +
     '<button type="button" class="asset-log-btn" data-log="' + escapeAttr(section) + ':' + idx + '"' +
       ' title="Record the amount above under the date to the left">Record change</button>';
 }

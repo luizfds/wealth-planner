@@ -575,9 +575,9 @@ export function renderDetail(){
 // question that actually decides whether an early retirement is possible.
 function fireAgeInputsHtml(settings){
   return '<div class="fire-ages">' +
-    '<label class="fire-age-field">I\'m<input type="number" min="16" max="99" step="1" id="fireCurrentAge" ' +
+    '<label class="fire-age-field">I\'m<input class="field-control" type="number" min="16" max="99" step="1" id="fireCurrentAge" ' +
       'value="' + (settings.currentAge == null ? "" : settings.currentAge) + '" placeholder="--" aria-label="My age now"></label>' +
-    '<label class="fire-age-field">and want to stop working at<input type="number" min="16" max="99" step="1" id="fireRetireAge" ' +
+    '<label class="fire-age-field">and want to stop working at<input class="field-control" type="number" min="16" max="99" step="1" id="fireRetireAge" ' +
       'value="' + (settings.retireAge == null ? "" : settings.retireAge) + '" placeholder="--" aria-label="Target retirement age"></label>' +
   '</div>';
 }

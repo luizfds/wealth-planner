@@ -173,12 +173,7 @@
   .due-note.due-unset{ font-style:italic; }
   .due-note.due-soon{ color: var(--brass-strong); font-weight:600; }
   .due-note.due-overdue{ color: var(--bad-ink); font-weight:600; }
-  .log-date{
-    width:150px; font-size:var(--fs-xs); padding:4px 5px; border:1px solid var(--border); border-radius:5px;
-    background: var(--paper); color: var(--ink); font-family:inherit; vertical-align:middle; margin-right:4px;
-  }
-  .log-date:hover{ border-color: var(--brass); }
-  .log-date:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .log-date{ width:150px; font-family:inherit; vertical-align:middle; margin-right:4px; }
   .m-edit-actions .log-date{ margin-right:0; }
   /* Beats the generic ".m-edit-field input{width:100%}" rule (higher specificity: two classes
      vs one class + one type) — the date input should stay its own compact width with the Log
@@ -202,23 +197,18 @@
      that ignore the theme — so the Categories tab had a glaring white box in dark mode. Any new
      registry row belongs on these selectors, not in a rule of its own. */
   .acct-mgmt-row .m-row-summary{ cursor:default; }
-  .acct-mgmt-name, .cat-mgmt-name{
-    flex:1 1 140px; min-width:100px; padding:5px 6px; border:1px solid var(--border); border-radius:6px;
+  .acct-mgmt-name, .cat-mgmt-name{ flex:1 1 140px; min-width:100px; }
+  /* #254: an account's name is on the shared skin (.field-control); a category's keeps its inline-rename look. */
+  .cat-mgmt-name{
+    padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background: var(--paper); color: var(--ink); font-family:inherit; font-size:var(--fs-sm); min-height:40px;
   }
   /* The "used by N lines" note next to a category's name. Lived in shell.css while its own row's
      styling lived here, which is how the input above came to be forgotten — kept together now. */
   .cat-mgmt-count{ font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; }
-  .acct-mgmt-type{
-    flex:1 1 200px; font-size:var(--fs-sm); padding:5px 6px; border:1px solid var(--border); border-radius:6px;
-    background: var(--paper); color: var(--ink); font-family:inherit; min-height:40px;
-  }
-  .acct-mgmt-day{
-    width:64px; flex:none; text-align:center; font-family:var(--font-num); font-size:var(--fs-sm);
-    padding:5px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink);
-    min-height:40px;
-  }
-  .acct-mgmt-name:focus, .cat-mgmt-name:focus, .acct-mgmt-type:focus, .acct-mgmt-day:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
+  .acct-mgmt-type{ flex:1 1 200px; font-family:inherit; }
+  .acct-mgmt-day{ width:64px; flex:none; text-align:center; font-family:var(--font-num); }
+  .cat-mgmt-name:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .row-breakdown-toggle{
     all:unset; display:inline-block; font-size:var(--fs-xs); color: var(--brass-strong); cursor:pointer;
     margin-top:2px; padding:4px 2px; text-decoration:underline; text-underline-offset:2px;
@@ -548,10 +538,7 @@
   .scen-override-rows{ display:flex; flex-direction:column; gap:8px; }
   .scen-override-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .scen-override-name{ flex:1 1 120px; min-width:0; font-size:var(--fs-sm); color: var(--ink); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .scen-override-input{
-    width:100px; font-family:var(--font-num); font-size:var(--fs-sm); background: var(--paper);
-    border:1px solid var(--border); border-radius:6px; padding:4px 6px; color: var(--ink);
-  }
+  .scen-override-input{ width:100px; font-family:var(--font-num); }
   .scen-override-input:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
   @media (max-width:480px){
     .scen-override-row{ flex-direction:column; align-items:stretch; }
@@ -705,18 +692,10 @@
      whenever they're shown, but not when they aren't (the same "which margin owns this gap"
      collapse the ledger row shell works around elsewhere). */
   .qlog-refund-chips{ margin:0 0 12px; }
-  .qlog-note{
-    box-sizing:border-box; width:100%; border:1px solid var(--border); background: var(--paper);
-    color: var(--ink); padding:9px 10px; border-radius:8px; font-size:var(--fs-md); font-family:inherit;
-  }
-  .qlog-note:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .qlog-note{ box-sizing:border-box; width:100%; font-family:inherit; }
   .qlog-cat-row{ display:flex; align-items:center; gap:8px; margin:10px 0 0; }
   .qlog-cat-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .qlog-cat{
-    flex:1 1 auto; min-width:0; border:1px solid var(--border); background: var(--paper); color: var(--ink);
-    padding:8px 10px; border-radius:8px; font-size:var(--fs-md); font-family:inherit;
-  }
-  .qlog-cat:focus{ outline:none; border-color: var(--brass); box-shadow: var(--focus-ring); }
+  .qlog-cat{ flex:1 1 auto; min-width:0; font-family:inherit; }
   /* The −/+ next to a transaction row's Amount. A phone's numeric keypad has no minus key, so
      without this a refund cannot be entered on a phone at all — it is a control, not a garnish,
      and it gets a real 44px tap target. */
@@ -739,10 +718,7 @@
   }
   .qlog-date-row{ display:flex; align-items:center; gap:8px; margin:10px 0 4px; }
   .qlog-date-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
-  .qlog-date{
-    flex:1 1 auto; min-width:0; border:1px solid var(--border); background: var(--paper); color: var(--ink);
-    padding:8px 10px; border-radius:8px; font-size:var(--fs-md); font-family:inherit;
-  }
+  .qlog-date{ flex:1 1 auto; min-width:0; font-family:inherit; }
   .qlog-date-toggle{
     all:unset; box-sizing:border-box; cursor:pointer; font-family:inherit; font-size:var(--fs-sm);
     color: var(--ink-soft); padding:6px 0;
@@ -1109,7 +1085,7 @@
   .acct-del{ color: var(--bad-ink); }
   .acct-bal-edit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .acct-bal-edit label{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color: var(--ink-soft); flex:1 1 180px; }
-  .acct-bal-input, .acct-mgmt-limit, .acct-mgmt-link, .acct-mgmt-autopay, .acct-mgmt-payday{ min-height:40px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; font-size:var(--fs-sm); }
+
   .acct-bal-input{ flex:1 1 120px; min-width:0; font-variant-numeric: tabular-nums; }
   .acct-bal-input:focus, .acct-mgmt-limit:focus, .acct-mgmt-link:focus, .acct-mgmt-autopay:focus, .acct-mgmt-payday:focus{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   .acct-card-edit{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
@@ -1170,7 +1146,7 @@
   .cf-view.active{ background: var(--brass-wash); border-color: var(--brass-strong); color: var(--brass-strong); }
   .cf-view:focus-visible{ box-shadow: var(--focus-ring); }
   .cf-view-form{ display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; }
-  .cf-view-form input{ min-height:32px; border:1px solid var(--border); border-radius:7px; padding:4px 8px; font:inherit; font-size:var(--fs-sm); background: var(--paper); color: var(--ink); width:180px; max-width:100%; }
+  .cf-view-form input{ width:180px; max-width:100%; }
   .cf-own-dates{ font-size:var(--fs-sm); color: var(--ink-soft); align-self:center; }
   .budget-row-sv{ display:inline-block; margin:6px 0 2px; font-size:var(--fs-sm); }
   .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -1264,13 +1240,17 @@
   .tx-grid th{ text-align:left; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); padding:6px 4px; border-bottom:1px solid var(--border); }
   .tx-grid td{ padding:3px 4px; border-bottom:1px solid var(--border); vertical-align:middle; }
   .tx-grid .num{ text-align:right; }
-  .tx-grid input, .tx-grid select{ width:100%; min-width:0; padding:5px 6px; font-size:var(--fs-sm); border:1px solid transparent; background:transparent; border-radius:6px; }
-  .tx-grid input:hover, .tx-grid select:hover{ border-color: var(--border); }
-  .tx-grid input:focus, .tx-grid select:focus{ border-color: var(--brass); background: var(--paper-raised); }
+  /* #254: the grid's cells are the compact field (.field-control.field-compact), borderless until hovered so the rows
+     read as a table, at the grid's own 27px rows of text (44px on touch, from phone.css). Focus and errors are the shared
+     states; a hovered cell that has the focus keeps the focus colour. */
+  .tx-grid .field-control{ --field-h:27px; --field-py:5px; line-height:normal; width:100%; min-width:0; border-color:transparent; background:transparent; }
+  .tx-grid .field-control:hover:not(:focus){ border-color: var(--field-border); }
+  .tx-grid .field-control:focus{ border-color: var(--field-focus); background: var(--paper-raised); }
+  .tx-grid .field-control[aria-invalid="true"]{ border-color: var(--bad-ink); }
   .tx-grid .num input{ text-align:right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
   .tx-grid td:nth-child(1) input[type=date]{ width:140px; }
   .txg-new td{ background: var(--paper-sunken); }
-  .txg-new input, .txg-new select{ border-color: var(--border); background: var(--paper-raised); }
+  .txg-new .field-control{ border-color: var(--field-border); background: var(--paper-raised); }
   .txg-ro td{ color: var(--ink-soft); }
   .txg-ro td.muted{ font-style:italic; }
   .txg-in td.num{ color: var(--good-ink); }
@@ -1450,7 +1430,7 @@
   .bc-kinds ul{ list-style:none; margin:0; padding:0; }
   .bc-kinds li{ display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 0; border-bottom:1px dashed var(--border); }
   .bc-kinds li span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .bc-kinds select{ min-height:36px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; flex-shrink:0; }
+  .bc-kinds select{ flex-shrink:0; }
   @media (max-width: 640px){
     .bc-cell{ min-height:44px; padding:3px; }
     .bc-bill, .bc-more{ display:none; }
@@ -1459,14 +1439,14 @@
 
   /* Bank import: the statement's account and balance, transfers (v3.64.0) */
   .bank-import-account{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 8px; font-size:var(--fs-sm); }
-  .bank-import-account select{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; }
+
   .bank-import-balance{ display:flex; gap:8px; align-items:flex-start; font-size:var(--fs-sm); margin:0 0 8px; line-height:1.4; }
   .bank-import-balance input{ margin-top:2px; }
   .bank-import-badge.is-transfer{ background: var(--brass-wash); color: var(--brass-strong); }
   /* A loan account's statement: what goes on the loan (item 243) */
   .bank-loan-part{ margin:0 0 10px; }
   .bank-loan-pick{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; font-size:var(--fs-sm); }
-  .bank-loan-pick select{ min-height:38px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; max-width:100%; }
+  .bank-loan-pick select{ max-width:100%; }
   .bank-loan-part ul{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-sm); line-height:1.45; }
 
   /* Savings goals (v3.65.0) */
@@ -1558,7 +1538,7 @@
   .trip-side{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .trip-spent{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
   .trip-add{ display:grid; grid-template-columns: 1.3fr 1fr 1fr 1.4fr auto; gap:8px; align-items:end; margin-top:10px; }
-  .trip-add select, .trip-add input{ width:100%; min-width:0; min-height:36px; }
+  .trip-add select, .trip-add input{ width:100%; min-width:0; }
   .bank-import-badge.is-trip{ background: color-mix(in srgb, var(--brass) 18%, transparent); color: var(--brass-strong); }
   @media (max-width:700px){ .trip-add{ grid-template-columns: 1fr 1fr; } .trip-add .fr-field:first-child, .trip-add .fr-field:last-of-type, .trip-add button{ grid-column: 1 / -1; } }
 
@@ -1566,7 +1546,7 @@
   .tr-note{ margin:0 0 6px; }
   .tr-all{ margin:8px 0 4px; }
   .tr-scen{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); margin:2px 0 8px; }
-  .tr-scen select{ min-height:36px; border:1px solid var(--border); border-radius:6px; background: var(--paper); color: var(--ink); font: inherit; max-width:100%; }
+  .tr-scen select{ max-width:100%; }
   .tr-flex{ list-style:none; margin:0; padding:0; }
   .tr-flex li{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; border-bottom:1px dashed var(--border); font-size:var(--fs-sm); }
   .tr-flex-name{ min-width:0; display:flex; flex-direction:column; }
@@ -1663,7 +1643,7 @@
   /* v3.171.0 (item 202): who changed what. */
   .act-name{ display:flex; flex-direction:column; gap:4px; max-width:360px; }
   .act-name label{ font-size:var(--fs-sm); font-weight:600; }
-  .act-name input{ min-height:40px; border:1px solid var(--border); border-radius:7px; padding:6px 10px; font:inherit; font-size:var(--fs-md); background: var(--paper); color: var(--ink); }
+
   .act-name small{ color: var(--ink-soft); font-size:var(--fs-xs); }
   .act-list{ margin-top:14px; }
   .act-day{ margin:12px 0 4px; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }

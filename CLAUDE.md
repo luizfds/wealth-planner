@@ -60,6 +60,8 @@ and report without figures. Before every push, grep the diff for names, places a
   ([0005](docs/decisions/0005-scenarios-are-sandboxes.md)).
 - **Something about a property or shares** gets a `data-part` or a `part`; a new Home card a `data-home-card`
   ([0010](docs/decisions/0010-one-design-system.md)).
+- **A field** is the shared one: `fieldHtml()` (`lib/field.js`) or `class="field-control"` (`field-compact` in a dense
+  row), or a variant `docs/design/fields.md` names. The smoke run fails a view with any other.
 - **Styles** use the tokens: `--fs-*` sizes, weights 400/600, `var(--font-num)` for figures, `fmtCompact` for a figure
   read at a glance, `.btn-danger` for every delete, `--good-ink`/`--bad-ink`/`--warn-ink` for coloured text. A rule
   that adjusts another file's rule goes after it or in a later layer, not in a more specific selector; no page sets

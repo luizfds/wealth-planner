@@ -13,10 +13,10 @@ export function lifeEventsHtml(today){
     var k = kindOf(ev.kind), id = escapeAttr(ev.id);
     var at = age != null ? '<small>age ' + (age + (Number(ev.year) || thisYear) - thisYear) + '</small>' : '';
     return '<div class="le-row" data-le-id="' + id + '"><span class="le-kind">' + escapeAttr(k.label) + '</span>' +
-      '<label class="cf-filter"><span>What</span><input type="text" data-le-field="what" value="' + escapeAttr(ev.what || "") + '"></label>' +
-      '<label class="cf-filter le-year"><span>From</span><input type="number" min="' + thisYear + '" max="' + (thisYear + 60) + '" step="1" data-le-field="year" value="' + escapeAttr(ev.year) + '">' + at + '</label>' +
-      (ev.kind === "lump" ? '' : '<label class="cf-filter le-num"><span>For years</span><input type="number" min="1" max="60" step="1" data-le-field="years" value="' + escapeAttr(ev.years) + '"></label>') +
-      '<label class="cf-filter le-amt"><span>' + escapeAttr(k.help.charAt(0).toUpperCase() + k.help.slice(1)) + '</span><input type="number" step="500" data-le-field="amount" value="' + escapeAttr(ev.amount) + '"></label>' +
+      '<label class="cf-filter"><span>What</span><input class="field-control" type="text" data-le-field="what" value="' + escapeAttr(ev.what || "") + '"></label>' +
+      '<label class="cf-filter le-year"><span>From</span><input class="field-control" type="number" min="' + thisYear + '" max="' + (thisYear + 60) + '" step="1" data-le-field="year" value="' + escapeAttr(ev.year) + '">' + at + '</label>' +
+      (ev.kind === "lump" ? '' : '<label class="cf-filter le-num"><span>For years</span><input class="field-control" type="number" min="1" max="60" step="1" data-le-field="years" value="' + escapeAttr(ev.years) + '"></label>') +
+      '<label class="cf-filter le-amt"><span>' + escapeAttr(k.help.charAt(0).toUpperCase() + k.help.slice(1)) + '</span><input class="field-control" type="number" step="500" data-le-field="amount" value="' + escapeAttr(ev.amount) + '"></label>' +
       '<button type="button" class="btn btn-sm btn-danger le-remove" data-le-remove="' + id + '" aria-label="Remove ' + escapeAttr(ev.what || k.label) + '">Remove</button></div>';
   }).join("");
   return '<div class="le-card"><div class="property-section-title">Life events</div>' +

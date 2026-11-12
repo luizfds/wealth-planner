@@ -44,7 +44,7 @@ export function trimHtml(r, scenario, today){
   (state.shared || []).forEach(function(l){ if(l.id) byId[l.id] = l; });
   html += '<div class="rc-sec">Run a scenario lean</div>' +
     '<p class="ledger-note tr-note">Keep, halve or pause each flexible line in one scenario only — the budget itself stays as it is.</p>' +
-    '<label class="tr-scen"><span>Scenario</span><select data-trim-scenario aria-label="Scenario to run lean">' + scen.map(function(s){ return '<option' + (s === scenario ? ' selected' : '') + '>' + escapeAttr(s) + '</option>'; }).join("") + '</select></label>' +
+    '<label class="tr-scen"><span>Scenario</span><select class="field-control" data-trim-scenario aria-label="Scenario to run lean">' + scen.map(function(s){ return '<option' + (s === scenario ? ' selected' : '') + '>' + escapeAttr(s) + '</option>'; }).join("") + '</select></label>' +
     (r.flexible.length ? '<ul class="tr-flex">' + r.flexible.map(function(f){
       var lvl = leanLevel(byId[f.id], scenario);
       var opt = function(v, label){ return '<button type="button" class="seg-option' + (lvl === v ? ' active' : '') + '" data-trim-level="' + v + '" data-trim-line="' + escapeAttr(f.id) + '" aria-pressed="' + (lvl === v) + '">' + label + '</button>'; };

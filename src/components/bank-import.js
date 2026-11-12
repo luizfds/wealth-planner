@@ -507,7 +507,7 @@ function bankImportHeaderHtml(s){
   } else if(cb){
     balLine = '<p class="ledger-note bank-import-meta">The statement ends on a balance of ' + fmtCurrency2.format(cb.balance) + ' (' + escapeAttr(cb.date) + ') — pick its account above to record it.</p>';
   }
-  var acctLine = '<label class="bank-import-account"><span>This statement is for</span><select data-bank-account aria-label="Which account this statement is for">' + acctOpts + '</select></label>';
+  var acctLine = '<label class="bank-import-account"><span>This statement is for</span><select class="field-control" data-bank-account aria-label="Which account this statement is for">' + acctOpts + '</select></label>';
   return '<div class="bank-import-head">' + acctLine + balLine +
     '<p class="ledger-note" style="margin:0">' + (!count && bankImport.loan ? 'No spending in it.' : '<b>' + count + ' transaction' + (count === 1 ? "" : "s") + '</b> to import' +
       (amount > 0 ? ", " + fmtCurrency0.format(amount) + " in total" : "") + '.') +
@@ -572,7 +572,7 @@ function groupRowHtml(g){
     '</div>' +
     '<div class="bank-import-assign">' +
       '<label class="bank-import-field"><span>Goes to</span>' +
-        '<select class="bank-group-line" data-bank-group="' + escapeAttr(g.key) + '">' +
+        '<select class="bank-group-line field-control" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">' + (g.isCredit ? "— don't import —" : "— not linked —") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
@@ -581,7 +581,7 @@ function groupRowHtml(g){
         '</select>' +
       '</label>' +
       '<label class="bank-import-field"><span>Category</span>' +
-        '<select class="bank-group-category" data-bank-group="' + escapeAttr(g.key) + '">' +
+        '<select class="bank-group-category field-control" data-bank-group="' + escapeAttr(g.key) + '">' +
           '<option value="">— none —</option>' +
           sortedCategories().map(function(c){
             return '<option value="' + escapeAttr(c) + '"' + (c === g.choice.category ? " selected" : "") + '>' + escapeAttr(c) + '</option>';
@@ -688,7 +688,7 @@ export function useLoanForStatement(loanId){
 function loanGuessHtml(){
   var loans = propertyLoans();
   return '<div class="tax-cap-note bank-loan-part" data-bank-loanguess><p style="margin:0"><b>This looks like a loan statement.</b> Which loan is it for? Its interest and fees then go on the loan, not into spending.</p>' +
-    '<div class="bank-loan-pick">' + (loans.length > 1 ? '<select data-bank-loanpick-sel aria-label="Which loan this statement is for">' + loans.map(function(l){ return '<option value="' + escapeAttr(l.id) + '">' + escapeAttr(l.label) + '</option>'; }).join("") + '</select>'
+    '<div class="bank-loan-pick">' + (loans.length > 1 ? '<select class="field-control" data-bank-loanpick-sel aria-label="Which loan this statement is for">' + loans.map(function(l){ return '<option value="' + escapeAttr(l.id) + '">' + escapeAttr(l.label) + '</option>'; }).join("") + '</select>'
       : '<input type="hidden" data-bank-loanpick-sel value="' + escapeAttr(loans[0].id) + '"><span>' + escapeAttr(loans[0].label) + '</span>') +
     '<button type="button" class="btn btn-sm btn-primary" data-bank-loanpick>Read it as this loan\'s</button></div></div>';
 }

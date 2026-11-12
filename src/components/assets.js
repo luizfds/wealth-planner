@@ -952,7 +952,7 @@ function sharesFilterSortHtml(){
   var filterHtml = '<div class="chip-row" id="sharesGainFilter" role="group" aria-label="Filter holdings">' + SHARES_GAIN_FILTERS.map(function(o){
     return '<button type="button" class="chip' + (sharesGainFilter === o.key ? " active" : "") + '" aria-pressed="' + (sharesGainFilter === o.key) + '" data-shares-gain-filter="' + escapeAttr(o.key) + '">' + escapeAttr(o.label) + '</button>';
   }).join("") + '</div>';
-  var sortHtml = '<select id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
+  var sortHtml = '<select class="field-control" id="sharesSortSelect" aria-label="Sort holdings">' + SHARES_SORT_OPTIONS.map(function(o){
     return '<option value="' + o.key + '"' + (sharesSortMode === o.key ? " selected" : "") + '>' + escapeAttr(o.label) + '</option>';
   }).join("") + '</select>';
   return '<div class="shares-toolbar">' + filterHtml + sortHtml + '</div>';
@@ -1013,7 +1013,7 @@ function drawSharesSubpage(){
   // rate straight in rather than only through a pasted price sheet.
   var fxWarn = hasUsdHoldings && !(state.fx && state.fx.usdAud)
     ? '<div class="fx-warn" role="note"><p><b>US$ holdings are being counted as A$.</b> No exchange rate is set, so the total above, net worth and every allocation add US dollars as if they were Australian.</p>' +
-      '<label class="fx-warn-field">1 USD = <input type="number" inputmode="decimal" step="0.0001" min="0" placeholder="1.52" data-fx-usdaud aria-label="Australian dollars per US dollar"> AUD</label></div>'
+      '<label class="fx-warn-field">1 USD = <input class="field-control" type="number" inputmode="decimal" step="0.0001" min="0" placeholder="1.52" data-fx-usdaud aria-label="Australian dollars per US dollar"> AUD</label></div>'
     : '';
   // v3.75.0: prices from a shared Google Sheet, read on open; the paste box stays as the manual way.
   // v3.132.0: automatic prices come first; the Sheet is for whatever they don't cover.
@@ -1036,7 +1036,7 @@ function drawSharesSubpage(){
         '</div>' +
         // #261: a label the box keeps once something's pasted — it had a placeholder only.
         '<label class="field-label" for="sharesPasteArea">Prices to paste (Symbol and Price)</label>' +
-        '<textarea id="sharesPasteArea" aria-describedby="sharesPasteHelp" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
+        '<textarea class="field-control" id="sharesPasteArea" aria-describedby="sharesPasteHelp" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
         '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
         '</details>' +
       '</details>'
@@ -1285,7 +1285,7 @@ export function netWorthPurchaseHtml(){
   function fields(r, indices){
     return '<dl class="funding-fields">' + indices.map(function(i){ return '<div data-funding-field="' + i + '"><dt>' + escapeAttr(columns[i].label) + '<small>' + escapeAttr(columns[i].help) + '</small></dt><dd' + (i === 2 ? ' class="' + r.fundingClass + '"' : '') + '>' + r.values[i] + '</dd></div>'; }).join('') + '</dl>';
   }
-  var summary = '<div class="funding-mobile"><label class="rp-entity"><span>Scenario</span><select data-funding-scenario>' + data.map(function(r){ return '<option value="' + escapeAttr(r.name) + '"' + (r === selected ? ' selected' : '') + '>' + escapeAttr(r.name) + '</option>'; }).join('') + '</select></label>' + data.map(function(r){
+  var summary = '<div class="funding-mobile"><label class="rp-entity"><span>Scenario</span><select class="field-control" data-funding-scenario>' + data.map(function(r){ return '<option value="' + escapeAttr(r.name) + '"' + (r === selected ? ' selected' : '') + '>' + escapeAttr(r.name) + '</option>'; }).join('') + '</select></label>' + data.map(function(r){
     return '<section class="funding-scenario" data-funding-summary="' + escapeAttr(r.name) + '"' + (r === selected ? '' : ' hidden') + '><h3>' + escapeAttr(r.name) + '</h3>' + fields(r,[0,1,2]) + '<details class="funding-details"><summary>Details</summary>' + fields(r,[3]) + '</details></section>';
   }).join('') + '</div>';
   return '<div class="funding-reading" data-funding-full="' + purchaseDisplay.fullTable + '"><label class="funding-control"><input type="checkbox" data-funding-full-toggle' + (purchaseDisplay.fullTable ? ' checked' : '') + '> Full table <span class="funding-instruction">— scroll horizontally to compare scenarios</span></label>' + summary + '<div class="funding-full-table">' +

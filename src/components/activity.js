@@ -25,7 +25,7 @@ export function activityHtml(list, opts){
   var today = opts.today || new Date().toISOString().slice(0, 10);
   var people = opts.people || getTaxPeople();
   var nameField = '<div class="act-name"><label for="actName">This device is used by</label>' +
-    '<input id="actName" type="text" data-act-name maxlength="40" list="actPeople" value="' + escapeAttr(name) + '" placeholder="Your name">' +
+    '<input class="field-control" id="actName" type="text" data-act-name maxlength="40" list="actPeople" value="' + escapeAttr(name) + '" placeholder="Your name">' +
     '<datalist id="actPeople">' + people.map(function(p){ return '<option value="' + escapeAttr(p) + '">'; }).join("") + '</datalist>' +
     '<small>Kept on this device only. Your changes carry this name, so whoever you sync with can see who made them.</small></div>';
   if(!list.length) return nameField + '<p class="ledger-note" style="margin:12px 0 0">No changes logged yet. Each edit made here — and on any device you sync with — shows up here for 90 days.</p>';

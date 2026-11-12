@@ -26,8 +26,8 @@ export function retirementHtml(today){
   today = today || localDateStr();
   var plan = retirementPlan(retireLevers);
   var f = state.fire || {};
-  var ages = '<div class="rt-ages"><label class="cf-filter"><span>Your age now</span><input type="number" min="16" max="90" data-rt-fire="currentAge" value="' + (f.currentAge != null ? f.currentAge : "") + '"></label>' +
-    '<label class="cf-filter"><span>Super opens at</span><input type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>';
+  var ages = '<div class="rt-ages"><label class="cf-filter"><span>Your age now</span><input class="field-control" type="number" min="16" max="90" data-rt-fire="currentAge" value="' + (f.currentAge != null ? f.currentAge : "") + '"></label>' +
+    '<label class="cf-filter"><span>Super opens at</span><input class="field-control" type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>';
   if(plan.needsAge) return '<p class="ledger-note" style="margin:0 0 10px">Type your age to see when you could stop working. Everything else comes from the plan already in the app.</p>' + ages;
   var run = plan.run, inp = plan.inputs;
   // v3.139.0 (item 173): lead with the age that holds up when returns rise and fall (9 runs in 10),

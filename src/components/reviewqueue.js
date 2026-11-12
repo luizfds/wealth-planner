@@ -44,8 +44,8 @@ export function txReviewHtml(){
   var body;
   if(txReview.mode === "change"){
     body = card + '<div class="txr-change">' +
-      '<label class="fr-field"><span>A budget line</span><select data-txr-line><option value="">— None —</option>' + budgetLineOptgroupsHtml(t.linkedExpenseId) + '</select></label>' +
-      '<label class="fr-field"><span>Or just a category</span><select data-txr-cat><option value="">— None —</option>' +
+      '<label class="fr-field"><span>A budget line</span><select class="field-control" data-txr-line><option value="">— None —</option>' + budgetLineOptgroupsHtml(t.linkedExpenseId) + '</select></label>' +
+      '<label class="fr-field"><span>Or just a category</span><select class="field-control" data-txr-cat><option value="">— None —</option>' +
         sortedCategories().map(function(c){ return '<option' + (!t.linkedExpenseId && c === t.category ? " selected" : "") + '>' + escapeAttr(c) + '</option>'; }).join("") + '</select></label></div>' +
       '<div class="txr-actions"><button type="button" class="btn btn-ghost" data-txr-back>Back</button><button type="button" class="btn btn-primary" data-txr-save>Save</button></div>';
   } else if(txReview.mode === "rule" && txReview.choice){

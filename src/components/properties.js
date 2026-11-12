@@ -853,7 +853,7 @@ function propertyCardBodyHtml(p, colorIdx){
   return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
     '<div class="property-card-head">' +
       '<h3 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h3>' +
-      '<h3 class="prop-edit"><input type="text" class="prop-what" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
+      '<h3 class="prop-edit"><input type="text" class="prop-what inline-name" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h3>' +
       '<button type="button" class="btn btn-danger btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +

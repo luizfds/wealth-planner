@@ -532,6 +532,82 @@ const JOURNEYS = {
     await page.locator('.investments-back').tap();
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
   },
+  async sharesquickperiod(page){
+    await quiet(page);
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    const shares = page.locator('#assetsSub-Shares');
+    const before = await stored(page, 'JSON.stringify(state.assets)');
+    const strip = shares.locator('#sharesChangeWindow');
+    await strip.waitFor({state:'visible'});
+    check(!await shares.locator('#assetListFilters-Shares').isVisible(), 'period still requires opening Filters');
+    check(await strip.locator('button').count() === 8, 'price-change windows missing');
+    const initial = await shares.locator('#sharesGlance').textContent();
+    const keys = ['1d','1w','1m','3m','6m','1y','ytd','all'];
+    for(const key of keys){
+      await strip.locator('[data-shares-change-window="' + key + '"]').tap();
+      await page.waitForFunction(async key => (await import('/src/components/assets.js')).sharesChangeWindow === key, key);
+      await page.waitForFunction(() => document.activeElement === document.querySelector('#sharesChangeWindow [aria-pressed="true"]'));
+    }
+    await strip.locator('[data-shares-change-window="1w"]').tap();
+    await settle(page);
+    check(await shares.locator('#sharesGlance').textContent() !== initial, 'quick period did not refresh gain/loss');
+    check((await shares.locator('.record-toolbar [data-asset-list-filters]').textContent()).trim() === 'Filters', 'period counted as a filter');
+    check(!await shares.locator('.record-applied').count(), 'period adds an applied-filter row');
+    await shares.locator('.record-toolbar [data-asset-list-filters]').click();
+    await shares.locator('[data-shares-gain-filter="winners"]').click();
+    await shares.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
+    check((await shares.locator('.record-toolbar [data-asset-list-filters]').textContent()).includes('(1)'), 'gain filter count includes period');
+    await shares.locator('[data-asset-list-clear]').click();
+    check(await strip.locator('[aria-pressed="true"]').getAttribute('data-shares-change-window') === '1w' && !await shares.locator('.record-applied').count(), 'Clear changed period or left filters active');
+    for(const width of [320,390,768,1024,1280]){
+      await page.setViewportSize({width,height:844}); await settle(page);
+      check(!await strip.locator('select').count(), 'range strip became a picker at ' + width);
+      const bad = await strip.evaluate((e,width) => e.getBoundingClientRect().right > width + 1 || [...e.querySelectorAll('button')].some(b => {
+        const r = b.getBoundingClientRect(); return r.width < 44 || r.height < 44;
+      }), width);
+      check(!bad, 'quick period row overflows at ' + width);
+      if(width === 320){
+        const rect = await strip.boundingBox(), cdp = await page.context().newCDPSession(page);
+        const x = rect.x + rect.width - 20, y = rect.y + rect.height / 2;
+        await cdp.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{x,y}]});
+        for(const delta of [10,30,60,90,120]){
+          await cdp.send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x:x-delta,y}]});
+          await page.waitForTimeout(25);
+        }
+        await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
+        await cdp.detach();
+        await page.waitForFunction(() => document.getElementById('sharesChangeWindow').scrollLeft > 0);
+        check(!await shares.evaluate(e => e.hidden), 'swiping ranges changed Investments section');
+        await strip.locator('[data-shares-change-window="all"]').tap();
+        check(await strip.locator('[aria-pressed="true"]').evaluate(e => {
+          const r = e.getBoundingClientRect(), s = e.parentElement.getBoundingClientRect();
+          return r.left >= s.left - 1 && r.right <= s.right + 1;
+        }), 'redraw hid the selected range beyond the scroll edge');
+      }
+      if(width === 390){
+        check(await strip.evaluate(e => e.scrollWidth <= e.clientWidth + 1), 'all ranges do not fit a standard phone');
+      }
+      if(width === 390 || width === 1280){
+        const top = await shares.locator('.m-asset-rows .m-row').first().evaluate(e => e.getBoundingClientRect().top);
+        check(top < (width === 390 ? 422 : 400), 'quick period pushes first holding below half-screen: ' + top);
+        if(width === 390){
+          // System font metrics can put the phone header's help/actions on another line.
+          const wrapped = await page.addStyleTag({content:'@media(max-width:880px){.app-topbar h1{flex-basis:100%;}}'});
+          await settle(page);
+          const wrappedTop = await shares.locator('.m-asset-rows .m-row').first().evaluate(e => e.getBoundingClientRect().top);
+          check(wrappedTop < 422, 'wrapped header pushes first holding below half-screen: ' + wrappedTop);
+          await wrapped.evaluate(e => e.remove());
+        }
+      }
+    }
+    await shares.locator('[data-shares-change-window="3m"]').click();
+    check(await page.evaluate(async() => (await import('/src/components/assets.js')).sharesChangeWindow === '3m'), 'wide-screen period tabs did not work');
+    await page.keyboard.press('Tab'); await page.keyboard.press('Enter');
+    check(await strip.locator('[aria-pressed="true"]').evaluate(e => {
+      const s = getComputedStyle(e); return e === document.activeElement && s.outlineStyle === 'solid' && parseFloat(s.outlineWidth) >= 2;
+    }), 'keyboard selection lacks visible focus');
+    check(await stored(page, 'JSON.stringify(state.assets)') === before, 'period/filter controls changed holdings');
+  },
   async sectionpickers(page){
     await quiet(page);
     for(const width of [320, 390]){
@@ -542,15 +618,9 @@ const JOURNEYS = {
       check(await picker.locator('option:checked').textContent() === "Shares", "deep-linked Shares is not the selected section");
       check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
       check(await page.locator('.investments-back').isVisible(), "Investments has no Net worth back link");
-      const range = page.locator('#sharesChangeWindow > select');
-      await page.locator('#assetsSub-Shares .record-toolbar [data-asset-list-filters]').click();
-      await range.focus();
-      await range.selectOption({ index: 1 });
-      await page.waitForFunction(() => {
-        const picker = document.querySelector('#sharesChangeWindow > select');
-        return picker && picker.value === '1' && document.activeElement === picker;
-      });
-      await page.locator('#assetListFilters-Shares [data-asset-list-filters]').click();
+      const range = page.locator('#sharesChangeWindow [data-shares-change-window="1w"]');
+      await range.click();
+      check(!await page.locator('#sharesChangeWindow select').count(), "Shares range strip became a section picker");
       await picker.focus();
       await page.keyboard.press('End');
       await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
@@ -3133,7 +3203,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

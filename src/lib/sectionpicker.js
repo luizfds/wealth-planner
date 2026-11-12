@@ -1,6 +1,7 @@
 // #259: keep the existing buttons and their navigation/leave guards as the authority.
 // A native picker replaces them only when their full-size labels do not fit.
-var RAILS = ".subnav, .time-range-control";
+// Financial range strips deliberately retain buttons and scroll when necessary.
+var RAILS = ".subnav, .time-range-control:not(.range-strip)";
 
 export function initSectionPickers(root){
   var scheduled = false, observed = new Set(), sources = new WeakMap(), restore = null;

@@ -39,6 +39,10 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .record-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px var(--card-px); }
 .record-heading{ min-width:0; display:flex; flex-direction:column; gap:2px; }
 .record-heading .section-title{ margin:0; font-size:var(--fs-md); }
+.shares-list .record-heading{ flex-direction:row; flex-wrap:wrap; align-items:baseline; gap:2px 8px; }
+.shares-list .record-heading .section-title{ flex-basis:100%; }
+.shares-list .record-summary{ margin:0; }
+.shares-list .record-summary .asset-trend{ padding-left:0; }
 .record-controls{ display:flex; align-items:center; gap:4px; flex-shrink:0; }
 .record-controls .btn{ white-space:nowrap; padding-left:8px; padding-right:8px; }
 .record-controls .page-overflow-btn, .record-search-toggle{ min-width:44px; min-height:44px; }

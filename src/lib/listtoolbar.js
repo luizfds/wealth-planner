@@ -1,10 +1,11 @@
 import { escapeAttr } from "./html.js";
 
 // List headers share the same space for the title/total and occasional controls.
-// controlsHtml, extraTotalHtml and itemsHtml are markup from the calling component, never imported text.
-export function listToolbarHtml(title, total, controlsHtml, totalId, extraTotalHtml){
+// controlsHtml, options.extraTotalHtml and itemsHtml are markup from the calling component, never imported text.
+export function listToolbarHtml(title, total, controlsHtml, totalId, options){
+  options = options || {};
   return '<div class="record-toolbar"><div class="record-heading"><h2 class="section-title">' + escapeAttr(title) + '</h2>' +
-    '<span class="ledger-total">Total <b' + (totalId ? ' id="' + escapeAttr(totalId) + '"' : '') + '>' + escapeAttr(total) + '</b></span>' + (extraTotalHtml || '') + '</div>' +
+    '<span class="ledger-total">' + (options.compactTotal ? '<span class="visually-hidden">Total </span>' : 'Total ') + '<b' + (totalId ? ' id="' + escapeAttr(totalId) + '"' : '') + '>' + escapeAttr(total) + '</b></span>' + (options.extraTotalHtml || '') + '</div>' +
     '<div class="record-controls">' + controlsHtml + '</div></div>';
 }
 export function listActionsHtml(label, itemsHtml){

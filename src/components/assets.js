@@ -1048,8 +1048,8 @@ function drawSharesSubpage(){
   var activeCount = (assetPersonFilter ? 1 : 0) + (sharesGainFilter ? 1 : 0) + (sharesSortMode ? 1 : 0);
   var controls = assetListControlsHtml('Shares', activeCount,
     '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="prices">Prices</button><button type="button" class="btn btn-sm btn-ghost" data-asset-list-tool="trades">Import trades</button>');
-  container.innerHTML = '<div class="ledgers"><section class="ledger record-list shares-list">' + listToolbarHtml('Shares', fmtCurrency0.format(total), controls, '',
-    '<div id="sharesGlance">' + sharesCompactGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>') +
+  container.innerHTML = '<div class="ledgers"><section class="ledger record-list shares-list">' + listToolbarHtml('Shares', fmtCurrency0.format(total), controls, '', {compactTotal:true,
+    extraTotalHtml:'<div id="sharesGlance">' + sharesCompactGlanceHtml(allData.items.filter(function(a){ return !isSoldOut(a); })) + '</div>'}) +
     '<div class="ledger-body"><div id="assetListFilters-Shares" class="record-filter-panel"' + (assetListUi.filters === 'Shares' ? '' : ' hidden') + '><div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-asset-list-filters="Shares">Done</button></div>' + assetPersonSelectHtml() + toolbar + '</div>' + assetAppliedHtml('Shares') +
     '<div class="shares-change-summary">' + sharesChangeWindowHtml() + '</div>' + fxWarn +
     '<div class="record-tool-panel" data-asset-tool-panel="prices"' + (assetListUi.tool === 'prices' ? '' : ' hidden') + '><button type="button" class="btn btn-sm" data-asset-list-tool="">Done</button>' + (pasteTool || '<p class="record-summary">Add a holding to set its prices.</p>') + '</div>' +

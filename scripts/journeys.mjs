@@ -575,6 +575,14 @@ const JOURNEYS = {
       if(width === 390 || width === 1280){
         const top = await shares.locator('.m-asset-rows .m-row').first().evaluate(e => e.getBoundingClientRect().top);
         check(top < (width === 390 ? 422 : 400), 'quick period pushes first holding below half-screen: ' + top);
+        if(width === 390){
+          // System font metrics can put the phone header's help/actions on another line.
+          const wrapped = await page.addStyleTag({content:'@media(max-width:880px){.app-topbar h1{flex-basis:100%;}}'});
+          await settle(page);
+          const wrappedTop = await shares.locator('.m-asset-rows .m-row').first().evaluate(e => e.getBoundingClientRect().top);
+          check(wrappedTop < 422, 'wrapped header pushes first holding below half-screen: ' + wrappedTop);
+          await wrapped.evaluate(e => e.remove());
+        }
       }
     }
     await shares.locator('[data-shares-change-window="3m"]').click();

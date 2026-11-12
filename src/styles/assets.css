@@ -81,7 +81,7 @@
 
   /* ---------------- Shares: winners/losers filter, sort, and change-window ---------------- */
   .shares-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  .shares-change-summary{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-bottom:8px; }
+  .shares-change-summary{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-bottom:4px; }
   .shares-change-summary .record-summary{ margin:0; }
   .shares-change-choice{ display:flex; align-items:center; gap:6px; min-width:0; max-width:100%; }
   .shares-change-choice .has-section-picker{ width:75px; flex:none; padding:0; border:0; background:transparent; }

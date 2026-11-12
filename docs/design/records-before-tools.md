@@ -100,3 +100,7 @@ after redraw, Clear independence, filter count, idle picker stability, responsiv
 position, desktop buttons and unchanged saved holdings. Existing `sectionpickers`, `recordtools` and
 `mobileinvestments` journeys pass. Screenshots cover 320/390/768/1024/1280px in both themes; review artifacts
 are under `/tmp/shares-period-final/` (not committed).
+
+CI exposed the system-font header wrapping onto an extra line: the first holding was at 422.7px.
+Retain the 44px native target and use a 4px gap below the summary; the wrapped-header case is now
+explicitly checked at 390px, keeping the first holding at about 418.7px without changing the 422px limit.

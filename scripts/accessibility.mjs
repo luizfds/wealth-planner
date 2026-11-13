@@ -228,6 +228,9 @@ for(const width of widths)for(const scheme of schemes){
    if(invented)await page.evaluate(async()=>{const s=await import('/src/state.js');s.state.debts=[];s.commit(['debts']);});
   }
   if(pg==='properties'){
+   await page.locator('#propertiesSummary [data-help-toggle]').click();
+   await scan('property-summary/help', '#propertiesSummary');
+   await page.locator('#propertiesSummary [data-help-toggle]').click();
    await page.locator('[data-prop-edit]').first().click();
    await page.locator('[data-prop-tab][data-tab="loans"]').first().evaluate(e=>e.click());
    await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="loans"][aria-expanded="false"]').forEach(e=>e.click()));

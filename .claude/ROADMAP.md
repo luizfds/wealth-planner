@@ -5052,9 +5052,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      controls with exact figures and selected state, preserving month navigation and report values (`monthhelp`).
      Separate 44px targets scroll locally on narrow screens so adjacent months cannot steal each other’s taps.
      Property follows.
-   - `[~]` #255 Property portfolio summary: move equity, cash-flow and yield explanations behind
+   - `[x]` #255 Property portfolio summary: move equity, cash-flow and yield explanations behind
      the shared section ⓘ; label equity/debt chart values for assistive technology. Property-card
-     figures and actions remain a separate follow-up.
+     figures and actions remain a separate follow-up. Journey: `propertysummaryhelp` (320/390/1280px,
+     both themes); the smoke ratchet covers this summary and chart, and axe scans the expanded help.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

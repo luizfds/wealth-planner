@@ -969,7 +969,8 @@ function propertiesEquityDebtBarHtml(){
   if(!visible.length) return '<p class="ledger-note section-empty" style="margin:0">Add a property to see this.</p>';
   var whole = visible.reduce(function(s, x){ return s + x.value; }, 0);
   var bar = visible.map(function(s){
-    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" title="' + s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')"></div>';
+    var label = s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')';
+    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" role="img" aria-label="' + escapeAttr(label) + '" title="' + escapeAttr(label) + '"></div>';
   }).join("");
   var legend = visible.map(function(s){
     return '<div class="tax-waterfall-item"><span class="proj-swatch ' + s.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + s.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(s.value) + '</span></div></div>';
@@ -977,6 +978,8 @@ function propertiesEquityDebtBarHtml(){
   return '<div class="tax-waterfall-bar">' + bar + '</div><div class="tax-waterfall-legend">' + legend + '</div>';
 }
 export function renderPropertiesSummary(){
+  var summary = document.getElementById("propertiesSummary");
+  if(summary) summary.hidden = !state.properties.length;
   var listTotal = document.getElementById("propertiesListTotal");
   if(listTotal) listTotal.textContent = fmtCurrency0.format(propertiesTotalValue());
   var statsEl = document.getElementById("propertiesSummaryStats");
@@ -988,10 +991,10 @@ export function renderPropertiesSummary(){
       var weightedYield = propertiesWeightedGrossYield();
       statsEl.innerHTML =
         '<div class="stat-tile"><span>Total value</span><b>' + fmtCurrency0.format(propertiesTotalValue()) + '</b><small>across ' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + '</small></div>' +
-        '<div class="stat-tile" title="Value minus what\'s owed after the offset — matches each card\'s own Net equity tile, summed across the portfolio"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>' + (propertiesOffsetTotal() > 0 ? "incl. " + fmtCurrency0.format(propertiesOffsetTotal()) + " in offset" : "value less loans") + '</small></div>' +
+        '<div class="stat-tile"><span>Total equity</span><b>' + fmtCurrency0.format(propertiesTotalEquityToday()) + '</b><small>' + (propertiesOffsetTotal() > 0 ? "incl. " + fmtCurrency0.format(propertiesOffsetTotal()) + " in offset" : "value less loans") + '</small></div>' +
         '<div class="stat-tile"><span>Total mortgage</span><b>' + fmtCurrency0.format(propertiesTotalMortgageBalance()) + '</b><small>across every loan</small></div>' +
-        '<div class="stat-tile" title="Rent minus expenses and loan repayments, across every investment property"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad-ink)" : "var(--good-ink)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
-        '<div class="stat-tile" title="Annual rent ÷ value, weighted by each investment property\'s own value"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';
+        '<div class="stat-tile"><span>Net cash flow</span><b style="color:' + (netCashFlow < 0 ? "var(--bad-ink)" : "var(--good-ink)") + '">' + (netCashFlow >= 0 ? "+" : "") + fmtCurrency0.format(netCashFlow) + '/mo</b><small>investment properties</small></div>' +
+        '<div class="stat-tile"><span>Avg gross yield</span><b>' + (weightedYield != null ? fmtPercent1.format(weightedYield) : "—") + '</b><small>investment properties</small></div>';
     }
   }
   var barEl = document.getElementById("propertiesEquityDebtBar");

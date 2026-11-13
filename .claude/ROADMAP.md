@@ -5034,7 +5034,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      itself), the planning profile's second count is gone from Home (Reports keeps it), the intro no longer offers
      sample data beside the card's button, and an empty household's This month and Net worth say what's missing with
      a link onward instead of $0. Guided setup stays the one way back, after Reset too. Journey: `firstrunpath`.
-   - `[~]` #255 step 3, empty states: every empty, no-results and report-empty state says what fills it, with the next
+   - `[x]` #255 step 3, empty states, shipped v3.266.0 (PR #349): every empty, no-results and report-empty state says what fills it, with the next
      step as a control (pages.md §4) — `emptyStateHtml()` in `lib/empty.js`, about 30 states and every report — and
      the smoke run checks each one in the empty household. Also: a page change no longer closes a sheet opened while it
      waited to apply (on a slow device, startup closed an empty household's setup and marked it skipped). Step 4
@@ -5063,6 +5063,10 @@ several runs at once load the machine), and each fixed where it was:
   lands halfway through one.
 - **A helper that watched the wrong dialog.** `answerDialog` waited for `.app-dialog` to go; when one question
   follows another the second was already there, and it waited thirty seconds on it. It tags the dialog it answers.
+
+PR #349 (v3.266.0) fixes a related startup race: a delayed page change closed setup that opened while it waited.
+That is a possible lead for #282, not an established cause of its keyboard-open/Escape focus failure. Keep #282
+open until a deterministic regression connects that failure to the fix; retain the focus trace and atomic checks.
 
 Every `waitForFunction` that times out now says what it was waiting for. **Not explained:** setup closing with focus
 on the page body (#282) and "Guided setup" blocked by setup's backdrop (PR #311) did not recur in 150 runs of those

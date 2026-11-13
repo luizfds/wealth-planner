@@ -2496,7 +2496,6 @@ test("budget comparison has explicit amounts and a text alternative to its rings
   assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
 
-
 test("Spending category figures have exact accessible values and escape category names", () => {
   const html = categoryChartHtml([{ key: 'Sample <category> "A"', monthly: 100 }, { key: 'Other', monthly: 100 }], '/mo');
   assert.match(html, /role="img" aria-label="Sample &lt;category> &quot;A&quot;: \$100\/mo \(50%\)"/);

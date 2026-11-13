@@ -173,7 +173,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
             const title = el.getAttribute("title");
             if(!el.getClientRects().length || title.length <= 40 || el.matches("input, select, textarea")) return;
             if(el.getAttribute("role") === "img" && el.getAttribute("aria-label") === title) return;
-            if(el.closest('[role="img"][aria-label]')) return;
+            if(el.parentElement && el.parentElement.closest('[role="img"][aria-label]')) return;
             if(title === el.textContent.trim()) return; // the same full name, also written on screen
             tooltipHelp.push(el.tagName.toLowerCase() + ": " + title.slice(0, 60));
           });

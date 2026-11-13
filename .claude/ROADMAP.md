@@ -5039,6 +5039,9 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      the smoke run checks each one in the empty household. Also: a page change no longer closes a sheet opened while it
      waited to apply (on a slow device, startup closed an empty household's setup and marked it skipped). Step 4
      (tooltip help to ⓘ) follows in its own PR.
+   - `[~]` #255 step 4, tooltip help to ⓘ: migrate view by view, starting with Spending. Explanations use
+     the existing help controls; chart figures retain hover titles with screen-reader labels. Full charts keep
+     their existing tap tooltips. Native figure titles remain hover-only on touch.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

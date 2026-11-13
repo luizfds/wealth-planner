@@ -18,9 +18,9 @@ import { whatIfValues, whatIfStripHtml } from "./whatif.js";
 // Plan or actuals (v3.52.0): the control and the sentence that says what "actuals" means right now.
 export function projSourceHtml(a, source){
   var useActuals = source === "actuals" && a.available;
-  var btn = function(v, label, title, disabled){
+  var btn = function(v, label, disabled){
     var on = (v === "actuals") === useActuals;
-    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" data-proj-source="' + v + '" aria-pressed="' + on + '"' + (disabled ? ' disabled' : '') + ' title="' + escapeAttr(title) + '">' + label + '</button>';
+    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" data-proj-source="' + v + '" aria-pressed="' + on + '"' + (disabled ? ' disabled' : '') + ' aria-describedby="' + (v === "plan" ? "projPlanHelp" : "projActualsHelp") + '">' + label + '</button>';
   };
   var note;
   if(!a.available){
@@ -28,15 +28,18 @@ export function projSourceHtml(a, source){
   } else {
     var diff = a.incomeDeltaMonthly != null ? (a.incomeDeltaMonthly - a.spendDeltaMonthly)
       : (a.incomeReceivedMonthly - a.spendLoggedMonthly) - (a.incomePlannedMonthly - a.spendPlannedMonthly);
-    // v3.158.0 (item 188): shorter; the line counts moved to the Actuals button's tooltip.
+    // Keep the summary short; line counts live in the section’s help below.
     note = "Last " + a.months + " months: income " + fmtPercent1.format(a.incomeRatio) + " of plan, spending " + fmtPercent1.format(a.spendRatio) +
       " — " + fmtCurrency0.format(Math.abs(diff)) + "/mo " + (diff >= 0 ? "better" : "worse") + "." +
       (useActuals ? " Lines with nothing logged stay as planned." : "");
   }
   return '<div class="seg-control" role="group" aria-label="Based on">' +
-      btn("plan", "Plan", "Every figure as planned under Cash flow.") +
-      btn("actuals", "Actuals", "The plan, corrected by what's really been received and spent lately on the lines that have any logged" + (a.available ? " (" + a.incomeLines + " income and " + a.spendLines + " spending lines, plus one-offs)." : "."), !a.available) +
-    '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>';
+      btn("plan", "Plan") +
+      btn("actuals", "Actuals", !a.available) +
+    '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>' +
+    '<p class="ledger-note help"><span id="projPlanHelp">Plan: Every figure as planned under Cash flow.</span> <span id="projActualsHelp">Actuals: ' +
+      "The plan, corrected by what's really been received and spent lately on the lines that have any logged" +
+      escapeAttr(a.available ? " (" + a.incomeLines + " income and " + a.spendLines + " spending lines, plus one-offs)." : ".") + '</span></p>';
 }
 
 export var projectionStress = { enabled: false, investLossPct: 25, propertyLossPct: 12, duration: 2 };
@@ -220,8 +223,8 @@ function renderProjectionContent(){
       headlineEl.innerHTML = "";
     }
     if(spread){
-      headlineEl.innerHTML += ' <span class="proj-range-line" title="' + spread.runs + ' runs of ' + escapeAttr(bandScenario) + ' with returns that rise and fall">8 in 10 runs end between <b>' +
-        fmtCurrency0.format(spread.lo[horizon].y) + '</b> and <b>' + fmtCurrency0.format(spread.hi[horizon].y) + '</b> (shaded); half above ' + fmtCurrency0.format(spread.mid[horizon].y) + '.</span>';
+      headlineEl.innerHTML += ' <span class="proj-range-line">8 in 10 runs end between <b>' +
+        fmtCurrency0.format(spread.lo[horizon].y) + '</b> and <b>' + fmtCurrency0.format(spread.hi[horizon].y) + '</b> (shaded); half above ' + fmtCurrency0.format(spread.mid[horizon].y) + '.</span> <span class="help">' + spread.runs + ' runs of ' + escapeAttr(bandScenario) + ' with returns that rise and fall.</span>';
     }
   }
 
@@ -246,7 +249,7 @@ function renderProjectionContent(){
 
   var tools = document.createElement("div");
   tools.className = "proj-tools";
-  tools.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" id="projCsvBtn" title="Every year of every scenario, with investments, property equity and loans owed — in the dollars shown above">⇩ Download every year (CSV)</button>';
+  tools.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" id="projCsvBtn" aria-describedby="projCsvHelp">⇩ Download every year (CSV)</button><p class="ledger-note help" id="projCsvHelp">Every year of every scenario, with investments, property equity and loans owed — in the dollars shown above.</p>';
   container.appendChild(tools);
 }
 

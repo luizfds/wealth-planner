@@ -252,7 +252,7 @@ export function renderLineChart(container, series, opts){
         item.setAttribute("role", "button");
         item.setAttribute("tabindex", "0");
         item.setAttribute("aria-pressed", "true");
-        item.title = "Click to hide/show this line on the chart";
+        item.title = "Show or hide this line";
         var toggle = function(){
           hiddenIdx[idx] = !hiddenIdx[idx];
           var isHidden = !!hiddenIdx[idx];

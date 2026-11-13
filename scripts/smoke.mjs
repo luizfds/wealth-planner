@@ -164,12 +164,12 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           if(/^\+? ?Add\b/.test(t) && !/^Add (to|with|from)\b/.test(t) && !/^\+ Add (?!an? |the )[a-z]/.test(t)) wording.push('"' + t.slice(0, 30) + '" (add wording)');
           if(/^(Delete|Remove)\b/.test(name) && !/^Remove (filter|from this)/.test(name) && !b.classList.contains("btn-danger")) wording.push('"' + name.slice(0, 30) + '" (not .btn-danger)');
         });
-        // #255 step 4 rolls out view by view. Spending's explanatory help belongs behind its ⓘ.
+        // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
         // Exact native chart values may keep hover titles, but must name an image for screen readers.
         const tooltipHelp = [];
-        const spending = document.getElementById("expensesSub-spending");
-        if(spending && spending.getClientRects().length){
-          spending.querySelectorAll("[title]").forEach(el => {
+        document.querySelectorAll("#expensesSub-spending, #planSub-projections").forEach(view => {
+          if(!view.getClientRects().length) return;
+          view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");
             if(!el.getClientRects().length || title.length <= 40 || el.matches("input, select, textarea")) return;
             if(el.getAttribute("role") === "img" && el.getAttribute("aria-label") === title) return;
@@ -177,7 +177,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
             if(title === el.textContent.trim()) return; // the same full name, also written on screen
             tooltipHelp.push(el.tagName.toLowerCase() + ": " + title.slice(0, 60));
           });
-        }
+        });
         // #305: a page carries at most one line of notices above its content — no strip of cards.
         const line = document.getElementById("attentionLine"), lineH = line && !line.hidden ? Math.round(line.getBoundingClientRect().height) : 0;
         let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";

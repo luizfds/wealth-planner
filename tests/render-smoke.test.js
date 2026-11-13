@@ -1069,6 +1069,9 @@ test("Projections: Plan / Actuals control explains itself either way", async fun
     incomeReceivedMonthly: 4800, spendLoggedMonthly: 950, incomePlannedMonthly: 5000, spendPlannedMonthly: 1000 }, "actuals");
   assert.match(on, /data-proj-source="actuals" aria-pressed="true"/);
   assert.match(on, /income 96% of plan, spending 95% — \$150\/mo worse\. Lines with nothing logged stay as planned/);
+  assert.doesNotMatch(on, / title=/);
+  assert.match(on, /id="projActualsHelp">Actuals: [\s\S]*1 income and 1 spending lines, plus one-offs/);
+  assert.match(off, /aria-describedby="projActualsHelp"/);
 });
 
 test("Home → Review: a first-time intro, then one step at a time with progress", async function(){

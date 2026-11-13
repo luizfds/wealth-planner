@@ -3369,6 +3369,56 @@ const JOURNEYS = {
     await page.evaluate(async()=>{const e=await import('/src/components/expenses.js');e.trendDisplay.month='Removed';e.renderSpendingTrends();});
     check(await month.inputValue()===months.at(-1),'missing month did not fall back');
   },
+  // #255 step 4: Projections explains its controls without native tooltips.
+  async projectionhelp(page){
+    await go(page, 'plan', 'data-plan-sub', 'projections');
+    const root = page.locator('#planSub-projections');
+    const help = root.locator('.ledgers > details > [data-help-toggle]');
+    const note = page.locator('#projRealHelp');
+    check(!await note.isVisible(), 'projection help is not folded initially');
+    const before = await page.evaluate(async () => JSON.stringify((await import('/src/components/projections.js')).projectionSeriesShown()));
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await note.isVisible() && await help.getAttribute('aria-expanded') === 'true', 'Enter did not reveal dollar-basis help');
+    await page.keyboard.press('Space');
+    check(!await note.isVisible(), 'Space did not fold dollar-basis help');
+    await page.locator('#projAssumptions > summary').click();
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        await help.tap();
+        check(await note.isVisible(), 'touch did not reveal help at ' + width + ' in ' + scheme);
+        check(await page.locator('#projInvestRateHelp').isVisible(), 'assumption explanation is unavailable');
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'expanded projection help overflows at ' + width);
+        await help.tap();
+      }
+    }
+    const undescribed = await root.locator('.proj-controls input').evaluateAll(es => es.filter(e => {
+      const ids = (e.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean);
+      return !ids.length || ids.some(id => !document.getElementById(id)?.textContent.trim());
+    }).map(e => e.id));
+    check(!undescribed.length, 'assumptions without descriptions: ' + undescribed.join(', '));
+    const hidden = await page.evaluate(async original => original === JSON.stringify((await import('/src/components/projections.js')).projectionSeriesShown()), before);
+    check(hidden, 'opening help changed projection figures');
+    const cdp = await page.context().newCDPSession(page);
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    check(ax.nodes.some(n => !n.ignored && /^investment return % p\.a\.$/i.test(n.name?.value || '') && /Annual growth rate/.test(n.description?.value || '')), 'assumption description is absent from the accessibility tree');
+    await cdp.detach();
+    await page.locator('[data-proj-basis="nominal"]').click();
+    check((await page.locator('#projBasisNote').textContent()).includes('Not adjusted for inflation'), 'future dollar basis stopped updating');
+    await page.locator('[data-proj-source="actuals"]').click();
+    check(await page.locator('[data-proj-source="actuals"]').getAttribute('aria-pressed') === 'true', 'Actuals stopped selecting');
+    check((await page.locator('#projActualsHelp').textContent()).includes('spending lines, plus one-offs'), 'redraw lost actuals line counts');
+    await help.tap();
+    check(await page.locator('#projActualsHelp').isVisible(), 'redrawn source help cannot be revealed');
+    await help.tap();
+    const titles = await root.locator('[title]').evaluateAll(es => es.filter(e => e.getClientRects().length && e.getAttribute('title').length > 40).map(e => e.tagName));
+    check(!titles.length, 'projection help remains in native titles, including expanded assumptions: ' + titles.join(', '));
+    await page.locator('#projAssumptions > summary').click();
+    const chart = root.locator('svg rect[fill="transparent"]').first();
+    await chart.tap();
+    check(await root.locator('.viz-tooltip.show').count() > 0, 'chart tap no longer shows exact values');
+  },
   async projectionsummary(page){
     await go(page,'plan','data-plan-sub','projections');
     const picker=page.locator('[data-proj-reading-scenario]');
@@ -3881,7 +3931,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

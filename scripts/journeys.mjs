@@ -22,6 +22,8 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   propertysummaryhelp — Property portfolio explanations by touch and keyboard, labelled chart figures,
+//                 redraw stability and unchanged stored properties; empty households hide the summary
 //   taxlabels   — Tax's forms: every field named from its visible label, no help left in title tooltips (#261)
 //   holdings    — Investments → Shares: a holding's editor named from its labels, help on screen, and it still saves (#261)
 //   property    — Net worth → Property, editing, every tab: fields named from their labels, no tooltip-only help, and a
@@ -1376,6 +1378,47 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async propertysummaryhelp(page){
+    await go(page, 'properties');
+    const root = page.locator('#propertiesSummary');
+    const help = root.locator('[data-help-toggle]');
+    const note = page.locator('#propertiesSummaryHelp');
+    const before = await page.locator('#propertiesSummaryStats').innerText();
+    const saved = await stored(page, 'JSON.stringify(state.properties)');
+    check(!await note.isVisible(), 'portfolio help is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await note.isVisible() && await help.getAttribute('aria-expanded') === 'true', 'Enter did not reveal portfolio help');
+    await page.keyboard.press('Space');
+    check(!await note.isVisible(), 'Space did not fold portfolio help');
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({width, height:844});
+        await help.tap();
+        check(await note.isVisible(), 'touch did not reveal portfolio help at ' + width + ' in ' + scheme);
+        check(/Total equity:.*Net cash flow:.*Avg gross yield:/.test(await note.innerText()), 'portfolio explanations are incomplete');
+        if(width < 700) check(await help.evaluate(e => { const r = e.getBoundingClientRect(), p = getComputedStyle(e, '::before'); return r.width - parseFloat(p.left) - parseFloat(p.right) >= 44 && r.height - parseFloat(p.top) - parseFloat(p.bottom) >= 44; }), 'portfolio help target is too small');
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'portfolio help overflows at ' + width);
+        await help.tap();
+      }
+    }
+    const chart = page.locator('#propertiesEquityDebtBar [role="img"]');
+    check(await chart.count() === 2, 'equity and debt are not labelled chart figures');
+    for(const figure of await chart.all()){
+      const title = await figure.getAttribute('title');
+      check(await figure.getAttribute('aria-label') === title && /^(Equity|Debt):.*%/.test(title), 'chart label does not include its value and share');
+    }
+    await help.tap();
+    await page.evaluate(async () => { (await import('/src/components/properties.js')).renderPropertiesSummary(); });
+    check(await note.isVisible(), 'summary redraw folded the explanation');
+    check(await page.locator('#propertiesSummaryStats').innerText() === before, 'opening help changed portfolio figures');
+    check(await stored(page, 'JSON.stringify(state.properties)') === saved, 'opening help changed saved properties');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); s.state.properties = [];
+      (await import('/src/components/properties.js')).renderPropertiesSummary();
+    });
+    check(!await root.isVisible(), 'empty household has a portfolio summary heading');
+  },
   async taxhelp(page){
     await go(page, 'tax', 'data-tax-sub', 'year');
     const root = page.locator('#taxSub-year');
@@ -4063,7 +4106,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

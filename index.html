@@ -769,7 +769,11 @@
         </div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
-        <div class="stat-row" id="propertiesSummaryStats"></div>
+        <div id="propertiesSummary" hidden>
+          <h2 class="section-title">Portfolio summary</h2>
+          <p class="ledger-note help" id="propertiesSummaryHelp">Total equity: value minus what's owed after the offset — matches each card's own Net equity tile, summed across the portfolio. Net cash flow: rent minus expenses and loan repayments, across every investment property. Avg gross yield: annual rent ÷ value, weighted by each investment property's own value.</p>
+          <div class="stat-row" id="propertiesSummaryStats"></div>
+        </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>

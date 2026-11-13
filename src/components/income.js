@@ -10,7 +10,7 @@ import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { payFrequency } from "../calc/payslip.js";
 import { payslipCheck } from "../calc/payslipcheck.js";
-import { escapeAttr } from "../lib/html.js";
+import { figureAttrs, escapeAttr } from "../lib/html.js";
 import { historyTrendHtml, ledgerFields, timingFieldsHtml, endDateNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
 import { parseCsv } from "../lib/backup.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -632,7 +632,7 @@ function renderTaxWaterfallHtml(r){
   var values = taxWaterfallValues(r);
   var whole = waterfallWhole(values);
   var bar = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
-    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
+    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%"' + figureAttrs(seg.label + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')') + '></div>';
   }).join("");
   // Zero rows are hidden, not omitted: six segments means most people would otherwise read two or
   // three "$0" lines, but patchAllTaxPersonOutputs writes by data-seg-val and needs the element to
@@ -649,7 +649,7 @@ function patchTaxWaterfall(panel, r){
   var whole = waterfallWhole(values);
   var barWrap = panel.querySelector("[data-waterfall-bar]");
   if(barWrap) barWrap.innerHTML = TAX_WATERFALL_SEGMENTS.filter(function(seg){ return values[seg.key] > 0; }).map(function(seg){
-    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + escapeAttr(seg.label) + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
+    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" data-seg-bar="' + seg.key + '" style="flex:' + values[seg.key] + ' 1 0%"' + figureAttrs(seg.label + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')') + '></div>';
   }).join("");
   TAX_WATERFALL_SEGMENTS.forEach(function(seg){
     var el = panel.querySelector('[data-seg-val="' + seg.key + '"]');
@@ -698,12 +698,12 @@ export function renderTaxSuper(){
   var settingsHtml = '<details class="tax-advanced tax-household"' + (taxUi.householdOpen ? ' open' : '') + ' data-tax-household><summary>Household settings <span class="ps-summary-line">SG, hospital cover' + (ipResult ? ', the rental' : '') + '</span></summary>' +
     '<div class="tax-global">' +
     '<div class="proj-field"><label for="taxSgRate">Super guarantee % p.a.</label><input type="number" min="0" max="30" step="0.1" class="field-control" id="taxSgRate" value="' + (Number(state.tax.sgRate) || 11.5) + '"></div>' +
-    '<div class="proj-field"><label class="m-checkbox-field" title="Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income."><input type="checkbox" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label></div>' +
+    '<div class="proj-field"><label class="m-checkbox-field"><input type="checkbox" aria-describedby="taxPrivateCoverHelp" id="taxPrivateCover"' + (state.tax.privateHospitalCover ? " checked" : "") + '> Private hospital cover</label><p class="field-help help" id="taxPrivateCoverHelp">Private hospital cover (not extras-only) exempts you from the Medicare levy surcharge at any income.</p></div>' +
     phiPremiumFieldsHtml() +
-    '<div class="proj-field"><label for="taxPhiTier" title="The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.">Rebate tier with insurer</label><select class="field-control" id="taxPhiTier">' +
+    '<div class="proj-field"><label for="taxPhiTier">Rebate tier with insurer</label><select class="field-control" id="taxPhiTier" aria-describedby="taxPhiTierHelp">' +
       [["0", "Base tier"], ["1", "Tier 1"], ["2", "Tier 2"], ["3", "Tier 3"], ["-1", "No rebate taken"]].map(function(o){ return '<option value="' + o[0] + '"' + (String(state.tax.phiTierClaimed == null ? 0 : state.tax.phiTierClaimed) === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") +
-    '</select></div>' +
-    '<div class="proj-field"><label class="m-checkbox-field" title="Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model)."><input type="checkbox" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label></div>' +
+    '</select><p class="field-help help" id="taxPhiTierHelp">The income tier you told your insurer — it sets the rebate taken off your premiums. Your return works out the right tier and adjusts the difference.</p></div>' +
+    '<div class="proj-field"><label class="m-checkbox-field"><input type="checkbox" aria-describedby="taxFamilyThresholdsHelp" id="taxFamilyThresholds"' + (state.tax.familyThresholds ? " checked" : "") + '> Family thresholds</label><p class="field-help help" id="taxFamilyThresholdsHelp">Couples and anyone with dependants are assessed against family thresholds — roughly double the singles ones (+$1,500 per child after the first, which this app doesn\'t model).</p></div>' +
     '</div>' +
     '<p class="ledger-note tax-phi-note" style="margin:0 0 8px">' + phiNoteText() + '</p>';
   var html = (taxTablesFor().assumed ? '<p class="ledger-note warn" style="margin:0 0 8px">' + householdYearWindow().label + ' rates aren\'t all published yet — this uses the latest year the app has (' + "FY" + String(taxTablesFor().borrowedFrom % 100).padStart(2, "0") + "/" + String((taxTablesFor().borrowedFrom + 1) % 100).padStart(2, "0") + ').</p>' : '');
@@ -845,6 +845,26 @@ export function topUpHtml(person, r){
     '<p class="tax-topup-how help">A personal contribution you claim as a deduction is taxed 15% in the fund (more under Division 293), and saves tax at your marginal rate. The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.</p></div>';
 }
 
+var TAX_NOTE_HELP = {
+  "div293": "Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.",
+  "mscb": "Employer super guarantee isn't compulsory on ordinary-time earnings above this threshold — indexed each financial year.",
+  "cgt": "Recorded under 'Record a sale' on a Shares holding. Held more than 12 months, an individual's gain is halved before tax.",
+  "fund": "From annual tax statements entered on Shares holdings (Investments). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.",
+  "div": "Taken from Shares holdings with a dividend per unit set on Investments. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.",
+  "deduct": "Taken from budget lines flagged as work-related on Cash flow. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.",
+  "mls": "Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.",
+  "help": "Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it."
+};
+
+// A note keeps its warning/figure on screen; its explanation follows behind the section’s ⓘ.
+// The wrapper carries hidden separately so opening help cannot reveal an inapplicable note.
+export function taxNoteHelpHtml(key, shown){
+  return '<div data-tax-note-help="' + escapeAttr(key) + '"' + (shown ? '' : ' hidden') + '><p class="ledger-note help">' + escapeAttr(TAX_NOTE_HELP[key]) + '</p></div>';
+}
+function maxCapHelpText(r){
+  return "Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to " + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice));
+}
+
 function taxPersonFrontBodyHtml(person, r){
   var settings = personTaxSettings(person);
   var pid = escapeAttr(person);
@@ -858,7 +878,7 @@ function taxPersonFrontBodyHtml(person, r){
   return '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
     '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
     '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b></p>' +
-    '<div class="tax-inputs-label">Super cap <span class="calc-help" title="Estimated from your inputs below — not something you set directly.">ⓘ</span></div>' +
+    '<div class="tax-inputs-label">Super cap</div><p class="ledger-note help">Estimated from your inputs below — not something you set directly.</p>' +
     '<div class="cap-bar-track"><div class="cap-bar-fill' + (r.capExceeded > 0 ? " over" : "") + '" style="width:' + Math.min(100, capPct) + '%"></div></div>' +
     '<div class="tax-cap-note tax-cap-main' + (r.capExceeded > 0 ? " warn" : "") + '">' +
       (r.capExceeded > 0
@@ -867,8 +887,8 @@ function taxPersonFrontBodyHtml(person, r){
         : (fmtCurrency0.format(r.totalConcessional) + ' of ' + fmtCurrency0.format(r.capAvailable) + ' used' + (r.autoSacrifice > 0 || r.manualSacrifice > 0 ? ' (SG ' + fmtCurrency0.format(r.sg) + (r.autoSacrifice > 0 ? ' + bonus/income sacrifice ' + fmtCurrency0.format(r.autoSacrifice) : '') + (r.manualSacrifice > 0 ? ' + manual sacrifice ' + fmtCurrency0.format(r.manualSacrifice) : '') + ')' : '') + ' · ' + fmtCurrency0.format(r.superNet) + ' into super after 15% tax')
       ) +
     '</div>' +
-    '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + ' title="Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.">Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' +
-    '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + ' title="Employer super guarantee isn\'t compulsory on ordinary-time earnings above this threshold — indexed each financial year.">Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' +
+    '<div class="tax-cap-note tax-div293-note warn"' + (r.div293Tax > 0.5 ? '' : ' hidden') + '>Division 293: your income is over the $250,000 threshold, so an extra 15% applies to ' + fmtCurrency0.format(Math.min(r.totalConcessional, r.capAvailable)) + ' of low-tax super contributions — ' + fmtCurrency0.format(r.div293Tax) + '/yr, assessed separately by the ATO (not withheld from take-home above).</div>' + taxNoteHelpHtml("div293", r.div293Tax > 0.5) +
+    '<div class="tax-cap-note tax-mscb-note"' + (r.superOverCap ? '' : ' hidden') + '>Your ordinary earnings are over the ' + fmtCurrency0.format(MAX_SUPER_BASE) + '/yr Maximum Super Contribution Base, so employer super isn\'t compulsory on the excess — SG above is capped accordingly.</div>' + taxNoteHelpHtml("mscb", r.superOverCap) +
     // HELP is its own note rather than a line in the cap note above, because it isn't a super
     // figure and it isn't a tax — it's a debt repayment coming out of the same pay. The "next
     // threshold" line is the point: the rate applies to the whole income, so crossing one costs
@@ -876,21 +896,21 @@ function taxPersonFrontBodyHtml(person, r){
     // Always shown, in both directions: without cover it names the cost, with cover it names what
     // the cover is saving — which is the only way the panel can answer "is a policy worth it",
     // the question this app has every other input for.
-    '<div class="tax-cap-note tax-cgt-note"' + (hasCapitalGainsActivity(r) ? '' : ' hidden') + ' title="Recorded under \'Record a sale\' on a Shares holding. Held more than 12 months, an individual\'s gain is halved before tax.">' + capitalGainsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + ' title="From annual tax statements entered on Shares holdings (Investments). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.">' + fundsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + ' title="Taken from Shares holdings with a dividend per unit set on Investments. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.">' + dividendNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + ' title="Taken from budget lines flagged as work-related on Cash flow. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.">' + deductionsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + ' title="Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.">' + mlsNoteText(r) + '</div>' +
-    '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + ' title="Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it.">' + helpNoteText(r) + '</div>' +
+    '<div class="tax-cap-note tax-cgt-note"' + (hasCapitalGainsActivity(r) ? '' : ' hidden') + '>' + capitalGainsNoteText(r) + '</div>' + taxNoteHelpHtml("cgt", hasCapitalGainsActivity(r)) +
+    '<div class="tax-cap-note tax-fund-note"' + (r.funds && r.funds.funds.length ? '' : ' hidden') + '>' + fundsNoteText(r) + '</div>' + taxNoteHelpHtml("fund", r.funds && r.funds.funds.length) +
+    '<div class="tax-cap-note tax-div-note"' + (r.dividendGrossedUp > 0 ? '' : ' hidden') + '>' + dividendNoteText(r) + '</div>' + taxNoteHelpHtml("div", r.dividendGrossedUp > 0) +
+    '<div class="tax-cap-note tax-deduct-note"' + (r.deductions > 0 ? '' : ' hidden') + '>' + deductionsNoteText(r) + '</div>' + taxNoteHelpHtml("deduct", r.deductions > 0) +
+    '<div class="tax-cap-note tax-mls-note' + (r.medicareSurcharge > 0 ? " warn" : "") + '"' + (r.mlsIfUncovered > 0 ? '' : ' hidden') + '>' + mlsNoteText(r) + '</div>' + taxNoteHelpHtml("mls", r.mlsIfUncovered > 0) +
+    '<div class="tax-cap-note tax-help-note"' + (r.helpBalance > 0 ? '' : ' hidden') + '>' + helpNoteText(r) + '</div>' + taxNoteHelpHtml("help", r.helpBalance > 0) +
     // v3.154.0: what can be done (top up, check a payslip) after what the figures say, not between the notes.
     topUpHtml(person, r) +
     withholdingCheckHtml(person) +
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
     // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
     '<div class="tax-inputs pp-on-tax">' +
-      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" title="Fills your remaining concessional cap headroom this year with manual sacrifice (SG and any auto/bonus sacrifice already counted): sets manual sacrifice to ' + fmtCurrency0.format(Math.max(0, r.capAvailable - r.sg - r.autoSacrifice)) + '">Max out cap</button><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
+      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" aria-describedby="tax-max-' + personIdKey(person) + '-help">Max out cap</button><p class="field-help help" data-tax-maxcap-help id="tax-max-' + personIdKey(person) + '-help">' + escapeAttr(maxCapHelpText(r)) + '</p><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
     '</div>' +
-    '<p class="ledger-note pp-link-note" style="margin:8px 0 0" title="Date of birth, HELP, super caps, capital losses and home hours">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button></p>';
+    '<p class="ledger-note pp-link-note" style="margin:8px 0 0">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button> <span class="help">Date of birth, HELP, super caps, capital losses and home hours</span></p>';
 }
 
 // Capital gains for the household's year, netted as a return nets them: losses (this year's, then
@@ -999,13 +1019,13 @@ function phiPremiumFieldsHtml(){
   var cur = state.tax.phiLineId || "";
   var line = phiLine();
   var opt = function(i){ return '<option value="' + escapeAttr(i.id) + '"' + (i.id === cur ? " selected" : "") + '>' + escapeAttr(i.what || "Line") + '</option>'; };
-  return '<div class="proj-field"><label for="taxPhiLine" title="The budget line you pay the policy from. Its amount is after the rebate your insurer applies, so the premium is worked back up from it at the tier below.">Premiums from</label><select class="field-control" id="taxPhiLine">' +
+  return '<div class="proj-field"><label for="taxPhiLine">Premiums from</label><select class="field-control" id="taxPhiLine" aria-describedby="taxPhiLineHelp">' +
       '<option value="">Typed in</option>' +
       (healthy.length ? '<optgroup label="Looks like health cover">' + healthy.map(opt).join("") + '</optgroup>' : '') +
       (others.length ? '<optgroup label="Other budget lines">' + others.map(opt).join("") + '</optgroup>' : '') +
       (cur && !line ? '<option value="' + escapeAttr(cur) + '" selected>(deleted line)</option>' : '') +
-    '</select></div>' +
-    '<div class="proj-field"><label for="taxPhiPremiums" title="What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.">Premiums $/yr</label><input type="number" min="0" step="50" class="field-control" id="taxPhiPremiums" value="' + (line ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0)) + '"' + (line ? ' disabled title="Worked out from ' + escapeAttr(line.what || "the line") + '"' : '') + '></div>';
+    '</select><p class="field-help help" id="taxPhiLineHelp">The budget line you pay the policy from. Its amount is after the rebate your insurer applies, so the premium is worked back up from it at the tier below.</p></div>' +
+    '<div class="proj-field"><label for="taxPhiPremiums">Premiums $/yr</label><input type="number" min="0" step="50" class="field-control" id="taxPhiPremiums" aria-describedby="taxPhiPremiumsHelp" value="' + (line ? phiPremiumsAnnual() : (Number(state.tax.phiPremiums) || 0)) + '"' + (line ? ' disabled' : '') + '><p class="field-help help" id="taxPhiPremiumsHelp">What your hospital and extras policies cost a year before the government rebate. The rebate is income-tested on the same tiers as the surcharge.' + (line ? ' Worked out from ' + escapeAttr(line.what || "the line") + '.' : '') + '</p></div>';
 }
 function phiNoteText(){
   var a = phiRebateAdjustment();
@@ -1139,6 +1159,12 @@ export function patchAllTaxPersonOutputs(){
       helpNote.hidden = !(r.helpBalance > 0);
       helpNote.textContent = helpNoteText(r);
     }
+    panel.querySelectorAll("[data-tax-note-help]").forEach(function(help){
+      var note = panel.querySelector(".tax-" + help.getAttribute("data-tax-note-help") + "-note");
+      help.hidden = !note || note.hidden;
+    });
+    var maxHelp = panel.querySelector("[data-tax-maxcap-help]");
+    if(maxHelp) maxHelp.textContent = maxCapHelpText(r);
     // No packagenote patch here any more: that note moved to the Breakdown side, which is rebuilt
     // wholesale by personBreakdownHtml() every time the card is flipped rather than patched in place.
   });

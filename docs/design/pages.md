@@ -215,8 +215,10 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
 4. **Tooltip help to ⓘ,** view by view, with a test that no visible non-field element carries help in a `title` over
    40 characters. *In progress:* Spending shipped in v3.267.0 (PR #351); Projections now moves its basis, source,
    assumptions, range and export explanations to its section ⓘ. Assumption fields describe their help to screen
-   readers. Native chart figures retain exact hover values with screen-reader labels; the smoke run checks both
-   migrated views. Tax → This year and the remaining views follow.
+   readers. Native chart figures retain exact hover values with screen-reader labels; the smoke run checks the
+   migrated views. Tax → This year now moves cap, warning and household-setting explanations behind ⓘ, preserving
+   visible warnings and labelling waterfall figures for screen readers, including live updates. Reports → Month
+   and the remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

@@ -1375,6 +1375,7 @@ test("Property → Overview: the last statement and Log a statement", async func
 test("Reports → Month in detail renders a month and an empty one", async function(){
   const { monthDetailHtml, monthDetailUi } = await import("../src/components/monthdetail.js");
   var keep = { transactions: state.transactions, incomeLog: state.incomeLog };
+  var keepMonth = { ...monthDetailUi };
   try {
     state.transactions = [{ id: "a", date: "2026-03-04", amount: 42, what: "Fern Cafe", linkedExpenseId: null, category: "Eating out" }];
     state.incomeLog = [{ id: "i", date: "2026-03-25", amount: 3000, target: "net:Alex" }];
@@ -1383,10 +1384,15 @@ test("Reports → Month in detail renders a month and an empty one", async funct
     assert.match(html, /March 2026/);
     assert.match(html, /What was different/);
     assert.match(html, /data-md-cat="Eating out"/);
+    assert.match(html, /class="md-strip" role="group"/);
+    assert.match(html, /aria-label="Mar 2026: in \$3,000, out \$42, left \$2,958" aria-pressed="true"/);
+    assert.doesNotMatch(html, /role="listitem"/);
     assert.doesNotMatch(html, /NaN|undefined/);
     monthDetailUi.ym = "2020-01";
-    assert.match(monthDetailHtml(), /Nothing logged for January 2020/);
-  } finally { Object.assign(state, keep); }
+    const empty = monthDetailHtml();
+    assert.match(empty, /Nothing logged for January 2020/);
+    assert.match(empty, /aria-label="Jan 2020: in \$0, out \$0, left \$0" aria-pressed="true"/);
+  } finally { Object.assign(state, keep); Object.assign(monthDetailUi, keepMonth); }
 });
 
 test("Reports → Net worth check builds a row per month", async function(){

@@ -5046,9 +5046,12 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      intercepting ⓘ taps. Projections shipped v3.268.0 (PR #352): basis/source, assumption fields, shaded-range and CSV
      help behind the section ⓘ, with described fields and the `projectionhelp` journey. CI also exposed Trim’s
      empty-state scroll landing behind sticky headers: destinations now allow for their heights, and the journey
-     checks the completed scroll rather than an intermediate position. Tax → This year is now in progress: cap,
+     checks the completed scroll rather than an intermediate position. Tax → This year shipped v3.269.0 (PR #353): cap,
      warning and household-setting help behind ⓘ, visible warnings retained, waterfall figures labelled and help
-     kept in step with live patches (`taxhelp`). Reports → Month follows.
+     kept in step with live patches (`taxhelp`). Reports → Month is now in progress: accessible month-strip
+     controls with exact figures and selected state, preserving month navigation and report values (`monthhelp`).
+     Separate 44px targets scroll locally on narrow screens so adjacent months cannot steal each other’s taps.
+     Property follows.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

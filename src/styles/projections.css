@@ -156,7 +156,7 @@
 .rp-month-link{ background:none; border:0; padding:0; font:inherit; color: var(--accent, var(--brass-strong)); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .md-head{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:8px; }
 .md-head h2{ margin:0; font-size:var(--fs-lg); min-width:9em; text-align:center; }
-.md-strip{ display:grid; grid-template-columns: repeat(12, 1fr); gap:4px; height:72px; align-items:end; margin:6px 0 14px; }
+.md-strip{ display:grid; grid-template-columns: repeat(12, minmax(44px, 1fr)); gap:4px; height:72px; align-items:end; margin:6px 0 14px; overflow-x:auto; }
 .md-bar{ position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:stretch; background:none; border:0; padding:0 0 16px; cursor:pointer; }
 .md-bar-fill{ display:block; background: color-mix(in srgb, var(--good) 45%, transparent); border-radius:3px 3px 0 0; min-height:0; }
 .md-bar.neg .md-bar-fill{ background: color-mix(in srgb, var(--bad) 45%, transparent); }

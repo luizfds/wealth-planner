@@ -47,9 +47,10 @@ export function monthDetailHtml(){
   var thisMonth = localDateStr().slice(0, 7);
   var trend = monthTrend(state, ym, 12);
   var maxAbs = trend.reduce(function(m, t){ return Math.max(m, Math.abs(t.left)); }, 1);
-  var strip = '<div class="md-strip" role="list" aria-label="Left over, month by month">' + trend.map(function(t){
+  var strip = '<div class="md-strip" role="group" aria-label="Left over, month by month">' + trend.map(function(t){
     var h = Math.round(Math.abs(t.left) / maxAbs * 100);
-    return '<button type="button" class="md-bar' + (t.ym === ym ? " on" : "") + (t.left < 0 ? " neg" : "") + (t.count ? "" : " empty") + '" data-md-open="' + t.ym + '" role="listitem" title="' + escapeAttr(label(t.ym) + ": in " + fmtCurrency0.format(t.in) + ", out " + fmtCurrency0.format(t.out) + ", left " + money(t.left)) + '">' +
+    var description = escapeAttr(short(t.ym) + " " + t.ym.slice(0, 4) + ": in " + fmtCurrency0.format(t.in) + ", out " + fmtCurrency0.format(t.out) + ", left " + money(t.left));
+    return '<button type="button" class="md-bar' + (t.ym === ym ? " on" : "") + (t.left < 0 ? " neg" : "") + (t.count ? "" : " empty") + '" data-md-open="' + t.ym + '" title="' + description + '" aria-label="' + description + '" aria-pressed="' + (t.ym === ym) + '">' +
       '<span class="md-bar-fill" style="height:' + Math.max(h, t.count ? 3 : 0) + '%"></span><span class="md-bar-l">' + short(t.ym) + '</span></button>';
   }).join("") + '</div>';
   var head = '<div class="md-head"><button type="button" class="icon-btn" data-md-step="-1" aria-label="Previous month">‹</button><h2>' + escapeAttr(label(ym)) + '</h2>' +

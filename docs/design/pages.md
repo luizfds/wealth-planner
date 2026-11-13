@@ -151,7 +151,10 @@ means a button, or a link to the place the step is done:
 - **Property portfolio summary:** equity, net cash flow and weighted gross yield explanations live behind
   its heading’s ⓘ. Opening help survives a totals redraw; an empty portfolio hides the summary. Equity/debt
   chart segments expose the same exact value and percentage as their native hover titles to assistive technology.
-  Property-card figures and actions are still pending this migration.
+- **Property-card figures:** one ⓘ beside Figures opens the badge and tile explanations. It includes only
+  applicable LVR, gearing, yield and capital-gain explanations, retaining the existing risk wording. Live edits
+  update that panel with the figures; an open panel, More detail and focus survive a card redraw. The show-help
+  preference applies here too. Editor action tooltips are still pending this migration.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",

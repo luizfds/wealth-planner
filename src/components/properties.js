@@ -19,6 +19,7 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "
 import { escapeAttr } from "../lib/html.js";
 import { labelFields } from "../lib/labelfields.js";
 import { keepUi } from "../lib/keepui.js";
+import { decorateHelp } from "../lib/help.js";
 import { detailLinkHtml } from "./detail.js";
 import { optionsHtml, modernPlainRowHtml, historyTrendHtml, rowEditSlot } from "../lib/ledger-table.js";
 import { propertyEstimate } from "../calc/estimates.js";
@@ -534,10 +535,28 @@ function acquisitionCostsSectionHtml(p){
 // detail" row below it, so the two rows are visually identical, just showing a different subset.
 function propertyStatTileHtml(key, label, valueHtml, opts){
   opts = opts || {};
-  return '<div class="calc-out' + (opts.emph ? " emph" : "") + '"' + (opts.title ? ' title="' + escapeAttr(opts.title) + '"' : "") + '>' +
+  return '<div class="calc-out' + (opts.emph ? " emph" : "") + '">' +
     '<span>' + label + '</span><b data-out="' + key + '"' + (opts.color ? ' style="color:' + opts.color + '"' : "") + '>' + valueHtml + '</b>' +
     (opts.extraHtml || "") +
   '</div>';
+}
+
+// Shared by the initial card and its live patch: an edited balance must not leave the explanation behind.
+export function propertyFiguresExplanationHtml(p){
+  var line = function(label, text){ return '<p><b>' + escapeAttr(label) + ':</b> ' + escapeAttr(text) + '</p>'; };
+  var html = line("Loan repayment", "Combined across every loan below, each converted to a monthly figure regardless of how it's individually displayed.") +
+    line("Usable equity", "What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that's a separate liquid asset, not more borrowing capacity).");
+  if(propertyLVR(p) != null) html += line("LVR", lvrBadgeParts(p).title);
+  if(p.kind === "IP"){
+    var gearing = propertyGearingAnnual(p);
+    html += line("Gearing", "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
+      (gearing >= 0 ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy."));
+    if(Number(p.value) > 0) html += line("Gross yield", "Annual rent ÷ current property value");
+    if(propertyYieldOnCost(p) != null) html += line("Yield on cost", "Annual rent ÷ what you paid — how your original investment is performing, as opposed to gross yield's 'would this be a good buy at today's price'");
+  }
+  var gain = propertyCapitalGain(p);
+  if(gain) html += line("Capital gain", capitalGainTitle(p, gain));
+  return html;
 }
 
 // ---------------- Fixed rates and rent (v3.72.0) — calc/propertylife.js ----------------
@@ -791,21 +810,19 @@ function propertyCardBodyHtml(p, colorIdx){
   var lvr = propertyLVR(p);
   if(lvr != null){
     var lb = lvrBadgeParts(p);
-    lvrBadge = '<span class="gearing-badge ' + lb.cls + '" data-badge="lvr" title="' + escapeAttr(lb.title) + '">' + escapeAttr(lb.text) + '</span>';
+    lvrBadge = '<span class="gearing-badge ' + lb.cls + '" data-badge="lvr">' + escapeAttr(lb.text) + '</span>';
   }
   if(p.kind === "IP"){
     var gearing = propertyGearingAnnual(p);
     var isPositive = gearing >= 0;
-    gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" data-badge="gearing" title="Rent minus expenses and loan repayments, per year (' + fmtCurrency0.format(gearing) + '/yr). ' +
-      (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.") +
-      '">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
+    gearingBadge = '<span class="gearing-badge ' + (isPositive ? "positive" : "negative") + '" data-badge="gearing">' + (isPositive ? "Positively geared" : "Negatively geared") + '</span>';
     if(Number(p.value) > 0){
       var grossYield = sumField(p.income, "yearly") / Number(p.value);
-      yieldBadge = '<span class="gearing-badge neutral" data-badge="yield-value" title="Annual rent ÷ current property value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
+      yieldBadge = '<span class="gearing-badge neutral" data-badge="yield-value">' + fmtPercent1.format(grossYield) + ' gross yield</span>';
     }
     var yieldOnCost = propertyYieldOnCost(p);
     if(yieldOnCost != null){
-      yieldBadge += '<span class="gearing-badge neutral" data-badge="yield-cost" title="Annual rent ÷ what you paid — how your original investment is performing, as opposed to gross yield\'s \'would this be a good buy at today\'s price\'">' + fmtPercent1.format(yieldOnCost) + ' yield on cost</span>';
+      yieldBadge += '<span class="gearing-badge neutral" data-badge="yield-cost">' + fmtPercent1.format(yieldOnCost) + ' yield on cost</span>';
     }
   }
   var usableEquity = Math.max(0, (Number(p.value) || 0) * 0.8 - mortgageBalance);
@@ -823,13 +840,13 @@ function propertyCardBodyHtml(p, colorIdx){
     }),
     netequity: propertyStatTileHtml("netequity", "Net equity", fmtCurrency0.format(equity), { emph: true }),
     mortgagebalance: propertyStatTileHtml("mortgagebalance", "Mortgage balance", fmtCurrency0.format(mortgageBalance)),
-    loanrepayment: propertyStatTileHtml("loanrepayment", "Loan repayment", fmtCurrency0.format(loanRepaymentMonthlyTotal) + "/mo", { title: "Combined across every loan below, each converted to a monthly figure regardless of how it's individually displayed." }),
-    usableequity: propertyStatTileHtml("usableequity", "Usable equity", fmtCurrency0.format(usableEquity), { title: "What you could borrow against this property, up to 80% LVR, without triggering LMI — based on its balance, not netted against any offset (that's a separate liquid asset, not more borrowing capacity)." })
+    loanrepayment: propertyStatTileHtml("loanrepayment", "Loan repayment", fmtCurrency0.format(loanRepaymentMonthlyTotal) + "/mo"),
+    usableequity: propertyStatTileHtml("usableequity", "Usable equity", fmtCurrency0.format(usableEquity))
   };
   if(capitalGain){
     allTiles.capitalgain = propertyStatTileHtml("capitalgain", "Capital gain",
       (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + ' (' + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ')',
-      { title: capitalGainTitle(p, capitalGain), color: capitalGain.gain >= 0 ? "var(--good-ink)" : "var(--bad-ink)" });
+      { color: capitalGain.gain >= 0 ? "var(--good-ink)" : "var(--bad-ink)" });
   }
   if(netCashFlowMonthly != null){
     allTiles.cashflow = propertyStatTileHtml("cashflow", "Net cash flow",
@@ -858,6 +875,9 @@ function propertyCardBodyHtml(p, colorIdx){
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h3>' +
       '<button type="button" class="btn btn-danger btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
+    '<div class="property-figures">' +
+    '<h4 class="section-title">Figures</h4>' +
+    '<div class="help ledger-note" data-property-figures-explanations>' + propertyFiguresExplanationHtml(p) + '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
     '<div class="calc-outputs">' + primaryTiles + '</div>' +
     // v3.34.1: More detail and Expand/Collapse all share one row — the button had a row of its own,
@@ -865,6 +885,7 @@ function propertyCardBodyHtml(p, colorIdx){
     '<div class="property-card-tools">' +
       (moreTiles ? '<details class="tax-advanced m-more-options property-stats-more"><summary>More detail</summary><div class="calc-outputs" style="margin-top:10px">' + moreTiles + '</div></details>' : '<span></span>') +
       '<button type="button" class="btn btn-ghost btn-sm property-collapse-btn" data-prop-collapse-toggle="' + escapeAttr(p.id) + '">' + (allSectionsCollapsed ? "Expand all" : "Collapse all") + '</button>' +
+    '</div>' +
     '</div>' +
     propertyTabBarHtml(p, tabs, current) +
     panel("overview", '<div class="prop-read">' + propertySummaryHtml(p) + statementLineHtml(p) +
@@ -1073,9 +1094,15 @@ export function renderProperties(){ return keepUi(drawProperties); }
 function drawProperties(){
   var container = document.getElementById("propertiesBody");
   if(!container) return;
+  var helpOpen = Array.from(container.querySelectorAll('.property-figures [data-help-toggle][aria-expanded="true"]')).map(function(el){ return el.closest('[data-property-id]').getAttribute('data-property-id'); });
   container.innerHTML = state.properties.length
     ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
     : emptyStateHtml("No properties yet — add one to start tracking its value, loans, and (for an investment property) rent and expenses.", { add: "#addPropertyBtn", label: "+ Add property" });
+  decorateHelp(container);
+  helpOpen.forEach(function(id){
+    var btn = container.querySelector('[data-property-id="' + CSS.escape(id) + '"] .property-figures [data-help-toggle]');
+    if(btn){ btn.classList.add("help-open"); btn.setAttribute("aria-expanded", "true"); }
+  });
   renderPropertyExpensesSummary();
   renderPropertiesSummary();
   renderPropertiesValueHistoryChart();
@@ -1124,8 +1151,6 @@ export function patchPropertyCardComputed(property){
     var isPositive = gearing >= 0;
     gearBadge.className = "gearing-badge " + (isPositive ? "positive" : "negative");
     gearBadge.textContent = isPositive ? "Positively geared" : "Negatively geared";
-    gearBadge.title = "Rent minus expenses and loan repayments, per year (" + fmtCurrency0.format(gearing) + "/yr). " +
-      (isPositive ? "Positively geared — the property earns more than it costs to hold." : "Negatively geared — the property costs more to hold than it earns, a common tax strategy.");
   }
   var lvrBadgeOut = card.querySelector('[data-badge="lvr"]');
   if(lvrBadgeOut){
@@ -1133,7 +1158,6 @@ export function patchPropertyCardComputed(property){
       var lbNow = lvrBadgeParts(property);
       lvrBadgeOut.className = "gearing-badge " + lbNow.cls;
       lvrBadgeOut.textContent = lbNow.text;
-      lvrBadgeOut.title = lbNow.title;
     }
   }
   var yieldBadge = card.querySelector('[data-badge="yield-value"]');
@@ -1152,10 +1176,10 @@ export function patchPropertyCardComputed(property){
     if(capitalGain){
       capitalGainOut.textContent = (capitalGain.gain >= 0 ? "+" : "") + fmtCurrency0.format(capitalGain.gain) + " (" + (capitalGain.gain >= 0 ? "+" : "") + fmtPercent1.format(capitalGain.pct) + ")";
       capitalGainOut.style.color = capitalGain.gain >= 0 ? "var(--good-ink)" : "var(--bad-ink)";
-      var capitalGainTile = capitalGainOut.closest(".calc-out");
-      if(capitalGainTile) capitalGainTile.title = capitalGainTitle(property, capitalGain);
     }
   }
+  var explanation = card.querySelector('[data-property-figures-explanations]');
+  if(explanation) explanation.innerHTML = propertyFiguresExplanationHtml(property);
   var acqCostsTotalOut = card.querySelector('[data-out="acqcoststotal"]');
   if(acqCostsTotalOut){
     var acqTotal = (property.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);

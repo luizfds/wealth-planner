@@ -22,6 +22,8 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   propertyfigurehelp — Property-card figure help by touch and keyboard, conditional explanations, live edits
+//                 and redraws, independent cards and unchanged stored/visible figures
 //   propertysummaryhelp — Property portfolio explanations by touch and keyboard, labelled chart figures,
 //                 redraw stability and unchanged stored properties; empty households hide the summary
 //   taxlabels   — Tax's forms: every field named from its visible label, no help left in title tooltips (#261)
@@ -1378,6 +1380,62 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async propertyfigurehelp(page){
+    await go(page, 'properties');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js');
+      const home = structuredClone(s.state.properties[0]);
+      home.id = 'example-home'; home.what = 'Example home'; home.kind = 'PPOR';
+      home.purchasePrice = null; home.income = []; home.expenses = []; home.loans = [];
+      s.state.properties.push(home); s.persist();
+      (await import('/src/components/properties.js')).renderProperties();
+    });
+    const card = page.locator('.property-card').first();
+    const figures = card.locator('.property-figures');
+    const help = figures.locator('[data-help-toggle]');
+    const note = figures.locator('[data-property-figures-explanations]');
+    const saved = await stored(page, 'JSON.stringify(state.properties)');
+    const before = await figures.locator('.calc-outputs').allTextContents();
+    const homeNote = page.locator('[data-property-id="example-home"] [data-property-figures-explanations]');
+    check(!/Gearing:|Gross yield:|Yield on cost:|Capital gain:/.test(await homeNote.textContent()), 'home shows inapplicable investment explanations');
+    check(!await note.isVisible(), 'figure help is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await note.isVisible() && !await homeNote.isVisible(), 'Enter did not reveal only this property’s figure help');
+    await page.keyboard.press('Space');
+    check(!await note.isVisible(), 'Space did not fold figure help');
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({width, height:844});
+        await help.tap();
+        check(await note.isVisible(), 'touch did not reveal figure help at ' + width + ' in ' + scheme);
+        check(/Loan repayment:.*Usable equity:.*LVR:.*Gearing:.*Gross yield:.*Yield on cost:.*Capital gain:/s.test(await note.innerText()), 'figure explanations are incomplete');
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'figure help overflows at ' + width);
+        await help.tap();
+      }
+    }
+    check(await stored(page, 'JSON.stringify(state.properties)') === saved, 'opening figure help changed stored properties');
+    check(JSON.stringify(await figures.locator('.calc-outputs').allTextContents()) === JSON.stringify(before), 'opening figure help changed displayed figures');
+    check(await figures.locator('[title]:not([data-help-toggle])').count() === 0, 'figure explanations still use titles: ' + await figures.locator('[title]:not([data-help-toggle])').evaluateAll(es => es.map(e => e.outerHTML).join(' ')));
+    await help.tap();
+    await figures.locator('.property-stats-more > summary').click();
+    await help.focus();
+    await page.evaluate(async () => { (await import('/src/components/properties.js')).renderProperties(); });
+    check(await note.isVisible() && await help.getAttribute('aria-expanded') === 'true', 'redraw folded open figure help');
+    check(await help.evaluate(e => document.activeElement === e), 'redraw lost help focus');
+    check(await figures.locator('.property-stats-more').evaluate(d => d.open), 'redraw folded More detail');
+    await card.locator('[data-prop-edit]').click();
+    await card.locator('.prop-value').fill('400000'); await card.locator('.prop-value').press('Tab');
+    check(/above 80% typically triggers/.test(await note.innerText()), 'live value edit did not update LVR explanation');
+    await card.locator('.prop-value').fill('900000'); await card.locator('.prop-value').press('Tab');
+    check(!/above 80% typically triggers/.test(await note.innerText()), 'live value edit left an outdated LVR warning');
+    const original = await note.innerText();
+    await card.locator('.prop-purchase-price').fill('300000'); await card.locator('.prop-purchase-price').press('Tab');
+    check(await note.isVisible() && await note.innerText() !== original, 'purchase-price redraw left help folded or its cost base stale');
+    check(await figures.locator('[title]:not([data-help-toggle])').count() === 0, 'live edit restored figure titles');
+    await page.evaluate(async () => { (await import('/src/lib/help.js')).setShowHelp(true); });
+    check(await note.isVisible() && !await help.isVisible(), 'always-show-help preference does not apply to property figures');
+  },
   async propertysummaryhelp(page){
     await go(page, 'properties');
     const root = page.locator('#propertiesSummary');
@@ -4106,7 +4164,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

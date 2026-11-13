@@ -231,6 +231,10 @@ for(const width of widths)for(const scheme of schemes){
    await page.locator('#propertiesSummary [data-help-toggle]').click();
    await scan('property-summary/help', '#propertiesSummary');
    await page.locator('#propertiesSummary [data-help-toggle]').click();
+   const figures = page.locator('.property-figures').first();
+   await figures.locator('[data-help-toggle]').click();
+   await scan('property-figures/help', '.property-figures');
+   await figures.locator('[data-help-toggle]').click();
    await page.locator('[data-prop-edit]').first().click();
    await page.locator('[data-prop-tab][data-tab="loans"]').first().evaluate(e=>e.click());
    await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="loans"][aria-expanded="false"]').forEach(e=>e.click()));

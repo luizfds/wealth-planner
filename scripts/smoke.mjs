@@ -167,7 +167,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
         // Exact native chart values may keep hover titles, but must name an image for screen readers.
         const tooltipHelp = [];
-        document.querySelectorAll("#expensesSub-spending, #planSub-projections").forEach(view => {
+        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year").forEach(view => {
           if(!view.getClientRects().length) return;
           view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");

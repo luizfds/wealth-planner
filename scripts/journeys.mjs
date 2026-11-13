@@ -1375,6 +1375,77 @@ const JOURNEYS = {
       }
     }
   },
+  // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async taxhelp(page){
+    await go(page, 'tax', 'data-tax-sub', 'year');
+    const root = page.locator('#taxSub-year');
+    const help = root.locator('.ledgers > details:has(#taxSuperBody) > [data-help-toggle]');
+    const panel = page.locator('#taxSuperBody [data-tax-person]').first();
+    const person = await panel.getAttribute('data-tax-person');
+    const maxHelp = panel.locator('[data-tax-maxcap-help]');
+    const snapshot = await page.evaluate(async () => {
+      const t = await import('/src/calc/tax.js'); return JSON.stringify(t.getTaxPeople().map(p => t.computePersonTax(p)));
+    });
+    check(!await maxHelp.isVisible(), 'tax help is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await maxHelp.isVisible() && await help.getAttribute('aria-expanded') === 'true', 'Enter did not reveal tax help');
+    await page.keyboard.press('Space');
+    check(!await maxHelp.isVisible(), 'Space did not fold tax help');
+    await page.locator('[data-tax-household] > summary').click();
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        await help.tap();
+        check(await maxHelp.isVisible(), 'touch did not reveal tax help at ' + width + ' in ' + scheme);
+        check(await page.locator('#taxPrivateCoverHelp').isVisible(), 'household help is unavailable');
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'expanded tax help overflows at ' + width);
+        const exposed = await root.locator('[data-tax-note-help]').evaluateAll(es => es.filter(e => {
+          const note = e.parentElement.querySelector('.tax-' + e.dataset.taxNoteHelp + '-note');
+          return note?.hidden && e.getClientRects().length;
+        }).length);
+        check(!exposed, 'opening help revealed an inapplicable tax note');
+        await panel.locator('.tax-sacrifice').tap();
+        check(await panel.locator('.tax-sacrifice').evaluate(e => e === document.activeElement), 'sacrifice field is unreachable with help open');
+        await help.tap();
+      }
+    }
+    check(await page.evaluate(async original => { const t = await import('/src/calc/tax.js'); return original === JSON.stringify(t.getTaxPeople().map(p => t.computePersonTax(p))); }, snapshot), 'opening help changed tax figures');
+    const cdp = await page.context().newCDPSession(page);
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    check(ax.nodes.some(n => !n.ignored && /Private hospital cover/i.test(n.name?.value || '') && /not extras-only/.test(n.description?.value || '')), 'hospital cover description is absent from the accessibility tree');
+    await cdp.detach();
+    const before = await maxHelp.textContent();
+    await page.locator('#taxSgRate').fill('13'); await page.locator('#taxSgRate').press('Tab');
+    check(await maxHelp.textContent() !== before, 'live SG update left the cap explanation stale');
+    const desired = await page.evaluate(async person => { const r = (await import('/src/calc/tax.js')).computePersonTax(person); return Math.max(0, Math.round(r.capAvailable - r.sg - r.autoSacrifice)); }, person);
+    await panel.locator('[data-tax-maxcap]').click();
+    check(await stored(page, 'state.tax.settings[' + JSON.stringify(person) + '].superSacrificeAnnual') === desired, 'Max out cap no longer saves the described amount');
+    // A synthetic high-income household makes the conditional warnings present; patch down in place.
+    await page.evaluate(async person => {
+      const s = await import('/src/state.js'), t = await import('/src/calc/tax.js');
+      s.state.income.filter(i => i.incomeType === 'Gross' && i.person === person).forEach(i => { i.amount = 500000; i.freq = 'Yearly'; });
+      t.personTaxSettings(person).helpBalance = 10000;
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/income.js')).renderTaxSuper();
+    }, person);
+    check(await panel.locator('.tax-div293-note').isVisible(), 'Division 293 warning was hidden with help');
+    await help.tap();
+    check(await panel.locator('[data-tax-note-help="div293"] .help').isVisible(), 'Division 293 explanation is unavailable');
+    await page.evaluate(async person => {
+      const s = await import('/src/state.js'), t = await import('/src/calc/tax.js');
+      s.state.income.filter(i => i.incomeType === 'Gross' && i.person === person).forEach(i => { i.amount = 50000; });
+      t.personTaxSettings(person).helpBalance = 0;
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/income.js')).patchAllTaxPersonOutputs();
+    }, person);
+    check(!await panel.locator('[data-tax-note-help="div293"]').isVisible(), 'live patch left obsolete Division 293 help visible');
+    check(!await panel.locator('[data-tax-note-help="help"]').isVisible(), 'live patch left obsolete HELP explanation visible');
+    const bad = await root.locator('[data-seg-bar]').evaluateAll(es => es.filter(e => e.getAttribute('role') !== 'img' || e.getAttribute('aria-label') !== e.getAttribute('title')).length);
+    check(!bad, 'live waterfall update lost its exact accessible values');
+    const titles = await root.locator('[title]').evaluateAll(es => es.filter(e => e.getClientRects().length && e.getAttribute('title').length > 40 && e.getAttribute('role') !== 'img').map(e => e.tagName));
+    check(!titles.length, 'tax help remains in native titles: ' + titles.join(', '));
+  },
   async taxplanningfields(page){
     await quiet(page);
     await go(page, 'tax', 'data-tax-sub', 'year');
@@ -3944,7 +4015,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

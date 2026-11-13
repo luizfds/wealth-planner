@@ -2507,3 +2507,15 @@ test("Spending category figures have exact accessible values and escape category
   assert.match(refund, /net refund/);
   assert.doesNotMatch(refund, /title="More came back/);
 });
+
+
+test("Tax warning help retains the approximation and remains separately hideable", async () => {
+  const { taxNoteHelpHtml } = await import('../src/components/income.js');
+  const div293 = taxNoteHelpHtml('div293', true);
+  assert.match(div293, /taxable income \+ your within-cap concessional contributions/);
+  assert.match(div293, /ignoring reportable fringe benefits and net investment losses\. Check with your accountant\./);
+  const hidden = taxNoteHelpHtml('mls', false);
+  assert.match(hidden, /<div data-tax-note-help="mls" hidden><p class="ledger-note help">/);
+  assert.match(hidden, /taxable income \+ your reportable super contributions/);
+  assert.doesNotMatch(div293 + hidden, / title=/);
+});

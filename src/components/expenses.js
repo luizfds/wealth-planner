@@ -11,7 +11,7 @@ import { renameAccount } from "../calc/accountlinks.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
-import { escapeAttr, segLabel } from "../lib/html.js";
+import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage, openAccounts } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
 import { hasOwnDates } from "../calc/txviews.js";
@@ -1587,7 +1587,7 @@ export function budgetComparisonRowHtml(item){
     '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + categoryIconHtml(item.category, { small: true }) + escapeAttr(item.what) + '</span>' +
       // v3.158.0 (item 188): "$1,095 of $1,200" — what's left or over is the figure on the right; the
       // window is named only when it isn't this month. The whole sentence stays in the tooltip.
-      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)" title="' + escapeAttr(fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + cycle.label + ' — ' + remainingLabel) + '">' +
+      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)"' + figureAttrs(item.what + ': ' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + cycle.label + ' — ' + remainingLabel) + '>' +
         fmtCurrency0.format(actual) + ' of ' + fmtCurrency0.format(planned) + (cycle.label && cycle.label !== "this month" ? ' ' + escapeAttr(cycle.label) : '') + '</span>' +
       '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
     '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
@@ -2004,16 +2004,17 @@ export function categoryChartHtml(groups, unit, opts){
   var segs = positives.map(function(g){
     var pct = g.monthly / total;
     return '<div class="rule-seg cat-seg ' + colorOf[g.key] + '" style="width:' + (pct * 100) + '%"' +
-      ' title="' + escapeAttr(g.key) + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')">' +
+      figureAttrs(g.key + ': ' + fmtCurrency0.format(g.monthly) + unit + ' (' + fmtPercent1.format(pct) + ')') + '>' +
       (pct > 0.12 ? segLabel(fmtPercent1.format(pct)) : "") + '</div>';
   }).join("");
   var legend = groups.map(function(g){
     return '<div class="rule-legend-item' + (g.monthly < 0 ? " is-credit" : "") + '"><span class="rule-swatch cat-seg ' + colorOf[g.key] + '"></span>' +
       escapeAttr(g.key) + ' <b>' + fmtCurrency0.format(g.monthly) + '</b>' +
-      (g.monthly < 0 ? ' <span class="cat-credit-tag" title="More came back than went out in this category — refunds outweighed spending">net refund</span>' : "") + '</div>';
+      (g.monthly < 0 ? ' <span class="cat-credit-tag">net refund</span>' : "") + '</div>';
   }).join("");
   var bar = opts.barless ? "" : '<div class="rule-bar">' + segs + '</div>';
-  return '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';
+  var refundHelp = groups.some(function(g){ return g.monthly < 0; }) ? '<p class="ledger-note help">A net refund means more came back than went out in that category.</p>' : '';
+  return refundHelp + '<div class="cat-chart' + (opts.barless ? " cat-chart-compact" : "") + '">' + bar + '<div class="rule-legend">' + legend + '</div></div>';
 }
 // Real spend this month per category, resolved through each transaction's linked budget line —
 // so categorising a line retroactively categorises everything ever logged against it, and a
@@ -2097,9 +2098,9 @@ function trendDeltaHtml(trend, opts){
   // (both have a null trend) and mean opposite things: a category you've just started spending
   // in, versus one that's gone quiet — car rego, six months ago, and nothing since.
   if(opts.current === 0){
-    return '<span class="trend-delta flat" title="Nothing logged against this category this month">none yet</span>';
+    return '<span class="trend-delta flat">none yet</span>';
   }
-  if(!trend) return '<span class="trend-delta none" title="Not enough history yet to compare this against — it needs at least one earlier month with spend in it">new</span>';
+  if(!trend) return '<span class="trend-delta none">new</span>';
   var cls = trend.direction === "up" ? "up" : (trend.direction === "down" ? "down" : "flat");
   var arrow = trend.direction === "up" ? "▲" : (trend.direction === "down" ? "▼" : "–");
   var label = trend.direction === "flat" ? "level" : fmtPercent0.format(Math.abs(trend.deltaPct));
@@ -2110,9 +2111,8 @@ function trendDeltaHtml(trend, opts){
     (trend.lookback === 1
       ? " against last month's " + fmtCurrency0.format(trend.average)
       : " against a " + fmtCurrency0.format(trend.average) + " average over the previous " + trend.lookback + " months") +
-    through +
-    (trend.complete ? "" : " — same days of the month on both sides, so a month that isn't over yet still compares fairly");
-  return '<span class="trend-delta ' + cls + '" title="' + escapeAttr(title) + '">' + arrow + " " + escapeAttr(label) + '</span>' +
+    through;
+  return '<span class="trend-delta ' + cls + '"' + figureAttrs(title) + '>' + arrow + " " + escapeAttr(label) + '</span>' +
     (opts.showBase && trend ? '<span class="trend-base">vs ' + fmtCurrency0.format(trend.average) + ' avg</span>' : "");
 }
 
@@ -2123,7 +2123,7 @@ function trendSparkHtml(row, months, monthProgress){
   var max = Math.max.apply(null, row.values.concat([0]));
   var lastIdx = months.length - 1;
   return '<div class="trend-spark" role="img" aria-label="' + escapeAttr(row.category + " by month: " +
-      months.map(function(m, i){ return monthKeyLabel(m, months[lastIdx]) + " " + fmtCurrency0.format(row.values[i]); }).join(", ")) + '">' +
+      months.map(function(m, i){ return monthKeyLabel(m, months[lastIdx]) + " " + fmtCurrency0.format(row.values[i]) + (i === lastIdx && monthProgress < 1 ? " so far" : ""); }).join(", ")) + '">' +
     months.map(function(m, i){
       var value = row.values[i];
       // A zero month still gets a visible sliver, so the bar row reads as six months throughout
@@ -2261,7 +2261,7 @@ function drawSpendingTrends(){
         // Month-to-date, not the whole-month figure, whenever the month is still running: this
         // number and the delta beside it have to be the same number, and they'd differ for anyone
         // who has logged a bill dated later this month.
-        '<span class="trend-row-amt" title="' + escapeAttr(view.complete ? "Spent this month" : "Spent so far this month — the figure the comparison beside it uses") + '">' +
+        '<span class="trend-row-amt">' +
           fmtCurrency0.format(view.complete ? r.values[lastIdx] : r.mtdValues[lastIdx]) + '</span>' +
         (comparing ? trendDeltaHtml(r.trend, { current: view.complete ? r.values[lastIdx] : r.mtdValues[lastIdx] }) : "") +
       '</div>' +
@@ -2331,8 +2331,8 @@ export function renderYearSpending(){
   Object.keys(planned).forEach(function(k){ if(byCategory[k] == null && planned[k] >= 1) groups.push({ key: k, monthly: 0 }); });
 
   var progress = householdYearProgress();
-  // v3.158.0 (item 188): the same three facts, shorter; the transaction count is the tooltip.
-  var headline = '<p class="trend-headline" title="' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") + ' logged in ' + escapeAttr(win.label) + '"><b>' + fmtCurrency0.format(total) + '</b> spent' +
+  // The transaction count sits behind the section’s ⓘ beside its year and export explanation.
+  var headline = '<p class="ledger-note help">' + txns.length + ' transaction' + (txns.length === 1 ? "" : "s") + ' logged in ' + escapeAttr(win.label) + '.</p><p class="trend-headline"><b>' + fmtCurrency0.format(total) + '</b> spent' +
     (plannedTotal >= 1 ? ' against <b>' + fmtCurrency0.format(plannedTotal) + '</b> planned' : '') +
     (win.complete ? " in " + escapeAttr(win.label) + "." : " so far · " + fmtPercent0.format(progress) + " through the year.") + '</p>';
 
@@ -2345,7 +2345,7 @@ export function renderYearSpending(){
     var over = plan > 0 && g.monthly > plan * 1.005;
     return '<div class="year-cat-row' + (over ? " over" : "") + '">' +
       '<span class="year-cat-name">' + escapeAttr(g.key) + '</span>' +
-      '<span class="year-cat-bar" title="' + escapeAttr(plan > 0 ? fmtCurrency0.format(g.monthly) + " of " + fmtCurrency0.format(plan) + " planned so far" : "Not in the budget") + '"><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
+      '<span class="year-cat-bar"' + figureAttrs(g.key + ': ' + (plan > 0 ? fmtCurrency0.format(g.monthly) + " of " + fmtCurrency0.format(plan) + " planned so far" : "Not in the budget")) + '><span class="year-cat-fill" style="width:' + (share * 100) + '%"></span></span>' +
       // v3.160.0 (item 190): over plan says so with an arrow too, not only in red.
       '<span class="year-cat-amt">' + (over ? '<span aria-hidden="true">▲ </span><span class="visually-hidden">Over plan: </span>' : '') + fmtCurrency0.format(g.monthly) + '</span>' +
       '<span class="year-cat-pct">' + (plan > 0 ? "of " + fmtCurrency0.format(plan) : "unplanned") + '</span>' +

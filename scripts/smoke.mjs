@@ -164,12 +164,26 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           if(/^\+? ?Add\b/.test(t) && !/^Add (to|with|from)\b/.test(t) && !/^\+ Add (?!an? |the )[a-z]/.test(t)) wording.push('"' + t.slice(0, 30) + '" (add wording)');
           if(/^(Delete|Remove)\b/.test(name) && !/^Remove (filter|from this)/.test(name) && !b.classList.contains("btn-danger")) wording.push('"' + name.slice(0, 30) + '" (not .btn-danger)');
         });
+        // #255 step 4 rolls out view by view. Spending's explanatory help belongs behind its ⓘ.
+        // Exact native chart values may keep hover titles, but must name an image for screen readers.
+        const tooltipHelp = [];
+        const spending = document.getElementById("expensesSub-spending");
+        if(spending && spending.getClientRects().length){
+          spending.querySelectorAll("[title]").forEach(el => {
+            const title = el.getAttribute("title");
+            if(!el.getClientRects().length || title.length <= 40 || el.matches("input, select, textarea")) return;
+            if(el.getAttribute("role") === "img" && el.getAttribute("aria-label") === title) return;
+            if(el.closest('[role="img"][aria-label]')) return;
+            if(title === el.textContent.trim()) return; // the same full name, also written on screen
+            tooltipHelp.push(el.tagName.toLowerCase() + ": " + title.slice(0, 60));
+          });
+        }
         // #305: a page carries at most one line of notices above its content — no strip of cards.
         const line = document.getElementById("attentionLine"), lineH = line && !line.hidden ? Math.round(line.getBoundingClientRect().height) : 0;
         let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";
         if(!notices && line && !line.hidden && !pageEl.contains(line)) notices = "the notices line is on another page";
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, navigationOverflow, fab, primaries, about, wording: [...new Set(wording)], notices };
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, navigationOverflow, fab, primaries, about, tooltipHelp, wording: [...new Set(wording)], notices };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
@@ -179,6 +193,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       if(r.fab) failures.push(where + ": " + r.fab);
       if(r.primaries.length > 1) failures.push(where + ": " + r.primaries.length + " primary buttons (" + r.primaries.join(", ") + ")");
       if(!r.about) failures.push(where + ": no About this page");
+      if(r.tooltipHelp.length) failures.push(where + ": tooltip-only help: " + r.tooltipHelp.join(", "));
       if(r.notices) failures.push(where + ": " + r.notices);
       if(r.wording.length) failures.push(where + ": " + r.wording.slice(0, 6).join(", "));
       if(r.small.length) failures.push(where + ": tap targets under 44px: " + [...new Set(r.small)].slice(0, 6).join(", ") + (r.small.length > 6 ? " (" + r.small.length + " in all)" : ""));

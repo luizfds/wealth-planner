@@ -72,6 +72,8 @@
 @media (max-width: 880px){
   details.ledger{ overflow:clip; }
   details.ledger[open] > summary{ position:sticky; top:var(--topbar-h, 0px); z-index:3; background: var(--paper-raised); }
+  /* The section's sibling ⓘ sits over that summary; the sticky header must not catch its taps. */
+  details.ledger > .help-btn{ z-index:4; }
   /* Swipe a transaction left: Edit, Split, Delete behind it (app.js builds the tray). */
   .m-row.tx-row:not(.open){ position:relative; overflow:hidden; }
   .m-row.tx-row:not(.open) > .m-row-summary{ position:relative; z-index:1; background: var(--paper-raised); transition: transform .18s ease; }

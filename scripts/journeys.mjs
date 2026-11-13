@@ -1990,6 +1990,50 @@ const JOURNEYS = {
     await until(page, () => !!document.querySelector('#dashboardSetup [data-firstrun-open]'));
     check(await onScreen('#dashboardSetup [data-firstrun-open]') === 1, 'after Reset, there was no way into setup');
   },
+  // #255 step 4: Spending's explanations work by keyboard and touch; charts keep accessible values.
+  async spendinghelp(page){
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    const help = page.locator('#bankImportCard > [data-help-toggle]');
+    const note = page.locator('#bankImportCard .help').first();
+    await help.waitFor();
+    check(!await note.isVisible(), 'bank import help is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await note.isVisible(), 'Enter did not reveal bank import help');
+    check(await help.getAttribute('aria-expanded') === 'true', 'help did not announce expanded');
+    check((await note.textContent()).includes('PDF statement'), 'bank format explanation was lost');
+    await page.keyboard.press('Space');
+    check(!await note.isVisible(), 'Space did not fold bank import help');
+    await help.tap();
+    check(await note.isVisible(), 'touch did not reveal bank import help');
+    await help.tap();
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        const bounds = await help.boundingBox();
+        check(!!bounds && bounds.width > 0 && bounds.height > 0, 'help disappeared at ' + width);
+        await help.tap();
+        check(await note.isVisible(), 'help is unreachable at ' + width + ' in ' + scheme);
+        await help.tap();
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'Spending overflow at ' + width);
+      }
+    }
+    check(await page.locator('#expensesSub-spending [role=img][aria-label]').count() > 0, 'sample spending drew no accessible figures');
+    const badFigures = await page.locator('#expensesSub-spending .rule-seg.cat-seg, #expensesSub-spending .year-cat-bar').evaluateAll(es =>
+      es.filter(e => e.getAttribute('role') !== 'img' || !e.getAttribute('aria-label') || e.getAttribute('aria-label') !== e.getAttribute('title')).length);
+    check(badFigures === 0, 'chart figures are missing their exact accessible values');
+    const cdp = await page.context().newCDPSession(page);
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    check(ax.nodes.some(n => !n.ignored && n.role?.value === 'image' && /by month:/.test(n.name?.value || '')), 'spending history values are absent from the accessibility tree');
+    await cdp.detach();
+    const preference = await page.evaluate(async () => {
+      const h = await import('/src/lib/help.js'); h.setShowHelp(true);
+      const note = document.querySelector('#bankImportCard .help');
+      const shown = !!note.getClientRects().length;
+      h.setShowHelp(false); return shown;
+    });
+    check(preference, 'Show help preference no longer reveals the explanation');
+  },
   // #255 step 3: an empty state's next step works, of each kind, in an empty household.
   async emptystates(page){
     await emptyHousehold(page);
@@ -3837,7 +3881,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

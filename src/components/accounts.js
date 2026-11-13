@@ -7,6 +7,7 @@ import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 import { accountAutoPaysHtml } from "./autopay.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Accounts → Accounts (v3.56.0) ----------------
 // Every place money sits, grouped the way a bank app groups them — cash, cards, loans — each with
@@ -114,7 +115,7 @@ export function accountRowHtml(a, idx, today){
 export function accountsPageHtml(today){
   today = today || localDateStr();
   if(!state.accounts.length && !accountsOverview().loose.length){
-    return '<p class="ledger-note" style="margin:0">No accounts yet. Add your everyday account, savings, cards and loans — each with its balance — and tag spending with the account it came out of.</p>';
+    return emptyStateHtml("No accounts yet. Add your everyday account, savings, cards and loans — each with its balance — and tag spending with the account it came out of.", { add: "#addAccountBtn", label: "+ Add account" });
   }
   var ov = accountsOverview({ accountOf: transactionAccount });
   var head = '<div class="acct-totals"><div><span>Cash held</span><b>' + fmtCurrency0.format(ov.held) + '</b></div>' +

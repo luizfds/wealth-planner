@@ -12,6 +12,7 @@ import { escapeAttr } from "../lib/html.js";
 import { applyTaxYear } from "./period.js";
 import { receiptsFieldHtml, deductionReceiptsHtml } from "./receipts.js";
 import { rentalLogged } from "../calc/propertyactuals.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- The tax return worksheet (v3.26.0) ----------------
 //
@@ -313,7 +314,7 @@ function yearSelectHtml(id, fy, today, primary){
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
-  if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a worksheet.</p>';
+  if(!people.length) return emptyStateHtml("Add a Gross income row with a Person to start a worksheet.", { go: "expenses/income", label: "Go to Income →", className: "tax-empty" });
   var fy = taxYearSelected();
   return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy, undefined, true) +
       (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
@@ -361,7 +362,7 @@ export function closeYearHtml(fy, today){
 // whole year's figures — the checklist used to sit under the last person's card on the worksheet.
 export function taxDocumentsHtml(){
   var people = getTaxPeople();
-  if(!people.length) return '<p class="tax-empty">Add a Gross income row with a Person to start a return.</p>';
+  if(!people.length) return emptyStateHtml("Add a Gross income row with a Person to start a return.", { go: "expenses/income", label: "Go to Income →", className: "tax-empty" });
   var fy = taxYearSelected();
   var rec = taxYearRecord(fy, false);
   var ev = evidenceItems(fy);

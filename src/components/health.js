@@ -2,6 +2,7 @@ import { dataHealthChecks } from "../calc/health.js";
 import { state } from "../state.js";
 import { partAllows } from "../calc/parts.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Accounts → Checks (v3.48.0) ----------------
 // calc/health.js finds the inconsistencies; this lists them, worst first, each with a way there.
@@ -17,7 +18,7 @@ export function healthHtml(checks, hidden){
     return '<div class="hc-item hc-info"><span class="hc-dot" aria-hidden="true"></span><div class="hc-body"><div class="hc-title">' + escapeAttr(c.title) + '</div></div>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-hc-undismiss="' + escapeAttr(c.id) + '">Show again</button></div>';
   }).join("") + '</details>' : '';
-  if(!checks.length) return '<p class="hc-clear">Nothing to fix — every check passes.</p>' + hiddenHtml;
+  if(!checks.length) return emptyStateHtml("Nothing to fix — every check passes.", { done: true, className: "hc-clear" }) + hiddenHtml;
   return '<p class="ledger-note" style="margin:0 0 8px">Each check goes away by itself once the data is fixed. If one is fine as it is, mark it “Looks right” and it stays hidden until it finds something new.</p>' +
     '<div class="hc-list">' + checks.map(function(c){
     var w = c.where || {};

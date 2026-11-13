@@ -4,6 +4,7 @@ import { canDismiss, isDismissed, adviceNow } from "../lib/attention.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { askClaudeHtml } from "./askclaude.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- What the app notices (v3.98.0) — calc/advice.js ----------------
 // The whole list on Home → Insights; a page shows one line for what is about it (attentionline.js, drawn by redraw.js).
@@ -55,7 +56,7 @@ export function adviceHomeHtml(items){
     : '';
   var body = items.length
     ? '<div class="adv-list">' + act.map(function(a){ return card(a, true); }).join("") + '</div>' + goodFold + awayFold
-    : '<p class="ledger-note">Nothing to say yet — this fills in as income, spending, loans and scenarios are entered.</p>';
+    : emptyStateHtml("Nothing to say yet — this fills in as income, spending, loans and scenarios are entered.", { done: true });
   return '<div class="panel adv-panel"><h2 class="section-title">What the app notices</h2>' +
     '<p class="ledger-note adv-note help">Read from your own figures, worked out here in the browser. Observations to weigh, not financial advice — the ones about tax and loans are worth taking to your accountant.</p>' +
     body + askClaudeHtml() + '</div>';

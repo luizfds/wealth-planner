@@ -14,6 +14,7 @@ import { monthDetailHtml } from "./monthdetail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { keepUi } from "../lib/keepui.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 // One page, five statements (calc/reports.js), each following the header's period, printable
@@ -278,6 +279,40 @@ export function reportDisclosureHtml(info, expanded){
     '<p>Profile sections entered: ' + escapeAttr(info.progress) + ' · Last saved: ' + escapeAttr(info.lastSaved) + '</p>' +
     '<ul>' + info.warnings.concat(info.assumptions).map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join('') + '</ul></details></section>';
 }
+// #255 step 3 (pages.md §4): a report with nothing to show says what it needs and where that's entered, instead of a
+// table of $0 — "Nothing to report yet" said neither. Empty: no rows, or every figure in them nothing.
+var REPORT_NEEDS = {
+  cashflow: ["Monthly cash flow needs money in and out logged for the period — pay received and spending.", "expenses/spending", "Go to Spending →"],
+  categories: ["Spending by category needs spending logged for the period.", "expenses/spending", "Go to Spending →"],
+  income: ["The income statement needs pay or other money in, and spending, logged for the period.", "expenses/income", "Go to Income →"],
+  flow: ["Where the money goes needs income and spending logged for the period.", "expenses/spending", "Go to Spending →"],
+  budget: ["Budget vs actual needs budget lines, and spending logged against them.", "expenses/budget", "Go to Budget →"],
+  trends: ["Year on year needs spending logged in the last twelve months.", "expenses/spending", "Go to Spending →"],
+  networth: ["The net worth statement needs what you own and owe — accounts, investments, property and loans.", "accounts", "Go to Accounts →"],
+  nwcheck: ["The net worth check needs balances recorded over the months, and the money in and out between them.", "accounts", "Go to Accounts →"],
+  invest: ["Investment returns need holdings and what was paid for them.", "assets/Shares", "Go to Shares →"],
+  dividends: ["Distributions need holdings, and what they paid.", "assets/Shares", "Go to Shares →"],
+  cgt: ["Capital gains need a holding sold.", "assets/Shares", "Go to Shares →"],
+  propreturns: ["Property returns need a property with its value, and its rent and costs if it's let.", "properties", "Go to Property →"],
+  property: ["Property P&L needs a property with its rent and costs.", "properties", "Go to Property →"],
+  debts: ["Loans and debts needs a loan, a card or another debt with its balance.", "accounts", "Go to Accounts →"],
+  "super": ["Super needs a super fund, or pay with super, for someone in the household.", "assets/Super", "Go to Super →"],
+  tax: ["The tax summary needs a Gross income row with a Person.", "expenses/income", "Go to Income →"],
+  taxpack: ["The rental tax pack needs an investment property.", "properties", "Go to Property →"],
+  review: ["The year in review needs a year with money in and out, or balances, recorded.", "expenses/spending", "Go to Spending →"],
+  lender: ["The lender pack needs money in, spending and balances over the last twelve months.", "expenses/spending", "Go to Spending →"]
+};
+export function reportIsEmpty(rep){
+  if(!rep || !rep.rows || !rep.rows.length) return true;
+  var nums = rep.columns.filter(function(c){ return c.num; });
+  if(!nums.length) return false;
+  return rep.rows.every(function(r){ return nums.every(function(c){ var v = r.cells[c.key]; return v == null || v === "" || v === 0 || (typeof v === "number" && Math.abs(v) < 0.005); }); });
+}
+export function reportEmptyHtml(rep){
+  var need = REPORT_NEEDS[rep.key];
+  return need ? emptyStateHtml(need[0], { go: need[1], label: need[2], className: "rp-empty" })
+    : emptyStateHtml("Nothing to report yet for this one.", { done: true, className: "rp-empty" });
+}
 export function reportsPageHtml(opts){
   var picker = pickerHtml();
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
@@ -287,7 +322,7 @@ export function reportsPageHtml(opts){
   return picker + frameControlsHtml(rep) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
-      storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep)) + (rep.note ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
+      (reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");

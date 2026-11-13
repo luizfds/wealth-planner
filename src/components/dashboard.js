@@ -25,6 +25,7 @@ import { applyHomeLayout } from "../lib/homelayout.js";
 import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
 import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
 import { keepUi } from "../lib/keepui.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // What a normal month leaves: bonuses land in their own month, so they're in the year, not each month.
 // Items 252, 253: on each card, a normal month if rates rise, and — for a scenario that buys its home — the price
@@ -373,7 +374,7 @@ export function renderDashboardStats(){
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
   // The tiles earn their space once they have values in them.
   if(nothingEntered){
-    el.innerHTML = '<p class="stat-empty">Your net worth, savings rate, projection and runway appear here once you\'ve entered your income, expenses and what you own.</p>';
+    el.innerHTML = emptyStateHtml("Your net worth, savings rate, projection and runway appear here once you've entered your income, expenses and what you own.", { go: "expenses/income", label: "Go to Income →", className: "stat-empty" });
     renderSavingsBreakdown(active);
     return;
   }
@@ -563,7 +564,7 @@ export function renderDetail(){
     return '<div class="acct-row"><span class="acct-name" title="' + e[0] + '">' + e[0] + '</span>' +
       '<span class="acct-track"><span class="acct-fill series-color-' + (i % 8) + '" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
-  }).join("") : '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">No expenses yet.</p>';
+  }).join("") : emptyStateHtml("No budget lines yet.", { go: "expenses/budget", label: "Go to Budget →" });
 
   renderFireProgress(scenario, t);
 }

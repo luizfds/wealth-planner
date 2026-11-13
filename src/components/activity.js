@@ -3,6 +3,7 @@ import { whoText } from "../calc/activity.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { escapeAttr } from "../lib/html.js";
 import { devicePerson } from "../lib/activity.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Who changed what (v3.171.0, item 202) — calc/activity.js decides ----------------
 // Settings → Preferences: whose device this is, and the last changes from every device, newest
@@ -28,7 +29,7 @@ export function activityHtml(list, opts){
     '<input class="field-control" id="actName" type="text" data-act-name maxlength="40" list="actPeople" value="' + escapeAttr(name) + '" placeholder="Your name">' +
     '<datalist id="actPeople">' + people.map(function(p){ return '<option value="' + escapeAttr(p) + '">'; }).join("") + '</datalist>' +
     '<small>Kept on this device only. Your changes carry this name, so whoever you sync with can see who made them.</small></div>';
-  if(!list.length) return nameField + '<p class="ledger-note" style="margin:12px 0 0">No changes logged yet. Each edit made here — and on any device you sync with — shows up here for 90 days.</p>';
+  if(!list.length) return nameField + emptyStateHtml("No changes logged yet. Each edit made here — and on any device you sync with — shows up here for 90 days.", { done: true });
   var shown = list.slice(0, activityUi.shown), lastDay = "";
   var rows = shown.map(function(e){
     var day = dayLabel(e.at, today), head = day !== lastDay ? '<h4 class="act-day">' + escapeAttr(day) + '</h4>' : '';

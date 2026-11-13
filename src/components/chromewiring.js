@@ -25,7 +25,7 @@ import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetG
 import { renderHealth } from "./health.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, QUICK_ACTIONS, quickActionsSheetHtml } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml } from "./nav.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -148,6 +148,24 @@ function shortcutsDialog(){
 
 export function wireNavigation(){
   initSectionPickers(document.body);
+  // #255 step 3: an empty state's next step (lib/empty.js) — to another page and its tab, or the page's own add.
+  document.addEventListener("click", function(e){
+    var add = e.target.closest && e.target.closest("[data-empty-add]");
+    if(add){ var target = add.getAttribute("data-empty-add"), btn = target ? document.querySelector(target) : document.getElementById("quickFab"); if(btn) btn.click(); return; }
+    var to = e.target.closest && e.target.closest("[data-empty-scroll]");
+    if(to){ var where = document.querySelector(to.getAttribute("data-empty-scroll")); if(where) where.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    var go = e.target.closest && e.target.closest("[data-go]");
+    if(!go) return;
+    var parts = go.getAttribute("data-go").split("/"), page = parts[0], sub = parts[1];
+    showPage(page);
+    if(!sub) return;
+    if(page === "expenses") showExpensesSubpage(sub, { replace: true });
+    else if(page === "tax") showTaxSubpage(sub, { replace: true });
+    else if(page === "plan") showPlanSubpage(sub, { replace: true });
+    else if(page === "assets") showAssetsSubpage(sub, { replace: true });
+    else if(page === "settings") showAccountsSubpage(sub, { replace: true });
+    else if(page === "dashboard") showDashboardSubpage(sub);
+  });
   // ---------------- Page navigation ----------------
   document.getElementById("appNav").addEventListener("click", function(e){
     var btn = e.target.closest(".nav-item");

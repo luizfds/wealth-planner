@@ -24,6 +24,7 @@ import { parseCsv } from "../lib/backup.js";
 import { categoryLook, renameCategoryLook, CATEGORY_COLORS, CATEGORY_ICONS } from "../calc/categorylook.js";
 import { FLEX_KINDS, FLEX_LABELS, flexKindOf, flexMonth, flexTotals } from "../calc/flexbudget.js";
 import { categoryIconHtml, categoryColorClass, iconSvg } from "../lib/caticons.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // Which axis the Budget list is grouped by, and the value a given line sits under on it. The two
 // axes are deliberately different in kind: classification is a fixed four-value scale every line
@@ -1428,7 +1429,7 @@ function drawTransactions(){
   var top = (transferForm.open ? transferFormHtml() : "");
   if(!all.length){
     if(totalEl) totalEl.textContent = fmtCurrency0.format(0);
-    container.innerHTML = top + filterBarHtml([], lines, { scopeHtml: transactionScopeControlHtml(transactionsRange) }) + '<p class="ledger-note" style="margin:0">Nothing logged yet — log what you spend below (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.</p>';
+    container.innerHTML = top + filterBarHtml([], lines, { scopeHtml: transactionScopeControlHtml(transactionsRange) }) + emptyStateHtml("Nothing logged yet — log what you spend (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.", { add: "#quickLogBtn", label: "+ Log spend" });
     return;
   }
   // v3.168.0: a view or filter with its own dates (or a trip) decides the dates, not the header's period.

@@ -33,6 +33,7 @@ import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
 import { autoPricesCardHtml } from "./autoprices.js";
 import { tradesCardHtml } from "./brokertrades.js";
 import { isSoldOut } from "../calc/networthlist.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // Every other figure in this app is implicitly AUD; a Shares holding's price/value is only
 // sometimes that (ASX), and otherwise USD (US, Crypto) — see MARKET_CURRENCY. Used to pick the
@@ -602,7 +603,9 @@ export function renderAssetCategoryPage(cat){
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(ADD_NOUN[cat] || String(cat).toLowerCase()) + '</button>';
   var body;
   if(!data.items.length){
-    body = '<p class="ledger-note" style="margin:0 0 12px">' + (assetPersonFilter ? 'No assets match this person.' : 'No ' + escapeAttr(cat) + ' tracked yet.') + '</p>' + footerBtn;
+    // #255 step 3: no results offers to clear the filter; empty, the add button that follows.
+    body = (assetPersonFilter ? emptyStateHtml("No assets match this person.", { attrs: { "data-asset-person-filter": "" }, label: "Show everyone" })
+      : emptyStateHtml("No " + cat + " tracked yet.", { beside: true })) + footerBtn;
   } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-' + cat + '">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernAssetRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
@@ -711,7 +714,7 @@ export function renderVehiclesSubpage(){
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" title="Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you">+ Add vehicle</button>';
   var body;
   if(!data.items.length){
-    body = '<p class="ledger-note" style="margin:0 0 12px">No vehicles tracked yet.</p>' + footerBtn;
+    body = emptyStateHtml("No vehicles tracked yet.", { beside: true }) + footerBtn;
   } else {
     var rowMeta = assetRowMeta(data);
     body = '<div class="m-card" id="assetsComp-Vehicle">' + modernAssetCompBarHtml(rowMeta) + '<div class="m-rows m-asset-rows">' + rowMeta.map(function(m){ return modernVehicleRowHtml(m.item, m.idx, m.colorIdx); }).join("") + '</div></div><div class="ledger-footer">' + footerBtn + '</div>';
@@ -985,7 +988,7 @@ function drawSharesSubpage(){
   var toolbar = sharesFilterSortHtml();
   var body;
   if(!allData.items.length){
-    body = '<p class="ledger-note" style="margin:0 0 12px">No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).</p>' + footerBtn;
+    body = emptyStateHtml('No share holdings yet — set Market to "Crypto" on a holding to track a coin the same way (quantity, avg cost, gain/loss, sparkline).', { beside: true }) + footerBtn;
   } else if(!data.items.length && !soldData.items.length){
     body = '<p class="ledger-note" style="margin:0 0 12px">No holdings match this filter.</p>';
   } else if(!data.items.length){
@@ -1815,7 +1818,7 @@ function drawOffsetsSubpage(){
   });
   var total = propertiesOffsetTotal();
   var body = !rows.length
-    ? '<p class="ledger-note" style="margin:0">No property loans yet — add one in Net worth → Property, and any offset account attached to it shows up here.</p>'
+    ? emptyStateHtml("No property loans yet — any offset account attached to one shows up here.", { go: "properties", label: "Go to Property →" })
     : '<p class="ledger-note help" style="margin:0 0 12px">Editing here changes the same field the loan\'s own Properties card shows — this is just a second place to see and update it.</p>' +
       '<div class="m-rows">' + rows.map(function(r, i){ return offsetRowHtml(r.property, r.loan, r.li, i % 8); }).join("") + '</div>';
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +

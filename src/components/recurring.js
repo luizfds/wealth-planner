@@ -1,5 +1,6 @@
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
 export var recurringDismissed = { keys: {} };
@@ -27,7 +28,7 @@ export function recurringHtml(unbudgeted, rising, catchAll, transactions){
   var u = unbudgeted.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; });
   var r = rising.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; });
   var c = (catchAll || []).filter(function(x){ return !recurringDismissed.keys["c:" + x.id]; });
-  if(!u.length && !r.length && !c.length) return '<p class="ledger-note" style="margin:0">Nothing to flag. Repeating charges with no budget line, and lines charging more than they\'re budgeted at, show up here as transactions are logged or imported.</p>';
+  if(!u.length && !r.length && !c.length) return emptyStateHtml("Nothing to flag. Repeating charges with no budget line, and lines charging more than they're budgeted at, show up here as transactions are logged or imported.", { done: true });
   var html = "";
   if(u.length){
     html += '<div class="rc-sec">Repeating, with no budget line (' + u.length + ')</div>' + u.map(function(x){

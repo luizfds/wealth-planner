@@ -1,6 +1,7 @@
 import { categorySpendingChanges } from "../calc/spendinginsights.js";
 import { escapeAttr } from "../lib/html.js";
 import { recurringCandidates } from "../calc/recurringschedule.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 export function validateRecurringRule(input){
   const r = { id: String(input.id || ""), what: String(input.what || "").trim(), kind: input.kind === "Income" ? "Income" : "Expense",
@@ -34,7 +35,7 @@ export function recurringRuleManagerHtml(rules, transactions, incomeLog, today, 
   const safe = function(s){ return escapeAttr(String(s == null ? "" : s)); };
   const opt = function(value, chosen){ return '<option value="' + value + '"' + (value === chosen ? " selected" : "") + '>' + value + '</option>'; };
   let html = '<div class="ledger-note" role="region" aria-label="Approved recurring rules"><strong>Your recurring rules</strong><p>Rules stay in this device’s saved financial data. Occurrences are only recorded after you preview and confirm them. Imported bank transactions are not generated automatically.</p>';
-  if(!(rules || []).length) html += '<p>No rules configured yet.</p>';
+  if(!(rules || []).length) html += emptyStateHtml("No rules configured yet — add one in the form below.", { beside: true });
   (rules || []).forEach(function(r){
     html += '<div class="rc-row"><b>' + safe(r.what) + '</b> · ' + safe(r.kind) + ' · ' + safe(r.frequency) + ' · ' + safe(r.amount) +
       (r.enabled === false ? ' · Paused' : '') +

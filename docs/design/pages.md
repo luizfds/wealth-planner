@@ -204,7 +204,12 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
 2. **Add, edit and delete wording and classes,** with a test over the rendered labels (no "+ Add" followed by a
    capital, no delete without `.btn-danger`).
 3. **Empty, no-results and report-empty states,** with each next step a control, and a test that every empty state in
-   the empty household has one.
+   the empty household has one. *Shipped:* every empty state is `emptyStateHtml()` (`lib/empty.js`) — a link to the
+   page and tab where the step is done (`go`), the page's own add button (`add`), a scroll to the part of the page it
+   means (`scroll`), a button the page already handles (`attrs`), controls that follow it (`beside`), or nothing to do
+   (`done`). A report with every figure nothing says what it needs, with a link, in place of its table of $0
+   (`REPORT_NEEDS` in components/reports.js). The smoke run sweeps every view of the empty household and fails an empty
+   state without its step, or a sentence that reads as one but wasn't made with the builder.
 4. **Tooltip help to ⓘ,** view by view, with a test that no visible non-field element carries help in a `title` over
    40 characters.
 5. **One rail on Investments.**

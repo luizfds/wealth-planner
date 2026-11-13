@@ -5,6 +5,7 @@ import { takeHomeDrifts } from "../calc/takehome.js";
 import { getTaxPeople, takeHomeAdjust } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- Income → Received (v3.46.0) ----------------
 //
@@ -39,7 +40,7 @@ export function receivedPanelHtml(monthStr){
   // A holding with no expected distribution and nothing logged this year is just noise in the list;
   // it stays one tap away in the sheet.
   var rows = incomeActuals(monthStr).filter(function(r){ return r.kind !== "payout" || r.planned > 0 || r.rows.length; });
-  if(!rows.length) return '<p class="ledger-note" style="margin:0">Add an income row, a rental property or a holding and you can log what actually arrives against it.</p>';
+  if(!rows.length) return emptyStateHtml("Add an income row, a rental property or a holding and you can log what actually arrives against it.", { add: true, label: "+ Add income" });
   var anyLogged = rows.some(function(r){ return r.rows.length; });
   return takeHomeHtml(localDateStr()) + (anyLogged ? "" : '<p class="ledger-note" style="margin:0 0 10px">Nothing logged yet. Each time pay, rent or a distribution lands, log it here — or assign the money-in rows of a bank import — and this shows it against the plan.</p>') +
     '<div class="rcv-list">' + rows.map(function(r){

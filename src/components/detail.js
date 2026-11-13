@@ -12,6 +12,7 @@ import { reportChartHtml } from "../lib/reportcharts.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart, dateAxisFormat } from "../lib/charts.js";
+import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- A page for every thing (v3.128.0) ----------------
 //
@@ -34,7 +35,7 @@ function facts(list){
 function section(title, body){ return body ? '<section class="dt-sec"><h3>' + escapeAttr(title) + '</h3>' + body + '</section>' : ""; }
 function txTable(txs, opts){
   opts = opts || {};
-  if(!txs.length) return '<p class="ledger-note" style="margin:0">Nothing logged yet.</p>';
+  if(!txs.length) return emptyStateHtml("Nothing logged yet.", { done: true });
   var lines = budgetLineItems();
   var shown = txs.slice().sort(function(a, b){ return (b.date || "").localeCompare(a.date || ""); }).slice(0, opts.limit || 25);
   return '<div class="table-scroll"><table class="rp-table dt-tx"><thead><tr><th scope="col">Date</th><th scope="col">What</th><th scope="col">' + (opts.third || "Category") + '</th><th class="num" scope="col">Amount</th></tr></thead><tbody>' +

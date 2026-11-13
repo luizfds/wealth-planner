@@ -3638,6 +3638,54 @@ const JOURNEYS = {
     });
     check(await picker.inputValue()===options[0],'missing scenario did not fall back to the household');
   },
+  // #255 step 4: Month's exact chart values also name its native navigation buttons.
+  async monthhelp(page){
+    await go(page, 'reports', 'data-report', 'month');
+    const root = page.locator('#reportsBody .md');
+    const original = await page.evaluate(async () => JSON.stringify((await import('/src/state.js')).state));
+    const selected = root.locator('.md-bar[aria-pressed="true"]');
+    check(await root.locator('.md-strip[role="group"]').count() === 1, 'month strip has no group semantics');
+    check(await root.locator('.md-bar').count() === 12 && await selected.count() === 1, 'month strip lost a month or its selected state');
+    const badNames = await root.locator('.md-bar').evaluateAll(es => es.filter(e => e.getAttribute('aria-label') !== e.getAttribute('title') || !/\d{4}: in .+, out .+, left .+/.test(e.getAttribute('aria-label') || '')).length);
+    check(!badNames, 'month buttons are missing their exact accessible figures');
+    const cdp = await page.context().newCDPSession(page);
+    const ax = await cdp.send('Accessibility.getFullAXTree');
+    const buttons = ax.nodes.filter(n => !n.ignored && n.role?.value === 'button' && /\d{4}: in .+, out .+, left .+/.test(n.name?.value || ''));
+    check(buttons.length === 12, 'native accessibility tree does not expose twelve named month buttons');
+    check(buttons.filter(n => n.properties?.some(p => p.name === 'pressed' && p.value?.value === 'true')).length === 1, 'native tree does not announce the selected month');
+    await cdp.detach();
+    const earlier = root.locator('.md-bar').nth(10);
+    const ym = await earlier.getAttribute('data-md-open');
+    await earlier.focus(); await page.keyboard.press('Enter');
+    check(await selected.getAttribute('data-md-open') === ym, 'Enter did not select the chosen month');
+    check(await selected.evaluate(e => e === document.activeElement), 'month selection lost keyboard focus');
+    await page.keyboard.press('Space');
+    check(await selected.evaluate(e => e === document.activeElement), 'Space activation lost the selected month');
+    await root.locator('[data-md-step="-1"]').click();
+    check(await selected.getAttribute('data-md-open') !== ym, 'Previous month stopped navigating');
+    await root.locator('[data-md-step="1"]').click();
+    check(await selected.getAttribute('data-md-open') === ym, 'Next month did not return to the chosen month');
+    for(const scheme of ['light', 'dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320, 390, 1280]){
+        await page.setViewportSize({ width, height: 844 });
+        const bar = root.locator('.md-bar').nth(10), next = await bar.getAttribute('data-md-open');
+        await bar.tap();
+        check(await selected.getAttribute('data-md-open') === next, 'touch did not select the month at ' + width + ' in ' + scheme);
+        const target = await selected.evaluate(e => { const r = e.getBoundingClientRect(), strip = e.parentElement.getBoundingClientRect(); return { width: r.width, visible: r.left >= strip.left - 1 && r.right <= strip.right + 1 }; });
+        check(target.width >= 44 && target.visible, 'selected month is too small or off screen after redraw at ' + width);
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'month report overflows at ' + width);
+      }
+    }
+    check(await page.evaluate(async original => original === JSON.stringify((await import('/src/state.js')).state), original), 'month navigation changed the saved household');
+    // An empty report retains all twelve controls and its step onward.
+    await page.evaluate(async () => {
+      const m = await import('/src/components/monthdetail.js'); m.monthDetailUi.ym = '2000-01';
+      (await import('/src/components/reports.js')).renderReports();
+    });
+    check(await selected.count() === 1 && await root.locator('.md-bar').count() === 12, 'empty month lost its navigation semantics');
+    check(await root.locator('[data-go="expenses/spending"]').count() === 1, 'empty month lost its next step');
+  },
   async reportsummary(page){
     await go(page, 'reports', 'data-report', 'invest');
     // All fields, including percentage/negative/blank values, must match the unchanged table.
@@ -4015,7 +4063,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

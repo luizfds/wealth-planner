@@ -216,9 +216,10 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    40 characters. *In progress:* Spending shipped in v3.267.0 (PR #351); Projections shipped v3.268.0 (PR #352), moving basis, source,
    assumptions, range and export explanations to its section ⓘ. Assumption fields describe their help to screen
    readers. Native chart figures retain exact hover values with screen-reader labels; the smoke run checks the
-   migrated views. Tax → This year now moves cap, warning and household-setting explanations behind ⓘ, preserving
-   visible warnings and labelling waterfall figures for screen readers, including live updates. Reports → Month
-   and the remaining views follow.
+   migrated views. Tax → This year shipped v3.269.0 (PR #353), moving cap, warning and household-setting
+   explanations behind ⓘ, preserving visible warnings and labelling waterfall figures for screen readers, including live updates. Reports → Month
+   now names its native month buttons with the exact figures and selected state. Separate 44px targets scroll
+   locally on phones, with the selected month visible after redraws. Property and the remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

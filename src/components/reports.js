@@ -329,6 +329,9 @@ export function renderReports(){
   // #262: through keepUi, so choosing a report or changing its period leaves focus on the control that replaced the one
   // used, not on the page body.
   if(el) keepUi(function(){ el.innerHTML = reportsPageHtml(reportOpts()); });
+  var strip = el && el.querySelector(".md-strip");
+  // The selected month ends the strip: keep its button visible after navigation and redraws.
+  if(strip) strip.scrollLeft = strip.scrollWidth;
 }
 // The static copy printed on its own (the same #printRoot the tax worksheet uses).
 export function reportPrintHtml(){

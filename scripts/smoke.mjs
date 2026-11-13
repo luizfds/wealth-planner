@@ -165,14 +165,15 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           if(/^(Delete|Remove)\b/.test(name) && !/^Remove (filter|from this)/.test(name) && !b.classList.contains("btn-danger")) wording.push('"' + name.slice(0, 30) + '" (not .btn-danger)');
         });
         // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
-        // Exact native chart values may keep hover titles, but must name an image for screen readers.
+        // Exact chart values may keep hover titles when the figure or month button has the same accessible name.
         const tooltipHelp = [];
-        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year").forEach(view => {
+        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year, #reportsBody .md").forEach(view => {
           if(!view.getClientRects().length) return;
           view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");
             if(!el.getClientRects().length || title.length <= 40 || el.matches("input, select, textarea")) return;
             if(el.getAttribute("role") === "img" && el.getAttribute("aria-label") === title) return;
+            if(el.matches("button.md-bar[data-md-open]") && el.getAttribute("aria-label") === title) return;
             if(el.parentElement && el.parentElement.closest('[role="img"][aria-label]')) return;
             if(title === el.textContent.trim()) return; // the same full name, also written on screen
             tooltipHelp.push(el.tagName.toLowerCase() + ": " + title.slice(0, 60));

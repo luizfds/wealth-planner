@@ -5049,7 +5049,9 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      checks the completed scroll rather than an intermediate position. Tax → This year shipped v3.269.0 (PR #353): cap,
      warning and household-setting help behind ⓘ, visible warnings retained, waterfall figures labelled and help
      kept in step with live patches (`taxhelp`). Reports → Month is now in progress: accessible month-strip
-     controls with exact figures, preserving month navigation and report values.
+     controls with exact figures and selected state, preserving month navigation and report values (`monthhelp`).
+     Separate 44px targets scroll locally on narrow screens so adjacent months cannot steal each other’s taps.
+     Property follows.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

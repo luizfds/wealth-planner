@@ -2067,10 +2067,23 @@ const JOURNEYS = {
     // A scroll: the trim card's "budget lines" are above it, and the link brings them into view.
     await go(page, 'expenses', 'data-expenses-sub', 'budget');
     await page.evaluate(() => { const c = document.getElementById('trimCard'); if(c){ c.open = true; c.scrollIntoView(); } });
-    await click(page, '#trimCard .empty-state [data-empty-scroll]');
-    // In view: its top in the upper half of the screen (a header or line above can sit over its first few pixels).
-    await page.waitForFunction(() => { const r = document.getElementById('sharedGroups').getBoundingClientRect(); return r.top > -40 && r.top < innerHeight / 2; }, null, { timeout: 5000 })
-      .catch(async () => { throw new Error('the budget lines did not come into view: ' + JSON.stringify(await page.evaluate(() => ({ top: Math.round(document.getElementById('sharedGroups').getBoundingClientRect().top), y: scrollY, page: document.body.getAttribute('data-current-page'), modal: !!document.querySelector('[role="dialog"]'), active: document.activeElement && document.activeElement.className })))); });
+    await until(page, () => document.querySelector('.app-topbar').classList.contains('is-compact'));
+    await page.evaluate(async () => { await Promise.all(document.querySelector('.app-topbar').getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
+    // Inspect the completed scroll. Watching for a transient position let the journey pass while the
+    // list was still moving, even though it ended behind the sticky header (or above the viewport).
+    await page.evaluate(() => {
+      window.__emptyScrollDone = false;
+      window.addEventListener('scrollend', () => { window.__emptyScrollDone = true; }, { once: true });
+      document.querySelector('#trimCard .empty-state [data-empty-scroll]').click();
+    });
+    await page.waitForFunction(() => window.__emptyScrollDone, null, { timeout: 5000 });
+    const position = await page.evaluate(() => {
+      const target = document.getElementById('sharedGroups'), r = target.getBoundingClientRect(), h = document.querySelector('.app-topbar').getBoundingClientRect();
+      const summary = target.closest('details.ledger').querySelector(':scope > summary');
+      const sectionBottom = getComputedStyle(summary).position === 'sticky' ? summary.getBoundingClientRect().bottom : 0;
+      return { top: r.top, headerBottom: Math.max(h.bottom, sectionBottom), height: innerHeight, y: scrollY };
+    });
+    check(position.top >= position.headerBottom && position.top < position.height / 2, 'the budget lines did not clear the sticky header after scrolling: ' + JSON.stringify(position));
     // A report with nothing to show: what it needs, and the way there — no table of $0.
     await go(page, 'reports', 'data-report', 'cashflow');
     check(!await page.locator('#reportSheet .rp-table').count(), 'an empty Monthly cash flow drew its table');

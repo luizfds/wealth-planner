@@ -16,6 +16,9 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
   details.ledger:has(> .help-btn) > summary .ledger-title{ margin-right:32px; }
 }
 
+/* An empty state’s next step must land below the sticky app and section headers. */
+.empty-state-scroll-target{ scroll-margin-top: calc(var(--topbar-h, 72px) + var(--empty-scroll-section-h, 0px) + 12px); }
+
 /* A save conflict stays visible until the person has kept their copy or reloaded. */
 .storage-conflict { padding: 16px; margin: 0 0 16px; border: 1px solid var(--warn-ink); border-radius: 12px; background: var(--paper-raised); }
 .storage-conflict p { margin: 8px 0; }

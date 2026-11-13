@@ -5043,7 +5043,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      the existing help controls; chart figures retain hover titles with screen-reader labels. Full charts keep
      their existing tap tooltips. Native figure titles remain hover-only on touch. Spending shipped v3.267.0
      (PR #351), with the smoke check and `spendinghelp` journey, including the fix for sticky phone section headers
-     intercepting ⓘ taps. Projections merged in PR #352 (release version pending): basis/source, assumption fields, shaded-range and CSV
+     intercepting ⓘ taps. Projections shipped v3.268.0 (PR #352): basis/source, assumption fields, shaded-range and CSV
      help behind the section ⓘ, with described fields and the `projectionhelp` journey. CI also exposed Trim’s
      empty-state scroll landing behind sticky headers: destinations now allow for their heights, and the journey
      checks the completed scroll rather than an intermediate position. Tax → This year is now in progress: cap,

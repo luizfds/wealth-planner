@@ -5041,9 +5041,12 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      (tooltip help to ⓘ) follows in its own PR.
    - `[~]` #255 step 4, tooltip help to ⓘ: migrate view by view, starting with Spending. Explanations use
      the existing help controls; chart figures retain hover titles with screen-reader labels. Full charts keep
-     their existing tap tooltips. Native figure titles remain hover-only on touch. Spending migrates in this PR,
-     with the smoke check and `spendinghelp` journey; Projections and the remaining views follow. Also fix the sticky
-     phone section header intercepting its sibling ⓘ button’s taps.
+     their existing tap tooltips. Native figure titles remain hover-only on touch. Spending shipped v3.267.0
+     (PR #351), with the smoke check and `spendinghelp` journey, including the fix for sticky phone section headers
+     intercepting ⓘ taps. Projections is now in progress: basis/source, assumption fields, shaded-range and CSV
+     help behind the section ⓘ, with described fields and the `projectionhelp` journey. CI also exposed Trim’s
+     empty-state scroll landing behind sticky headers: destinations now allow for their heights, and the journey
+     checks the completed scroll rather than an intermediate position. Tax → This year follows.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

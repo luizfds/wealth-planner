@@ -113,7 +113,8 @@
   .proj-ms-head{ background: var(--paper-sunken); font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .proj-ms-head > span:not(:first-child){ font-family:inherit; }
   .proj-ms-name{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .proj-tools{ margin-top:12px; display:flex; justify-content:flex-end; }
+  .proj-tools{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; }
+  .proj-tools .help{ flex-basis:100%; }
   @media (max-width: 700px){
     .proj-ms-table{ overflow-x:auto; }
     .proj-ms-row{ min-width: calc(120px + (var(--ms-cols) + 1) * 66px); }

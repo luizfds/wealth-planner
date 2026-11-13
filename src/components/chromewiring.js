@@ -153,7 +153,18 @@ export function wireNavigation(){
     var add = e.target.closest && e.target.closest("[data-empty-add]");
     if(add){ var target = add.getAttribute("data-empty-add"), btn = target ? document.querySelector(target) : document.getElementById("quickFab"); if(btn) btn.click(); return; }
     var to = e.target.closest && e.target.closest("[data-empty-scroll]");
-    if(to){ var where = document.querySelector(to.getAttribute("data-empty-scroll")); if(where) where.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+    if(to){
+      var where = document.querySelector(to.getAttribute("data-empty-scroll"));
+      if(where){
+        // Leave the destination below both sticky headers, including while the phone header shrinks.
+        var section = where.closest("details.ledger"), summary = section && section.querySelector(":scope > summary");
+        var sectionHeight = summary && getComputedStyle(summary).position === "sticky" ? summary.getBoundingClientRect().height : 0;
+        where.style.setProperty("--empty-scroll-section-h", sectionHeight + "px");
+        where.classList.add("empty-state-scroll-target");
+        where.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      return;
+    }
     var go = e.target.closest && e.target.closest("[data-go]");
     if(!go) return;
     var parts = go.getAttribute("data-go").split("/"), page = parts[0], sub = parts[1];

@@ -2495,3 +2495,12 @@ test("budget comparison has explicit amounts and a text alternative to its rings
   assert.match(html,/Other spending \/ allocations/);assert.match(html,/Loan principal is not added again/);
   assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
+
+test("Spending category figures have exact accessible values and escape category names", () => {
+  const html = categoryChartHtml([{ key: 'Sample <category> "A"', monthly: 100 }, { key: 'Other', monthly: 100 }], '/mo');
+  assert.match(html, /role="img" aria-label="Sample &lt;category> &quot;A&quot;: \$100\/mo \(50%\)"/);
+  assert.doesNotMatch(html, /Sample <category>/);
+  const refund = categoryChartHtml([{ key: 'One', monthly: 100 }, { key: 'Two', monthly: -50 }], '');
+  assert.match(refund, /net refund/);
+  assert.doesNotMatch(refund, /title="More came back/);
+});

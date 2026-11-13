@@ -144,8 +144,10 @@ means a button, or a link to the place the step is done:
 
 ### 5. Help, data quality, units and dates
 
-- **Explanations:** a section's ⓘ, never a `title`. A figure that needs explaining has it in the section's help or its
-  tooltip panel (`wireChartTooltip`), reachable by touch and keyboard.
+- **Explanations:** a section's ⓘ, never a `title`. A figure that needs explaining has it in the section's
+  help panel, reachable by touch and keyboard. Exact chart values may retain native hover titles when the same
+  figures label the chart for screen readers. These native values remain hover-only on touch; full line and stacked
+  charts keep their existing tap tooltip (`wireChartTooltip`).
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",
@@ -211,7 +213,8 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    (`REPORT_NEEDS` in components/reports.js). The smoke run sweeps every view of the empty household and fails an empty
    state without its step, or a sentence that reads as one but wasn't made with the builder.
 4. **Tooltip help to ⓘ,** view by view, with a test that no visible non-field element carries help in a `title` over
-   40 characters.
+   40 characters. *In progress:* Spending moves explanations to its page and section ⓘ controls. Native chart
+   figures retain exact hover values with screen-reader labels; the smoke run checks this view. Other views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

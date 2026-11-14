@@ -5,13 +5,14 @@ import { transactionDisplayName, periodsOf } from "../calc/ledger.js";
 import { accountBalance, rolledBalance, accountTypeLabel } from "../calc/accounts.js";
 import { holdingReturns, distributionYears, cgtParcels } from "../calc/investreports.js";
 import { propertyReturns, debtSchedule } from "../calc/assetreports.js";
-import { toAudAmount } from "../calc/engine.js";
+import { toAudAmount, scenarioTotals } from "../calc/engine.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { propertyOwnershipPct } from "../calc/property.js";
 import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart, dateAxisFormat } from "../lib/charts.js";
+import { incomeSearchId } from "../lib/search.js";
 import { emptyStateHtml } from "../lib/empty.js";
 
 // ---------------- A page for every thing (v3.128.0) ----------------
@@ -21,7 +22,7 @@ import { emptyStateHtml } from "../lib/empty.js";
 // a way to its edit form where it lives. Search lands here and the lists link here. One route,
 // /detail/<kind>/<id>; `detailTarget` says which.
 export var detailTarget = { kind: null, id: null, from: null };
-export var DETAIL_KINDS = ["account", "asset", "property", "loan", "debt", "line", "merchant", "person"];
+export var DETAIL_KINDS = ["scenario", "transaction", "income", "account", "asset", "property", "loan", "debt", "line", "merchant", "person"];
 
 function money(v){ return v == null ? "—" : (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)); }
 function pct(v){ return v == null ? "—" : (Math.round(v * 1000) / 10) + "%"; }
@@ -63,6 +64,29 @@ function findLoan(id){
 // the thing isn't there (deleted, or a stale link).
 export function detailView(kind, id, today){
   today = today || localDateStr();
+  if(kind === "scenario"){
+    if((state.scenarios || []).indexOf(id) === -1) return null;
+    var totals = scenarioTotals(id);
+    return { title: id, kicker: "Scenario", history: null, edit: null,
+      html: facts([["Income / month", money(totals.incomeMonthly)], ["Expenses / month", money(totals.expensesMonthly)],
+        ["Left / month", money(totals.netMonthly)], ["Notes", escapeAttr((state.scenarioNotes || {})[id] || "")]]) };
+  }
+  if(kind === "transaction"){
+    var transaction = (state.transactions || []).find(function(t){ return t.id === id; });
+    if(!transaction) return null;
+    var linkedLine = budgetLineItems().find(function(l){ return l.id === transaction.linkedExpenseId; });
+    return { title: transactionDisplayName(transaction, budgetLineItems()), kicker: "Transaction", history: null, edit: null,
+      html: facts([["Date", escapeAttr(fmtDate(transaction.date, { year: true }))], ["Amount", money(transaction.amount)],
+        ["Account", escapeAttr(transactionAccount(transaction) || "")], ["Category", escapeAttr(transactionCategory(transaction) || "")],
+        ["Budget line", linkedLine ? detailLinkHtml("line", linkedLine.id, linkedLine.what) : null], ["Notes", escapeAttr(transaction.notes || "")]]) };
+  }
+  if(kind === "income"){
+    var income = (state.income || []).find(function(i){ return incomeSearchId(i) === id; });
+    if(!income) return null;
+    return { title: income.what || "Income", kicker: "Income", history: null, edit: null,
+      html: facts([["Person", escapeAttr(income.person || income.syntheticNetFor || "")], ["Amount", money(income.amount)], ["Frequency", escapeAttr(income.freq || "")],
+        ["Type", escapeAttr(income.incomeType || "")], ["Account", escapeAttr(income.account || "")], ["How it is calculated", escapeAttr(income.computedNote || "")]]) };
+  }
   if(kind === "account"){
     var acct = (state.accounts || []).find(function(a){ return a.id === id; });
     if(!acct) return null;

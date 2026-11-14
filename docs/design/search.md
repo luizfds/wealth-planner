@@ -1,0 +1,11 @@
+# Global search
+
+Search is a native modal dialog with the existing review sheet skin. Its input stays mounted while results change. Tab wraps inside the dialog; Up and Down move through results; Enter from the input opens the first result. Escape, the close button, the backdrop and browser Back dismiss it. Dismissal restores the opening control.
+
+Each result shows its type, name and relevant context. Matching includes this context: transaction date/account, income person, asset category/person and the property's name for a loan. A result retains its rendered identity, then resolves it against current state when selected. Reordering or renaming cannot redirect the selection. Deletion leaves search open with a polite status message; typing refreshes the results. Records without an identity fail explicitly rather than guessing from a name or index. Computed income uses its source identity, because recalculation can recreate the row.
+
+Records open Details, independent of collapsed source groups. Transactions show their own full date and account, even outside the current Spending range. Income and scenarios also have read-only Details. Searching does not change household data, the selected period, Spending filters, or start a scenario draft. Scenario and person names are their existing model identities; a rename invalidates an older result.
+
+A small action catalogue opens Reports, Calculators and Settings → Import rules. These are navigation actions: report downloads stay behind their format choices, and calculators retain their existing forms. Bank/broker imports and backup exports keep their review/selection flows; changing imports is issue #265's separate design pass.
+
+The `exactsearch` journey covers duplicate historical transactions, context, unchanged saved data and session filters, keyboard and touch destinations, Back/Escape, deletion while search is open, collapsed Budget groups, computed income, scenarios and action destinations. It measures the modal at 320/390/768/1280px in both themes. `SEARCH_A11Y=1` adds axe checks at each size/theme in CI; `JOURNEY_CPU=6` exercises the same flow under CPU throttling. Physical devices and screen-reader operation remain outside this automated evidence (#267).

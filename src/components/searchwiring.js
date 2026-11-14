@@ -6,8 +6,8 @@
 import { persist } from "../state.js";
 import { detailTarget, detailView } from "./detail.js";
 import { renderSharedGroups, renderBudgetGroupByToggle, revealBudgetLine } from "./expenses.js";
-import { showPage, showAssetsSubpage, showExpensesSubpage } from "./nav.js";
-import { openSearch, closeSearch, setSearchQuery, getSearchResults } from "./search.js";
+import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage } from "./nav.js";
+import { openSearch, closeSearch, setSearchQuery, getSearchResult, unavailableSearchResult } from "./search.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, forgetActiveOverlay } from "../lib/overlaystack.js";
 
 // ---------------- Cross-page search ----------------
@@ -26,6 +26,7 @@ function goToPlace(page, extra, opts){
   if(extra.sub){
     if(page === "expenses") showExpensesSubpage(extra.sub, { replace: true });
     else if(page === "assets") showAssetsSubpage(extra.sub, { replace: true });
+    else if(page === "settings") showAccountsSubpage(extra.sub, { replace: true });
   }
   // A budget line lives inside a group card that starts collapsed, so it has to be opened before
   // there is anything on screen to scroll to. Without this the search lands on the page at scroll
@@ -60,10 +61,8 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
     }
     var resultBtn = e.target.closest("[data-search-result]");
     if(!resultBtn) return;
-    var input = document.getElementById("searchInput");
-    var results = getSearchResults(input ? input.value : "");
-    var result = results[Number(resultBtn.getAttribute("data-search-result"))];
-    if(!result) return;
+    var result = getSearchResult(Number(resultBtn.getAttribute("data-search-result")));
+    if(!result){ unavailableSearchResult(); return; }
     closeSearch();
     // Not requestCloseActiveOverlay() — we're navigating to a specific destination right away, so
     // the search-open history entry gets replaced by that destination's own (via showPage's
@@ -85,6 +84,31 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
   }, true);
   document.getElementById("searchRoot").addEventListener("input", function(e){
     if(e.target.id === "searchInput") setSearchQuery(e.target.value);
+  });
+  document.getElementById("searchRoot").addEventListener("cancel", function(e){
+    e.preventDefault(); requestCloseActiveOverlay();
+  }, true);
+  document.getElementById("searchRoot").addEventListener("keydown", function(e){
+    if(e.key === "Tab"){
+      var stops = Array.from(document.querySelectorAll(".search-dialog input, .search-dialog button"));
+      var first = stops[0], last = stops[stops.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      return;
+    }
+    if(e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+    var buttons = Array.from(document.querySelectorAll("[data-search-result]"));
+    if(!buttons.length) return;
+    var index = buttons.indexOf(document.activeElement);
+    if(e.key === "Enter"){
+      if(e.target.id === "searchInput"){ e.preventDefault(); buttons[0].click(); }
+      return;
+    }
+    if(index < 0 && e.target.id !== "searchInput") return;
+    e.preventDefault();
+    var next = index < 0 ? (e.key === "ArrowDown" ? 0 : buttons.length - 1)
+      : (index + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next].focus();
   });
   document.addEventListener("keydown", function(e){
     if(e.key !== "Escape") return;

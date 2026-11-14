@@ -5190,3 +5190,7 @@ Verified with `sidebarfooter`: preserved privacy warnings, one parsed version ma
 `[x]` Show the effective month on Home → Overview and Cash flow → Budget/Income, including the implicit month when a whole year is selected. Tax keeps the year label; Spending keeps its current explicit-month label pending its range-control follow-up. Refresh labels on navigation without changing period calculations or selection. Verify calendar/financial bases, past years, keyboard/touch changes and today’s balance qualifier.
 
 Verified with period-label unit cases (current/past financial and calendar years, explicit/implicit month and annual Tax), `periodheader`/`homedates` journeys, and 24 scoped axe states at 320/390/1280px in both themes. Navigation and keyboard/touch changes keep visible/accessibility labels current; today’s balance date remains today. The visible “not today” flag is now included in the accessible name, with text spacing that matches the visible phrase.
+
+## Spending and Reports date clarity — issue #307
+
+`[~]` Keep Spending Month/Year/All as local views of the selected period, label them List dates, and show the actual list window in its heading even with Filters closed. Dated filters/trips retain precedence and show their effective dates. Reports names its selected year and actual report dates without referring to “the header”. Preserve range/filter semantics, values and today qualifiers; verify selection from both header and list, both year bases, custom dates and trip overrides.

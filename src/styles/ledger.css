@@ -1753,3 +1753,11 @@
 .budget-deltas{ margin-top:12px; }
 .budget-comparison summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; }
 @media(max-width:640px){ .budget-charts{ grid-template-columns:1fr; } }
+
+/* Native modal supplies focus containment and an inert background to global search. */
+.search-dialog{ width:100vw; height:100dvh; max-width:none; max-height:none; padding:0; border:0; margin:0; background:transparent; color:var(--ink); }
+.search-dialog::backdrop{ background:transparent; }
+.search-result-sub{ overflow-wrap:anywhere; }
+
+#searchStatus:empty{ padding:0; }
+.search-result{ min-height:44px; }

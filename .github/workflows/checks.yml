@@ -78,6 +78,12 @@ jobs:
       - run: node scripts/accessibility.mjs
         env:
           A11Y_DIR: accessibility-report
+      - name: Exact-record search
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: exactsearch
+          SPEED: 0
+          SEARCH_A11Y: 1
       - name: Long-form error summaries
         run: node scripts/journeys.mjs
         env:

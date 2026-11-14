@@ -91,6 +91,9 @@ import { detailView, detailPageHtml, detailTarget } from "../src/components/deta
 test("every kind of thing in the demo has a detail page, and a missing one says so", function(){
   withDemo(function(){
     var ids = {
+      scenario: state.scenarios[0],
+      transaction: state.transactions[0].id,
+      income: state.income[0].id,
       account: state.accounts[0].id,
       asset: state.assets.find(function(a){ return a.category === "Shares"; }).id,
       property: state.properties[0].id,

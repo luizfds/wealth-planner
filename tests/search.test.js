@@ -2,7 +2,7 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { searchApp } from "../src/lib/search.js";
+import { searchApp, resolveSearchResult } from "../src/lib/search.js";
 
 function withState(overrides, fn){
   var saved = {};
@@ -117,5 +117,43 @@ test("an Asset result still routes by category — the shared `sub` key means tw
     var hit = searchApp("super").find(function(r){ return r.type === "Asset"; });
     assert.equal(hit.page, "assets");
     assert.equal(hit.extra.sub, "Super");
+  });
+});
+
+
+test("stable search identities survive reorder and rename, and fail on deletion", function(){
+  withState({ transactions: [{ id: "first", what: "Example charge", date: "2025-01-01", amount: 100 },
+    { id: "second", what: "Example charge", date: "2026-01-01", amount: 200 }] }, function(){
+    var result = searchApp("Example charge")[1];
+    assert.deepEqual(result.extra.detail, { kind: "transaction", id: "second" });
+    state.transactions.reverse();
+    state.transactions[0].what = "Renamed charge";
+    assert.equal(resolveSearchResult(result.key).label, "Renamed charge");
+    state.transactions.shift();
+    assert.equal(resolveSearchResult(result.key), null);
+    assert.equal(resolveSearchResult(null), null);
+  });
+});
+
+test("context distinguishes duplicate income names and inherited transaction accounts", function(){
+  withState({ income: [{ id: "alex-pay", what: "Salary", person: "Alex", amount: 5000, freq: "Monthly" },
+    { id: "sam-pay", what: "Salary", person: "Sam", amount: 6000, freq: "Monthly" }],
+    shared: [{ id: "line-example", what: "Example bill", account: "Bank One" }],
+    transactions: [{ id: "charge-example", what: "Example payment", linkedExpenseId: "line-example", date: "2025-01-01", amount: 100 }] }, function(){
+    assert.deepEqual(searchApp("Sam").find(function(r){ return r.type === "Income"; }).extra.detail, { kind: "income", id: "sam-pay" });
+    var transaction = searchApp("Bank One").find(function(r){ return r.type === "Transaction"; });
+    assert.match(transaction.sublabel, /2025/);
+    assert.match(transaction.sublabel, /Bank One/);
+    assert.equal(resolveSearchResult(searchApp("Calculators")[0].key).page, "calc");
+  });
+});
+
+
+test("computed income retains its source identity when regenerated", function(){
+  withState({ income: [{ syntheticNetFor: "Alex", computed: true, what: "Alex take-home", amount: 5000, freq: "Monthly" }] }, function(){
+    var hit = searchApp("Alex take-home")[0];
+    assert.ok(hit.key);
+    state.income = [{ syntheticNetFor: "Alex", computed: true, what: "Updated take-home", amount: 6000, freq: "Monthly" }];
+    assert.equal(resolveSearchResult(hit.key).label, "Updated take-home");
   });
 });

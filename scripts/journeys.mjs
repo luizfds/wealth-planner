@@ -306,6 +306,116 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async exactsearch(page){
+    await quiet(page);
+    // Wait for the actual transition before resizing or beginning the next interaction.
+    // A URL is updated inside its DOM callback, before the animation has finished.
+    await page.evaluate(()=>{
+      if(!document.startViewTransition) return;
+      const start=document.startViewTransition.bind(document);
+      document.startViewTransition=function(update){
+        const transition=start(update);
+        window.__searchTransitionDone=Promise.allSettled([transition.finished]);
+        return transition;
+      };
+    });
+    const navigationDone=()=>page.evaluate(()=>window.__searchTransitionDone);
+    await page.evaluate(async () => {
+      const {state} = await import('/src/state.js');
+      state.transactions.push({id:'search-first',what:'Example duplicate',date:'2025-01-01',amount:100,account:'Bank One'},
+        {id:'search-second',what:'Example duplicate',date:'2025-02-01',amount:200,account:'Bank Two'});
+      state.income.push({id:'search-income',what:'Example salary',person:'Sam',amount:5000,freq:'Monthly'});
+    });
+    const open = async query => {
+      await navigationDone();
+      await click(page,'#searchBtn');
+      await page.fill('#searchInput',query);
+    };
+    await page.evaluate(async()=>{const {txFilters}=await import('/src/components/cashflow.js'); Object.assign(txFilters,{account:'Bank Three',from:'2026-10-01',to:'2026-10-31',text:'unrelated'});});
+    const filtersBefore = await page.evaluate(async()=>JSON.stringify((await import('/src/components/cashflow.js')).txFilters));
+    if(process.env.SEARCH_A11Y){ const axe=await import('axe-core'); await page.evaluate(axe.default.source); }
+    const origin = await page.evaluate(()=>location.pathname);
+    const before = await st(page,'JSON.stringify(state)');
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await navigationDone();
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      await open('Example duplicate');
+      check(await page.locator('[data-search-result]').count()===2,'duplicate records not found');
+      check(await page.locator('.search-dialog').evaluate(el=>el.matches(':modal')),'search is not modal');
+      check(await page.locator('.search-panel').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth+1;}),'search overflows '+width+'/'+theme);
+      if(process.env.SEARCH_A11Y){
+        const violations=await page.locator('.search-dialog').evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));
+        check(!violations.length,'search accessibility: '+JSON.stringify(violations));
+      }
+      await page.press('#searchInput','ArrowUp');
+      check(await page.locator('[data-search-result="1"]').evaluate(el=>el===document.activeElement),'ArrowUp did not select last result');
+      await page.focus('#searchInput');
+      await page.press('#searchInput','Shift+Tab');
+      check(await page.locator('[data-search-result="1"]').evaluate(el=>el===document.activeElement),'modal focus escaped');
+      if(width===390) await page.locator('[data-search-result="1"]').tap();
+      else {
+        await page.focus('#searchInput');
+        await page.press('#searchInput','ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+      }
+      await waited(page,()=>location.pathname.endsWith('/detail/transaction/search-second'),'exact historical transaction');
+      check((await page.locator('#detailBody').innerText()).includes('200'),'wrong duplicate transaction');
+      await navigationDone();
+      await page.goBack();
+      await waited(page,p=>location.pathname===p,'search origin',origin);
+      await open('Example salary');
+      await page.press('#searchInput','Enter');
+      await waited(page,()=>location.pathname.endsWith('/detail/income/search-income'),'exact income');
+      check((await page.locator('#detailBody').innerText()).includes('Sam'),'income person missing');
+      await navigationDone();
+      await page.goBack();
+      await waited(page,p=>location.pathname===p,'income origin',origin);
+    }
+    check(await st(page,'JSON.stringify(state)')===before,'search changed household or saved filters');
+    check(await page.evaluate(async()=>JSON.stringify((await import('/src/components/cashflow.js')).txFilters))===filtersBefore,'search changed Spending filters');
+    await open('Example duplicate');
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');state.transactions=state.transactions.filter(t=>t.id!=='search-first');});
+    await click(page,'[data-search-result="0"]');
+    check((await page.locator('#searchStatus').innerText()).includes('no longer available'),'deleted result opened another record');
+    check(await page.locator('.search-dialog').isVisible(),'stale result dismissed search');
+    await page.press('#searchInput','Escape');
+    await waited(page,()=>!document.querySelector('.search-dialog'),'Escape dismisses search');
+    await open('Calculators');
+    await page.press('#searchInput','Enter');
+    await waited(page,()=>document.body.dataset.currentPage==='calc','calculator action destination');
+    await go(page,'expenses','data-expenses-sub','budget');
+    const line = await page.evaluate(async()=>{
+      const expenses=await import('/src/components/expenses.js');
+      expenses.setAllBudgetGroupsCollapsed(true); expenses.renderSharedGroups();
+      const row=expenses.budgetLineItems().find(l=>l.id);
+      return {id:row.id,what:row.what,collapsed:expenses.allBudgetGroupsCollapsed()};
+    });
+    check(line.collapsed,'source budget groups were not collapsed');
+    await open(line.what);
+    const lineIndex=await page.evaluate(async id=>(await import('/src/lib/search.js')).searchApp(document.getElementById('searchInput').value).findIndex(r=>r.extra.detail?.kind==='line'&&r.extra.detail.id===id),line.id);
+    await click(page,'[data-search-result="'+lineIndex+'"]');
+    await waited(page,id=>location.pathname.endsWith('/detail/line/'+encodeURIComponent(id)),'collapsed budget record',line.id);
+    const computed=await page.evaluate(async()=>{
+      const {state}=await import('/src/state.js'), {incomeSearchId}=await import('/src/lib/search.js');
+      const row=state.income.find(i=>i.syntheticNetFor);
+      return {what:row.what,id:incomeSearchId(row)};
+    });
+    await open(computed.what);
+    await page.press('#searchInput','Enter');
+    await waited(page,id=>location.pathname.endsWith('/detail/income/'+encodeURIComponent(id)),'computed income record',computed.id);
+    await open(await st(page,'state.scenarios[0]'));
+    const scenarioIndex=await page.evaluate(async()=>(await import('/src/lib/search.js')).searchApp(document.getElementById('searchInput').value).findIndex(r=>r.type==='Scenario'));
+    await click(page,'[data-search-result="'+scenarioIndex+'"]');
+    await waited(page,()=>location.pathname.includes('/detail/scenario/'),'scenario record');
+    await open('Import rules');
+    await page.press('#searchInput','Enter');
+    await waited(page,()=>location.pathname.endsWith('/settings/rules'),'Import rules destination');
+    await open('Reports');
+    await page.goBack();
+    await waited(page,()=>!document.querySelector('.search-dialog'),'Back dismisses search');
+  },
   // #339: the quick tour — asked once on arrival, walks the real menu without moving the address bar, answers to
   // the keyboard and the phone's Back, is remembered, and replays from the avatar menu.
   async tour(page){
@@ -5049,7 +5159,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

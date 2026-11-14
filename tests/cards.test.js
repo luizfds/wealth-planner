@@ -14,13 +14,16 @@ function rule(sel){
 }
 
 test("every top-level card uses the card tokens", function(){
-  [".panel", ".stat-tile", ".home-card", ".home-goals", "details.ledger", "  .card"].forEach(function(sel){
+  [".panel", ".stat-tile", ".home-card", "details.ledger", "  .card"].forEach(function(sel){
     var r = rule(sel);
     assert.match(r, /border-radius:\s*var\(--card-radius\)/, sel + " radius");
   });
-  [".panel", ".stat-tile", ".home-card", ".home-goals", "details.ledger > summary"].forEach(function(sel){
+  [".panel", ".stat-tile", ".home-card", "details.ledger > summary"].forEach(function(sel){
     assert.match(rule(sel), /padding:\s*var\(--card-py\) var\(--card-px\)/, sel + " padding");
   });
+  // Goals are a section of compact cards, without a second outer card.
+  assert.match(rule("  .sgl"), /border-radius:var\(--inner-radius\)/, "goal card uses the compact radius");
+  assert.match(rule("  .sgl"), /background: var\(--paper-raised\)/, "goal card keeps its own surface");
   assert.match(rule(".panel h3"), /font-size:var\(--fs-lg\)/, "a card's title is a section title's size");
 });
 

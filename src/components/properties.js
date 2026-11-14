@@ -990,7 +990,7 @@ export function renderPropListModern(propId, section, items, showClass){
 function propertiesEquityDebtBarHtml(){
   var segs = [
     { key: "Equity", value: propertiesTotalEquityToday(), colorClass: "series-color-2" },
-    { key: "Debt", value: propertiesTotalMortgageBalance(), colorClass: "series-color-7" }
+    { key: "Debt", value: propertiesTotalMortgageBalance(), colorClass: "series-color-0" }
   ];
   var visible = segs.filter(function(s){ return s.value > 0; });
   if(!visible.length) return '<p class="ledger-note section-empty" style="margin:0">Add a property to see this.</p>';

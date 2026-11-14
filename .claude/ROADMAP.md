@@ -5157,4 +5157,6 @@ Verified with `homedates` at 320/390/1280px, both themes, with a past reporting 
 
 ## Financial colour meaning — issue #308
 
-`[~]` Use the chart palette for property debt and the standard warning ink with normal weight for the Medicare levy surcharge note. Preserve numbers, notice visibility and wording. Verify default and live-patched tax notices, both themes and phone/desktop layouts, with before/after screenshots. Other #308 items remain separate.
+`[x]` Use the chart palette for property debt and the standard warning ink with normal weight for the Medicare levy surcharge note. Preserve numbers, notice visibility and wording. Verify default and live-patched tax notices, both themes and phone/desktop layouts, with before/after screenshots. Other #308 items remain separate.
+
+`financialcolours` verifies the blue debt segment and matching legend, warning ink/weight in both themes, unchanged surcharge wording, no overflow, and the same live-patched notice through hospital-cover changes. Before/after screenshots cover 390/1280px; scoped axe covers both surfaces at 320/390/1280px.

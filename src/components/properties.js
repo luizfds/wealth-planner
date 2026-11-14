@@ -298,7 +298,7 @@ function acquisitionCostRowModernHtml(item, index, colorIdx, p){
   var canMove = p && p.kind === "IP" && (p.loans || []).length > 0;
   var suggested = canMove && looksLikeLoanCost(item.what);
   var moveBtn = canMove
-    ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' title="A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
+    ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' aria-describedby="prop-move-help-' + escapeAttr(p.id) + '">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
     : "";
   var whatInput = '<input type="text" class="cc-what field-control field-compact" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
   var amountInput = '<input type="number" step="100" min="0" class="cc-amount field-control field-compact" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
@@ -526,6 +526,7 @@ function acquisitionCostsSectionHtml(p){
   var titleHtml = '<div class="property-section-title">Acquisition costs <span data-out="acqcoststotal" style="font-weight:400;color:var(--ink-soft)">' + (total > 0 ? "— " + fmtCurrency0.format(total) + " total" : "") + '</span></div>';
   var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
+    (p.kind === "IP" && (p.loans || []).length ? '<div data-property-help="move-cost"><p class="ledger-note help" id="prop-move-help-' + escapeAttr(p.id) + '">A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.</p></div>' : "") +
     '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>' +
     '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>';
   return propertySectionHtml(p, "acquisition", titleHtml, bodyHtml);
@@ -875,7 +876,7 @@ function propertyCardBodyHtml(p, colorIdx){
       '<select class="prop-kind" aria-label="Property kind">' + optionsHtml(["IP", "PPOR"], p.kind) + '</select></h3>' +
       '<button type="button" class="btn btn-danger btn-sm row-del property-del-btn" data-property-del="' + escapeAttr(p.id) + '" aria-label="Delete property">✕</button>' +
     '</div>' +
-    '<div class="property-figures">' +
+    '<div class="property-figures" data-property-help="figures">' +
     '<h4 class="section-title">Figures</h4>' +
     '<div class="help ledger-note" data-property-figures-explanations>' + propertyFiguresExplanationHtml(p) + '</div>' +
     (lvrBadge || gearingBadge || yieldBadge ? '<div class="property-card-badges">' + lvrBadge + gearingBadge + yieldBadge + '</div>' : '') +
@@ -899,7 +900,8 @@ function propertyCardBodyHtml(p, colorIdx){
         '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date field-control" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
       '</div>' +
       landTaxFieldsHtml(p) +
-      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" title="Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart">Record today\'s value</button>' + historyTrendHtml(p) + '</div>') +
+      '<div data-property-help="record-value"><p class="ledger-note help" id="prop-record-help-' + escapeAttr(p.id) + '">Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart.</p>' +
+      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" aria-describedby="prop-record-help-' + escapeAttr(p.id) + '">Record today\'s value</button>' + historyTrendHtml(p) + '</div></div>') +
     acquisitionCostsSectionHtml(p)  +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") + '</div>') +
     panel("loans", propertySectionHtml(p, "loans",
@@ -1094,13 +1096,15 @@ export function renderProperties(){ return keepUi(drawProperties); }
 function drawProperties(){
   var container = document.getElementById("propertiesBody");
   if(!container) return;
-  var helpOpen = Array.from(container.querySelectorAll('.property-figures [data-help-toggle][aria-expanded="true"]')).map(function(el){ return el.closest('[data-property-id]').getAttribute('data-property-id'); });
+  var helpOpen = Array.from(container.querySelectorAll('[data-property-help] [data-help-toggle][aria-expanded="true"]')).map(function(el){
+    return { property: el.closest('[data-property-id]').getAttribute('data-property-id'), section: el.closest('[data-property-help]').getAttribute('data-property-help') };
+  });
   container.innerHTML = state.properties.length
     ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
     : emptyStateHtml("No properties yet — add one to start tracking its value, loans, and (for an investment property) rent and expenses.", { add: "#addPropertyBtn", label: "+ Add property" });
   decorateHelp(container);
-  helpOpen.forEach(function(id){
-    var btn = container.querySelector('[data-property-id="' + CSS.escape(id) + '"] .property-figures [data-help-toggle]');
+  helpOpen.forEach(function(open){
+    var btn = container.querySelector('[data-property-id="' + CSS.escape(open.property) + '"] [data-property-help="' + CSS.escape(open.section) + '"] [data-help-toggle]');
     if(btn){ btn.classList.add("help-open"); btn.setAttribute("aria-expanded", "true"); }
   });
   renderPropertyExpensesSummary();

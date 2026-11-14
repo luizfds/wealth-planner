@@ -5061,6 +5061,13 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      Journey: `propertyfigurehelp` (320/390/1280px, light/dark), plus the summary/validation/overview regressions.
      The smoke ratchet covers the card figures and axe scans their expanded help. Property editor action
      tooltips follow separately.
+   - `[x]` #255 Property action help: expose recording-value, move-to-loan and loan-export
+     explanations to touch and keyboard, retain action semantics and preserve open help on redraw.
+     Journey: `propertyactionhelp` (320/390/1280px, light/dark), including stored-state checks, recording,
+     moving to the earliest loan, Undo and actual CSV download; scoped axe covers the actions and menu.
+     CI exposed the two-loan LVR badge exceeding its 320px card with wider Linux fallback fonts.
+     Badges now wrap within the card; the journey explicitly uses DejaVu Sans for badges and reports
+     viewport/element bounds on an overflow. This regression fails before the width cap.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

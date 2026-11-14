@@ -48,7 +48,8 @@
   .home-setactive-btn:hover{ border-color: var(--brass); }
   .gearing-badge{
     font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; font-weight:600;
-    border-radius:100px; padding:2px 8px; flex:none;
+    /* A high LVR plus its offset suffix can exceed a narrow card in wider fallback fonts. */
+    border-radius:100px; padding:2px 8px; flex:none; max-width:100%;
   }
   .gearing-badge.positive{ color: var(--good-ink); background: var(--good-wash); }
   .gearing-badge.negative{ color: var(--brass-strong); background: var(--brass-wash); }

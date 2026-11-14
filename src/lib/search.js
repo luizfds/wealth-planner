@@ -80,6 +80,7 @@ function searchEntries(){
     add("Scenario", name, (state.scenarioNotes || {})[name] || "Planned monthly cash flow", "plan", { detail: { kind: "scenario", id: name } });
   });
   [
+    { key: "action:import", label: "Import data", sublabel: "Bank, loan, broker, property, payslip, prices, spreadsheet or backup", page: "expenses", extra: { importChooser: true } },
     { key: "action:reports", label: "Reports", sublabel: "View reports and choose a download", page: "reports" },
     { key: "action:rules", label: "Import rules", sublabel: "Manage statement matching rules in Settings", page: "settings", extra: { sub: "rules" } },
     { key: "action:calculators", label: "Calculators", sublabel: "Explore purchase and investment calculations", page: "calc" }

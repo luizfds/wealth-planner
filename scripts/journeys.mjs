@@ -306,6 +306,79 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async importchooser(page){
+    await quiet(page);
+
+    await page.evaluate(()=>{
+      if(!document.startViewTransition) return;
+      const start=document.startViewTransition.bind(document);
+      document.startViewTransition=function(update){const t=start(update);window.__importTransitionDone=Promise.allSettled([t.finished]);return t;};
+    });
+    const navDone=()=>page.evaluate(()=>window.__importTransitionDone);
+    const open=async()=>{
+      await navDone();
+      await click(page,'#avatarBtn');
+      await click(page,'.avatar-menu [data-import-open]');
+      await waited(page,()=>!!document.querySelector('.import-chooser:modal'),'import chooser');
+    };
+    const before=await st(page,'JSON.stringify(state)');
+    const persisted=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    if(process.env.IMPORT_SHOTS) fs.mkdirSync(process.env.IMPORT_SHOTS,{recursive:true});
+    if(process.env.IMPORT_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await navDone();
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      await open();
+      if(process.env.IMPORT_SHOTS) await page.locator('.import-chooser').screenshot({path:path.join(process.env.IMPORT_SHOTS,width+'-'+theme+'.png')});
+      check(await page.locator('[data-import-choice]').count()===9,'missing supported import format');
+      check(await page.locator('.import-chooser').evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&el.scrollWidth<=el.clientWidth+1;}),'chooser overflow '+width+'/'+theme);
+      check(await page.locator('.import-choice').evaluateAll(els=>els.every(el=>el.scrollWidth<=el.clientWidth+1&&el.getBoundingClientRect().height>=44)),'import choice overflow or small target');
+      if(process.env.IMPORT_A11Y){const violations=await page.locator('.import-chooser').evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'import chooser accessibility: '+JSON.stringify(violations));}
+      await page.press('[data-import-choice="bank"]','Shift+Tab');
+      check(await page.locator('[data-import-close]').evaluate(el=>el===document.activeElement),'import focus escaped');
+      await page.keyboard.press('Escape');
+      await waited(page,()=>!document.querySelector('.import-chooser')&&document.activeElement===document.getElementById('avatarBtn'),'import Escape and focus restore');
+    }
+    const choices=await page.evaluate(async()=>(await import('/src/components/importchooser.js')).importChoices({people:1,properties:1,shares:1}));
+    for(const choice of choices){
+      const origin=await page.evaluate(()=>location.pathname);
+      await open();
+      if(choice.key==='trades') await page.locator('[data-import-choice="trades"]').click();
+      else await page.locator('[data-import-choice="'+choice.key+'"]').press('Enter');
+      await waited(page,({choice})=>!document.querySelector('.import-chooser')&&document.body.dataset.currentPage===choice.page&&!!document.querySelector(choice.target)?.getClientRects().length&&document.querySelector(choice.target)===document.activeElement,'revealed and focused '+choice.key,{choice});
+      await navDone();
+      await page.goBack();
+      await waited(page,p=>location.pathname===p,'import origin',origin);
+    }
+    check(await st(page,'JSON.stringify(state)')===before,'chooser changed household state');
+    check(await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===persisted,'chooser changed persisted data');
+    await open();await page.goBack();
+    await waited(page,()=>!document.querySelector('.import-chooser'),'Back cancels chooser');
+    await navDone();
+    await click(page,'#searchBtn');await page.fill('#searchInput','Import data');await page.press('#searchInput','Enter');
+    await waited(page,()=>!!document.querySelector('.import-chooser:modal')&&!document.querySelector('.search-dialog'),'search opens import chooser');
+    await page.goBack();await waited(page,()=>!document.querySelector('.import-chooser'),'Back from search chooser');
+    await emptyHousehold(page);
+    await page.keyboard.press('Escape');
+    await waited(page,()=>!document.querySelector('#firstRunRoot [role="dialog"]')&&!document.querySelector('.app-shell').inert,'dismiss empty-household setup');
+    await quiet(page);
+    for(const [key,target] of [['payslip','#addPersonBtn'],['property','#addPropertyBtn'],['prices','[data-add="holding"]']]){
+      await open();await page.locator('[data-import-choice="'+key+'"]').click();
+      await waited(page,target=>!!document.querySelector(target)?.getClientRects().length&&document.querySelector(target)===document.activeElement,'setup destination '+key,target);
+      check(await page.locator(target).first().evaluate(el=>el===document.activeElement),'setup action not focused: '+key);
+    }
+    const touch=await fresh({touch:true});
+    try{
+      await quiet(touch.page);
+      await click(touch.page,'#avatarBtn');
+      await touch.page.locator('.avatar-menu [data-import-open]').tap();
+      await waited(touch.page,()=>!!document.querySelector('.import-chooser:modal'),'touch import chooser');
+      await touch.page.locator('[data-import-choice="trades"]').tap();
+      await waited(touch.page,()=>!!document.querySelector('[data-tr-text]')?.getClientRects().length&&document.querySelector('[data-tr-text]')===document.activeElement,'touch broker import destination');
+      check(!touch.errors.length,'touch import errors: '+touch.errors.join('; '));
+    }finally{await touch.ctx.close();}
+  },
   async exactsearch(page){
     await quiet(page);
     // Wait for the actual transition before resizing or beginning the next interaction.

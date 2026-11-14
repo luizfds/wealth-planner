@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-ualG1IxlXm1ATpcpwVxdqR+TDi748Qm1g0KGlmYciIQ='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-X63mBXzs+g0vD+FFRHNtLMN4f74htKPopcqZG9dlBQY='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -198,6 +198,7 @@
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="backup">Backup &amp; sync <small id="avatarSyncState"></small></button>
             <div class="avatar-divider"></div>
             <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-import-open aria-haspopup="dialog">Import data…</button>
             <button class="btn btn-sm btn-ghost" id="importBtn" title="Load a file from Share or Export">Import backup</button>
             <button class="btn btn-sm btn-ghost" id="shareBtn" hidden title="Send your data to another device — opens your phone/computer's share sheet (AirDrop, Messages, email, etc.) with a password-protected file and instructions. You'll set a passphrase to share it separately with whoever's receiving it.">Share securely</button>
             <button class="btn btn-sm btn-ghost" id="themeToggleBtn" title="Cycle between following your system theme, always light, or always dark">Theme: System</button>
@@ -314,6 +315,7 @@
         <div class="tax-subpage" id="taxSub-year">
         <div class="page-intro-row">
           <p class="page-intro help">This year's tax and super as a plan — what each person keeps, and what moving money into super would do.</p>
+          <div class="page-intro-actions"><button type="button" class="btn btn-sm btn-ghost" data-import-open="payslip" aria-haspopup="dialog">Import data…</button></div>
         </div>
         <div class="ledgers">
           <details class="ledger" id="juneMovesLedger">
@@ -410,6 +412,7 @@
               <div class="page-overflow-menu" data-overflow-menu hidden>
               <button type="button" class="btn btn-sm btn-ghost" id="expenseExportCsvBtn" title="Download every expense row as a CSV file">Export CSV</button>
               <button type="button" class="btn btn-sm btn-ghost" id="expenseDownloadTemplateBtn" title="Download a blank CSV shaped for importing expenses back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" data-import-open="budget" aria-haspopup="dialog">Import data…</button>
               <button type="button" class="btn btn-sm btn-ghost" id="expenseImportBtn" title="Add expenses from a CSV file shaped like the import template">Import CSV</button>
               </div>
             </div>
@@ -507,6 +510,7 @@
                    Import button inside this panel is pressed. -->
               <div id="bankImportPanel" hidden></div>
               <div class="ledger-footer">
+                <button type="button" class="btn btn-sm btn-ghost" data-import-open="bank" aria-haspopup="dialog">Other import formats…</button>
                 <button class="btn btn-sm" id="bankImportPickBtn">Choose a CSV or PDF</button>
               </div>
               <input type="file" id="bankImportFile" accept=".csv,text/csv,.pdf,application/pdf,.ofx,.qfx,.qif,application/x-ofx,application/vnd.intu.qfx,application/qif" hidden>
@@ -572,6 +576,7 @@
               <div class="page-overflow-menu" data-overflow-menu hidden>
               <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" aria-describedby="incomeExportHelp">Export CSV</button>
               <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" aria-describedby="incomeTemplateHelp">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" data-import-open="income" aria-haspopup="dialog">Import data…</button>
               <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" aria-describedby="incomeImportHelp">Import CSV</button>
               </div>
             </div>
@@ -762,6 +767,7 @@
         </div>
         <div class="page-intro-row">
           <p class="page-intro help" id="propertyPageHelp">What you actually own — value, loans, and the rent/expenses tied to each property. <span id="propertyLoanExportHelp">Export loans CSV downloads every loan, across every property, as a CSV file.</span></p>
+          <div class="page-intro-actions"><button type="button" class="btn btn-sm btn-ghost" data-import-open="property" aria-haspopup="dialog">Import data…</button></div>
         </div>
         <div class="cash-rate" id="cashRatePanel" hidden></div>
         <div class="record-toolbar">
@@ -822,6 +828,7 @@
               <div class="page-overflow-menu" data-overflow-menu hidden>
               <button type="button" class="btn btn-sm btn-ghost" id="assetsExportCsvBtn" title="Download every asset, across every category, as a CSV file">Export CSV</button>
               <button type="button" class="btn btn-sm btn-ghost" id="assetsDownloadTemplateBtn" title="Download a blank CSV shaped for importing assets back in">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" data-import-open="assets" aria-haspopup="dialog">Import data…</button>
               <button type="button" class="btn btn-sm btn-ghost" id="assetsImportBtn" title="Add assets from a CSV file shaped like the import template">Import CSV</button>
               </div>
             </div>
@@ -1259,6 +1266,8 @@
   "./src/components/health.js": "./src/components/health.js?v=3.272.1",
   "./src/components/home.js": "./src/components/home.js?v=3.272.1",
   "./src/components/homewiring.js": "./src/components/homewiring.js?v=3.272.1",
+  "./src/components/importchooser.js": "./src/components/importchooser.js?v=3.272.1",
+  "./src/components/importchooserwiring.js": "./src/components/importchooserwiring.js?v=3.272.1",
   "./src/components/importwiring.js": "./src/components/importwiring.js?v=3.272.1",
   "./src/components/income.js": "./src/components/income.js?v=3.272.1",
   "./src/components/investments.js": "./src/components/investments.js?v=3.272.1",
@@ -1507,6 +1516,8 @@
 <link rel="modulepreload" href="./src/components/health.js?v=3.272.1">
 <link rel="modulepreload" href="./src/components/home.js?v=3.272.1">
 <link rel="modulepreload" href="./src/components/homewiring.js?v=3.272.1">
+<link rel="modulepreload" href="./src/components/importchooser.js?v=3.272.1">
+<link rel="modulepreload" href="./src/components/importchooserwiring.js?v=3.272.1">
 <link rel="modulepreload" href="./src/components/importwiring.js?v=3.272.1">
 <link rel="modulepreload" href="./src/components/income.js?v=3.272.1">
 <link rel="modulepreload" href="./src/components/investments.js?v=3.272.1">

@@ -5204,6 +5204,13 @@ Verified with `periodranges` using synthetic month/year/all totals, global selec
 Verified `errorsummaries` over four forms × four widths × two themes: both links focus unobscured fields, local/page bounds hold, invalid drafts survive redraws, correction/closing clears them, and deleting a preceding row preserves the surviving record’s draft. Saved figures remain unchanged by error navigation, and user text remains text. CI adds 96 scoped axe checks and separate error screenshots; all 96 pass locally. Existing property/tax/calculator/return/people/short-editor regressions, all 172 test files and full smoke pass. Wider #267 work remains open.
 
 
+## Shared import discovery — issues #265 and #267
+
+`[x]` First coherent slice of #265: one Import data chooser reachable from the avatar menu, search and contextual import controls. Group bank/loan statements, broker trades, property statements, payslips, prices and spreadsheet rows by what they change. Each choice explains the destination and opens the existing tool with its disclosure revealed; it does not choose a file or start a parser. Backup restore sits in a clearly separate replacement section and keeps its existing confirmation flow.
+
+Design contract: native modal, contained keyboard focus, Escape/Back/close return to the opener; selecting a tool replaces the chooser history entry and focuses the revealed tool after navigation. Missing people/properties/holdings lead to a useful setup action rather than a dead control. Cover every destination, keyboard/touch, no saved changes on chooser cancellation/navigation, empty households, long-content reflow and axe at 320/390/768/1280px in both themes. Parser-specific review, recovery and persistence changes follow separately; #265 remains open. Interaction contract and validation scope: `docs/design/imports.md`.
+
+
 ## Exact-record global search — issues #264 and #267
 
 `[x]` Use stable record identities for search destinations. Transactions and income open read-only Details, so an old transaction remains reachable without changing the selected period or saved Spending filters. Resolve the identity again when selected; deleted records produce an explicit message rather than opening a neighbouring result. Existing Details destinations reveal records independently of collapsed source groups.

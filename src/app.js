@@ -27,6 +27,7 @@ import { wireTax, renderPeopleTab } from "./components/taxwiring.js";
 import { wireAssets, wireAssetPersonSheet, wireFxRate, wirePrices, wireMarket, wireTrades } from "./components/assetswiring.js";
 import { wireProperties, wirePropertyExtras } from "./components/propertieswiring.js";
 import { wireOverrides, wireCashflowSheets, wireBillsCalendar, wireForecast, wireAutoPay } from "./components/cashflowwiring.js";
+import { wireImportChooser } from "./components/importchooserwiring.js";
 import { wireSearch } from "./components/searchwiring.js";
 import { wireSpending, wireTrips, wireReviewQueue, wireReceipts } from "./components/spendingwiring.js";
 import { wireAccounts, wireGoals, renderGoalsTab } from "./components/accountswiring.js";
@@ -88,6 +89,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   wireOverrides();
   wireCashflowSheets();
   wireSearch();
+  wireImportChooser();
   wireSpending();
   wireAccounts();
   wirePayslip();

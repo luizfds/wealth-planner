@@ -12,6 +12,25 @@ import { openQuickLog, closeQuickLog, setQuickLogLink, setQuickLogSign, setQuick
 import { rangeByKey, rangeLabel, rangeStartDate, withinRange, bestFitRange, timeRangeControlHtml } from "../src/lib/timerange.js";
 import { listToolbarHtml, listActionsHtml } from "../src/lib/listtoolbar.js";
 
+
+test("the import chooser lists destinations and separates household replacement", async () => {
+  const {importChooserHtml,importChoices}=await import('../src/components/importchooser.js');
+  const html=importChooserHtml({people:1,properties:1,shares:1});
+  const choices=importChoices({people:1,properties:1,shares:1});
+  assert.equal(choices.length,9);
+  assert.equal(new Set(choices.map(c=>c.key)).size,9);
+  for(const c of choices){ assert.ok(c.page&&c.target&&c.description); assert.ok(html.includes('data-import-choice="'+c.key+'"')); }
+  assert.match(html,/Replace this household/);
+  assert.match(html,/Replaces household data after the existing confirmation/);
+  assert.match(html,/no file is read here/);
+  assert.doesNotMatch(html,/NaN|undefined/);
+  const empty=importChoices({});
+  assert.equal(empty.find(c=>c.key==='payslip').target,'#addPersonBtn');
+  assert.equal(empty.find(c=>c.key==='property').target,'#addPropertyBtn');
+  assert.equal(empty.find(c=>c.key==='prices').target,'[data-add="holding"]');
+  assert.match(importChooserHtml({}),/Add an investment property first/);
+});
+
 test('list toolbar and actions render named controls and an escaped title', () => {
   const menu = listActionsHtml('Holding tools', '<button type="button">Prices</button>');
   const html = listToolbarHtml('Shares <test>', '$100', menu);

@@ -416,6 +416,45 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async periodheader(page){
+    await quiet(page);
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const label = page.locator('#periodBtn .period-btn-label');
+    check(await label.textContent() === 'Nov · FY26/27', 'Home does not state its implicit month');
+    const balances = await stored(page, 'JSON.stringify({assets:state.assets,transactions:state.transactions})');
+    await page.locator('#periodBtn').focus(); await page.keyboard.press('Enter');
+    await page.locator('[data-period-year="2025"]').focus(); await page.keyboard.press('Enter');
+    check(await label.textContent() === 'Jun · FY25/26', 'past whole year does not state its effective month');
+    check((await page.locator('#periodBtn').getAttribute('aria-label')).includes('not today'), 'accessible name omits the visible past-period flag');
+    await page.keyboard.press('Escape');
+    check((await page.locator('#homeSummary [data-home-card="nw"]').textContent()).includes('as of 3 Nov'), 'balance date followed the past period');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const sub of ['budget','income']){
+          await go(page, 'expenses', 'data-expenses-sub', sub);
+          check(await label.textContent() === 'Jun · FY25/26', 'monthly cash-flow label is stale after navigation');
+          check((await page.locator('#periodBtn').getAttribute('aria-label')).includes(await label.textContent()), 'accessible period label disagrees');
+        }
+        await go(page, 'tax', 'data-tax-sub', 'year');
+        check(await label.textContent() === 'FY25/26', 'annual tax view states a monthly range');
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'period header overflows');
+      }
+    }
+    await go(page, 'expenses', 'data-expenses-sub', 'income');
+    await page.locator('#periodBtn').tap();
+    await page.locator('[data-period-month="2025-07"]').tap();
+    await page.keyboard.press('Escape');
+    check(await label.textContent() === 'Jul · FY25/26', 'touch month selection did not update the label');
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    check(await label.textContent() === 'Jul · FY25/26' && (await page.locator('#homeSummary').innerText()).includes('July 2025'), 'Home and header months disagree');
+    await page.locator('#periodBtn').click();
+    await page.locator('[data-period-basis="calendar"]').click();
+    await page.keyboard.press('Escape');
+    check(await label.textContent() === 'Nov · 2026', 'calendar basis label is stale');
+    check(await stored(page, 'JSON.stringify({assets:state.assets,transactions:state.transactions})') === balances, 'period labels changed balances or transactions');
+  },
   async reportlabels(page){
     await quiet(page);
     const printed = {};
@@ -4790,7 +4829,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

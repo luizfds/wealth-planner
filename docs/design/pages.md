@@ -140,6 +140,11 @@ Report bar and column charts fit their measured container width, keeping SVG tex
 instead of scaling it with the figure. Narrow charts show fewer month labels; the table keeps every month and
 exact value. Resizing or reopening a view fits the chart again. Printed reports use the static chart fallback.
 
+The period header on Home → Overview and Cash flow → Budget/Income states the effective month alongside the
+year, including the implied month of a whole-year selection. Tax states its year. These labels refresh on
+navigation and describe the same selection used by the figures; today's balances retain their “as of” date.
+Spending's range controls and Reports' period wording remain follow-ups in #307.
+
 ### 4. Empty and no-results states
 
 An empty section says three things in one line: what it holds, why it's empty, and the next step **as a control**. That

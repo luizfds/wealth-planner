@@ -1,3 +1,4 @@
+import { renderPeriodButton } from "./period.js";
 import { pageTransitionDone } from "../lib/pagetransition.js";
 import { overlayOpen } from "../lib/overlaystack.js";
 import { renderCalcTools } from "./calculators.js";
@@ -399,6 +400,7 @@ export function showPage(id, opts){
     if(navLabel) navLabel.textContent = page ? page.label : "Home";
     // A detail page needs its target, which a later visit won't have.
     if(id !== "detail" && id !== "scenario") try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
+    renderPeriodButton();
     if(id === "dashboard"){ renderDashboardStats(); renderHomeSummary(); }
     if(id === "reports") renderReports();
     if(id === "detail") renderDetailPage();
@@ -539,6 +541,7 @@ export function showExpensesSubpage(id, opts){
     markCurrent(btn, btn.getAttribute("data-expenses-sub") === id);
   });
   scrollActiveSubnavIntoView("expensesSubnav");
+  renderPeriodButton();
   if(id === "income") renderReceived();
   updateQuickFab("expenses");
   if(!opts.skipUrl) syncUrl("expenses", !!opts.replace);
@@ -557,6 +560,7 @@ export function showDashboardSubpage(id){
     markCurrent(btn, btn.getAttribute("data-dashboard-sub") === id);
   });
   scrollActiveSubnavIntoView("dashboardSubnav");
+  renderPeriodButton();
 }
 
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px

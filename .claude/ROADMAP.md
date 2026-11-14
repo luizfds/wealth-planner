@@ -5184,3 +5184,9 @@ Verified with `sidebarfooter`: preserved privacy warnings, one parsed version ma
 `[x]` Fit report bar/column charts to their measured width so shared-token SVG text stays at its intended size. Reduce month-label density on phones; preserve chart values, report tables, printed charts and detail-page reuse. Verify resize, hidden/reopened views and both themes at phone/desktop sizes with before/after screenshots.
 
 `reportlabels` measures 1:1 SVG/CSS text sizing at 320/390/1280px in both themes, month-label separation, stable print output, in-place resize, reopened Reports and shared Detail charts. `reportsummary`, all 172 test files and 12 scoped axe states pass. Before/after screenshots reviewed at 390/1280px; static print sizing and label density remain unchanged.
+
+## Visible month in the period header — issue #307
+
+`[x]` Show the effective month on Home → Overview and Cash flow → Budget/Income, including the implicit month when a whole year is selected. Tax keeps the year label; Spending keeps its current explicit-month label pending its range-control follow-up. Refresh labels on navigation without changing period calculations or selection. Verify calendar/financial bases, past years, keyboard/touch changes and today’s balance qualifier.
+
+Verified with period-label unit cases (current/past financial and calendar years, explicit/implicit month and annual Tax), `periodheader`/`homedates` journeys, and 24 scoped axe states at 320/390/1280px in both themes. Navigation and keyboard/touch changes keep visible/accessibility labels current; today’s balance date remains today. The visible “not today” flag is now included in the accessible name, with text spacing that matches the visible phrase.

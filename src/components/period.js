@@ -43,17 +43,33 @@ export function earliestDataDate(){
   return dates.length ? dates.sort()[0] : null;
 }
 
-export function periodButtonHtml(today){
-  return '<span class="period-btn-label">' + escapeAttr(periodLabel(today)) + '</span>' +
+// A whole-year choice still has an effective month for Home and monthly cash-flow figures.
+// Tax reads the selected year; other views retain their existing selection label.
+export function periodHeaderLabel(today, view){
+  if(!view) return periodLabel(today);
+  if((view.page === 'dashboard' && view.sub === 'overview') || (view.page === 'expenses' && (view.sub === 'budget' || view.sub === 'income'))){
+    return MONTHS[Number(selectedMonth(today).slice(5, 7)) - 1] + ' · ' + selectedYearWindow(today).label;
+  }
+  return view.page === 'tax' ? selectedYearWindow(today).label : periodLabel(today);
+}
+function shownPeriodView(){
+  var page = document.body.getAttribute('data-current-page');
+  var rail = page === 'dashboard' ? '#dashboardSubnav' : page === 'expenses' ? '#expensesSubnav' : null;
+  var tab = rail && document.querySelector(rail + ' [aria-current="page"]');
+  return {page:page, sub:tab && tab.getAttribute(page === 'dashboard' ? 'data-dashboard-sub' : 'data-expenses-sub')};
+}
+export function periodButtonHtml(today, view){
+  return '<span class="period-btn-label">' + escapeAttr(periodHeaderLabel(today, view)) + '</span> ' +
     (isPeriodToday() ? '' : '<span class="period-btn-flag">not today</span>') +
     '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 export function renderPeriodButton(){
   var btn = typeof document !== "undefined" && document.getElementById("periodBtn");
   if(!btn) return;
-  btn.innerHTML = periodButtonHtml();
+  var view = shownPeriodView();
+  btn.innerHTML = periodButtonHtml(undefined, view);
   btn.classList.toggle("is-past", !isPeriodToday());
-  btn.setAttribute("aria-label", "Period: " + periodLabel() + (isPeriodToday() ? " (today)" : "") + ". Change");
+  btn.setAttribute("aria-label", "Period: " + periodHeaderLabel(undefined, view) + (isPeriodToday() ? " (today)" : " not today") + ". Change");
 }
 
 export function periodMenuHtml(today, earliest){

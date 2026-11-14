@@ -416,6 +416,135 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async errorsummaries(page){
+    await quiet(page);
+    const a11yResults=[];
+    if(process.env.ERROR_SHOTS) fs.mkdirSync(process.env.ERROR_SHOTS,{recursive:true});
+    if(process.env.ERROR_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    const count = async (root,n) => {
+      await waited(page, ([selector,n]) => {
+        const r=document.querySelector(selector), s=r?.querySelector('[data-error-summary]');
+        return n ? !!s && !s.hidden && s.querySelectorAll('a').length===n : !s || s.hidden;
+      }, 'the '+root+' summary to list '+n+' errors', [root,n]);
+    };
+    const scan = async locator => {
+      if(!process.env.ERROR_A11Y) return;
+      // Scan rendered styles with every rule; optional cross-origin font/CSS prefetch conflicts with the app CSP.
+      const result = await locator.evaluate(async el => ({scope:el.className,width:innerWidth,theme:document.documentElement.dataset.theme,violations:(await window.axe.run(el,{preload:false,runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']}})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}))}));
+      a11yResults.push(result);
+      if(process.env.ERROR_A11Y_DIR){fs.mkdirSync(process.env.ERROR_A11Y_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.ERROR_A11Y_DIR,'results.json'),JSON.stringify(a11yResults,null,2));}
+      check(!result.violations.length,'error-state accessibility: '+JSON.stringify(result));
+    };
+    const verify = async (root,name) => {
+      await count(root,2);
+      const summary=page.locator(root+' > [data-error-summary]');
+      check(await page.locator(root+' > [data-error-summary-live][aria-live="polite"][aria-atomic="true"]').count()===1 && !await summary.locator('[role="alert"]').count(),'summary is not polite');
+      check(await summary.locator('a').evaluateAll(as=>as.every(a=>{
+        const input=document.getElementById(a.dataset.errorTarget), error=input&&document.getElementById(input.id+'-error');
+        return input?.getAttribute('aria-invalid')==='true' && error && a.textContent.includes(error.textContent);
+      })),'summary differs from its field messages');
+      for(const scheme of ['light','dark']){
+        await page.evaluate(s=>{document.documentElement.dataset.theme=s;},scheme);
+        for(const width of [320,390,768,1280]){
+          await page.setViewportSize({width,height:844});
+          await summary.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+          await scan(summary);
+          if(process.env.ERROR_SHOTS && [390,1280].includes(width)) await summary.screenshot({path:process.env.ERROR_SHOTS+'/'+name+'-'+width+'-'+scheme+'.png'});
+          for(let i=0;i<2;i++){
+            await summary.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+          const link=summary.locator('a').nth(i), target=await link.getAttribute('data-error-target');
+          if(width<700) await link.tap(); else { await link.focus(); await page.keyboard.press('Enter'); }
+          await waited(page,id=>{
+            const e=document.getElementById(id);if(!e||e!==document.activeElement)return false;
+            const r=e.getBoundingClientRect();return r.top>document.querySelector('.app-topbar').getBoundingClientRect().bottom && r.bottom<innerHeight-64 && document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===e;
+          },'the summary target to be focused and unobscured',target);
+          const field=page.locator('[id="'+target+'"]');
+          await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field")][1]'));
+          }
+          check(await summary.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'summary has local horizontal overflow');
+          check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'error summary overflows at '+width);
+        }
+      }
+    };
+    await go(page,'properties');
+    await page.locator('[data-prop-edit]').first().click();
+    const property='.property-card[data-property-id="'+await page.locator('.property-card').first().getAttribute('data-property-id')+'"]';
+    const value=await page.locator(property+' .prop-value').inputValue(), price=await page.locator(property+' .prop-purchase-price').inputValue();
+    const propertySaved=await page.evaluate(async selector=>{const m=await import('/src/state.js'),id=document.querySelector(selector).dataset.propertyId,p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},property);
+    check(!await page.locator(property+' > [data-error-summary]:visible').count(),'valid form shows an error summary');
+    await page.locator(property+' .prop-value').fill('');
+    await page.locator(property+' .prop-purchase-price').fill('-100');await page.locator(property+' .prop-purchase-price').press('Tab');
+    await count(property,2);
+    await page.evaluate(async()=>(await import('/src/components/properties.js')).renderProperties());
+    await count(property,2);
+    check(await page.locator(property+' .prop-value').inputValue()==='' && await page.locator(property+' .prop-purchase-price').inputValue()==='-100','property redraw lost invalid drafts');
+    await page.locator(property+' [data-prop-tab][data-tab="loans"]').evaluate(e=>e.click());
+    await verify(property,'property');
+    // Collapsing an erroneous section redraws the card. A link reopens it without losing drafts.
+    await page.locator(property+' [data-prop-section-toggle="value"]').evaluate(e=>e.click());
+    await count(property,2);
+    await page.locator(property+' [data-error-summary] a').first().click();
+    check(await page.locator(property+' .prop-value').isVisible() && await page.locator(property+' .prop-value').inputValue()==='','collapsed section did not reveal its draft');
+    check(await page.evaluate(async selector=>{const m=await import('/src/state.js'),id=document.querySelector(selector).dataset.propertyId,p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},property)===propertySaved,'summary interaction changed saved property figures');
+    await page.locator(property+' .prop-value').fill(value);
+    await count(property,1);
+    await page.locator(property+' .prop-purchase-price').fill(price);await page.locator(property+' .prop-purchase-price').press('Tab');
+    await count(property,0);
+    await page.locator(property+' .prop-value').fill('');await count(property,1);
+    await page.locator(property+' [data-prop-edit-done]').click();await count(property,0);
+    check(await page.locator(property+' .prop-value').inputValue()===value && !await page.locator(property+' .prop-value').getAttribute('aria-invalid'),'closing property details restored an invalid draft');
+    await go(page,'tax','data-tax-sub','people');
+    const person=await page.locator('[data-pp-card]').first().getAttribute('data-pp-card'), people='[data-pp-card="'+person+'"]';
+    const help=await page.locator(people+' .pp-help').inputValue(), week=await page.locator(people+' .pp-week').inputValue();
+    const personSaved=await stored(page,'JSON.stringify(state.tax.settings['+JSON.stringify(person)+'])');
+    await page.locator(people+' .pp-help').fill('');await page.locator(people+' .pp-help').press('Tab');
+    await page.locator(people+' .pp-week').fill('200');await page.locator(people+' .pp-week').press('Tab');
+    await page.evaluate(async()=>(await import('/src/components/people.js')).renderPeople());
+    await verify(people,'people');
+    check(await stored(page,'JSON.stringify(state.tax.settings['+JSON.stringify(person)+'])')===personSaved,'summary interaction changed saved person figures');
+    check(await page.locator(people+' .pp-help').inputValue()==='' && await page.locator(people+' .pp-week').inputValue()==='200','people redraw lost drafts');
+    await page.locator(people+' .pp-help').fill(help);await page.locator(people+' .pp-help').press('Tab');
+    await page.locator(people+' .pp-week').fill(week);await page.locator(people+' .pp-week').press('Tab');
+    await count(people,0);
+    await go(page,'tax','data-tax-sub','returns');
+    const owner=await page.locator('[data-ty-add="is"]').first().getAttribute('data-ty-person'), tax='[data-ty-card="'+owner+'"]';
+    await page.locator(tax+' details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    for(const payer of ['Employer A','Employer <B> & "example"']){
+      await page.locator(tax+' [data-ty-add="is"]').click();
+      await page.locator(tax+' details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+      await page.locator(tax+' [data-ty-key="payer"]').last().fill(payer);await page.locator(tax+' [data-ty-key="payer"]').last().press('Tab');
+      await page.locator(tax+' [data-ty-kind="is"][data-ty-key="gross"]').last().fill('1000');await page.locator(tax+' [data-ty-kind="is"][data-ty-key="gross"]').last().press('Tab');
+    }
+    const gross=page.locator(tax+' [data-ty-kind="is"][data-ty-key="gross"]');
+    const n=await gross.count();
+    await gross.nth(n-2).fill('');await gross.nth(n-2).dispatchEvent('change');
+    await gross.last().fill('');await gross.last().dispatchEvent('change');
+    await page.evaluate(async()=>(await import('/src/components/taxyear.js')).renderTaxYear());
+    await page.locator(tax+' details').first().evaluate(d=>d.open=false);
+    check((await page.locator(tax+' [data-error-summary]').textContent()).includes('Employer <B> & "example"') && !await page.locator(tax+' [data-error-summary] b').count(),'summary treats imported/user text as markup');
+    await verify(tax,'return');
+    check(await page.evaluate(async person=>{const t=await import('/src/components/taxyear.js'),c=await import('/src/calc/taxyear.js');return c.personYear(t.taxYearSelected(),person,false).incomeStatements.slice(-2).every(r=>r.gross===1000);},owner),'summary interaction saved invalid return figures');
+    await page.locator(tax+' [data-ty-del="is"]').nth(n-2).click();
+    await count(tax,1);
+    check(await gross.last().inputValue()==='' && await gross.last().getAttribute('aria-invalid')==='true','deleting an earlier row lost or moved the remaining draft');
+    await gross.last().fill('1000');await gross.last().dispatchEvent('change');
+    await count(tax,0);
+    await go(page,'plan','data-plan-sub','scenarios');
+    const scenario=await page.locator('#cards .card').filter({hasText:/buy/i}).first().locator('.card-edit-link[data-edit-scenario]').getAttribute('data-edit-scenario');
+    await click(page,'#cards .card-edit-link[data-edit-scenario="'+scenario+'"]');await waited(page,()=>document.body.dataset.currentPage==='scenario','the scenario editor');
+    await click(page,'[data-sc-calc]');await waited(page,()=>document.body.dataset.currentPage==='calc','the purchase calculator');
+    const calc='#calcScenarioBody [data-calc-scenario]';
+    const paid=await page.locator(calc+' .calc-price').inputValue(), term=await page.locator(calc+' .calc-term').inputValue();
+    const purchaseKey=await page.locator(calc).getAttribute('data-calc-scenario'),purchaseSaved=await stored(page,'JSON.stringify(state.purchase['+JSON.stringify(purchaseKey)+'])');
+    await page.locator(calc+' .calc-price').fill('');await page.locator(calc+' .calc-term').fill('0');
+    await page.evaluate(async()=>(await import('/src/components/scenarios.js')).renderCalcScenario());
+    await verify(calc,'purchase');
+    check(await stored(page,'JSON.stringify(state.purchase['+JSON.stringify(purchaseKey)+'])')===purchaseSaved,'summary interaction changed the purchase draft figures');
+    check(await page.locator(calc+' .calc-price').inputValue()==='' && await page.locator(calc+' .calc-term').inputValue()==='0','calculator redraw lost drafts');
+    await page.locator(calc+' .calc-price').fill(paid);await page.locator(calc+' .calc-term').fill(term);
+    await count(calc,0);
+    if(process.env.ERROR_A11Y) console.log('Error-summary accessibility: '+a11yResults.length+' scopes, zero violations.');
+  },
   async periodranges(page){
     await quiet(page);
     await page.evaluate(async () => {
@@ -4920,7 +5049,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

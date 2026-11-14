@@ -1,3 +1,4 @@
+import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
 import { DEDUCTION_LABELS } from "../constants.js";
@@ -39,15 +40,15 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel, fy){
       var id = escapeAttr("ty-" + fy + "-" + kind + "-" + encodeURIComponent(person) + "-" + i + "-" + c.key);
       var start = '<label class="ty-cell"><span>' + escapeAttr(c.label) + '</span>';
       if(c.type === "label"){
-        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-error-key="' + draftFieldKey(r, c.key) + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
           DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select></label>';
       }
       if(c.type === "incomeRow"){
-        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
+        return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-error-key="' + draftFieldKey(r, c.key) + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
           '<option value="">—</option>' + c.rows.map(function(row){ return '<option value="' + escapeAttr(row.id) + '"' + (r.incomeId === row.id ? " selected" : "") + '>' + escapeAttr(row.what || "Income") + '</option>'; }).join("") + '</select></label>';
       }
       var v = c.type === "text" ? escapeAttr(r[c.key] || "") : num(r[c.key]);
-      return start + '<input class="ty-in field-control field-compact" id="' + id + '" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
+      return start + '<input class="ty-in field-control field-compact" id="' + id + '" data-error-key="' + draftFieldKey(r, c.key) + '" type="' + (c.type === "text" ? "text" : "number") + '"' + (c.type === "text" ? "" : ' step="0.01"') +
         ' data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="' + c.key + '"' +
         ' value="' + v + '" placeholder="' + escapeAttr(c.placeholder || "") + '" aria-label="' + escapeAttr(c.aria || c.label) + '"></label>';
     }).join("") +
@@ -192,7 +193,7 @@ function personCardHtml(person, fy){
     if(l.section !== lastSection){ sections.push('<div class="ty-ws-section">' + l.section + '</div>'); lastSection = l.section; }
     sections.push(wsLine(escapeAttr(l.label), money(l.value), { strong: l.section === "Estimate" }));
   });
-  return '<div class="ty-person" data-ty-card="' + escapeAttr(person) + '">' +
+  return '<div class="ty-person" data-error-scope="' + escapeAttr(person + " " + fyLabel(fy)) + '" data-ty-card="' + escapeAttr(person) + '">' + errorSummaryLiveHtml() +
     '<div class="ty-person-head"><h3>' + escapeAttr(person) + '</h3>' + refundHtml + '</div>' +
     '<details class="row-more-options" open><summary>Income statements</summary>' +
       rowsEditorHtml("is", person, py.incomeStatements, [

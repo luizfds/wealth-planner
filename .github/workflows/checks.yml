@@ -78,6 +78,14 @@ jobs:
       - run: node scripts/accessibility.mjs
         env:
           A11Y_DIR: accessibility-report
+      - name: Long-form error summaries
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: errorsummaries
+          SPEED: 0
+          ERROR_A11Y: 1
+          ERROR_A11Y_DIR: accessibility-report/error-summaries
+          ERROR_SHOTS: accessibility-report/error-summaries
       - uses: actions/upload-artifact@v4
         if: always()
         with:

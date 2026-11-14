@@ -1,3 +1,4 @@
+import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { state, persist } from "../state.js";
 import {
   propertyEquityToday, propertyGearingAnnual, propertyLoanRepaymentMonthly, loanRepaymentDisplay,
@@ -303,7 +304,7 @@ function acquisitionCostRowModernHtml(item, index, colorIdx, p){
     ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' aria-describedby="prop-move-help-' + escapeAttr(p.id) + '">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
     : "";
   var whatInput = '<input type="text" class="cc-what field-control field-compact" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
-  var amountInput = '<input type="number" step="100" min="0" class="cc-amount field-control field-compact" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
+  var amountInput = '<input type="number" step="100" min="0" class="cc-amount field-control field-compact" data-error-key="' + draftFieldKey(item, "amount") + '" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
   var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
   return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
     '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
@@ -342,8 +343,8 @@ function depreciationScheduleHtml(p){
       '<select class="dep-sched-fy field-control field-compact" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
         years.map(function(y){ return '<option value="' + y + '"' + (Number(r.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
       '</select>' +
-      '<input type="number" step="1" min="0" class="dep-sched-cw field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-cw-help-' + escapeAttr(p.id) + '">' +
-      '<input type="number" step="1" min="0" class="dep-sched-plant field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-plant-help-' + escapeAttr(p.id) + '">' +
+      '<input type="number" step="1" min="0" class="dep-sched-cw field-control field-compact" data-error-key="' + draftFieldKey(r, "capitalWorks") + '" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-cw-help-' + escapeAttr(p.id) + '">' +
+      '<input type="number" step="1" min="0" class="dep-sched-plant field-control field-compact" data-error-key="' + draftFieldKey(r, "plant") + '" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-plant-help-' + escapeAttr(p.id) + '">' +
       '<button type="button" class="btn btn-danger btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
     '</div>';
   }).join("");
@@ -873,7 +874,7 @@ function propertyCardBodyHtml(p, colorIdx){
     (key === current ? "" : " hidden") + ' role="tabpanel">' + html + '</div>'; };
 
   var editing = !!propertyEditing[p.id];
-  return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' +
+  return '<div class="property-card series-color-' + (colorIdx % 8) + (editing ? " is-editing" : "") + '" data-error-scope="' + escapeAttr(p.what || 'Property') + '" data-property-id="' + escapeAttr(p.id) + '" id="property-card-' + escapeAttr(p.id) + '">' + errorSummaryLiveHtml() +
     '<div class="property-card-head">' +
       '<h3 class="prop-read"><span class="prop-name">' + (p.id ? detailLinkHtml("property", p.id, p.what || "Property") : escapeAttr(p.what || "Property")) + '</span><span class="prop-kind-pill">' + (p.kind === "IP" ? "Investment" : "Home") + '</span></h3>' +
       '<h3 class="prop-edit"><input type="text" class="prop-what inline-name" value="' + escapeAttr(p.what) + '" aria-label="Property name">' +

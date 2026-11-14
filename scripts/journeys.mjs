@@ -416,6 +416,30 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async homebalance(page){
+    await quiet(page);
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const before = await stored(page, 'JSON.stringify({assets:state.assets,savingsGoals:state.savingsGoals,transactions:state.transactions})');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:2000});
+        await page.evaluate(() => window.scrollTo(0,0));
+        if(process.env.HOME_SHOTS && width !== 320) await page.locator('#homeSummary').screenshot({path:process.env.HOME_SHOTS + '/home-' + width + '-' + scheme + '.png'});
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Home overflows');
+        if(width === 1280){
+          const heights = await page.locator('.home-grid > .home-card').evaluateAll(es => es.map(e => e.getBoundingClientRect().height));
+          check(Math.max(...heights) - Math.min(...heights) > 30, 'Home cards still stretch to equal height');
+          check((await page.locator('.home-week').boundingBox()).height < 100, 'collapsed desktop recap is not a compact row');
+        }
+        const recap = page.locator('.home-week .wk-details');
+        await recap.locator('summary').click();
+        check(await recap.evaluate(e => e.open) && await recap.locator('.wk-body').isVisible(), 'weekly recap cannot expand');
+        await recap.locator('summary').click();
+      }
+    }
+    check(await stored(page, 'JSON.stringify({assets:state.assets,savingsGoals:state.savingsGoals,transactions:state.transactions})') === before, 'Home layout changed financial data');
+  },
   async categorycolours(page){
     await quiet(page);
     await go(page, 'settings', 'data-accounts-sub', 'categories');

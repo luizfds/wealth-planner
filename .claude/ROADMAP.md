@@ -5169,4 +5169,6 @@ Verified `categorycolours` and existing `categories` journeys (quiet/hover/focus
 
 ## Home card balance — issue #308
 
-`[~]` Size the first-row cards to content, remove the redundant wide outer goal card, and compact the collapsed desktop weekly recap. Preserve figures, links, expanded content and saved card arrangements. Verify phone/desktop in both themes with before/after screenshots.
+`[x]` Size the first-row cards to content, remove the redundant wide outer goal card, and compact the collapsed desktop weekly recap. Preserve figures, links, expanded content and saved card arrangements. Verify phone/desktop in both themes with before/after screenshots.
+
+Verified with measured `homebalance` heights/overflow, both themes at 320/390/1280px, unchanged financial data and expandable recap; `homecompare` and `assessmentux` pass. Before/after screenshots at 390/1280px and 12 scoped accessibility states (default/expanded) have no violations, contrast failures or overflow.

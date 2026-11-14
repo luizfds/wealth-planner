@@ -426,11 +426,11 @@
 }
 
 /* ---------------- Home (v3.58.0) ---------------- */
-.home-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin:0 0 16px; }
+.home-grid{ display:grid; align-items:start; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; margin:0 0 16px; }
 /* v3.165.0: a row of flex boxes rather than four fixed columns — each card keeps its own width
    wherever it's been moved to, and the rest close up over one that's hidden. */
 @media (min-width: 1180px){
-  .home-grid{ display:flex; align-items:stretch; }
+  .home-grid{ display:flex; }
   .home-grid > *{ flex:1 1 0; min-width:0; }
   .home-grid > .home-month{ flex-grow:1.4; }
   .home-grid > .home-bills{ flex-grow:1.2; }
@@ -491,7 +491,7 @@
 .rp-note{ margin:10px 0 0 !important; }
 @media print{ #printRoot .rp-table{ width:100%; border-collapse:collapse; } #printRoot .rp-table th, #printRoot .rp-table td{ border-bottom:1px solid #999; padding:3pt 5pt; text-align:left; } #printRoot .rp-table .num{ text-align:right; } }
 /* Home → goals strip (v3.65.0) */
-.home-goals{ border:1px solid var(--border); border-radius:var(--card-radius); background:var(--paper-raised); padding: var(--card-py) var(--card-px); box-shadow: var(--shadow); margin:-4px 0 16px; display:flex; flex-direction:column; gap:8px; }
+.home-goals{ margin:0 0 16px; display:flex; flex-direction:column; gap:8px; }
 .home-goals-list{ display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px; }
 .home-goals .sgl{ padding:8px 10px; }
 /* Year-end pack (v3.68.0) */
@@ -596,6 +596,10 @@
 /* ---------------- Your week (v3.166.0, item 196) ---------------- */
 .home-week{ margin:0 0 12px; gap:10px; }
 .home-week[hidden]{ display:none; }
+@media (min-width: 1180px){
+  .home-week{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .home-week:has(.wk-details[open]){ grid-template-columns:minmax(0,1fr); }
+}
 .wk-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .wk-range{ font-weight:400; text-transform:none; letter-spacing:0; }
 .wk-nav{ display:flex; gap:2px; flex:0 0 auto; }

@@ -128,6 +128,10 @@ Counts are from the audit; "390" is the demo household at 390px.
 - **Every delete is followed by an Undo toast.** Where Undo can't restore everything, the confirm dialog (#256) says
   what will be lost.
 
+Home's overview cards align at the top and size to their content. Goals use their own compact cards under a
+section label, without a second wide card around them. At desktop widths, the collapsed weekly recap is one
+row; opening it reveals the full recap below its heading. Phone layouts retain room for the recap controls.
+
 ### 4. Empty and no-results states
 
 An empty section says three things in one line: what it holds, why it's empty, and the next step **as a control**. That

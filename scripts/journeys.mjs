@@ -22,6 +22,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
 //   propertyfigurehelp — Property-card figure help by touch and keyboard, conditional explanations, live edits
 //                 and redraws, independent cards and unchanged stored/visible figures
 //   propertysummaryhelp — Property portfolio explanations by touch and keyboard, labelled chart figures,
@@ -1380,6 +1381,75 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async propertyactionhelp(page){
+    await go(page, 'properties');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'), p = s.state.properties[0];
+      p.history = [];
+      p.acquisitionCosts = [{what:'LMI',amount:2000}, {what:'Purchase fee',amount:500}];
+      p.loans = [p.loans[0], {...structuredClone(p.loans[0]), id:'example-earlier-loan', what:'Earlier loan', settlementDate:'2024-01-01'}];
+      p.loans[0].settlementDate = '2025-01-01';
+      const home = structuredClone(p); home.id = 'example-home'; home.what = 'Example home'; home.kind = 'PPOR'; home.loans = [{...structuredClone(p.loans[0]),id:'example-home-loan',what:'Home loan'}];
+      s.state.properties.push(home); s.persist();
+      (await import('/src/components/properties.js')).renderProperties();
+    });
+    const card = page.locator('.property-card').first();
+    await card.locator('[data-prop-edit]').click();
+    for(const key of ['value','acquisition']){
+      const toggle = card.locator('[data-prop-section-toggle="' + key + '"]');
+      if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+    }
+    const saved = await stored(page, 'JSON.stringify(state.properties)');
+    const recordHelp = card.locator('[data-property-help="record-value"]');
+    const moveHelp = card.locator('[data-property-help="move-cost"]');
+    check(await page.locator('[data-property-id="example-home"] [data-property-help="move-cost"]').count() === 0, 'unavailable move action has help');
+    for(const group of [recordHelp, moveHelp]){
+      const help = group.locator('[data-help-toggle]'), note = group.locator('.help');
+      check(!await note.isVisible(), 'action help is not folded initially');
+      await help.focus(); await page.keyboard.press('Enter');
+      check(await note.isVisible(), 'Enter did not reveal action help');
+      await page.keyboard.press('Space');
+      check(!await note.isVisible(), 'Space did not fold action help');
+    }
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const group of [recordHelp, moveHelp]){
+          await group.locator('[data-help-toggle]').tap();
+          check(await group.locator('.help').isVisible(), 'touch did not reveal action help at ' + width + ' in ' + scheme);
+          check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'action help overflows at ' + width);
+          await group.locator('[data-help-toggle]').tap();
+        }
+      }
+    }
+    check(await stored(page, 'JSON.stringify(state.properties)') === saved, 'opening action help changed saved properties');
+    const actions = card.locator('[data-property-log], [data-acq-cost-move]');
+    check(await actions.count() === 3, 'record/suggested/ordinary move actions are missing');
+    for(const action of await actions.all()){
+      check(await action.getAttribute('title') === null, 'action still depends on a title');
+      check(await action.evaluate(e => !!document.getElementById(e.getAttribute('aria-describedby'))?.textContent), 'action description is missing');
+    }
+    await recordHelp.locator('[data-help-toggle]').tap();
+    await moveHelp.locator('[data-help-toggle]').tap();
+    await card.locator('[data-property-log]').click();
+    check(await stored(page,'state.properties[0].history.length') === 1 && await stored(page,'state.properties[0].history[0].value') === await stored(page,'state.properties[0].value'), 'record-value action did not save the current value');
+    check(await recordHelp.locator('.help').isVisible() && await moveHelp.locator('.help').isVisible(), 'record-value redraw folded open action help');
+    const beforeMove = await stored(page, 'JSON.stringify({costs:state.properties[0].acquisitionCosts,loans:state.properties[0].loans})');
+    const borrowing = await stored(page, 'state.properties[0].loans[1].borrowingCosts || 0');
+    await card.locator('[data-acq-cost-move="0"]').click();
+    check(await stored(page,'state.properties[0].acquisitionCosts.length') === 1 && await stored(page,'state.properties[0].loans[1].borrowingCosts') === borrowing + 2000, 'move action did not send the cost to the earliest loan');
+    await page.locator('.toast-undo-btn').last().click();
+    check(await stored(page, 'JSON.stringify({costs:state.properties[0].acquisitionCosts,loans:state.properties[0].loans})') === beforeMove, 'Undo did not restore the acquisition cost and loan');
+    await page.locator('#pageHelpBtn').click();
+    check(await page.locator('#propertyPageHelp').isVisible() && /every loan, across every property/.test(await page.locator('#propertyPageHelp').innerText()), 'page help omits loan export scope');
+    await page.locator('#page-properties [data-overflow-toggle]').click();
+    const download = page.waitForEvent('download');
+    await page.locator('#propertyLoansExportCsvBtn').click();
+    const file = await download, stream = await file.createReadStream();
+    let csv = ''; for await(const chunk of stream) csv += chunk.toString();
+    check(/^property-loans-.*\.csv$/.test(file.suggestedFilename()) && csv.includes('Earlier loan') && csv.includes('Home loan'), 'loan export did not download all loans');
+  },
   async propertyfigurehelp(page){
     await go(page, 'properties');
     await page.evaluate(async () => {
@@ -4164,7 +4234,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

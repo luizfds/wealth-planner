@@ -236,6 +236,16 @@ for(const width of widths)for(const scheme of schemes){
    await scan('property-figures/help', '.property-figures');
    await figures.locator('[data-help-toggle]').click();
    await page.locator('[data-prop-edit]').first().click();
+   for(const kind of ['record-value','move-cost']){
+    const group = page.locator('[data-property-help="'+kind+'"]').first();
+    if(await group.count()){
+     await group.evaluate(e => { const toggle = e.closest('.property-section').querySelector('[data-prop-section-toggle]'); if(toggle.getAttribute('aria-expanded') === 'false') toggle.click(); });
+     await group.locator('[data-help-toggle]').click();
+     await scan('property-actions/'+kind, kind==='move-cost' ? '.property-section:has([data-property-help="move-cost"])' : '[data-property-help="record-value"]');
+     await group.locator('[data-help-toggle]').click();
+    }
+   }
+
    await page.locator('[data-prop-tab][data-tab="loans"]').first().evaluate(e=>e.click());
    await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="loans"][aria-expanded="false"]').forEach(e=>e.click()));
    await page.locator('.prop-tab-panel:not([hidden]) [data-loan-index]').first().locator('[data-row-toggle]').click();

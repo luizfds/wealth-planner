@@ -750,7 +750,7 @@
           <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="properties" data-part="property">Property</button>
         </div>
         <div class="page-intro-row">
-          <p class="page-intro help">What you actually own — value, loans, and the rent/expenses tied to each property.</p>
+          <p class="page-intro help" id="propertyPageHelp">What you actually own — value, loans, and the rent/expenses tied to each property. <span id="propertyLoanExportHelp">Export loans CSV downloads every loan, across every property, as a CSV file.</span></p>
         </div>
         <div class="cash-rate" id="cashRatePanel" hidden></div>
         <div class="record-toolbar">
@@ -762,7 +762,7 @@
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Properties export" title="Properties export">⋯</button>
               <div class="page-overflow-menu" data-overflow-menu hidden>
-              <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" title="Download every loan, across every property, as a CSV file">Export loans CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" aria-describedby="propertyLoanExportHelp">Export loans CSV</button>
               </div>
             </div>
           </div>

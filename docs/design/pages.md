@@ -154,7 +154,10 @@ means a button, or a link to the place the step is done:
 - **Property-card figures:** one ⓘ beside Figures opens the badge and tile explanations. It includes only
   applicable LVR, gearing, yield and capital-gain explanations, retaining the existing risk wording. Live edits
   update that panel with the figures; an open panel, More detail and focus survive a card redraw. The show-help
-  preference applies here too. Editor action tooltips are still pending this migration.
+  preference applies here too.
+- **Property actions:** Record today's value and move-to-loan explanations use local ⓘ controls with linked
+  descriptions on the action buttons. Move-to-loan help appears only for an investment property with a loan.
+  Open action help survives a redraw; the page's ⓘ explains that loan CSV export covers every property.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",

@@ -5160,3 +5160,9 @@ Verified with `homedates` at 320/390/1280px, both themes, with a past reporting 
 `[x]` Use the chart palette for property debt and the standard warning ink with normal weight for the Medicare levy surcharge note. Preserve numbers, notice visibility and wording. Verify default and live-patched tax notices, both themes and phone/desktop layouts, with before/after screenshots. Other #308 items remain separate.
 
 `financialcolours` verifies the blue debt segment and matching legend, warning ink/weight in both themes, unchanged surcharge wording, no overflow, and the same live-patched notice through hospital-cover changes. Before/after screenshots cover 390/1280px; scoped axe covers both surfaces at 320/390/1280px.
+
+## Quiet category delete actions — issue #308
+
+`[x]` Keep category delete actions visible but quiet at rest, with danger colour on hover or keyboard focus. Preserve accessible names, focus indicators, touch targets and existing delete/Undo behavior. Verify phone/desktop and both themes, with before/after screenshots.
+
+Verified `categorycolours` and existing `categories` journeys (quiet/hover/focus colours, keyboard focus indicator, names, renames and validation), plus 12 scoped axe states at 320/390/1280px, light/dark. Screenshots compared at 390/1280px.

@@ -416,6 +416,39 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async categorycolours(page){
+    await quiet(page);
+    await go(page, 'settings', 'data-accounts-sub', 'categories');
+    const button = page.locator('#categoriesTable [data-cat-del]').first();
+    const colourMatches = token => button.evaluate((e,token) => {
+      const probe = document.createElement('span'); probe.style.color = 'var(' + token + ')'; e.append(probe);
+      const expected = getComputedStyle(probe).color; probe.remove();
+      return getComputedStyle(e).color === expected;
+    }, token);
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [390,1280]){
+        await page.setViewportSize({width,height:844});
+        await button.scrollIntoViewIfNeeded();
+        await page.mouse.move(0,0);
+        await button.evaluate(e => e.blur());
+        check(await colourMatches('--ink-soft'), 'category deletes are not quiet at rest in ' + scheme);
+        await button.hover();
+        check(await colourMatches('--bad-ink'), 'hover does not show danger colour');
+        await page.mouse.move(0,0);
+        await button.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+        check(await button.evaluate(e => e === document.activeElement && e.matches(':focus-visible')), 'keyboard cannot focus category delete');
+        check(await colourMatches('--bad-ink'), 'keyboard focus does not show danger colour');
+        check(await button.evaluate(e => getComputedStyle(e).boxShadow !== 'none' || getComputedStyle(e).outlineStyle !== 'none'), 'delete has no keyboard focus indicator');
+        await page.keyboard.press('Tab');
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'category controls overflow');
+        if(process.env.CATEGORY_SHOTS){
+          await page.evaluate(() => window.scrollTo(0,0));
+          await page.screenshot({path:process.env.CATEGORY_SHOTS + '/categories-' + width + '-' + scheme + '.png'});
+        }
+      }
+    }
+  },
   async categories(page){
     await quiet(page);
     await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.shared[1].category = ""; m.commit(["shared"]); });

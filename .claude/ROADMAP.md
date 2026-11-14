@@ -5061,6 +5061,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      Journey: `propertyfigurehelp` (320/390/1280px, light/dark), plus the summary/validation/overview regressions.
      The smoke ratchet covers the card figures and axe scans their expanded help. Property editor action
      tooltips follow separately.
+   - `[~]` #255 Property action help: expose recording-value, move-to-loan and loan-export
+     explanations to touch and keyboard, retain action semantics and preserve open help on redraw.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

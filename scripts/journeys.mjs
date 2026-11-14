@@ -1393,6 +1393,9 @@ const JOURNEYS = {
       s.state.properties.push(home); s.persist();
       (await import('/src/components/properties.js')).renderProperties();
     });
+    // Exercise wider Linux fallback metrics: the two-loan LVR badge must fit at 320px,
+    // including values above 100% and the offset suffix.
+    await page.addStyleTag({content:'.property-card-badges{font-family:"DejaVu Sans",sans-serif}'});
     const card = page.locator('.property-card').first();
     await card.locator('[data-prop-edit]').click();
     for(const key of ['value','acquisition']){
@@ -1418,7 +1421,8 @@ const JOURNEYS = {
         for(const group of [recordHelp, moveHelp]){
           await group.locator('[data-help-toggle]').tap();
           check(await group.locator('.help').isVisible(), 'touch did not reveal action help at ' + width + ' in ' + scheme);
-          check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'action help overflows at ' + width);
+          const layout = await page.evaluate(w => ({width:innerWidth, client:document.documentElement.clientWidth, scroll:document.documentElement.scrollWidth, outside:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width && (r.left < -1 || r.right > w + 1);}).map(e=>({tag:e.tagName,cls:e.className,text:e.textContent.trim().slice(0,60),left:Math.round(e.getBoundingClientRect().left),right:Math.round(e.getBoundingClientRect().right)}))}),width);
+          check(layout.scroll <= width, 'action help overflows at ' + width + ' in ' + scheme + ' for ' + await group.getAttribute('data-property-help') + ': ' + JSON.stringify(layout));
           await group.locator('[data-help-toggle]').tap();
         }
       }

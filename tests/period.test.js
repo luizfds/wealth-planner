@@ -1,6 +1,7 @@
 import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { periodHeaderLabel } from "../src/components/period.js";
 import { state } from "../src/state.js";
 import { setPeriod, periodSelection, selectedYearWindow, selectedMonth, monthAnchorDate, periodAnchorDate, periodLabel,
   periodYearOptions, isPeriodToday, householdYearWindow, householdYearToDate, transactionsInMonth, budgetCycleFor, monthPhrase, yearStartOf } from "../src/calc/ledger.js";
@@ -92,5 +93,26 @@ test("month figures follow the selected month", function(){
     // an explicit date from a caller still means that date's month, labelled "this month"
     assert.equal(budgetCycleFor({ amount: 100, freq: "Monthly" }, [], "2025-03-10").label, "this month");
     assert.equal(monthPhrase("2022-11"), "in November 2022");
+  });
+});
+
+
+test("monthly header labels state the effective month while annual views keep the year", function(){
+  const home = {page:"dashboard",sub:"overview"}, budget = {page:"expenses",sub:"budget"};
+  withBasis("financial", function(){
+    setPeriod(null, "", "2026-11-03");
+    assert.equal(periodHeaderLabel("2026-11-03", home), "Nov · FY26/27");
+    setPeriod(2025, "", "2026-11-03");
+    assert.equal(periodHeaderLabel("2026-11-03", budget), "Jun · FY25/26");
+    setPeriod(2025, "2025-08", "2026-11-03");
+    assert.equal(periodHeaderLabel("2026-11-03", {page:"expenses",sub:"income"}), "Aug · FY25/26");
+    assert.equal(periodHeaderLabel("2026-11-03", {page:"tax",sub:"year"}), "FY25/26");
+    assert.equal(periodHeaderLabel("2026-11-03", {page:"expenses",sub:"spending"}), "FY25/26 · Aug");
+  });
+  withBasis("calendar", function(){
+    setPeriod(2025, "", "2026-11-03");
+    assert.equal(periodHeaderLabel("2026-11-03", home), "Dec · 2025");
+    setPeriod(null, "", "2026-11-03");
+    assert.equal(periodHeaderLabel("2026-11-03", home), "Nov · 2026");
   });
 });

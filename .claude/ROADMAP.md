@@ -5187,4 +5187,6 @@ Verified with `sidebarfooter`: preserved privacy warnings, one parsed version ma
 
 ## Visible month in the period header — issue #307
 
-`[~]` Show the effective month on Home → Overview and Cash flow → Budget/Income, including the implicit month when a whole year is selected. Annual views keep the year label; Spending keeps its current explicit-month label pending its range-control follow-up. Refresh labels on navigation without changing period calculations or selection. Verify calendar/financial bases, past years, keyboard/touch changes and today’s balance qualifier.
+`[x]` Show the effective month on Home → Overview and Cash flow → Budget/Income, including the implicit month when a whole year is selected. Tax keeps the year label; Spending keeps its current explicit-month label pending its range-control follow-up. Refresh labels on navigation without changing period calculations or selection. Verify calendar/financial bases, past years, keyboard/touch changes and today’s balance qualifier.
+
+Verified with period-label unit cases (current/past financial and calendar years, explicit/implicit month and annual Tax), `periodheader`/`homedates` journeys, and 24 scoped axe states at 320/390/1280px in both themes. Navigation and keyboard/touch changes keep visible/accessibility labels current; today’s balance date remains today. The visible “not today” flag is now included in the accessible name, with text spacing that matches the visible phrase.

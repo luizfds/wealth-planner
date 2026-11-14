@@ -1149,6 +1149,7 @@
   .cf-view:focus-visible{ box-shadow: var(--focus-ring); }
   .cf-view-form{ display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .cf-view-form input{ width:180px; max-width:100%; }
+  .cf-list-dates{ display:flex; flex-direction:column; gap:4px; min-width:0; max-width:100%; }
   .cf-own-dates{ font-size:var(--fs-sm); color: var(--ink-soft); align-self:center; }
   .budget-row-sv{ display:inline-block; margin:6px 0 2px; font-size:var(--fs-sm); }
   .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }

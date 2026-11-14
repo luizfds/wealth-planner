@@ -2,6 +2,8 @@ import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { periodHeaderLabel } from "../src/components/period.js";
+import { transactionDatesLabel } from "../src/components/expenses.js";
+import { effectiveFilter } from "../src/calc/txviews.js";
 import { state } from "../src/state.js";
 import { setPeriod, periodSelection, selectedYearWindow, selectedMonth, monthAnchorDate, periodAnchorDate, periodLabel,
   periodYearOptions, isPeriodToday, householdYearWindow, householdYearToDate, transactionsInMonth, budgetCycleFor, monthPhrase, yearStartOf } from "../src/calc/ledger.js";
@@ -107,12 +109,33 @@ test("monthly header labels state the effective month while annual views keep th
     setPeriod(2025, "2025-08", "2026-11-03");
     assert.equal(periodHeaderLabel("2026-11-03", {page:"expenses",sub:"income"}), "Aug · FY25/26");
     assert.equal(periodHeaderLabel("2026-11-03", {page:"tax",sub:"year"}), "FY25/26");
-    assert.equal(periodHeaderLabel("2026-11-03", {page:"expenses",sub:"spending"}), "FY25/26 · Aug");
+    assert.equal(periodHeaderLabel("2026-11-03", {page:"reports"}), "FY25/26");
+    assert.equal(periodHeaderLabel("2026-11-03", {page:"expenses",sub:"spending"}), "Aug · FY25/26");
   });
   withBasis("calendar", function(){
     setPeriod(2025, "", "2026-11-03");
     assert.equal(periodHeaderLabel("2026-11-03", home), "Dec · 2025");
     setPeriod(null, "", "2026-11-03");
     assert.equal(periodHeaderLabel("2026-11-03", home), "Nov · 2026");
+  });
+});
+
+
+test("Spending states local month/year/all windows and effective filter dates", function(){
+  withBasis("financial", function(){
+    setPeriod(null, "", "2026-11-03");
+    assert.equal(transactionDatesLabel("month", null, "2026-11-03"), "Nov 2026");
+    assert.equal(transactionDatesLabel("year", null, "2026-11-03"), "FY26/27");
+    assert.equal(transactionDatesLabel("all", null, "2026-11-03"), "All dates");
+    const filter = effectiveFilter({trip:"example",from:"2025-08-01",to:"2025-08-20"},[{id:"example",from:"2025-08-05",to:"2025-08-10"}]);
+    assert.equal(transactionDatesLabel("month", filter, "2026-11-03"), "5 Aug 2025 – 10 Aug 2025");
+    assert.equal(transactionDatesLabel("year", {from:"2025-08-01"}, "2026-11-03"), "From 1 Aug 2025");
+    assert.equal(transactionDatesLabel("all", {to:"2025-08-20"}, "2026-11-03"), "Through 20 Aug 2025");
+    assert.equal(transactionDatesLabel("month", effectiveFilter({trip:"missing"},[]), "2026-11-03"), "Trip unavailable");
+  });
+  withBasis("calendar", function(){
+    setPeriod(2025, "", "2026-11-03");
+    assert.equal(transactionDatesLabel("month", null, "2026-11-03"), "Dec 2025");
+    assert.equal(transactionDatesLabel("year", null, "2026-11-03"), "2025");
   });
 });

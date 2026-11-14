@@ -44,13 +44,13 @@ export function earliestDataDate(){
 }
 
 // A whole-year choice still has an effective month for Home and monthly cash-flow figures.
-// Tax reads the selected year; other views retain their existing selection label.
+// Tax and Reports read the selected year; other views retain their existing selection label.
 export function periodHeaderLabel(today, view){
   if(!view) return periodLabel(today);
-  if((view.page === 'dashboard' && view.sub === 'overview') || (view.page === 'expenses' && (view.sub === 'budget' || view.sub === 'income'))){
+  if((view.page === 'dashboard' && view.sub === 'overview') || (view.page === 'expenses' && (view.sub === 'budget' || view.sub === 'income' || view.sub === 'spending'))){
     return MONTHS[Number(selectedMonth(today).slice(5, 7)) - 1] + ' · ' + selectedYearWindow(today).label;
   }
-  return view.page === 'tax' ? selectedYearWindow(today).label : periodLabel(today);
+  return (view.page === 'tax' || view.page === 'reports') ? selectedYearWindow(today).label : periodLabel(today);
 }
 function shownPeriodView(){
   var page = document.body.getAttribute('data-current-page');

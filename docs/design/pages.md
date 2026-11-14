@@ -143,7 +143,11 @@ exact value. Resizing or reopening a view fits the chart again. Printed reports 
 The period header on Home → Overview and Cash flow → Budget/Income states the effective month alongside the
 year, including the implied month of a whole-year selection. Tax states its year. These labels refresh on
 navigation and describe the same selection used by the figures; today's balances retain their “as of” date.
-Spending's range controls and Reports' period wording remain follow-ups in #307.
+Spending uses the same month/year header label. Its Month/Year/All selector is explicitly local: “List dates”.
+Month and Year use the selected period; All and dated filters/trips keep their existing overrides. The list
+heading always states its effective dates, including with Filters closed. Reports calls its range “Report dates”,
+names the default “Selected year · FY…”, and states actual start/end dates on screen and in print. Presets such
+as This month keep their current-date meaning; custom reports retain their own dates when the global year changes.
 
 ### 4. Empty and no-results states
 

@@ -1404,14 +1404,24 @@ export function transactionScopeWindow(scope, todayStr){
   if(scope === "all") return null;
   if(scope === "year"){ var w = selectedYearWindow(todayStr); return { start: w.start, end: w.end, label: w.label }; }
   var ym = selectedMonth(todayStr), y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
-  return { start: ym + "-01", end: ym + "-" + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0"), label: monthPhrase(ym).replace(/^in /, "") };
+  return { start: ym + "-01", end: ym + "-" + String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0"), label: fmtDate(ym + "-01", {year:true}).replace(/^1 /, "") };
+}
+// The visible list heading states its effective window, including dated filter/trip overrides.
+export function transactionDatesLabel(scope, filter, today){
+  if(filter && (filter.from || filter.to)){
+    if(filter.from === '9999-12-31') return 'Trip unavailable';
+    if(filter.from && filter.to) return fmtDate(filter.from, {year:true}) + ' – ' + fmtDate(filter.to, {year:true});
+    return filter.from ? 'From ' + fmtDate(filter.from, {year:true}) : 'Through ' + fmtDate(filter.to, {year:true});
+  }
+  var win = transactionScopeWindow(scope, today);
+  return win ? win.label : 'All dates';
 }
 export function transactionScopeControlHtml(scope){
-  return '<div class="seg-control time-range-control" id="transactionsRange" role="group" aria-label="Which transactions to show">' +
+  return '<div class="cf-list-dates"><span class="cf-own-dates">List dates</span><div class="seg-control time-range-control" id="transactionsRange" role="group" aria-label="Spending list dates" aria-describedby="txScopeHelp">' +
     TX_SCOPES.map(function(r){
       var on = scope === r.key;
       return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-tx-range="' + r.key + '">' + r.label + '</button>';
-    }).join("") + '</div>';
+    }).join("") + '</div><span class="field-help" id="txScopeHelp">Month and Year use the selected period. All shows every date.</span></div>';
 }
 export function setTransactionsRange(value){
   transactionsRange = TX_SCOPES.some(function(r){ return r.key === value; }) ? value : "month";
@@ -1426,21 +1436,22 @@ function drawTransactions(){
   var lines = budgetLineItems();
   var all = cashflowEntries({ lines: lines, accountOf: transactionAccount, categoryOf: transactionCategory,
     nameOf: function(t){ return transactionDisplayName(t, state.shared); } });
+  var ownDates = hasOwnDates(txFilters);
+  var dateLabel = transactionDatesLabel(transactionsRange, ownDates ? currentTxFilter() : null);
   var top = (transferForm.open ? transferFormHtml() : "");
   if(!all.length){
     if(totalEl) totalEl.textContent = fmtCurrency0.format(0);
-    container.innerHTML = top + filterBarHtml([], lines, { scopeHtml: transactionScopeControlHtml(transactionsRange) }) + emptyStateHtml("Nothing logged yet — log what you spend (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.", { add: "#quickLogBtn", label: "+ Log spend" });
+    container.innerHTML = top + filterBarHtml([], lines, { dateLabel:dateLabel, scopeHtml: ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange) }) + emptyStateHtml("Nothing logged yet — log what you spend (or import a bank statement), and money received on the Income tab; both show up here, together with transfers between your accounts.", { add: "#quickLogBtn", label: "+ Log spend" });
     return;
   }
   // v3.168.0: a view or filter with its own dates (or a trip) decides the dates, not the header's period.
-  var ownDates = hasOwnDates(txFilters);
   var win = ownDates ? null : transactionScopeWindow(transactionsRange);
   var inScope = all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); });
   var shown = filterEntries(inScope, currentTxFilter());
   var totals = entryTotals(shown);
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = filterBarHtml(inScope, lines, { total: fmtCurrency0.format(totals.out), scopeActive: !ownDates && transactionsRange !== 'month', scopeLabel: win ? win.label : 'All dates',
+  var controlHtml = filterBarHtml(inScope, lines, { dateLabel:dateLabel, total: fmtCurrency0.format(totals.out), scopeActive: !ownDates && transactionsRange !== 'month', scopeLabel: win ? win.label : 'All dates',
     scopeHtml: ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange) });
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){

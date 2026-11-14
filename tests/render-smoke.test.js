@@ -2552,3 +2552,25 @@ test("Property figure explanations follow the property's kind and available figu
   assert.match(home, /Usable equity:/);
   assert.doesNotMatch(home, /Gearing:|Gross yield:|Yield on cost:|Capital gain:/);
 });
+
+
+test("Reports names the selected year and states actual screen/print dates", async function(){
+  const r = await import("../src/components/reports.js"), p = await import("../src/calc/ledger.js");
+  const keep = {basis:state.yearBasis,period:p.periodSelection(),key:r.reportShown.key,range:r.reportFrame.range,from:r.reportFrame.from,to:r.reportFrame.to};
+  try {
+    state.yearBasis = "financial"; p.setPeriod(2025,"","2026-11-03");
+    r.reportShown.key = "categories"; r.reportFrame.range = "period";
+    const html = r.reportsPageHtml(r.reportOpts("2026-11-03"));
+    assert.match(html, /Selected year · FY25\/26/);
+    assert.match(html, /Report dates/);
+    assert.match(html, /1 Jul 2025 – 30 Jun 2026/);
+    assert.doesNotMatch(html, /The header.s year/);
+    assert.match(r.reportPrintHtml(), /1 Jul 2025 – 30 Jun 2026/);
+    r.reportFrame.range="custom"; r.reportFrame.from="2025-08-01"; r.reportFrame.to="2025-08-31";
+    const custom = r.reportsPageHtml(r.reportOpts("2026-11-03"));
+    assert.equal((custom.match(/1 Aug 2025 – 31 Aug 2025/g)||[]).length, 1, "custom dates are stated once");
+  } finally {
+    state.yearBasis=keep.basis; p.setPeriod(keep.period.year,keep.period.month);
+    r.reportShown.key=keep.key; r.reportFrame.range=keep.range; r.reportFrame.from=keep.from; r.reportFrame.to=keep.to;
+  }
+});

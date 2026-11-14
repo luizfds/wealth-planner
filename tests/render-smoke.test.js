@@ -2525,3 +2525,22 @@ test("Tax warning help retains the approximation and remains separately hideable
   assert.match(hidden, /taxable income \+ your reportable super contributions/);
   assert.doesNotMatch(div293 + hidden, / title=/);
 });
+
+
+test("Property figure explanations follow the property's kind and available figures", async () => {
+  const { propertyFiguresExplanationHtml } = await import("../src/components/properties.js");
+  const p = {kind:"IP", value:500000, purchasePrice:400000, acquisitionCosts:[], income:[{amount:1000,freq:"Monthly"}], expenses:[], loans:[{balance:450000,offsetBalance:10000,rate:6,termYears:30,repaymentMode:"manual",manualRepaymentAmount:3000,manualRepaymentFreq:"Monthly"}]};
+  const html = propertyFiguresExplanationHtml(p);
+  assert.match(html, /above 80% typically triggers Lenders Mortgage Insurance/);
+  assert.match(html, /Net of offset:/);
+  assert.match(html, /Negatively geared/);
+  assert.match(html, /Gross yield:/);
+  assert.match(html, /Yield on cost:/);
+  assert.match(html, /Capital gain:/);
+  assert.match(html, /Add the purchase date/);
+  assert.doesNotMatch(html, /title=|undefined|NaN/);
+  const home = propertyFiguresExplanationHtml({...p, kind:"PPOR", purchasePrice:null, loans:[]});
+  assert.match(home, /Loan repayment:/);
+  assert.match(home, /Usable equity:/);
+  assert.doesNotMatch(home, /Gearing:|Gross yield:|Yield on cost:|Capital gain:/);
+});

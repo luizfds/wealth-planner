@@ -164,6 +164,10 @@ means a button, or a link to the place the step is done:
 - **Income:** the section's ⓘ explains hourly figures for shared income and zero working hours, and hourly
   dashes describe that explanation to assistive technology. Composition segments always name their monthly value
   and share, independent of Show as. The page's ⓘ explains the CSV actions, whose buttons describe those lines.
+- **Investments → Summary:** summary-figure and purchase-funding definitions use shared ⓘ controls.
+  Funding headers describe their full definitions, including the existing shortfall options, even when help is
+  folded. Allocation and today's mix segments expose their exact hover values as accessible names. Portfolio
+  liquidity includes Shares; purchase funding uses cash and offsets without assuming investment sales.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",
@@ -193,7 +197,7 @@ Proposed primary task and changes per view. "Add" is the item 3 wording; "Empty"
 | Cash flow → Bills | — | Empty states link to Spending |
 | Net worth | — (reading) | Period chip: see question 1 |
 | Accounts | + Add account | Period chip: see question 1 |
-| Investments (7 tabs) | + Add … per tab ("+ Add cash account", "+ Add holding", "+ Add super fund") | One rail (item 6); Offsets' empty state links to Property; 7 tips on Summary |
+| Investments (7 tabs) | + Add … per tab ("+ Add cash account", "+ Add holding", "+ Add super fund") | One rail (item 6); Offsets' empty state links to Property; Summary figures and purchase-funding definitions use ⓘ; allocation/mix values have accessible names |
 | Property | + Add property | Portfolio, card figures, actions and depreciation schedule use ⓘ; composition charts have exact accessible labels |
 | Tax → This year | — | 12 tips |
 | Tax → Returns | The open year's next step: open its worksheet, then Mark as lodged | One primary at a time; empty state links to Income |
@@ -239,7 +243,8 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    actions and the depreciation schedule, with described schedule fields and labelled composition charts. The
    Property-wide smoke ratchet also checks field titles. Cash flow → Income now explains hourly dashes and
    CSV actions, labels composition values, and points to Plan → Scenarios instead of the removed Vary button.
-   The remaining views follow.
+   Investments → Summary now explains liquidity, property equity and purchase funding through ⓘ, describes
+   funding headers and labels allocation/mix values. The remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

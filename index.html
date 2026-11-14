@@ -831,6 +831,11 @@
         <div id="assetsImportPreview" hidden></div>
 
         <div class="assets-subpage" id="assetsSub-summary">
+          <div id="assetsSummaryHelp" hidden>
+            <h2 class="section-title">Summary figures</h2>
+            <p class="ledger-note help"><b>Liquid assets:</b> Cash + Shares + any property offset balances — real, spendable cash.</p>
+            <p class="ledger-note help"><b>Property equity:</b> Value minus the full loan balance — only reachable by selling or refinancing. Offset balances are counted under Liquid instead, so this is the Property page's Total equity less them.</p>
+          </div>
           <div class="stat-row" id="assetsSummaryStats"></div>
           <div class="ledgers">
             <details class="ledger" open>
@@ -849,7 +854,7 @@
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note help" style="margin-left:0">Cash and Shares count as liquid funds against the upfront cost of buying — Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
+                <p class="ledger-note help" style="margin-left:0">Cash, Shares and offsets count as liquid assets. Purchase funding below uses cash and offsets; selling investments is not assumed. Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
                 <div id="assetsAllocation"></div>
               </div>
             </details>
@@ -857,7 +862,15 @@
               <summary>
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Net worth if you buy</h2></div>
               </summary>
-              <div class="ledger-body"><div id="netWorthPanel"></div></div>
+              <div class="ledger-body">
+                <div id="purchaseFundingHelp">
+                  <p class="ledger-note help"><b>Upfront cash needed:</b> <span id="fundingUpfrontHelp">Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.</span></p>
+                  <p class="ledger-note help"><b>Cash and offsets available:</b> <span id="fundingCashHelp">Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.</span></p>
+                  <p class="ledger-note help"><b>Surplus / shortfall:</b> <span id="fundingGapHelp">Cash and offsets minus upfront cash needed. A shortfall means your current liquid savings don't cover it — you'd need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.</span></p>
+                  <p class="ledger-note help"><b>Net worth after costs (if funded):</b> <span id="fundingAfterHelp">Current net worth minus stamp duty, LMI and other acquisition costs (see note below).</span></p>
+                </div>
+                <div id="netWorthPanel"></div>
+              </div>
             </details>
             <details class="ledger" open>
               <summary>

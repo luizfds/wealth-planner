@@ -22,6 +22,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
 //   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
@@ -1383,6 +1384,85 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async investmentssummaryhelp(page){
+    await go(page,'assets','data-assets-sub','summary');
+    const root = page.locator('#assetsSub-summary');
+    const summary = page.locator('#assetsSummaryHelp');
+    const funding = root.locator('details:has(#netWorthPanel)');
+    const allocation = root.locator('details:has(#assetsAllocation)');
+    const groups = [summary,funding,allocation];
+    const saved = await stored(page,'JSON.stringify({assets:state.assets,properties:state.properties,purchase:state.purchase})');
+    const stats = JSON.stringify(await page.locator('#assetsSummaryStats b').allTextContents());
+    const table = JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents());
+    for(const group of groups){
+      const help = group.locator(':scope > [data-help-toggle], :scope > h2 > [data-help-toggle]');
+      const note = group.locator('.help').first();
+      check(!await note.isVisible(), 'summary help is not folded initially');
+      await help.focus(); await page.keyboard.press('Enter');
+      check(await note.isVisible(), 'Enter did not reveal summary help');
+      await page.keyboard.press('Space');
+      check(!await note.isVisible(), 'Space did not fold summary help');
+    }
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const group of groups){
+          const help = group.locator(':scope > [data-help-toggle], :scope > h2 > [data-help-toggle]');
+          await help.tap();
+          check(await group.locator('.help').first().isVisible(), 'touch did not reveal summary help');
+          check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width), 'summary help overflows at ' + width + ' in ' + scheme);
+          await help.tap();
+        }
+        if(width<768){
+          await page.locator('[data-funding-full-toggle]').check();
+          check(await page.locator('.funding-full-table').isVisible(), 'full funding table is unavailable');
+          check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width), 'full funding table causes page overflow');
+          await page.locator('[data-funding-full-toggle]').uncheck();
+        }
+      }
+    }
+    check(await stored(page,'JSON.stringify({assets:state.assets,properties:state.properties,purchase:state.purchase})') === saved, 'opening help changed financial data');
+    check(JSON.stringify(await page.locator('#assetsSummaryStats b').allTextContents()) === stats && JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents()) === table, 'opening help changed displayed figures');
+    check(await page.locator('#assetsSummaryStats [title], #netWorthPanel th[title]').count() === 0, 'summary explanations still depend on hover');
+    for(const selector of ['#assetsAllocation [role="img"]','#allocationHistoryPanel .alloc-today [role="img"]']){
+      const figures = page.locator(selector);
+      check(await figures.count()>1, 'composition chart lacks accessible segments');
+      for(const figure of await figures.all()){
+        const label = await figure.getAttribute('aria-label');
+        check(label === await figure.getAttribute('title') && /\$.*%/.test(label), 'composition name differs from its exact hover values');
+      }
+    }
+    for(const header of await page.locator('#netWorthPanel th[aria-describedby]').all()){
+      check(await header.evaluate(e=>!!document.getElementById(e.getAttribute('aria-describedby'))?.textContent), 'funding header lacks its explanation');
+    }
+    check(await page.locator('#netWorthPanel th[aria-describedby]').count() === 4, 'not all funding definitions are linked');
+    const cdp = await page.context().newCDPSession(page), tree = await cdp.send('Accessibility.getFullAXTree');
+    check(tree.nodes.some(n=>!n.ignored && n.role?.value==='columnheader' && /^surplus \/ shortfall$/i.test(n.name?.value || '') && /higher LVR, likely with LMI/.test(n.description?.value || '')), 'folded funding explanation is missing from the accessibility tree');
+    await cdp.detach();
+    const help = funding.locator(':scope > [data-help-toggle]');
+    await help.tap();
+    check(/save more first, borrow a larger share/.test(await funding.innerText()), 'funding-gap wording was lost');
+    await help.focus();
+    await page.evaluate(async()=>{
+      const a=await import('/src/components/assets.js');a.renderNetWorthPanel();a.renderAssetsSummary();
+    });
+    check(await funding.locator('.help').first().isVisible() && await help.evaluate(e=>e===document.activeElement), 'redraw lost open funding help or focus');
+    check(/Selling investments is not assumed/.test(await page.locator('#netWorthPanel').innerText()), 'visible funding assumption was lost');
+    const labels = await page.locator('#assetsAllocation [role="img"]').evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')));
+    await page.evaluate(async()=>{
+      const s=await import('/src/state.js'), a=await import('/src/components/assets.js');
+      s.state.assets.find(x=>x.category==='Cash').amount+=1000;s.persist();
+      a.renderAssetsSummary();a.renderNetWorthPanel();a.renderAllocationChart();
+    });
+    check(JSON.stringify(await page.locator('#assetsAllocation [role="img"]').evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(labels), 'summary redraw left composition labels stale');
+    check(JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents()) !== table, 'funding redraw left cash figures stale');
+    await page.evaluate(async()=>{
+      const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];
+      (await import('/src/components/assets.js')).renderAssetsSummary();
+    });
+    check(!await summary.isVisible() && await page.locator('#assetsSummaryStats [data-empty-assets="Cash"]').isVisible(), 'empty household lost its add-assets guidance');
+  },
   async incomehelp(page){
     await go(page, 'expenses', 'data-expenses-sub', 'income');
     const person = await page.evaluate(async () => {
@@ -4410,7 +4490,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

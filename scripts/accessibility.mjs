@@ -97,6 +97,17 @@ for(const width of widths)for(const scheme of schemes){
     if(width<768){await page.locator('[data-trend-full-toggle]').check();await page.locator('[data-trend-full-toggle]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await scan('spending-numbers/full-table', '.trend-number-reading');await page.locator('[data-trend-full-toggle]').uncheck();}
    }
   }
+  if(pg==='assets' && sub==='summary'){
+   const summaryHelp=page.locator('#assetsSummaryHelp [data-help-toggle]');
+   const fundingHelp=page.locator('#assetsSub-summary details:has(#netWorthPanel) > [data-help-toggle]');
+   // Scope expanded explanations separately: scrolling here can clip an unrelated debt action at the header.
+   await summaryHelp.click();
+   await scan('investment-summary/figure-help','#assetsSummaryHelp');
+   await summaryHelp.click();
+   await fundingHelp.click();
+   await scan('investment-summary/funding-help','#purchaseFundingHelp');
+   await fundingHelp.click();
+  }
   if(pg==='assets' && sub==='summary' && width<768){
    await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));

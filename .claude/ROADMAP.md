@@ -5076,6 +5076,14 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      touch/keyboard CSV guidance, and current scenario instructions; preserve calculations and saves.
      Journey: `incomehelp` covers shared/zero/positive hours, exact chart names and live patches,
      tax/saved-income invariance, folded accessibility descriptions, CSV/template downloads and import review.
+   - `[x]` #255 Investments → Summary help: explain liquid assets, property equity and purchase
+     funding behind shared ⓘ controls; label allocation/mix segments and preserve funding assumptions.
+     Journey: `investmentssummaryhelp` covers 320/390/1280px in both themes, financial-data/figure
+     invariance, folded header descriptions, redraw focus, live labels and empty guidance. Allocation
+     help now distinguishes portfolio liquidity from cash/offset funding without assuming investment sales.
+     CI on PR #360 exposed a test race in `propertyremaininghelp`: it chose a tab before the
+     responsive picker was decorated, then waited on that now-hidden tab. It now waits for the
+     picker to be attached before deciding between the picker and desktop tabs.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

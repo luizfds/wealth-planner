@@ -7,7 +7,7 @@ import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } f
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
-import { escapeAttr, segLabel } from "../lib/html.js";
+import { escapeAttr, segLabel, figureAttrs } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
 function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
@@ -1196,7 +1196,7 @@ function allocBarHtml(segments, values){
   var visible = segments.filter(function(seg){ return values[seg.key] > 0; });
   if(!visible.length) return '<p class="ledger-note" style="margin:0">Nothing here yet.</p>';
   var bar = visible.map(function(seg){
-    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" style="flex:' + values[seg.key] + ' 1 0%" title="' + seg.key + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')"></div>';
+    return '<div class="tax-waterfall-seg ' + seg.colorClass + '" style="flex:' + values[seg.key] + ' 1 0%"' + figureAttrs(seg.key + ': ' + fmtCurrency0.format(values[seg.key]) + ' (' + fmtPercent1.format(whole > 0 ? values[seg.key] / whole : 0) + ')') + '></div>';
   }).join("");
   var legend = visible.map(function(seg){
     return '<div class="tax-waterfall-item"><span class="proj-swatch ' + seg.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + seg.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(values[seg.key]) + '</span></div></div>';
@@ -1215,6 +1215,8 @@ function renderAssetAllocationHtml(){
 }
 
 export function renderAssetsSummary(){
+  var help = document.getElementById("assetsSummaryHelp");
+  if(help) help.hidden = !state.assets.length && !state.properties.length;
   var statsEl = document.getElementById("assetsSummaryStats");
   if(statsEl){
     var liquidAssets = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
@@ -1233,9 +1235,9 @@ export function renderAssetsSummary(){
     }
     statsEl.innerHTML =
       '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
-      '<div class="stat-tile" title="Cash + Shares + any property offset balances — real, spendable cash"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
+      '<div class="stat-tile"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
       '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Vehicle + Other</small></div>' +
-      '<div class="stat-tile" title="Value minus the full loan balance — only reachable by selling or refinancing. Offset balances are counted under Liquid instead, so this is the Property page\'s Total equity less them."><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
+      '<div class="stat-tile"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
   }
   var allocEl = document.getElementById("assetsAllocation");
   if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
@@ -1294,10 +1296,10 @@ export function netWorthPurchaseHtml(){
   return '<div class="funding-reading" data-funding-full="' + purchaseDisplay.fullTable + '"><label class="funding-control"><input type="checkbox" data-funding-full-toggle' + (purchaseDisplay.fullTable ? ' checked' : '') + '> Full table <span class="funding-instruction">— scroll horizontally to compare scenarios</span></label>' + summary + '<div class="funding-full-table">' +
     '<div class="table-scroll" role="region" aria-label="Purchase funding comparison" tabindex="0"><table class="worth-table">' +
       '<thead><tr><th scope="col">Scenario</th>' +
-        '<th scope="col" class="num" title="Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.">Upfront cash needed</th>' +
-        '<th scope="col" class="num" title="Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.">Cash and offsets available</th>' +
-        '<th scope="col" class="num" title="Cash and offsets minus upfront cash needed. A shortfall means your current liquid savings don\'t cover it — you\'d need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.">Surplus / shortfall</th>' +
-        '<th scope="col" class="num" title="Current net worth minus stamp duty, LMI and other acquisition costs (see note below).">Net worth after costs (if funded)</th>' +
+        '<th scope="col" class="num" aria-describedby="fundingUpfrontHelp">Upfront cash needed</th>' +
+        '<th scope="col" class="num" aria-describedby="fundingCashHelp">Cash and offsets available</th>' +
+        '<th scope="col" class="num" aria-describedby="fundingGapHelp">Surplus / shortfall</th>' +
+        '<th scope="col" class="num" aria-describedby="fundingAfterHelp">Net worth after costs (if funded)</th>' +
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table></div></div></div>' +
@@ -1388,8 +1390,8 @@ export function todaysMixHtml(buckets, today){
   rows.sort(function(a, b){ return b.y - a.y; });
   var segs = rows.map(function(r){
     var share = r.y / whole;
-    return '<div class="rule-seg ' + r.colorClass + '" style="width:' + (share * 100) + '%" title="' +
-      escapeAttr(r.key) + ' ' + fmtCurrency0.format(r.y) + ' — ' + fmtPercent1.format(share) + ' of what you own">' +
+    return '<div class="rule-seg ' + r.colorClass + '" style="width:' + (share * 100) + '%"' +
+      figureAttrs(r.key + ' ' + fmtCurrency0.format(r.y) + ' — ' + fmtPercent1.format(share) + ' of what you own') + '>' +
       // Only label a slice wide enough to hold the text; the legend below carries the rest.
       (share >= 0.14 ? segLabel(fmtPercent1.format(share)) : "") + '</div>';
   }).join("");

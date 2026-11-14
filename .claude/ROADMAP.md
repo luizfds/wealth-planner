@@ -5172,3 +5172,7 @@ Verified `categorycolours` and existing `categories` journeys (quiet/hover/focus
 `[x]` Size the first-row cards to content, remove the redundant wide outer goal card, and compact the collapsed desktop weekly recap. Preserve figures, links, expanded content and saved card arrangements. Verify phone/desktop in both themes with before/after screenshots.
 
 Verified with measured `homebalance` heights/overflow, both themes at 320/390/1280px, unchanged financial data and expandable recap; `homecompare` and `assessmentux` pass. Before/after screenshots at 390/1280px and 12 scoped accessibility states (default/expanded) have no violations, contrast failures or overflow.
+
+## Quiet sidebar footer — issue #308
+
+`[~]` Keep one local-storage/backup line in the sidebar. Move the full privacy explanation and version/update details to Settings → Preferences, keeping avatar actions, release-version parsing and the existing backup shortcut. Preserve privacy wording and verify desktop/phone, both themes, before/after screenshots and real update/backup entry points.

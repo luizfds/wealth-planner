@@ -4,7 +4,7 @@ The Import data chooser is the first slice of issue #265. The avatar menu, relev
 
 A choice navigates to an existing tool, opens its disclosure/menu and focuses its control. It does not select a file, call a parser or confirm an import. Back returns to the origin. Escape, Cancel and backdrop dismissal return focus to the visible opener, including the menu toggle when the original menu item is hidden. Tab stays inside the chooser. No new persistent state or import data model is introduced.
 
-Bank and loan statements use Spending's existing CSV/PDF/OFX/QFX/QIF workflow. Property PDFs use the existing statement recognition and property selection there. Payslips lead to Tax's per-person checks; the chooser explicitly says that reading can update year-to-date figures with Undo, matching current behaviour. Broker trades open the Shares trade tool. Prices open the existing Prices tool for paste or Google Sheet configuration. Budget, income and asset CSVs open their own template/preview controls. Restore leads to Preferences' existing Open a backup file control and confirmation flow.
+Bank and loan statements use Spending's existing CSV/PDF/OFX/QFX/QIF workflow. Property PDFs use the existing statement recognition and property selection there. Payslips lead to Tax's per-person checks; the parsed figures are staged for explicit review before updating year-to-date figures, with Undo. Broker trades open the Shares trade tool. Prices open the existing Prices tool for paste or Google Sheet configuration. Budget, income and asset CSVs open their own template/preview controls. Restore leads to Preferences' existing Open a backup file control and confirmation flow.
 
 Without an investment property, a person or a share holding, the relevant choice explains the prerequisite and opens its Add control. Opening the Add editor is a separate explicit action. Navigation refreshes the header's moved import/export controls synchronously before focusing them.
 
@@ -13,3 +13,13 @@ Without an investment property, a person or a share holding, the relevant choice
 The `importchooser` journey measures every choice and the modal at 320/390/768/1280px in both themes, checks keyboard/touch navigation, focus containment/return, Back/Escape, all destinations, empty-household prerequisites and unchanged in-memory/persisted household data. `IMPORT_A11Y=1` adds eight scoped axe scans; `IMPORT_SHOTS` retains chooser screenshots separately from page defaults.
 
 Issue #265 remains open. Parser-specific Select → Recognise/map → Review → Confirm → Result contracts, malformed/unsupported/partial-file recovery, mixed-currency and duplicate reviews, and confirmation-before-write for every importer are follow-up work. This chooser does not certify those existing tools' cancellation semantics. Actual devices and screen readers remain separate #267/#299 work.
+
+## Payslip year-to-date review
+
+Pasting text, choosing a PDF on a person's tax card, and recognising a payslip PDF in Spending all stage the parsed figures in memory. They do not change saved YTD figures. The review names the person and shows both proposed figures and the saved date/gross/tax. Missing or invalid YTD data cannot be applied; duplicate figures are identified. An older payslip offers an explicit Replace newer year-to-date figures action with both dates visible.
+
+Save checks that the person still exists and the saved figures match those shown in the review. An intervening edit requires another review. Undo restores the previous YTD only if no later edit replaced the applied figures. Dismissal discards the pending read; failed parsing keeps pasted text for correction. A newer read or dismissal invalidates an earlier PDF callback. The PDF chooser is a keyboard-operable button.
+
+Salary updates and logging take-home pay remain separate explicit actions. An inbox payslip is not moved to Imported on reading or applying figures; Finish review explicitly completes that file, including when its figures were already saved. Dismissing leaves it available. Reading does not certify the inferred person or source currency; check the named destination and parsed figures. Broader import mapping/currency/recovery work stays in #265.
+
+The payslipreview journey checks staging, dismissal, malformed/partial/invalid/duplicate/older reads, stale saves and guarded Undo, deleted people, cancelled asynchronous failure, direct and recognised PDFs, persisted-state invariance before apply, and four widths in both themes with scoped axe checks.

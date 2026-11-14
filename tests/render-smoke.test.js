@@ -2617,3 +2617,26 @@ test("bill confirmation separates controls and identifies each due payment", asy
   assert.match(html,/name saved in Budget/);
   assert.doesNotMatch(html,/<label class="bc-confirm-row"/);
 });
+
+
+test("payslip preview names its destination and requires an explicit YTD save", async () => {
+  const {withholdingCheckHtml,payslipRead}=await import('../src/components/income.js');
+  const oldTax=state.tax, oldIncome=state.income;
+  try{
+    state.income=[{id:'example-pay',what:'Salary',person:'Sam',incomeType:'Gross',amount:6000,freq:'Monthly'}];
+    state.tax=Object.assign({},state.tax,{settings:{Sam:{ytd:{asOf:'2026-11-01',gross:30000,withheld:6000}}}});
+    payslipRead.Sam={periodStart:'2026-10-01',periodEnd:'2026-10-31',gross:6000,tax:1000,net:5000,super:600,ytd:{gross:20000,tax:4000},found:['gross','tax','net']};
+    const html=withholdingCheckHtml('Sam');
+    assert.match(html,/Review for <b>Sam<\/b>/);
+    assert.match(html,/Replace newer year-to-date figures/);
+    assert.match(html,/data-slip-before=/);
+    assert.match(html,/Dismiss review/);
+    assert.match(html,/data-slip-pick=/);
+    assert.equal(state.tax.settings.Sam.ytd.gross,30000);
+    payslipRead.Sam={error:'Unreadable <source>',pasted:true,sourceText:'</textarea><script>example</script>'};
+    const failed=withholdingCheckHtml('Sam');
+    assert.match(failed,/&lt;\/textarea>&lt;script>/);
+    assert.doesNotMatch(failed,/<script>example/);
+    assert.match(failed,/Dismiss review/);
+  }finally{state.tax=oldTax;state.income=oldIncome;delete payslipRead.Sam;}
+});

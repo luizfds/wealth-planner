@@ -344,7 +344,7 @@ const JOURNEYS = {
     for(const choice of choices){
       const origin=await page.evaluate(()=>location.pathname);
       await open();
-      if(choice.key==='trades') await page.locator('[data-import-choice="trades"]').tap();
+      if(choice.key==='trades') await page.locator('[data-import-choice="trades"]').click();
       else await page.locator('[data-import-choice="'+choice.key+'"]').press('Enter');
       await waited(page,({choice})=>!document.querySelector('.import-chooser')&&document.body.dataset.currentPage===choice.page&&!!document.querySelector(choice.target)?.getClientRects().length&&document.querySelector(choice.target)===document.activeElement,'revealed and focused '+choice.key,{choice});
       await navDone();
@@ -368,6 +368,16 @@ const JOURNEYS = {
       await waited(page,target=>!!document.querySelector(target)?.getClientRects().length&&document.querySelector(target)===document.activeElement,'setup destination '+key,target);
       check(await page.locator(target).first().evaluate(el=>el===document.activeElement),'setup action not focused: '+key);
     }
+    const touch=await fresh({touch:true});
+    try{
+      await quiet(touch.page);
+      await click(touch.page,'#avatarBtn');
+      await touch.page.locator('.avatar-menu [data-import-open]').tap();
+      await waited(touch.page,()=>!!document.querySelector('.import-chooser:modal'),'touch import chooser');
+      await touch.page.locator('[data-import-choice="trades"]').tap();
+      await waited(touch.page,()=>!!document.querySelector('[data-tr-text]')?.getClientRects().length&&document.querySelector('[data-tr-text]')===document.activeElement,'touch broker import destination');
+      check(!touch.errors.length,'touch import errors: '+touch.errors.join('; '));
+    }finally{await touch.ctx.close();}
   },
   async exactsearch(page){
     await quiet(page);

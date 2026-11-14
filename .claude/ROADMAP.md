@@ -5181,4 +5181,6 @@ Verified with `sidebarfooter`: preserved privacy warnings, one parsed version ma
 
 ## Report chart label size — issue #308
 
-`[~]` Fit report bar/column charts to their measured width so shared-token SVG text stays at its intended size. Reduce month-label density on phones; preserve chart values, report tables, printed charts and detail-page reuse. Verify resize, hidden/reopened views and both themes at phone/desktop sizes with before/after screenshots.
+`[x]` Fit report bar/column charts to their measured width so shared-token SVG text stays at its intended size. Reduce month-label density on phones; preserve chart values, report tables, printed charts and detail-page reuse. Verify resize, hidden/reopened views and both themes at phone/desktop sizes with before/after screenshots.
+
+`reportlabels` measures 1:1 SVG/CSS text sizing at 320/390/1280px in both themes, month-label separation, stable print output, in-place resize, reopened Reports and shared Detail charts. `reportsummary`, all 172 test files and 12 scoped axe states pass. Before/after screenshots reviewed at 390/1280px; static print sizing and label density remain unchanged.

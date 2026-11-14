@@ -180,3 +180,17 @@ test("a pinned report is named for what it shows, and old saves get an empty lis
   assert.deepEqual(s.savedReports.map(r => r.key), ["budget"]);
   assert.deepEqual(migrateState({}).savedReports, []);
 });
+
+
+test("fitted report charts keep values and reduce crowded month labels", () => {
+  const chart = {type:"columns",series:["Money in","Money out"],items:Array.from({length:12}, (_,i) => ({label:"Month " + (i+1),a:1000,b:500}))};
+  const wide = reportChartHtml(chart, 1000), phone = reportChartHtml(chart, 260);
+  assert.match(wide, /viewBox="0 0 1000 160"/);
+  assert.match(phone, /viewBox="0 0 260 160"/);
+  assert.deepEqual(phone.match(/<title>.*?<\/title>/g), wide.match(/<title>.*?<\/title>/g));
+  assert.ok((phone.match(/<text/g)||[]).length < (wide.match(/<text/g)||[]).length);
+  assert.match(reportChartHtml(chart), /viewBox="0 0 640 160"/, "static print fallback keeps its width");
+  const bars = reportChartHtml({type:"bars",items:[{label:'Example <&> "label"',value:1000,compare:500}]},260);
+  assert.doesNotMatch(bars, /Example <&>/);
+  assert.match(bars, /Example &lt;&amp;> &quot;label&quot;: \$1,000/);
+});

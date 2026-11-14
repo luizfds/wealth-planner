@@ -416,6 +416,59 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async reportlabels(page){
+    await quiet(page);
+    const printed = {};
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        for(const report of ['cashflow','categories']){
+          await go(page, 'reports', 'data-report', report);
+          const chart = page.locator('#reportsBody .rc').first();
+          await chart.waitFor({state:'visible'});
+          await waited(page, () => {
+            const svg = document.querySelector('#reportsBody .rc svg');
+            return svg && Math.abs(svg.getScreenCTM().a - 1) < 0.02;
+          }, 'report SVG units to match CSS pixels');
+          const bad = await chart.locator('text').evaluateAll(es => es.some(e => Math.abs(e.getScreenCTM().a - 1) > 0.02));
+          check(!bad, 'report text scales with its container');
+          const labels = await chart.locator('text[y="154"]').evaluateAll(es => es.map(e => ({left:e.getBoundingClientRect().left,right:e.getBoundingClientRect().right})));
+          check(labels.every((r,i) => !i || r.left >= labels[i-1].right + 2), 'month labels overlap');
+          check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'report chart overflows');
+          const print = await page.evaluate(async () => (await import('/src/components/reports.js')).reportPrintHtml());
+          if(printed[report]) check(printed[report] === print, 'resizing changed the printed report or its values');
+          else printed[report] = print;
+          if(process.env.LABEL_SHOTS && width !== 320) await chart.screenshot({path:process.env.LABEL_SHOTS + '/' + report + '-' + width + '-' + scheme + '.png'});
+        }
+      }
+    }
+    const chart = page.locator('#reportsBody .rc').first();
+    await chart.evaluate(e => { e.dataset.resizeProbe = 'same'; });
+    await page.setViewportSize({width:390,height:844});
+    await waited(page, () => {
+      const svg = document.querySelector('#reportsBody .rc svg');
+      return svg && Math.abs(svg.getScreenCTM().a - 1) < 0.02;
+    }, 'the existing chart to resize');
+    check(await chart.getAttribute('data-resize-probe') === 'same', 'resize replaced the chart container');
+    await go(page, 'dashboard');
+    await page.setViewportSize({width:1280,height:844});
+    await go(page, 'reports', 'data-report', 'cashflow');
+    await waited(page, () => Math.abs(document.querySelector('#reportsBody .rc svg').getScreenCTM().a-1)<0.02, 'a reopened report to fit');
+    await page.evaluate(async () => {
+      const detail = await import('/src/components/detail.js');
+      detail.detailTarget.kind = 'line'; detail.detailTarget.id = 'demo-groceries';
+      detail.renderDetailPage();
+      (await import('/src/components/nav.js')).showPage('detail');
+    });
+    await waited(page, () => {
+      const svg = document.querySelector('#detailBody .rc svg');
+      return document.body.dataset.currentPage === 'detail' && svg && Math.abs(svg.getScreenCTM().a-1)<0.02;
+    }, 'the shared Detail chart to fit after opening');
+    await page.setViewportSize({width:320,height:844});
+    await waited(page, () => Math.abs(document.querySelector('#detailBody .rc svg').getScreenCTM().a-1)<0.02, 'the Detail chart to resize');
+
+  },
   async sidebarfooter(page){
     await quiet(page);
     const before = await stored(page, 'JSON.stringify({assets:state.assets,lastBackupDate:state.lastBackupDate})');

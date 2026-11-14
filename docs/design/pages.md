@@ -136,6 +136,10 @@ The desktop sidebar footer keeps one line: “Stored on this device · Back up�
 flow. Settings → Preferences carries the full privacy explanation beside backups, plus an About section with
 version, update check and feature-request actions. The avatar menu keeps those shortcuts on every screen size.
 
+Report bar and column charts fit their measured container width, keeping SVG text at the shared font size
+instead of scaling it with the figure. Narrow charts show fewer month labels; the table keeps every month and
+exact value. Resizing or reopening a view fits the chart again. Printed reports use the static chart fallback.
+
 ### 4. Empty and no-results states
 
 An empty section says three things in one line: what it holds, why it's empty, and the next step **as a control**. That

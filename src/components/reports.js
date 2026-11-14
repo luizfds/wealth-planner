@@ -7,7 +7,7 @@ import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
 import { RANGES, COMPARES, GROUPS, rangeWindow, compareWindow, monthsIn } from "../calc/reportframe.js";
 import { selectedYearWindow, periodsOf, transactionDisplayName } from "../calc/ledger.js";
-import { reportChartHtml } from "../lib/reportcharts.js";
+import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
 import { fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { yearEndHtml } from "./yearend.js";
 import { monthDetailHtml } from "./monthdetail.js";
@@ -329,6 +329,7 @@ export function renderReports(){
   // #262: through keepUi, so choosing a report or changing its period leaves focus on the control that replaced the one
   // used, not on the page body.
   if(el) keepUi(function(){ el.innerHTML = reportsPageHtml(reportOpts()); });
+  if(el) fitReportCharts(el);
   var strip = el && el.querySelector(".md-strip");
   // The selected month ends the strip: keep its button visible after navigation and redraws.
   if(strip) strip.scrollLeft = strip.scrollWidth;

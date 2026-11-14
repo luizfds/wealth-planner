@@ -16,7 +16,7 @@ import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fixedRateView, rentSummary } from "../calc/propertylife.js";
 import { statementTotals, statementsForFy, waterRatesLine, latestStatement } from "../calc/agentstatement.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
-import { escapeAttr } from "../lib/html.js";
+import { escapeAttr, figureAttrs } from "../lib/html.js";
 import { labelFields } from "../lib/labelfields.js";
 import { keepUi } from "../lib/keepui.js";
 import { decorateHelp } from "../lib/help.js";
@@ -132,7 +132,8 @@ function modernLoanCompBarHtml(rowMeta){
   var total = segs.reduce(function(s, x){ return s + x.balance; }, 0);
   return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
     var pct = total > 0 ? x.balance / total : 0;
-    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.balance + ' 1 0%" title="' + escapeAttr(x.loan.what) + ': ' + fmtCurrency0.format(x.balance) + ' balance (' + fmtPercent1.format(pct) + ')"></div>';
+    var label = (x.loan.what == null ? '' : x.loan.what) + ': ' + fmtCurrency0.format(x.balance) + ' balance (' + fmtPercent1.format(pct) + ')';
+    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.balance + ' 1 0%"' + figureAttrs(label) + '></div>';
   }).join("") + '</div>';
 }
 function loanRowModernHtml(loan, li, propId, colorIdx){
@@ -286,7 +287,8 @@ function acquisitionCostCompBarHtml(rowMeta){
   var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
   return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
     var pct = total > 0 ? x.amount / total : 0;
-    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
+    var label = (x.cost.what == null ? '' : x.cost.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')';
+    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%"' + figureAttrs(label) + '></div>';
   }).join("") + '</div>';
 }
 // Names that usually mean a cost of the LOAN, not the purchase — from before item 37 gave
@@ -340,15 +342,17 @@ function depreciationScheduleHtml(p){
       '<select class="dep-sched-fy field-control field-compact" data-dep-sched-index="' + i + '" aria-label="Financial year">' +
         years.map(function(y){ return '<option value="' + y + '"' + (Number(r.fy) === y ? " selected" : "") + '>' + fyLabel(y) + '</option>'; }).join("") +
       '</select>' +
-      '<input type="number" step="1" min="0" class="dep-sched-cw field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" title="Capital works (Division 43) for this year, from the report">' +
-      '<input type="number" step="1" min="0" class="dep-sched-plant field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" title="Plant & equipment (Division 40) for this year, from the report">' +
+      '<input type="number" step="1" min="0" class="dep-sched-cw field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.capitalWorks) || 0) + '" aria-label="Capital works for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-cw-help-' + escapeAttr(p.id) + '">' +
+      '<input type="number" step="1" min="0" class="dep-sched-plant field-control field-compact" data-dep-sched-index="' + i + '" value="' + (Number(r.plant) || 0) + '" aria-label="Plant and equipment for ' + fyLabel(Number(r.fy)) + '" aria-describedby="dep-plant-help-' + escapeAttr(p.id) + '">' +
       '<button type="button" class="btn btn-danger btn-sm row-del" data-dep-sched-del="' + i + '" aria-label="Delete ' + fyLabel(Number(r.fy)) + '">✕</button>' +
     '</div>';
   }).join("");
-  return '<div class="calc-costs-title" style="margin-top:14px">Quantity surveyor\'s schedule</div>' +
-    '<p class="ledger-note" style="margin-left:0">Year · capital works · plant, as printed in the report. A year listed here is used as-is; the fields above fill the years it doesn\'t list.</p>' +
+  return '<div data-property-help="depreciation-schedule"><h4 class="calc-costs-title" style="margin-top:14px">Quantity surveyor\'s schedule</h4>' +
+    '<p class="ledger-note help" style="margin-left:0"><span id="dep-cw-help-' + escapeAttr(p.id) + '">Capital works (Division 43) for this year, from the report.</span> ' +
+    '<span id="dep-plant-help-' + escapeAttr(p.id) + '">Plant &amp; equipment (Division 40) for this year, from the report.</span> ' +
+    'Year · capital works · plant, as printed in the report. A year listed here is used as-is; the fields above fill the years it doesn\'t list.</p>' +
     (rows.length ? '<div class="m-card m-cost-rows">' + rowsHtml + '</div>' : "") +
-    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-dep-sched-add="' + escapeAttr(p.id) + '">+ Add year</button>';
+    '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-dep-sched-add="' + escapeAttr(p.id) + '">+ Add year</button></div>';
 }
 function depreciationSectionHtml(p){
   var thisYear = propertyDepreciationForWindow(p);
@@ -357,7 +361,7 @@ function depreciationSectionHtml(p){
   var total = capitalWorks + plant;
   return propertySectionHtml(p, "depreciation",
     '<div class="property-section-title">Depreciation</div>' +
-      '<div class="property-section-total" title="' + escapeAttr(householdYearWindow().label) + '">' + fmtCurrency0.format(total) + '</div>',
+      '<div class="property-section-total">' + fmtCurrency0.format(total) + '</div>',
     '<p class="ledger-note help" style="margin-left:0">Usually the largest deduction on an investment property, and the only one that isn\'t money leaving your account — it reduces the taxable result without touching cash flow. A quantity surveyor\'s depreciation schedule is where these figures come from; entering guesses here produces a guess on your tax return.</p>' +
     '<div class="calc-grid">' +
       '<div class="calc-field" title="The original cost to BUILD, not what you paid for the property — land is not depreciable. Claimed at 2.5% a year for 40 years from completion."><label>Construction cost</label><input type="number" step="1000" min="0" class="prop-construction-cost field-control" value="' + (Number(p.constructionCost) || 0) + '" placeholder="0"></div>' +
@@ -993,7 +997,7 @@ function propertiesEquityDebtBarHtml(){
   var whole = visible.reduce(function(s, x){ return s + x.value; }, 0);
   var bar = visible.map(function(s){
     var label = s.key + ': ' + fmtCurrency0.format(s.value) + ' (' + fmtPercent1.format(whole > 0 ? s.value / whole : 0) + ')';
-    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%" role="img" aria-label="' + escapeAttr(label) + '" title="' + escapeAttr(label) + '"></div>';
+    return '<div class="tax-waterfall-seg ' + s.colorClass + '" style="flex:' + s.value + ' 1 0%"' + figureAttrs(label) + '></div>';
   }).join("");
   var legend = visible.map(function(s){
     return '<div class="tax-waterfall-item"><span class="proj-swatch ' + s.colorClass + '"></span><div class="tax-waterfall-item-text"><span class="tax-waterfall-item-label">' + s.key + '</span><span class="tax-waterfall-item-value">' + fmtCurrency0.format(s.value) + '</span></div></div>';

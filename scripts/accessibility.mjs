@@ -266,6 +266,17 @@ for(const width of widths)for(const scheme of schemes){
    await row.locator('.loan-manual-amount').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
    await scan('loan-fields/manual', '.m-row.open .m-edit-field:has(> .loan-manual-amount)');
    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+   await page.locator('[data-prop-tab][data-tab="tax"]').first().evaluate(e=>e.click());
+   await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="depreciation"][aria-expanded="false"]').forEach(e=>e.click()));
+   const schedule = page.locator('[data-property-help="depreciation-schedule"]').first();
+   if(!await schedule.locator('.dep-sched-cw').count()) await schedule.locator('[data-dep-sched-add]').click();
+   await schedule.locator('[data-help-toggle]').click();
+   await scan('property-schedule/help', '[data-property-help="depreciation-schedule"]');
+   const capital = schedule.locator('.dep-sched-cw').first(), amount = await capital.inputValue();
+   await capital.fill('');
+   await scan('property-schedule/error', '[data-property-help="depreciation-schedule"]');
+   await capital.fill(amount);
+   await schedule.locator('[data-help-toggle]').click();
   }
   if(pg==='assets'&&sub==='Shares'){
    const row=page.locator('#assetsSub-Shares .m-row').first();

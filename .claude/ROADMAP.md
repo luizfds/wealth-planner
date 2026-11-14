@@ -5068,6 +5068,10 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      CI exposed the two-loan LVR badge exceeding its 320px card with wider Linux fallback fonts.
      Badges now wrap within the card; the journey explicitly uses DejaVu Sans for badges and reports
      viewport/element bounds on an overflow. This regression fails before the width cap.
+   - `[x]` #255 remaining Property chart/schedule help: accessible loan/acquisition segment values,
+     linked depreciation schedule explanations behind ⓘ, and the Property-wide tooltip ratchet.
+     Journey: `propertyremaininghelp` checks exact/escaped chart labels, live patches, schedule help at
+     320/390/1280px in both themes, stored-data invariance, described errors, saves and redraw focus.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

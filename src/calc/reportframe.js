@@ -12,7 +12,7 @@ function shortLabel(s){ return Number(s.slice(8, 10)) + " " + MONTH_NAMES[Number
 function monthLabel(ym){ return MONTH_NAMES[Number(ym.slice(5, 7)) - 1] + " " + ym.slice(0, 4); }
 
 export var RANGES = [
-  { key: "period", label: "The header's year" },
+  { key: "period", label: "Selected year" },
   { key: "l12", label: "Last 12 months" },
   { key: "cal", label: "This calendar year" },
   { key: "quarter", label: "This quarter" },

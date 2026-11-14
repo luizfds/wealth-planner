@@ -416,6 +416,97 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async periodranges(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js');
+      s.state.yearBasis = 'financial';
+      s.state.transactions = [
+        {id:'example-current',what:'Example current month',date:'2026-11-01',amount:100,category:'Groceries'},
+        {id:'example-prior',what:'Example prior month',date:'2026-10-06',amount:200,category:'Groceries'},
+        {id:'example-old',what:'Example prior year',date:'2025-11-01',amount:300,category:'Groceries'}
+      ];
+      s.state.trips = [{id:'example-trip',name:'Example trip',from:'2026-10-05',to:'2026-10-10'}];
+      s.commit(['transactions','trips','yearBasis']);
+      (await import('/src/components/period.js')).applyPeriod(null,'');
+    });
+    const before = await stored(page, 'JSON.stringify({transactions:state.transactions,trips:state.trips,assets:state.assets})');
+    await go(page,'expenses','data-expenses-sub','spending');
+    const tx = page.locator('#transactionsTable'), heading = tx.locator('.record-heading h2');
+    const amount = async () => Number((await tx.locator('#totalTransactionsAmount').textContent()).replace(/[^0-9.-]/g,''));
+    const openFilters = async () => { if(!await tx.locator('#cfFilterRow').isVisible()) await tx.locator('.record-toolbar [data-cf-panel]').click(); };
+    const headerYear = async year => {
+      await page.evaluate(() => window.scrollTo(0,0));
+      await waited(page,()=>!document.querySelector('.app-topbar').classList.contains('is-compact'),'the full period header');
+      await page.locator('#periodBtn').click(); await page.locator('[data-period-year="'+year+'"]').click(); await page.keyboard.press('Escape');
+    };
+    check(await heading.textContent() === 'Nov 2026' && await amount() === 100,'month heading or entries disagree');
+    check((await page.locator('#periodBtn').textContent()).includes('Nov · FY26/27'),'Spending header omits its month');
+    await openFilters();
+    check(await tx.getByRole('group',{name:'Spending list dates'}).isVisible(),'list dates are not named');
+    await tx.locator('[data-tx-range="year"]').focus(); await page.keyboard.press('Enter');
+    check(await heading.textContent() === 'FY26/27' && await amount() === 300,'year view does not follow selected year');
+    await tx.locator('[data-tx-range="all"]').tap();
+    check(await heading.textContent() === 'All dates' && await amount() === 600,'All does not state its local range');
+    await headerYear(2025);
+    check(await heading.textContent() === 'All dates' && await amount() === 600,'header year changed All dates');
+    await openFilters(); await tx.locator('#transactionsRange [data-tx-range="month"]').click();
+    check(await heading.textContent() === 'Jun 2026' && await amount() === 0,'month view does not use the past year effective month');
+    await page.locator('#periodBtn').click(); await page.locator('[data-period-month="2025-11"]').tap(); await page.keyboard.press('Escape');
+    check(await heading.textContent() === 'Nov 2025' && await amount() === 300,'header month did not update list dates and entries');
+    await openFilters();
+    await tx.locator('[data-cf-filter="from"]').fill('2026-10-01');
+    await tx.locator('[data-cf-filter="to"]').fill('2026-11-01');
+    check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 300,'dated filter does not state its actual window');
+    await tx.locator('[data-cf-filter="trip"]').selectOption('example-trip');
+    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'trip intersection does not state its effective dates');
+    await page.keyboard.press('Escape');
+    check(await heading.isVisible() && !await tx.locator('#cfFilterRow').isVisible(),'dates disappear with Filters closed');
+    await headerYear(2026);
+    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'global period changed a dated trip filter');
+    await openFilters(); await tx.locator('[data-cf-clear]').click();
+    await page.locator('#periodBtn').click(); await page.locator('[data-period-basis="calendar"]').click(); await page.keyboard.press('Escape');
+    await openFilters(); await tx.locator('[data-tx-range="year"]').click();
+    check(await heading.textContent() === '2026' && await amount() === 300,'calendar year list does not agree with the header');
+    await go(page,'reports','data-report','categories');
+    const range = page.locator('[data-rf="range"]'), subtitle = page.locator('#reportSheet .rp-head > div > span').first();
+    const reportTotal = () => page.evaluate(async () => {
+      const r = await import('/src/components/reports.js'), c = await import('/src/calc/reports.js');
+      return c.buildReport(r.reportShown.key,r.reportOpts()).rows.find(x=>x.cls==='total').cells.total;
+    });
+    check(await reportTotal() === 300,'selected calendar-year report total changed');
+    check(await range.locator('option[value="period"]').textContent() === 'Selected year · 2026','report default does not name the actual year');
+    check((await subtitle.textContent()).includes('1 Jan 2026 – 31 Dec 2026'),'report omits actual year dates');
+    await range.selectOption('month');
+    check((await subtitle.textContent()).includes('1 Nov 2026 – 30 Nov 2026') && await reportTotal() === 100,'monthly report dates or total disagree');
+    await range.selectOption('custom');
+    await page.locator('[data-rf="from"]').fill('2025-11-01');
+    await page.locator('[data-rf="to"]').fill('2026-10-31');
+    const custom = await subtitle.textContent();
+    check(await reportTotal() === 500,'custom report total changed');
+    await headerYear(2025);
+    check(await subtitle.textContent() === custom && await reportTotal() === 500 && custom.includes('1 Nov 2025 – 31 Oct 2026'),'global year changed custom report dates');
+    check(await range.locator('option[value="period"]').textContent() === 'Selected year · 2025','report selected-year option is stale');
+    await range.selectOption('period');
+    check((await subtitle.textContent()).includes('1 Jan 2025 – 31 Dec 2025') && await reportTotal() === 300,'selected-year report did not follow header');
+    const printed = await page.evaluate(async()=>(await import('/src/components/reports.js')).reportPrintHtml());
+    check(printed.includes('1 Jan 2025 – 31 Dec 2025'),'printed report omits its actual dates');
+    await range.selectOption('month');
+    check((await subtitle.textContent()).includes('1 Nov 2026 – 30 Nov 2026') && await reportTotal() === 100,'current-month report silently followed the selected past year');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s=>{document.documentElement.dataset.theme=s;},scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'report date controls overflow');
+        await go(page,'expenses','data-expenses-sub','spending'); await openFilters();
+        check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'list date controls overflow');
+        if(process.env.RANGE_SHOTS && width!==320) await page.screenshot({path:process.env.RANGE_SHOTS+'/spending-'+width+'-'+scheme+'.png'});
+        await go(page,'reports','data-report','categories');
+        if(process.env.RANGE_SHOTS && width!==320) await page.screenshot({path:process.env.RANGE_SHOTS+'/reports-'+width+'-'+scheme+'.png'});
+      }
+    }
+    check(await stored(page,'JSON.stringify({transactions:state.transactions,trips:state.trips,assets:state.assets})')===before,'viewing date ranges changed saved financial records');
+  },
   async periodheader(page){
     await quiet(page);
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
@@ -4829,7 +4920,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

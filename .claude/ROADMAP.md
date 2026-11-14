@@ -5193,4 +5193,6 @@ Verified with period-label unit cases (current/past financial and calendar years
 
 ## Spending and Reports date clarity — issue #307
 
-`[~]` Keep Spending Month/Year/All as local views of the selected period, label them List dates, and show the actual list window in its heading even with Filters closed. Dated filters/trips retain precedence and show their effective dates. Reports names its selected year and actual report dates without referring to “the header”. Preserve range/filter semantics, values and today qualifiers; verify selection from both header and list, both year bases, custom dates and trip overrides.
+`[x]` Keep Spending Month/Year/All as local views of the selected period, label them List dates, and show the actual list window in its heading even with Filters closed. Dated filters/trips retain precedence and show their effective dates. Reports names its selected year and actual report dates without referring to “the header”. Preserve range/filter semantics, values and today qualifiers; verify selection from both header and list, both year bases, custom dates and trip overrides.
+
+Verified with `periodranges` using synthetic month/year/all totals, global selection changes, filter/trip intersections, calendar/financial years, custom report invariance and print dates; `periodheader` and `reportsummary` pass. Date-label/render unit cases and 30 scoped axe states at 320/390/1280px in both themes pass. Screenshots reviewed; full smoke retains first-record budgets.

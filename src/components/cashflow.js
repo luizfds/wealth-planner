@@ -86,7 +86,7 @@ export function filterBarHtml(entries, lines, options){
     '<button type="button" class="btn btn-sm btn-ghost cf-more-btn" data-cf-panel aria-expanded="' + txFilterPanel.open + '" aria-controls="cfFilterRow">Filters' + (count ? ' (' + count + ')' : '') + '</button>' +
     listActionsHtml('Transaction tools', '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? 'Done selecting' : 'Select transactions') + '</button><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' + txViewToggleHtml());
   return '<div class="cf-filters">' +
-    listToolbarHtml('Transactions', opts.total || fmtCurrency0.format(0), controls, 'totalTransactionsAmount') +
+    listToolbarHtml(opts.dateLabel || 'Transactions', opts.total || fmtCurrency0.format(0), controls, 'totalTransactionsAmount') +
     '<div id="cfSearchRow" class="record-search-row"' + (txFilterPanel.search || txFilters.text ? '' : ' hidden') + '><input type="search" class="field-control cf-search-input" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Search name or account" aria-label="Search transactions"></div>' +
     (txFilterPanel.open ? '<div class="record-filter-panel" id="cfFilterRow">' +
       '<div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-cf-panel>Done</button></div>' +

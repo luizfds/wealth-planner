@@ -65,12 +65,12 @@ export function reportOpts(today){
   }
   return o;
 }
-function frameControlsHtml(rep){
+function frameControlsHtml(rep, opts){
   var fr = rep.frame || {};
   if(!fr.range) return "";
   var sel = function(attr, list, value){ return '<select class="field-control" data-rf="' + attr + '">' + list.map(function(x){ return '<option value="' + x.key + '"' + (x.key === value ? " selected" : "") + '>' + escapeAttr(x.label) + '</option>'; }).join("") + '</select>'; };
   return '<div class="rf-bar">' +
-    '<label class="cf-filter"><span>Period</span>' + sel("range", RANGES, reportFrame.range) + '</label>' +
+    '<label class="cf-filter"><span>Report dates</span>' + sel("range", RANGES.map(function(r){ return r.key === 'period' ? {key:r.key, label:'Selected year · ' + (opts.yearWin || selectedYearWindow(opts.today)).label} : r; }), reportFrame.range) + '</label>' +
     (reportFrame.range === "custom" ? '<label class="cf-filter"><span>From</span><input class="field-control" type="date" data-rf="from" value="' + escapeAttr(reportFrame.from) + '"></label><label class="cf-filter"><span>To</span><input class="field-control" type="date" data-rf="to" value="' + escapeAttr(reportFrame.to) + '"></label>' : '') +
     (fr.compare ? '<label class="cf-filter"><span>Compare with</span>' + sel("compare", rep.key === "cashflow" ? COMPARES.filter(function(c){ return c.key !== "budget"; }) : COMPARES, reportFrame.compare) + '</label>' : '') +
     (fr.group ? '<label class="cf-filter"><span>Group by</span>' + sel("group", GROUPS, reportFrame.group) + '</label>' : '') +
@@ -256,10 +256,16 @@ export function reportChooserResultsHtml(query){
 }
 // v3.124.0: what a printout opens with — whose it is, what it is, for when, and when it was printed.
 function householdName(){ var p = getTaxPeople(); return p.length ? p.slice(0, -1).join(", ") + (p.length > 1 ? " and " : "") + p[p.length - 1] : "Household"; }
-function printTitleHtml(rep){
+function reportSubtitle(rep, opts){
+  var subtitle = rep.subtitle || '';
+  if(!rep.frame || !rep.frame.range) return subtitle;
+  var dates = fmtDate(opts.win.start, {year:true}) + ' – ' + fmtDate(opts.win.end, {year:true});
+  return subtitle.indexOf(dates) !== -1 ? subtitle : subtitle + (subtitle ? ' · ' : '') + dates;
+}
+function printTitleHtml(rep, opts){
   var v = typeof document !== "undefined" && document.querySelector(".app-version-num");
   return '<header class="pr-title"><p class="pr-who">' + escapeAttr(householdName()) + '</p><h1>' + escapeAttr(rep.title) + '</h1>' +
-    '<p>' + escapeAttr(rep.subtitle || "") + '</p><p class="pr-when">Printed ' + escapeAttr(fmtDate(localDateStr(), { year: true })) + (v ? ' · Wealth Planner ' + escapeAttr(v.textContent) : '') + '</p></header>';
+    '<p>' + escapeAttr(reportSubtitle(rep, opts) || "") + '</p><p class="pr-when">Printed ' + escapeAttr(fmtDate(localDateStr(), { year: true })) + (v ? ' · Wealth Planner ' + escapeAttr(v.textContent) : '') + '</p></header>';
 }
 export function planningReadinessHtml(s, today){
   var r = planningReadiness(s, today);
@@ -319,8 +325,8 @@ export function reportsPageHtml(opts){
   if(reportShown.key === "yearend") return picker + yearEndHtml();
   if(reportShown.key === "month") return picker + monthDetailHtml();
   var rep = buildReport(reportShown.key, opts);
-  return picker + frameControlsHtml(rep) +
-    '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(rep.subtitle) + '</span></div>' +
+  return picker + frameControlsHtml(rep, opts) +
+    '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(reportSubtitle(rep, opts)) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
       (reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
@@ -338,7 +344,7 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page pr-report">' + printTitleHtml(rep) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep), true) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page pr-report">' + printTitleHtml(rep, opts) + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep), true) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());

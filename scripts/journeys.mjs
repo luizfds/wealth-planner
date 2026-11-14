@@ -416,6 +416,43 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async sidebarfooter(page){
+    await quiet(page);
+    const before = await stored(page, 'JSON.stringify({assets:state.assets,lastBackupDate:state.lastBackupDate})');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    check(await page.locator('.app-version-num').count() === 1, 'release version marker is missing or duplicated');
+    check(await page.locator('#accountsSub-preferences .app-version-num').textContent() === await page.locator('#avatarVersion').textContent(), 'avatar and Preferences versions disagree');
+    const privacy = await page.locator('#dataPrivacyNote').textContent();
+    check(privacy.includes('sync carries it encrypted') && privacy.includes('not guaranteed anonymous') && privacy.includes('Clearing your browser data clears it too'), 'privacy risks were lost');
+    check((await page.locator('.app-sidebar-footer').textContent()).trim() === 'Stored on this device · Back up', 'sidebar footer is not concise');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [390,1280]){
+        await page.setViewportSize({width,height:844});
+        await page.evaluate(() => window.scrollTo(0,0));
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Preferences overflow');
+        if(process.env.FOOTER_SHOTS){
+          await page.screenshot({path:process.env.FOOTER_SHOTS + '/preferences-' + width + '-' + scheme + '.png'});
+          await page.locator('details:has(#checkUpdatesLink)').screenshot({path:process.env.FOOTER_SHOTS + '/about-' + width + '-' + scheme + '.png'});
+        }
+      }
+    }
+    await Promise.all([page.waitForResponse(r => /\/index\.html\?v=/.test(r.url())), page.locator('#checkUpdatesLink').click()]);
+    await waited(page, () => [...document.querySelectorAll('.toast')].some(e => e.textContent.includes("You're on the latest version")), 'Preferences update check to read the release version');
+    await go(page, 'dashboard');
+    await page.locator('#exportLink2').click();
+    check(await page.getByRole('dialog', {name:'Protect your data'}).isVisible(), 'sidebar backup shortcut did not open backup');
+    await answerDialog(page, false);
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('#avatarBtn').click();
+    await Promise.all([page.waitForResponse(r => /\/index\.html\?v=/.test(r.url())), page.locator('[data-avatar-go="updates"]').click()]);
+    await waited(page, () => [...document.querySelectorAll('.toast')].some(e => e.textContent.includes("You're on the latest version")), 'avatar update check to work from another page');
+    await page.locator('#avatarBtn').click();
+    await page.locator('[data-avatar-go="backup"]').click();
+    await waited(page, () => document.body.dataset.currentPage === 'settings' && document.querySelector('[data-accounts-sub="preferences"]').getAttribute('aria-current') === 'page', 'avatar backup to open Preferences');
+    check(await page.locator('#dataPrivacyNote').isVisible(), 'phone backup destination hides the privacy explanation');
+    check(await stored(page, 'JSON.stringify({assets:state.assets,lastBackupDate:state.lastBackupDate})') === before, 'chrome actions changed balances or stamped a cancelled backup');
+  },
   async homebalance(page){
     await quiet(page);
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');

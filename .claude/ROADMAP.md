@@ -5175,4 +5175,6 @@ Verified with measured `homebalance` heights/overflow, both themes at 320/390/12
 
 ## Quiet sidebar footer — issue #308
 
-`[~]` Keep one local-storage/backup line in the sidebar. Move the full privacy explanation and version/update details to Settings → Preferences, keeping avatar actions, release-version parsing and the existing backup shortcut. Preserve privacy wording and verify desktop/phone, both themes, before/after screenshots and real update/backup entry points.
+`[x]` Keep one local-storage/backup line in the sidebar. Move the full privacy explanation and version/update details to Settings → Preferences, keeping avatar actions, release-version parsing and the existing backup shortcut. Preserve privacy wording and verify desktop/phone, both themes, before/after screenshots and real update/backup entry points.
+
+Verified with `sidebarfooter`: preserved privacy warnings, one parsed version marker matching the avatar, real update responses from Preferences and avatar, sidebar backup/cancel and phone backup navigation without changing balances/backup status. Both-theme screenshots at 390/1280px and eight scoped axe states at 320/390/1280px pass. About actions use shared buttons after axe caught the old feature link’s small adjacent target.

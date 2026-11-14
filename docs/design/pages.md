@@ -132,6 +132,10 @@ Home's overview cards align at the top and size to their content. Goals use thei
 section label, without a second wide card around them. At desktop widths, the collapsed weekly recap is one
 row; opening it reveals the full recap below its heading. Phone layouts retain room for the recap controls.
 
+The desktop sidebar footer keeps one line: “Stored on this device · Back up”, opening the existing backup
+flow. Settings → Preferences carries the full privacy explanation beside backups, plus an About section with
+version, update check and feature-request actions. The avatar menu keeps those shortcuts on every screen size.
+
 ### 4. Empty and no-results states
 
 An empty section says three things in one line: what it holds, why it's empty, and the next step **as a control**. That

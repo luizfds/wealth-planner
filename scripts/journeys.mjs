@@ -22,6 +22,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   basicinvestmenthelp — described recording actions, Super/Vehicle method help, chart names and saved snapshots
 //   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
@@ -1384,6 +1385,81 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async basicinvestmenthelp(page){
+    await go(page,'assets','data-assets-sub','Cash');
+    await page.evaluate(async()=>{
+      const s=await import('/src/state.js');
+      const person=s.state.assets.find(a=>a.id==='demo-super-alex').person;
+      for(const category of ['Cash','Super','Vehicle','Other']){
+        for(const n of [1,2]) s.state.assets.push({id:'example-'+category+'-'+n,what:'Extra <'+category+'> & "example" '+n,category,amount:n*10000,person:category==='Super'?person:'',history:category==='Super'&&n===1?[{date:'2026-09-01',value:10000}]:[],...(category==='Vehicle'?{purchasePrice:n*10000,purchaseDate:'2026-01-01',depreciationRate:10}:{} )});
+      }
+      (await import('/src/calc/engine.js')).recalcComputedItems();s.persist();
+      (await import('/src/components/assets.js')).renderAssets();
+    });
+    for(const category of ['Cash','Super','Vehicle','Other']){
+      await go(page,'assets','data-assets-sub',category);
+      const root=page.locator('#assetsSub-'+category);
+      const saved=await stored(page,'JSON.stringify(state.assets)');
+      const index=await page.evaluate(async c=>(await import('/src/state.js')).state.assets.findIndex(a=>a.id==='example-'+c+'-1'),category);
+      const row=root.locator('.m-row[data-index="'+index+'"]');
+      const figures=root.locator('[data-comp-bar] [role="img"]');
+      check(await figures.count()>=2,'asset composition segments are not named');
+      check((await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))).some(t=>t.includes('Extra <'+category+'> & "example"')),'composition names lost escaped text');
+      for(const figure of await figures.all()) check(await figure.getAttribute('aria-label')===await figure.getAttribute('title'),'composition name differs from its hover value');
+      let help, note;
+      if(category==='Super'){
+        help=page.locator('#pageHelpBtn');note=page.locator('#superEstimateHelp');
+        check(await row.locator('.est-note').isVisible() && await row.locator('.m-row-summary').getAttribute('aria-describedby')==='superEstimateHelp','Super estimate lost its visible qualifier or description');
+        check(await row.locator('.est-note').getAttribute('title')===null,'Super estimate still depends on hover');
+        const cdp=await page.context().newCDPSession(page),tree=await cdp.send('Accessibility.getFullAXTree');
+        check(tree.nodes.some(n=>!n.ignored && n.role?.value==='button' && /Extra <Super>/.test(n.name?.value||'') && /15% contributions tax/.test(n.description?.value||'')),'folded Super method is absent from the row’s accessibility description');
+        await cdp.detach();
+      }else if(category==='Vehicle'){
+        help=root.locator('details:has(#assetsComp-Vehicle) > [data-help-toggle]');note=page.locator('#vehicleMethodHelp');
+        check(await root.locator('[data-add="vehicle"]').getAttribute('aria-describedby')==='vehicleMethodHelp','Add vehicle lacks its method description');
+      }
+      if(help){
+        check(!await note.isVisible(),'asset help is not folded initially');
+        await page.evaluate(()=>window.scrollTo(0,0));await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
+        await help.focus();await page.keyboard.press('Enter');check(await note.isVisible(),'Enter did not reveal asset help');
+        await page.keyboard.press('Space');check(!await note.isVisible(),'Space did not fold asset help');
+        for(const scheme of ['light','dark']){
+          await page.evaluate(s=>{document.documentElement.dataset.theme=s;},scheme);
+          for(const width of [320,390,1280]){
+            await page.setViewportSize({width,height:844});
+            await page.evaluate(()=>window.scrollTo(0,0));await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
+            await help.tap();check(await note.isVisible(),'touch did not reveal asset help');
+            check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width),'asset help overflows at '+width+' in '+scheme);
+            await help.tap();
+          }
+        }
+      }
+      check(await stored(page,'JSON.stringify(state.assets)')===saved,'opening help changed asset data');
+      if(category==='Super'){
+        await page.evaluate(()=>window.scrollTo(0,0));await help.click();
+        const text=await note.innerText();
+        await page.evaluate(async()=> (await import('/src/components/assets.js')).renderAssetCategoryPage('Super'));
+        check(await note.isVisible() && await note.innerText()===text,'Super redraw lost open method help');
+      }
+      await row.locator('[data-row-toggle]').first().click();
+      const record=row.getByRole('button',{name:'Record value',exact:true});
+      check(await record.getAttribute('title')===null,'recording still depends on hover');
+      check(await record.evaluate(e=>{const h=document.getElementById(e.getAttribute('aria-describedby'));return !!h && h.getClientRects().length>0 && /Record value.*snapshot/.test(h.textContent);}), 'snapshot action does not describe its visible help');
+      const cdp=await page.context().newCDPSession(page),tree=await cdp.send('Accessibility.getFullAXTree');
+      check(tree.nodes.some(n=>!n.ignored && n.role?.value==='button' && n.name?.value==='Record value' && /snapshot/.test(n.description?.value||'')), 'recording description is missing from the editor’s accessibility tree');
+      await cdp.detach();
+      const before=await stored(page,'state.assets.find(a=>a.id==="example-'+category+'-1").amount');
+      await record.focus();await page.keyboard.press('Enter');
+      check(await stored(page,'state.assets.find(a=>a.id==="example-'+category+'-1").history.some(h=>h.date==="2026-11-03" && h.value==='+before+')'),'snapshot did not record the current asset value');
+      check(await record.evaluate(e=>e===document.activeElement),'recording lost focus');
+      await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
+      if(category==='Super'){
+        check(await note.isVisible(),'recording folded Super method help');
+        check(await row.locator('.est-note').count()===0,'a newly confirmed Super balance still shows an old estimate');
+        await page.evaluate(()=>window.scrollTo(0,0));await help.click();
+      }
+    }
+  },
   async investmentssummaryhelp(page){
     await go(page,'assets','data-assets-sub','summary');
     const root = page.locator('#assetsSub-summary');
@@ -4493,7 +4569,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

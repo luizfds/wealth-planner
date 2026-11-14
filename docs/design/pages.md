@@ -168,6 +168,10 @@ means a button, or a link to the place the step is done:
   Funding headers describe their full definitions, including the existing shortfall options, even when help is
   folded. Allocation and today's mix segments expose their exact hover values as accessible names. Portfolio
   liquidity includes Shares; purchase funding uses cash and offsets without assuming investment sales.
+- **Basic investments:** recording buttons describe their existing visible field help. A Super row keeps
+  its visible estimate qualifier and describes the full method from the page's ⓘ; open method help survives
+  list redraws. Vehicle's existing ⓘ explains adding and estimating a vehicle, including its valuation warning.
+  Cash, Super, Vehicle and Other composition segments expose their exact hover values as accessible names.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",
@@ -244,7 +248,8 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    Property-wide smoke ratchet also checks field titles. Cash flow → Income now explains hourly dashes and
    CSV actions, labels composition values, and points to Plan → Scenarios instead of the removed Vary button.
    Investments → Summary now explains liquidity, property equity and purchase funding through ⓘ, describes
-   funding headers and labels allocation/mix values. The remaining views follow.
+   funding headers and labels allocation/mix values. Cash, Super, Vehicle and Other now link recording actions
+   to visible help, explain estimates without hover and name their composition values. The remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

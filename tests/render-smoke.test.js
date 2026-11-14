@@ -2350,6 +2350,10 @@ test("basic asset fields keep categories, linked labels and separate Details act
     assert.doesNotMatch(html.split('<script')[0], /<button|<a /, 'an interactive Details action is nested inside the row button');
     assert.doesNotMatch(html,/<asset>/);
     if(category==='Super') assert.match(html,/employer super after contributions tax/);
+    const value = html.match(/class="field-control a-amount" aria-describedby="([^"]+)"/);
+    const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
+    assert.equal(record[1], value[1].split(" ")[0], "Record value describes the emitted Value field help");
+    assert.ok(html.includes('id="'+record[1]+'"'), "the action description exists");
   }
 });
 test("asset renderers follow shared open keys and preserve blank versus zero depreciation", () => {
@@ -2361,6 +2365,8 @@ test("asset renderers follow shared open keys and preserve blank versus zero dep
     assert.doesNotMatch(html,/<script/);
     assert.match(html,/class="field-control v-deprate"[^>]*value=""/);
     assert.match(html,/Blank or 0 applies no depreciation/);
+    const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
+    assert.ok(record && html.includes('class="field-help" id="'+record[1]+'"'), "vehicle recording describes its visible snapshot help");
     assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control v-deprate"[^>]*value="0"/);
     assert.match(modernAssetRowHtml({id:'example-cash',category:'Cash',what:'Example cash',amount:5000},2,0),/<div class="m-row open"/);
   }finally{ delete modernAssetRowOpen['assets:2']; }

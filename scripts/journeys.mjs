@@ -1573,6 +1573,9 @@ const JOURNEYS = {
     const tab = async (name, section) => {
       const button = card.locator('[data-prop-tab][data-tab="' + name + '"]');
       const picker = card.locator('.prop-tabs select');
+      // A card redraw starts with buttons; the next picker pass can hide them. Wait for that
+      // decoration before choosing a control, so an early visibility read cannot select a disappearing tab.
+      await picker.waitFor({state:'attached'});
       if(await picker.isVisible()) await picker.selectOption({label:(await button.textContent()).trim()});
       else await button.click();
       const toggle = card.locator('[data-prop-section-toggle="' + section + '"]');

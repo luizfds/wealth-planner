@@ -8,7 +8,7 @@ import { propertyReturns, debtSchedule } from "../calc/assetreports.js";
 import { toAudAmount } from "../calc/engine.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { propertyOwnershipPct } from "../calc/property.js";
-import { reportChartHtml } from "../lib/reportcharts.js";
+import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { renderLineChart, dateAxisFormat } from "../lib/charts.js";
@@ -187,6 +187,7 @@ export function renderDetailPage(){
   var el = typeof document !== "undefined" && document.getElementById("detailBody");
   if(!el) return;
   el.innerHTML = detailPageHtml();
+  fitReportCharts(el);
   var v = detailTarget.kind ? detailView(detailTarget.kind, detailTarget.id) : null;
   var title = document.getElementById("pageTitle");
   if(title && v) title.textContent = v.kicker;

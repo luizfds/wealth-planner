@@ -161,6 +161,9 @@ means a button, or a link to the place the step is done:
 - **Property schedules and charts:** the quantity surveyor's schedule explains Division 43/40 behind its ⓘ
   and describes each amount field, including validation errors. Loan and acquisition-cost segments expose the same
   exact name, value and share as their hover title. The depreciation year's basis remains in the visible summary.
+- **Income:** the section's ⓘ explains hourly figures for shared income and zero working hours, and hourly
+  dashes describe that explanation to assistive technology. Composition segments always name their monthly value
+  and share, independent of Show as. The page's ⓘ explains the CSV actions, whose buttons describe those lines.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",
@@ -185,7 +188,7 @@ Proposed primary task and changes per view. "Add" is the item 3 wording; "Empty"
 | Home → Benchmarks | — | "+ Add target" → "+ Add goal target" |
 | Home → Review | Start the review | — |
 | Cash flow → Budget | + Add expense | "Save rule" stops being primary (folded form); "mark some below" becomes a control |
-| Cash flow → Income | + Add income | One "+ Add income", not two |
+| Cash flow → Income | + Add income | Hourly basis and current scenario guidance behind ⓘ; labelled composition values; described CSV actions |
 | Cash flow → Spending | + Log spend | "Add trip" stops being primary; 27 tips |
 | Cash flow → Bills | — | Empty states link to Spending |
 | Net worth | — (reading) | Period chip: see question 1 |
@@ -234,7 +237,9 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    now names its native month buttons with the exact figures and selected state. Separate 44px targets scroll
    locally on phones, with the selected month visible after redraws. Property now uses ⓘ for portfolio/card figures,
    actions and the depreciation schedule, with described schedule fields and labelled composition charts. The
-   Property-wide smoke ratchet also checks field titles. The remaining views follow.
+   Property-wide smoke ratchet also checks field titles. Cash flow → Income now explains hourly dashes and
+   CSV actions, labels composition values, and points to Plan → Scenarios instead of the removed Vary button.
+   The remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

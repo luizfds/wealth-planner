@@ -185,6 +185,19 @@ for(const width of widths)for(const scheme of schemes){
 
   }
   if(pg==='expenses'&&sub==='income'){
+   const help = page.locator('#expensesSub-income details:has(#incomeGroups) > [data-help-toggle]');
+   await help.click();
+   await page.locator('#incomeGroups [data-showas="hour"]').click();
+   await scan('income-help/hourly', '#expensesSub-income');
+   await page.locator('#incomeGroups [data-showas="month"]').click();
+   await help.click();
+   await page.evaluate(()=>window.scrollTo(0,0));
+   await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
+   await page.locator('#pageHelpBtn').click();
+   await page.getByRole('button',{name:'Income import and export',exact:true}).click();
+   await scan('income-help/csv', '.page-intro-actions:has(#incomeExportCsvBtn)');
+   await page.getByRole('button',{name:'Income import and export',exact:true}).click();
+   await page.locator('#pageHelpBtn').click();
    const index=await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(x=>x.id==='demo-pay-alex'));
    const row=page.locator('#incomeGroups .m-row[data-index="'+index+'"]');
    await row.locator('[data-row-toggle]').first().click();

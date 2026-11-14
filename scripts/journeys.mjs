@@ -22,6 +22,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
 //   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
 //   propertyfigurehelp — Property-card figure help by touch and keyboard, conditional explanations, live edits
@@ -1382,6 +1383,101 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async incomehelp(page){
+    await go(page, 'expenses', 'data-expenses-sub', 'income');
+    const person = await page.evaluate(async () => {
+      const s = await import('/src/state.js');
+      const person = s.state.income.find(i=>i.id==='demo-pay-alex').person;
+      s.state.income.push({id:'example-extra-pay',what:'Extra <A> & "example"',person,incomeType:'Net',amount:1000,freq:'Monthly'}, {id:'example-shared-pay',what:'Shared income',person:'',incomeType:'Net',amount:500,freq:'Monthly'});
+      (await import('/src/calc/tax.js')).personTaxSettings(person).hoursPerWeek = 0;
+      (await import('/src/calc/engine.js')).recalcComputedItems(); s.persist();
+      (await import('/src/components/redraw.js')).renderAll(); return person;
+    });
+    const root = page.locator('#expensesSub-income');
+    const ledger = root.locator('details:has(#incomeGroups)');
+    const help = ledger.locator(':scope > [data-help-toggle]');
+    const hourly = page.locator('#incomeHourlyHelp');
+    const saved = await stored(page,'JSON.stringify(state.income)');
+    const tax = await page.evaluate(async p=>JSON.stringify((await import('/src/calc/tax.js')).computePersonTax(p)),person);
+    check(!await hourly.isVisible(), 'Income explanation is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await hourly.isVisible(), 'Enter did not reveal Income help');
+    await page.keyboard.press('Space');
+    check(!await hourly.isVisible(), 'Space did not fold Income help');
+    await root.locator('[data-showas="hour"]').click();
+    const personCard = root.locator('.m-card').filter({has:page.getByText(person,{exact:true})});
+    const sharedCard = root.locator('.m-card').filter({has:page.getByText('Household / Shared',{exact:true})});
+    for(const card of [personCard,sharedCard]){
+      const dash = card.locator('.m-card-total [role="img"]');
+      check(await dash.getAttribute('aria-label') === 'Hourly income unavailable' && await dash.getAttribute('aria-describedby') === 'incomeHourlyHelp', 'hourly dash lacks its explanation');
+    }
+    const cdp = await page.context().newCDPSession(page), tree = await cdp.send('Accessibility.getFullAXTree');
+    check(tree.nodes.some(n=>!n.ignored && n.name?.value === 'Hourly income unavailable' && /zero working hours/.test(n.description?.value || '')), 'hourly explanation is missing from the accessibility tree while folded');
+    await cdp.detach();
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        await help.tap();
+        check(await hourly.isVisible() && /zero working hours/.test(await hourly.innerText()), 'touch did not reveal the hourly basis');
+        check(!/⇄ Vary/.test(await ledger.innerText()) && /Changes from today/.test(await ledger.innerText()), 'Income help points to removed scenario controls');
+        check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width), 'Income help overflows at ' + width + ' in ' + scheme);
+        await help.tap();
+      }
+    }
+    check(await stored(page,'JSON.stringify(state.income)') === saved, 'opening help or Show as changed saved income');
+    check(await page.evaluate(async ([p,before])=>JSON.stringify((await import('/src/calc/tax.js')).computePersonTax(p))===before,[person,tax]), 'opening help or Show as changed tax results');
+    const figures = personCard.locator('[data-comp-bar] [role="img"]');
+    check(await figures.count() >= 2, 'income composition segments are not labelled');
+    for(const figure of await figures.all()){
+      const label = await figure.getAttribute('aria-label');
+      check(label === await figure.getAttribute('title') && /\/mo \([0-9.,]+%\)/.test(label), 'composition label does not match its monthly value');
+    }
+    check((await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))).some(t=>t.includes('Extra <A> & "example"')), 'chart names lost escaped text');
+    await page.evaluate(async person => {
+      const s = await import('/src/state.js');
+      (await import('/src/calc/tax.js')).personTaxSettings(person).hoursPerWeek = 20; s.persist();
+      (await import('/src/components/income.js')).patchIncomeGroupTotals();
+    },person);
+    check(await personCard.locator('.m-card-total [role="img"]').count() === 0 && /\/hr/.test(await personCard.locator('.m-card-total').innerText()), 'positive hours did not replace the unavailable figure');
+    check(await sharedCard.locator('.m-card-total [role="img"]').count() === 1, 'shared income acquired a person’s hourly figure');
+    const beforeLabel = await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')));
+    const index = await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(i=>i.id==='example-extra-pay'));
+    const row = root.locator('.m-row[data-index="'+index+'"]');
+    await row.locator('[data-row-toggle]').first().click();
+    await row.locator('.f-amount').fill('2000'); await row.locator('.f-amount').press('Tab');
+    await page.keyboard.press('Escape');
+    check(await stored(page,'state.income.find(i=>i.id==="example-extra-pay").amount') === 2000, 'income editor stopped saving');
+    check(JSON.stringify(await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(beforeLabel), 'live edit left composition labels stale');
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
+    await page.locator('#pageHelpBtn').click();
+    check(await page.locator('#incomePageHelp').isVisible(), 'page help is unavailable');
+    const menu = page.getByRole('button',{name:'Income import and export',exact:true});
+    const downloadText = async id => {
+      if(await menu.getAttribute('aria-expanded') !== 'true') await menu.click();
+      const action = page.locator('#'+id);
+      check(await action.getAttribute('title') === null && await action.evaluate(e=>!!document.getElementById(e.getAttribute('aria-describedby'))?.textContent), 'CSV action lacks its linked explanation');
+      const pending = page.waitForEvent('download'); await action.click();
+      const file = await pending, stream = await file.createReadStream();
+      let text = ''; for await(const chunk of stream) text += chunk.toString(); return text;
+    };
+    const csv = await downloadText('incomeExportCsvBtn');
+    check(csv.includes('Shared income') && csv.includes('2000'), 'income export lost saved rows');
+    const template = await downloadText('incomeDownloadTemplateBtn');
+    check(/What,Person,Type,Amount,Frequency/.test(template), 'income template headers changed');
+    const importCsv = template.trim()+'\nImported income,,Net,500,Monthly,,,,\n';
+    const importWas = await stored(page,'JSON.stringify(state.income)');
+    await menu.click();
+    const chooser = page.waitForEvent('filechooser'); await page.locator('#incomeImportBtn').click();
+    const file = {name:'example-income.csv',mimeType:'text/csv',buffer:Buffer.from(importCsv)};
+    await (await chooser).setFiles(file);
+    await page.locator('#incomeImportCancelBtn').click();
+    check(await stored(page,'JSON.stringify(state.income)') === importWas, 'cancelled income import saved rows');
+    await page.locator('#incomeImportFile').setInputFiles(file);
+    await page.locator('#incomeImportConfirmBtn').click();
+    check(await stored(page,'state.income.some(i=>i.what==="Imported income" && i.amount===500)'),'income import did not save its reviewed row');
+  },
   async propertyremaininghelp(page){
     await go(page, 'properties');
     await page.evaluate(async () => {
@@ -4314,7 +4410,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

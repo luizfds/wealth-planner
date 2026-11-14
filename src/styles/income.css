@@ -48,6 +48,7 @@
   .tax-cap-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .tax-package-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .tax-cap-note.warn{ color: var(--bad-ink); font-weight:600; }
+  .tax-mls-note.warn{ color: var(--warn-ink); font-weight:400; }
   .tax-empty{ color: var(--ink-soft); font-size:var(--fs-sm); }
 
   .tax-hero{ margin-bottom:10px; }

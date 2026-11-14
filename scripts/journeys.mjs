@@ -450,6 +450,59 @@ const JOURNEYS = {
   // #266: Home's scenario comparison, opened — the whole row (at 390px it was a 174px column 2.6 screens tall, and the
   // Tax tile beside it stretched to match), its risk notes kept, the same figures as the projection, a long name read
   // at 320px, and each outcome a way to its assumptions.
+  // #308: debt uses the category palette; a surcharge is a normal-weight warning.
+  async financialcolours(page){
+    await quiet(page);
+    await go(page, 'tax', 'data-tax-sub', 'year');
+    const person = await page.locator('#taxSuperBody [data-tax-person]').first().getAttribute('data-tax-person');
+    await page.evaluate(async person => {
+      const s = await import('/src/state.js');
+      s.state.tax.privateHospitalCover = false;
+      s.state.income.filter(i => i.incomeType === 'Gross' && i.person === person).forEach(i => { i.amount = 300000; i.freq = 'Yearly'; });
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      (await import('/src/components/income.js')).renderTaxSuper();
+    }, person);
+    const note = page.locator('#taxSuperBody [data-tax-person]').first().locator('.tax-mls-note');
+    const wording = await note.textContent();
+    check(await note.isVisible() && await note.evaluate(e => e.classList.contains('warn')), 'fixture has no surcharge warning');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [390,1280]){
+        await page.setViewportSize({width,height:844});
+        await go(page, 'properties');
+        const bar = page.locator('#propertiesEquityDebtBar');
+        const debt = bar.locator('.tax-waterfall-seg[aria-label^="Debt:"]');
+        check(await debt.evaluate(e => e.classList.contains('series-color-0')), 'debt does not use the blue chart category');
+        check(await bar.locator('.proj-swatch.series-color-0').count() === 1, 'debt legend and segment colours disagree');
+        await bar.scrollIntoViewIfNeeded();
+        if(process.env.COLOUR_SHOTS) await bar.screenshot({path:process.env.COLOUR_SHOTS + '/property-' + width + '-' + scheme + '.png'});
+        await go(page, 'tax', 'data-tax-sub', 'year');
+        const style = await note.evaluate(e => {
+          const probe = document.createElement('span'); probe.style.color = 'var(--warn-ink)'; e.append(probe);
+          const expected = getComputedStyle(probe).color; probe.remove();
+          return {color:getComputedStyle(e).color, weight:getComputedStyle(e).fontWeight, expected};
+        });
+        check(style.color === style.expected && style.weight === '400', 'surcharge is not a normal-weight standard warning in ' + scheme);
+        await note.scrollIntoViewIfNeeded();
+        if(process.env.COLOUR_SHOTS) await note.screenshot({path:process.env.COLOUR_SHOTS + '/surcharge-' + width + '-' + scheme + '.png'});
+        check(await note.textContent() === wording, 'styling changed the surcharge wording');
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'warning causes page overflow');
+      }
+    }
+    // Hospital cover live-patches the existing notice; switching back must retain the warning skin.
+    await note.evaluate(e => { e.dataset.colourProbe = 'same'; });
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); s.state.tax.privateHospitalCover = true;
+      (await import('/src/components/income.js')).patchAllTaxPersonOutputs();
+    });
+    check(!await note.evaluate(e => e.classList.contains('warn')), 'covered notice kept warning styling');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); s.state.tax.privateHospitalCover = false;
+      (await import('/src/components/income.js')).patchAllTaxPersonOutputs();
+    });
+    check(await note.getAttribute('data-colour-probe') === 'same' && await note.evaluate(e => e.classList.contains('warn') && getComputedStyle(e).fontWeight === '400'), 'live patch lost the standard warning');
+    check(await note.textContent() === wording, 'live patch changed the original surcharge wording');
+  },
   // #308: display dates stay readable and today's balances do not follow the reporting period.
   async homedates(page){
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');

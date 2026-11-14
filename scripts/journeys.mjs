@@ -450,6 +450,27 @@ const JOURNEYS = {
   // #266: Home's scenario comparison, opened — the whole row (at 390px it was a 174px column 2.6 screens tall, and the
   // Tax tile beside it stretched to match), its risk notes kept, the same figures as the projection, a long name read
   // at 320px, and each outcome a way to its assumptions.
+  // #308: display dates stay readable and today's balances do not follow the reporting period.
+  async homedates(page){
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const before = await stored(page, 'JSON.stringify({assets:state.assets,netWorthLog:state.netWorthLog})');
+    await page.evaluate(async () => {
+      (await import('/src/calc/ledger.js')).setPeriod(2025, '2025-09');
+      (await import('/src/components/home.js')).renderHomeSummary();
+    });
+    for(const colorScheme of ['light','dark']){
+      await page.emulateMedia({colorScheme});
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        const card = page.locator('#homeSummary [data-home-card="nw"]');
+        check((await card.textContent()).includes('Recorded balances · as of 3 Nov'), 'balance date did not stay today');
+        check(!/\b\d{4}-\d{2}-\d{2}\b/.test(await page.locator('#homeSummary').innerText()), 'Home displays an ISO date');
+        check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'readable date overflows');
+        if(process.env.DATE_SHOTS && width !== 320) await card.screenshot({path:process.env.DATE_SHOTS + '/home-date-' + width + '-' + colorScheme + '.png'});
+      }
+    }
+    check(await stored(page, 'JSON.stringify({assets:state.assets,netWorthLog:state.netWorthLog})') === before, 'display changed stored balances');
+  },
   async homecompare(page){
     await quiet(page);
     // A long scenario name (invented), to check it wraps rather than widening anything.

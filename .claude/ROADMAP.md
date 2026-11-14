@@ -5148,3 +5148,9 @@ balance; baseline/scenario Needs–Wants charts reconciled with the existing fin
 `[x]` Shipped v3.264.0 (PR #345). Optional and replayable: offered once after the first-run setup closes or the sample household loads (never
 beside the setup sheet — #309's one path), remembered per browser, and always in the avatar menu. It walks the real
 navigation, then ends on the first-month steps (`lib/setup.js`) instead of a second checklist.
+
+## Readable balance dates — issue #308
+
+`[x]` Use the shared display-date formatter for Home’s recorded-balance date. Verify the bell’s due dates already use it; preserve ISO dates in storage and inputs, calculations and today’s date when another period is selected.
+
+Verified with `homedates` at 320/390/1280px, both themes, with a past reporting period and unchanged saved balances; rendered text rejects ISO dates. Notification due dates already use `fmtDate`. Other #308 polish items remain open.

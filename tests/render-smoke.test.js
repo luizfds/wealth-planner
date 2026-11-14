@@ -1117,6 +1117,8 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ id: "review:2026-09", title: "Review September 2026", page: "dashboard", sub: "review", severity: "warn" }] });
     assert.match(html, /<b class="home-big">\$105,000<\/b>/);
     assert.match(html, /\+\$5,000 since 1 Aug/);
+    assert.match(html, /Recorded balances · as of 14 Oct(?: 2026)?/);
+    assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
     // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
     assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review">Review September 2026/);

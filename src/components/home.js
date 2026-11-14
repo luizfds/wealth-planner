@@ -11,7 +11,7 @@ import { monthReview } from "../calc/monthreview.js";
 import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
 import { sparklineHtml } from "../lib/charts.js";
 import { trendToToday } from "../calc/history.js";
-import { fmtCurrency0, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { netWorthOn } from "../calc/nwhistory.js";
@@ -85,7 +85,7 @@ export function homeSummaryHtml(today, opts){
   var stale = staleAssets().length;
   var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
     (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</small>' + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
-    '<small>Recorded balances · as of ' + escapeAttr(today) + (stale ? ' · ' + stale + ' values need updating' : '') + '</small>' +
+    '<small>Recorded balances · as of ' + escapeAttr(fmtDate(today)) + (stale ? ' · ' + stale + ' values need updating' : '') + '</small>' +
     '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.

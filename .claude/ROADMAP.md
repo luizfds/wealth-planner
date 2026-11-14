@@ -5151,4 +5151,6 @@ navigation, then ends on the first-month steps (`lib/setup.js`) instead of a sec
 
 ## Readable balance dates — issue #308
 
-`[~]` Use the shared display-date formatter for Home’s recorded-balance date. Verify the bell’s due dates already use it; preserve ISO dates in storage and inputs, calculations and today’s date when another period is selected.
+`[x]` Use the shared display-date formatter for Home’s recorded-balance date. Verify the bell’s due dates already use it; preserve ISO dates in storage and inputs, calculations and today’s date when another period is selected.
+
+Verified with `homedates` at 320/390/1280px, both themes, with a past reporting period and unchanged saved balances; rendered text rejects ISO dates. Notification due dates already use `fmtDate`. Other #308 polish items remain open.

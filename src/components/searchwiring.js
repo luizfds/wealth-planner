@@ -3,6 +3,7 @@
 // Cross-page search and the links that open a detail page.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
+import { openImportChooser } from "./importchooserwiring.js";
 import { persist } from "../state.js";
 import { detailTarget, detailView } from "./detail.js";
 import { renderSharedGroups, renderBudgetGroupByToggle, revealBudgetLine } from "./expenses.js";
@@ -69,6 +70,7 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
     // {replace:true}) instead of popped: pressing back from there should land wherever the user
     // was *before* opening search, not resurrect an empty search overlay in between.
     forgetActiveOverlay();
+    if(result.extra.importChooser){ openImportChooser(null, { replace: true }); return; }
     // v3.128.0: a thing with a page of its own lands there.
     if(result.extra.detail){ openDetail(result.extra.detail.kind, result.extra.detail.id, { replace: true }); return; }
     goToPlace(result.page, result.extra, { replace: true });

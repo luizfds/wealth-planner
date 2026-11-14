@@ -91,6 +91,13 @@ jobs:
           JOURNEYS: exactsearch
           SPEED: 0
           SEARCH_A11Y: 1
+      - name: Shared import chooser
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: importchooser
+          SPEED: 0
+          IMPORT_A11Y: 1
+          IMPORT_SHOTS: accessibility-report/import-chooser
       - name: Long-form error summaries
         run: node scripts/journeys.mjs
         env:

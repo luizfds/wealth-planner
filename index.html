@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-NKdQpPFEMS0gx9BAPnmburjUZ8CbJKR6Q/AOuzhcTIk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-AEXcXK3ZKPRKHH2TGC2dIcAX2JoAckWdBijkxd8Go+0='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -1325,6 +1325,7 @@
   "./src/lib/dialogs.js": "./src/lib/dialogs.js?v=3.270.14",
   "./src/lib/dropbox.js": "./src/lib/dropbox.js?v=3.270.14",
   "./src/lib/empty.js": "./src/lib/empty.js?v=3.270.14",
+  "./src/lib/error-summary.js": "./src/lib/error-summary.js?v=3.270.14",
   "./src/lib/errorlog.js": "./src/lib/errorlog.js?v=3.270.14",
   "./src/lib/field.js": "./src/lib/field.js?v=3.270.14",
   "./src/lib/foldersync.js": "./src/lib/foldersync.js?v=3.270.14",
@@ -1572,6 +1573,7 @@
 <link rel="modulepreload" href="./src/lib/dialogs.js?v=3.270.14">
 <link rel="modulepreload" href="./src/lib/dropbox.js?v=3.270.14">
 <link rel="modulepreload" href="./src/lib/empty.js?v=3.270.14">
+<link rel="modulepreload" href="./src/lib/error-summary.js?v=3.270.14">
 <link rel="modulepreload" href="./src/lib/errorlog.js?v=3.270.14">
 <link rel="modulepreload" href="./src/lib/field.js?v=3.270.14">
 <link rel="modulepreload" href="./src/lib/foldersync.js?v=3.270.14">

@@ -508,6 +508,28 @@ export function wireProperties(){
       persist();
     }
   });
+  // Error links reveal fields without redrawing away the invalid draft.
+  document.getElementById("propertiesBody").addEventListener("reveal-field-error", function(e){
+    var input = e.target, card = input.closest('[data-property-id]');
+    if(!card) return;
+    var property = findProperty(card.getAttribute('data-property-id'));
+    if(!property) return;
+    if(input.closest('.prop-edit')){ propertyEditing[property.id] = true; card.classList.add('is-editing'); }
+    var panel = input.closest('[data-prop-panel]');
+    if(panel){
+      var tab = Array.from(card.querySelectorAll('[data-prop-tab]')).find(function(t){ return t.getAttribute('data-tab') === panel.getAttribute('data-prop-panel'); });
+      if(tab) tab.click();
+    }
+    for(var section = input.parentElement; section && section !== card; section = section.parentElement){
+      if(!section.classList.contains('property-section')) continue;
+      section.classList.remove('is-collapsed');
+      var head = section.querySelector('[data-prop-section-toggle]');
+      if(head){
+        head.setAttribute('aria-expanded', 'true');
+        if(property.sectionsCollapsed) property.sectionsCollapsed[head.getAttribute('data-prop-section-toggle')] = false;
+      }
+    }
+  });
   // v3.107.0: Edit details / Done on a property's Overview. Both views are rendered; the card's class
   // picks one, so nothing typed is lost. Done re-renders so the summary shows what was just edited.
   document.getElementById("propertiesBody").addEventListener("click", function(e){

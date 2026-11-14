@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { draftFieldKey } from "../src/lib/error-summary.js";
 import { readNumberField, markField } from "../src/lib/validate.js";
 
 // #263: a field reads as a value its rule allows, or says why — it never turns blank into 0 or clamps.
@@ -76,4 +77,14 @@ test("two fields in one box (a purchase lot's row) each keep their own message",
     assert.equal(units.getAttribute("aria-invalid"), null);
     assert.equal(document.getElementById("lot-brokerage-error").textContent, "Brokerage can't be negative.");
   } finally { globalThis.document = prev; }
+});
+
+
+test("repeated-field draft identities stay with their record without modifying saved data", () => {
+  const first=Object.freeze({what:"Example cost",amount:1000}), second=Object.freeze({what:"Example cost",amount:1000});
+  const key=draftFieldKey(first,"amount");
+  assert.equal(draftFieldKey(first,"amount"),key);
+  assert.notEqual(draftFieldKey(second,"amount"),key);
+  assert.notEqual(draftFieldKey(first,"what"),key);
+  assert.deepEqual(first,{what:"Example cost",amount:1000});
 });

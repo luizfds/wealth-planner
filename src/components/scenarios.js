@@ -1,3 +1,5 @@
+import { keepUi } from "../lib/keepui.js";
+import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { budgetComparisonHtml } from "./budgetcomparison.js";
 import { textDialog } from "../lib/dialogs.js";
 import { renderProjectionsWhenSeen } from "./projections.js";
@@ -390,7 +392,8 @@ export function renderHomeBody(){
 }
 // v3.189.0 (item 220): the scenario's purchase and invest calculators, on the Calculators page when a
 // scenario's page opened it — drawn here so every control that redraws them (renderHomeBody) keeps working.
-export function renderCalcScenario(){
+export function renderCalcScenario(){ return keepUi(drawCalcScenario); }
+function drawCalcScenario(){
   var el = typeof document !== "undefined" && document.getElementById("calcScenarioBody");
   if(!el) return;
   var key = calcFor.key;
@@ -437,7 +440,7 @@ function renderPurchasePanelHtml(scenario){
         '<span class="m-row-dot series-color-' + m.colorIdx + '" aria-hidden="true"></span>' +
         '<input type="text" class="cc-what field-control field-compact" value="' + escapeAttr(m.cost.what) + '" aria-label="Cost name" placeholder="Cost name">' +
         // Item 254: a government fee follows the state and price (titled so); typing a figure makes it yours.
-        '<input type="number" step="0.01" min="0" class="cc-amount field-control field-compact" value="' + Math.round(m.amount * 100) / 100 + '" aria-label="Cost amount"' + (m.cost.fee ? ' data-cc-fee="' + escapeAttr(m.cost.fee) + '" title="Worked out from the state and price — type a figure to use your own"' : '') + '>' +
+        '<input type="number" step="0.01" min="0" class="cc-amount field-control field-compact" data-error-key="' + draftFieldKey(m.cost, "amount") + '" value="' + Math.round(m.amount * 100) / 100 + '" aria-label="Cost amount"' + (m.cost.fee ? ' data-cc-fee="' + escapeAttr(m.cost.fee) + '" title="Worked out from the state and price — type a figure to use your own"' : '') + '>' +
         '<button type="button" class="btn btn-danger btn-sm row-del" data-cc-del="' + m.ci + '" aria-label="Remove cost">✕</button>' +
       '</div>';
     }).join("");
@@ -495,7 +498,7 @@ function renderPurchasePanelHtml(scenario){
       '</div>';
   }
   return (
-    '<div class="calc-panel" data-calc-scenario="' + escapeAttr(scenario) + '">' +
+    '<div class="calc-panel" data-error-scope="' + escapeAttr("Purchase calculator for " + scenario) + '" data-calc-scenario="' + escapeAttr(scenario) + '">' + errorSummaryLiveHtml() +
       '<label class="calc-enable"><span class="switch"><input type="checkbox" class="calc-enabled"' + (enabled ? " checked" : "") + '><span class="switch-track"><span class="switch-thumb"></span></span></span>' +
         '<span class="calc-enable-text">This is a property purchase — show the calculator<span class="calc-enable-note">Turns off "Investing instead" below — only one can be active</span></span></label>' +
       body +

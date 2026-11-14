@@ -1,3 +1,5 @@
+import { refreshErrorSummary } from "./error-summary.js";
+
 // ---------------- Reading a field before it's saved (#263) ----------------
 //
 // An edit is saved only when its field reads as a value its rule allows. Until then the field keeps what was typed
@@ -47,9 +49,10 @@ export function markField(input, result){
   if(result && result.ok){
     input.removeAttribute("aria-invalid");
     if(msg){ msg.textContent = ""; }
+    refreshErrorSummary(input);
     return true;
   }
-  if(!input.id) input.id = "fld-" + (++seq);
+  if(!input.id){ input.id = "fld-" + (++seq); input.setAttribute("data-validation-generated-id", ""); }
   if(!msg && box){
     msg = document.createElement("p");
     msg.className = "field-error";
@@ -67,6 +70,7 @@ export function markField(input, result){
     if(ids.indexOf(msg.id) === -1) input.setAttribute("aria-describedby", ids.concat(msg.id).join(" "));
   }
   input.setAttribute("aria-invalid", "true");
+  refreshErrorSummary(input);
   return false;
 }
 

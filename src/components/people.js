@@ -1,3 +1,4 @@
+import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
 import { getTaxPeople, personTaxSettings, todayTaxFy, wfhRateForFy, computePersonTax } from "../calc/tax.js";
@@ -20,7 +21,7 @@ import { emptyStateHtml } from "../lib/empty.js";
 // than in a title tooltip that touch and keyboard never reach. `control` is the input, built with id and describedby.
 function field(id, label, person, control, help){
   return '<div class="proj-field"><label for="' + id + '">' + label + '<span class="visually-hidden"> for ' + escapeAttr(person) + '</span></label>' +
-    control + (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
+    control.replace('<input ', '<input data-error-key="' + draftFieldKey(personTaxSettings(person), id.replace(/^pp-\d+-/, "")) + '" ') + (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
 }
 function numInput(cls, person, value, id, described, step){
   return '<input type="number" min="0" step="' + (step || 500) + '" class="pp-in ' + cls + ' field-control" data-pp-person="' + escapeAttr(person) + '" id="' + id + '"' +
@@ -47,10 +48,10 @@ export function personCardHtml(person, index, today){
     var rate = wfhRateForFy(fy);
     var h = st.wfhHours && st.wfhHours[fy] != null ? st.wfhHours[fy] : "";
     hours.push('<div class="proj-field pp-hours"><label for="pp-wfh-' + index + '-' + fy + '">' + fyLabel(fy) + ' <small>' + Math.round(rate.rate * 100) + 'c/h</small></label>' +
-      '<input type="number" min="0" step="1" id="pp-wfh-' + index + '-' + fy + '" class="pp-in pp-wfh field-control" data-pp-person="' + pid + '" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + h + '" placeholder="0"></div>');
+      '<input type="number" min="0" step="1" id="pp-wfh-' + index + '-' + fy + '" class="pp-in pp-wfh field-control" data-error-key="' + draftFieldKey(st, "wfh-" + fy) + '" data-pp-person="' + pid + '" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + h + '" placeholder="0"></div>');
   }
   var ppid = "pp-" + index + "-";
-  return '<div class="pp-card" data-pp-card="' + pid + '">' +
+  return '<div class="pp-card" data-error-scope="Tax details for ' + pid + '" data-pp-card="' + pid + '">' + errorSummaryLiveHtml() +
     '<div class="pp-head"><span class="m-avatar series-color-' + (index % 8) + '" aria-hidden="true">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' +
       '<input type="text" class="pp-name inline-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
       (age != null ? '<span class="pp-age">' + age + '</span>' : '') +

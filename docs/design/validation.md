@@ -213,12 +213,41 @@ saved (Plan's stress test, the fixed-rate what-if, the target mix's next amount)
 blank with a message (Quick log, a pay change, Record a rate change). "Vary by scenario" is unreachable since item 207
 and is left for a cleanup.
 
+## Long-form error summaries (#301, targeted #267 coverage)
+
+Inline messages remain the source of truth. These long forms also show a summary at the top once they have an
+invalid field:
+
+| Summary scope | Placement |
+|---|---|
+| Property's main fields across its tabs | Top of that property card |
+| A person's tax return, including repeated statement/account/deduction rows | Top of that person's return |
+| An enabled scenario purchase calculator | Top of that purchase panel |
+| Tax → People | Top of each person's card |
+
+Short row/modal editors and the short investing calculator keep inline errors. A nested row modal does not add
+an inaccessible summary to its inert background property card.
+
+Each form reserves a polite, atomic live region before its first error; the visible summary count is announced there, not as an alert. Each link names its field (and repeated row where available)
+and repeats the existing inline error. It opens the required property tab, section or native disclosure, then
+focuses and centers the field below sticky chrome. Displaying or updating the summary never moves focus itself.
+Correcting an error removes its link; correcting all errors hides the summary. Removing a repeated row removes
+its error, without transferring a draft to the next row.
+
+`lib/error-summary.js` builds text with DOM textContent, uses DOM-only record identities for repeated fields, and
+observes only scopes that have had an error. `keepUi` carries invalid long-form drafts/messages across redraws,
+including unfocused fields and closed tabs. Closing an editor or removing its fields still cancels its drafts.
+Generated validation ids and repeated-field keys are not written to financial state.
+
+`errorsummaries` drives all four families at 320/390/768/1280px, light/dark, with keyboard and touch, both error
+links, actual focus/occlusion and local/page overflow measurements, redraws, row deletion and correction. The
+accessibility job scans summaries and their invalid fields and saves separate error-state screenshots. This is
+Chromium emulation; #267's wider state catalogue and #299's real device/screen-reader checks remain open.
+
 ## Open questions
 
 1. **Negative amounts on budget and income lines:** allowed (as now), or an error with a way to record an offset?
-2. **Long forms:** the row editor is short enough that the message beside the field is the summary. Longer forms
-   (property purchase, the tax year) will want an error count at the top that links to each field. That comes with
-   those families.
+2. **Long forms:** resolved by the scoped summaries above (#301).
 3. **Blank meaning "unknown":** for some fields (a property's purchase cost, a date of birth), blank is a real answer.
    Those rules leave `empty` out, so blank saves as `null`, and the calculation must already handle `null`. Each
    family checks that before using it.

@@ -2574,3 +2574,12 @@ test("Reports names the selected year and states actual screen/print dates", asy
     r.reportShown.key=keep.key; r.reportFrame.range=keep.range; r.reportFrame.from=keep.from; r.reportFrame.to=keep.to;
   }
 });
+
+
+test("long forms reserve a polite announcement before their first error", async function(){
+  const { errorSummaryLiveHtml } = await import("../src/lib/error-summary.js");
+  const html=errorSummaryLiveHtml();
+  assert.match(html,/class="visually-hidden"/);
+  assert.match(html,/aria-live="polite" aria-atomic="true"/);
+  assert.doesNotMatch(html,/role="alert"/);
+});

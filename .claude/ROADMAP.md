@@ -5072,6 +5072,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      linked depreciation schedule explanations behind ⓘ, and the Property-wide tooltip ratchet.
      Journey: `propertyremaininghelp` checks exact/escaped chart labels, live patches, schedule help at
      320/390/1280px in both themes, stored-data invariance, described errors, saves and redraw focus.
+   - `[~]` #255 Cash flow → Income help: accessible composition values, explained hourly dashes,
+     touch/keyboard CSV guidance, and current scenario instructions; preserve calculations and saves.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

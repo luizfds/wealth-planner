@@ -5166,3 +5166,7 @@ Verified with `homedates` at 320/390/1280px, both themes, with a past reporting 
 `[x]` Keep category delete actions visible but quiet at rest, with danger colour on hover or keyboard focus. Preserve accessible names, focus indicators, touch targets and existing delete/Undo behavior. Verify phone/desktop and both themes, with before/after screenshots.
 
 Verified `categorycolours` and existing `categories` journeys (quiet/hover/focus colours, keyboard focus indicator, names, renames and validation), plus 12 scoped axe states at 320/390/1280px, light/dark. Screenshots compared at 390/1280px.
+
+## Home card balance — issue #308
+
+`[~]` Size the first-row cards to content, remove the redundant wide outer goal card, and compact the collapsed desktop weekly recap. Preserve figures, links, expanded content and saved card arrangements. Verify phone/desktop in both themes with before/after screenshots.

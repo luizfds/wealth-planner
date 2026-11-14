@@ -5211,3 +5211,8 @@ Verified `errorsummaries` over four forms × four widths × two themes: both lin
 Design contract: search shows type and useful date, account or person context. Keyboard arrows move among results, Enter opens the focused result, Escape and Back dismiss search, and Back from Details returns to the origin. Search is a modal with a contained focus order. Add a small navigation-only catalogue for Reports and Calculators; financial mutations, imports and exports retain their existing review flows. Issue #265 gets its own design pass. Cover identity races, duplicate names, historical records, unchanged filters, keyboard/touch navigation and narrow layouts; broader #267 coverage remains open.
 
 Implementation and interaction contract: `docs/design/search.md`. Verified exact historical and computed-income destinations, duplicate names, deletion/reordering/renaming, collapsed Budget sources, navigation actions, keyboard/touch and unchanged filters. The focused journey passes axe at all eight size/theme combinations and at 6× CPU throttling. Unit and lint/type/style checks and full page smoke pass; full journeys and PR checks complete the release validation.
+
+
+## Mobile bills confirmation — reported after v3.272.0
+
+`[~]` Fix the mobile cascade that turns the confirmation grid into an inline flex row and squeezes bill names. Identify repeated due occurrences clearly with the budget-line name and contextual account/category, without merging distinct payments or changing stored data. Reproduce with synthetic monthly bills, same names and long labels; verify phone/desktop layout, confirmation dates/amounts and no duplicate logging. Keep shared import discovery on its own branch.

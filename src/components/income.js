@@ -38,7 +38,6 @@ function shownAmount(monthly, hours, fmt){
   var key = incomeShowAs(), v = fromMonthly(monthly, key, hours);
   return v == null ? null : (fmt || fmtCurrency0).format(v);
 }
-var NO_HOURS = "Per hour goes by the hours a person works — shared income has no one's hours";
 // The Income header's figure: the monthly total it has always shown (the caller's), in the chosen period.
 export function incomeHeaderTotal(total){
   var groups = computeIncomeGroups(), key = incomeShowAs();
@@ -289,7 +288,7 @@ function incomeGroupRowMeta(g){
 
 function groupTotalHtml(g){
   var v = shownAmount(g.monthly, hoursPerWeekOf(g.key));
-  return v == null ? '<span title="' + NO_HOURS + '">—</span>' : v + '<span>' + showAsOption(incomeShowAs()).suffix + '</span>';
+  return v == null ? '<span role="img" aria-label="Hourly income unavailable" aria-describedby="incomeHourlyHelp">—</span>' : v + '<span>' + showAsOption(incomeShowAs()).suffix + '</span>';
 }
 function rowAmountText(item, monthly){
   var v = shownAmount(monthly, hoursPerWeekOf(incomeGroupKey(item)), fmtCurrency2);
@@ -303,7 +302,7 @@ function modernIncomeCompBarHtml(rowMeta){
   var total = segs.reduce(function(s, x){ return s + x.monthly; }, 0);
   return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
     var pct = total > 0 ? x.monthly / total : 0;
-    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.monthly + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.monthly) + '/mo (' + fmtPercent1.format(pct) + ')"></div>';
+    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.monthly + ' 1 0%"' + figureAttrs((x.item.what == null ? '' : x.item.what) + ': ' + fmtCurrency0.format(x.monthly) + '/mo (' + fmtPercent1.format(pct) + ')') + '></div>';
   }).join("") + '</div>';
 }
 

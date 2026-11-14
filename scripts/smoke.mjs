@@ -167,7 +167,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
         // Exact chart values may keep hover titles when the figure or month button has the same accessible name.
         const tooltipHelp = [];
-        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year, #reportsBody .md, #page-properties").forEach(view => {
+        document.querySelectorAll("#expensesSub-spending, #expensesSub-income, .page-intro-actions:has(#incomeExportCsvBtn), #planSub-projections, #taxSub-year, #reportsBody .md, #page-properties").forEach(view => {
           if(!view.getClientRects().length) return;
           view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");

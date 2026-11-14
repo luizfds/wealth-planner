@@ -570,14 +570,14 @@
         </div>
         <div class="expenses-subpage" id="expensesSub-income" hidden>
         <div class="page-intro-row">
-          <p class="page-intro help">Your household income, and what it's really worth after tax.</p>
+          <p class="page-intro help" id="incomePageHelp">Your household income, and what it's really worth after tax. <span id="incomeExportHelp">Export CSV downloads every income row as a CSV file.</span> <span id="incomeTemplateHelp">Import template downloads a blank CSV shaped for importing income back in.</span> <span id="incomeImportHelp">Import CSV adds income rows from a CSV file shaped like the import template.</span></p>
           <div class="page-intro-actions">
             <div class="page-overflow">
               <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Income import and export" title="Income import and export">⋯</button>
               <div class="page-overflow-menu" data-overflow-menu hidden>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" title="Download every income row as a CSV file">Export CSV</button>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" title="Download a blank CSV shaped for importing income back in">Import template</button>
-              <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" title="Add income rows from a CSV file shaped like the import template">Import CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeExportCsvBtn" aria-describedby="incomeExportHelp">Export CSV</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeDownloadTemplateBtn" aria-describedby="incomeTemplateHelp">Import template</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="incomeImportBtn" aria-describedby="incomeImportHelp">Import CSV</button>
               </div>
             </div>
             <input type="file" id="incomeImportFile" accept=".csv,text/csv" hidden>
@@ -590,7 +590,8 @@
               <div class="ledger-total"><span id="totalIncomeLabel">Monthly total</span> <b id="totalIncomeMonthly">—</b></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax page work out real take-home pay. Every row here applies to all your scenarios by default — use <b>⇄ Vary</b> on a row to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
+              <p class="ledger-note help" style="margin-left:0">Enter a paycheck as-is (Type "Net") if that's what actually lands in your account, or mark it "Gross" and add a Person to have the Tax page work out real take-home pay. Every row here applies to all your scenarios by default — edit <b>Changes from today</b> on <b>Plan → Scenarios</b> to give one scenario a different amount ("three days a week", "six months off", "the pay rise doesn't arrive"). The figures on this page are the default ones.</p>
+              <p class="ledger-note help" id="incomeHourlyHelp" style="margin-left:0">Per hour goes by the hours a person works — shared income has no one's hours. Each person's hours a week are under Tax → People (38 until set). A person with zero working hours also has no hourly figure; a dash means no hourly figure is available.</p>
               <div id="incomeImportPreview" hidden></div>
               <p class="income-summary-line" id="incomeSummaryLine" style="display:none"></p>
               <div id="incomeGroups"></div>

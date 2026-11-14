@@ -5084,6 +5084,8 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      CI on PR #360 exposed a test race in `propertyremaininghelp`: it chose a tab before the
      responsive picker was decorated, then waited on that now-hidden tab. It now waits for the
      picker to be attached before deciding between the picker and desktop tabs.
+   - `[~]` #255 basic investment help (Cash/Super/Vehicle/Other): described snapshot actions,
+     Super estimate and vehicle-method explanations reachable without hover, and named composition bars.
 6. `[ ]` **Larger workflows.** Issues #264 (search) and #265 (import), a design pass each, as already agreed.
 
 Alongside, not blocking: #267 (see "Journeys that fail now and then" below), #282 (setup focus — not reproduced; the trace from PR #284 is

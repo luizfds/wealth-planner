@@ -5163,4 +5163,6 @@ Verified with `homedates` at 320/390/1280px, both themes, with a past reporting 
 
 ## Quiet category delete actions — issue #308
 
-`[~]` Keep category delete actions visible but quiet at rest, with danger colour on hover or keyboard focus. Preserve accessible names, focus indicators, touch targets and existing confirmation behavior. Verify phone/desktop and both themes, with before/after screenshots.
+`[x]` Keep category delete actions visible but quiet at rest, with danger colour on hover or keyboard focus. Preserve accessible names, focus indicators, touch targets and existing delete/Undo behavior. Verify phone/desktop and both themes, with before/after screenshots.
+
+Verified `categorycolours` and existing `categories` journeys (quiet/hover/focus colours, keyboard focus indicator, names, renames and validation), plus 12 scoped axe states at 320/390/1280px, light/dark. Screenshots compared at 390/1280px.

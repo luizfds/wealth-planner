@@ -203,6 +203,8 @@
     padding:5px 6px; border:1px solid var(--border); border-radius:6px;
     background: var(--paper); color: var(--ink); font-family:inherit; font-size:var(--fs-sm); min-height:40px;
   }
+  .cat-mgmt-delete{ color:var(--ink-soft); }
+  .cat-mgmt-delete:hover, .cat-mgmt-delete:focus-visible{ color:var(--bad-ink); }
   /* The "used by N lines" note next to a category's name. Lived in shell.css while its own row's
      styling lived here, which is how the input above came to be forgotten — kept together now. */
   .cat-mgmt-count{ font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; }

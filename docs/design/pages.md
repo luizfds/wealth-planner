@@ -123,7 +123,8 @@ Counts are from the audit; "390" is the demo household at 390px.
 
 - **Each person's card on Income names its person:** "+ Add income for Alex", beside the page's own "+ Add income".
 - **Dense grids may use an icon-only ✕:** a purchase lot, a category, a statement line. It is still `.btn-danger`,
-  with an aria-label naming what it deletes.
+  with an accessible name identifying what it deletes. Category deletes stay visible in quiet ink at rest,
+  showing danger ink on hover and keyboard focus; the focus indicator and touch target remain.
 - **Every delete is followed by an Undo toast.** Where Undo can't restore everything, the confirm dialog (#256) says
   what will be lost.
 

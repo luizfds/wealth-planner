@@ -1836,7 +1836,7 @@ function categoryRowHtml(name, idx){
   // field is described by its usage: what a rename retargets.
   var nameInput = '<input type="text" class="cat-mgmt-name" id="cat-name-' + idx + '" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name" aria-describedby="cat-used-' + idx + '">';
   var usage = '<span class="cat-mgmt-count" id="cat-used-' + idx + '">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
-  var delBtn = '<span class="visually-hidden" id="cat-del-' + idx + '-lbl">Delete</span><button type="button" class="btn btn-danger btn-sm row-del" data-cat-del="' + idx + '" aria-labelledby="cat-del-' + idx + '-lbl cat-name-' + idx + '">✕</button>';
+  var delBtn = '<span class="visually-hidden" id="cat-del-' + idx + '-lbl">Delete</span><button type="button" class="btn btn-danger btn-sm row-del cat-mgmt-delete" data-cat-del="' + idx + '" aria-labelledby="cat-del-' + idx + '-lbl cat-name-' + idx + '">✕</button>';
   return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
     '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + categoryLookPickerHtml(name, idx) + nameInput + usage + delBtn + '</div>' +
   '</div>';

@@ -2583,3 +2583,18 @@ test("long forms reserve a polite announcement before their first error", async 
   assert.match(html,/aria-live="polite" aria-atomic="true"/);
   assert.doesNotMatch(html,/role="alert"/);
 });
+
+
+test("bill confirmation separates controls and identifies each due payment", async () => {
+  const {expenseReviewRowsHtml}=await import('../src/components/expenses.js');
+  const html=expenseReviewRowsHtml([{key:0,id:'bill-example',what:'Spending',due:'2026-09-01',amount:100,checked:true},
+    {key:1,id:'bill-example',what:'Spending',due:'2026-10-01',amount:100,checked:true}],
+    [{id:'bill-example',what:'Spending',category:'Utilities',account:'Bank One <example>'}]);
+  assert.equal((html.match(/class="bc-confirm-row"/g)||[]).length,2);
+  assert.equal((html.match(/<label/g)||[]).length,6);
+  assert.match(html,/Confirm Spending due 1 Sep 2026/);
+  assert.match(html,/Confirm Spending due 1 Oct 2026/);
+  assert.match(html,/Utilities · Bank One &lt;example/);
+  assert.match(html,/name saved in Budget/);
+  assert.doesNotMatch(html,/<label class="bc-confirm-row"/);
+});

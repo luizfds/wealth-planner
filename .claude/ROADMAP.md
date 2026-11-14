@@ -5154,3 +5154,7 @@ navigation, then ends on the first-month steps (`lib/setup.js`) instead of a sec
 `[x]` Use the shared display-date formatter for Home’s recorded-balance date. Verify the bell’s due dates already use it; preserve ISO dates in storage and inputs, calculations and today’s date when another period is selected.
 
 Verified with `homedates` at 320/390/1280px, both themes, with a past reporting period and unchanged saved balances; rendered text rejects ISO dates. Notification due dates already use `fmtDate`. Other #308 polish items remain open.
+
+## Financial colour meaning — issue #308
+
+`[~]` Use the chart palette for property debt and the standard warning ink with normal weight for the Medicare levy surcharge note. Preserve numbers, notice visibility and wording. Verify default and live-patched tax notices, both themes and phone/desktop layouts, with before/after screenshots. Other #308 items remain separate.

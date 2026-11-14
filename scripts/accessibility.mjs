@@ -319,6 +319,16 @@ for(const width of widths)for(const scheme of schemes){
    await page.keyboard.press('Escape');
    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
   }
+  if(pg==='assets'&&sub==='Super'){
+   await page.evaluate(()=>window.scrollTo(0,0));await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
+   await page.locator('#pageHelpBtn').click();
+   await scan('basic-investment/super-help','#superEstimateHelp');
+   await page.locator('#pageHelpBtn').click();
+  }
+  if(pg==='assets'&&sub==='Vehicle'){
+   const help=page.locator('#assetsSub-Vehicle details:has(#assetsComp-Vehicle) > [data-help-toggle]');
+   await help.click();await scan('basic-investment/vehicle-help','#vehicleMethodHelp');await help.click();
+  }
   if(pg==='assets'&&['Cash','Super','Vehicle'].includes(sub)){
    const assetId=sub==='Cash'?'demo-cash-everyday':sub==='Super'?'demo-super-alex':'demo-car';
    const index=await page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),assetId);

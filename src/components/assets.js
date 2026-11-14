@@ -11,7 +11,7 @@ import { escapeAttr, segLabel, figureAttrs } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
 function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
-import { historyTrendHtml, ledgerFields, rowEditSlot } from "../lib/ledger-table.js";
+import { historyTrendHtml, ledgerFields, ledgerFieldId, rowEditSlot } from "../lib/ledger-table.js";
 import { superEstimate } from "../calc/estimates.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
 import { showToast } from "../lib/toast.js";
@@ -557,23 +557,25 @@ function modernAssetCompBarHtml(rowMeta){
   var total = segs.reduce(function(s, x){ return s + x.amount; }, 0);
   return '<div class="m-comp-bar" data-comp-bar>' + segs.map(function(x){
     var pct = total > 0 ? x.amount / total : 0;
-    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%" title="' + escapeAttr(x.item.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')"></div>';
+    return '<div class="m-comp-seg series-color-' + x.colorIdx + '" style="flex:' + x.amount + ' 1 0%"' + figureAttrs((x.item.what == null ? '' : x.item.what) + ': ' + fmtCurrency0.format(x.amount) + ' (' + fmtPercent1.format(pct) + ')') + '></div>';
   }).join("") + '</div>';
 }
 // v3.114.0: super between statements — roughly where it stands today, marked as an estimate.
+var SUPER_ESTIMATE_HELP = "From the last statement, plus employer super since (after the 15% contributions tax) and growth at the projection's return. Replace it with the real figure when the next statement comes.";
 export function superEstimateSubHtml(item, today){
   if(item.category !== "Super") return "";
   var est = superEstimate(item, today || localDateStr());
   if(!est || est.days < 30) return "";
-  return '<div class="m-row-sub est-note" title="From the last statement, plus employer super since (after the 15% contributions tax) and growth at the projection\'s return. Replace it with the real figure when the next statement comes.">≈ ' +
+  return '<div class="m-row-sub est-note">≈ ' +
     fmtCurrency0.format(est.value) + ' today, estimated from ' + fmtCurrency0.format(est.from.value) + ' on ' + escapeAttr(fmtDate(est.from.date)) + '</div>';
 }
 export function modernAssetRowHtml(item, idx, colorIdx){
+  var estimateNote = superEstimateSubHtml(item);
   var isOpen = !!modernAssetRowOpen["assets:" + idx];
   var dot = colorIdx != null ? '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' : "";
-  var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+  var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle' + (estimateNote ? ' aria-describedby="superEstimateHelp"' : '') + '>' +
     dot +
-    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what || "Asset") + '</div>' + superEstimateSubHtml(item) + '</div>' +
+    '<div style="flex:1 1 auto; min-width:0"><div class="m-row-name">' + escapeAttr(item.what || "Asset") + '</div>' + estimateNote + '</div>' +
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency0.format(Number(item.amount) || 0) + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
@@ -588,7 +590,7 @@ export function modernAssetRowHtml(item, idx, colorIdx){
       field("a-amount", "Value", {type:"number",value:item.amount,attrs:{step:100,min:0},help:valueHelp}, {className:"span2"}) +
       field("a-person", "Person", {value:item.person || "",attrs:{list:"personSuggestions"},placeholder:"Household",help:item.category === "Super" ? "Use the matching person's name to include their employer contributions in the super estimate. Leave blank for the household." : "Leave blank for a household asset."}, {className:"span3"}) +
     '</div>' +
-    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
+    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" aria-describedby="' + escapeAttr(ledgerFieldId(item, "assets", idx, "asset", "a-amount") + "-help") + '">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -598,6 +600,8 @@ var ADD_NOUN = { Cash: "cash account", Super: "super fund", Other: "other asset"
 export function renderAssetCategoryPage(cat){
   var container = document.getElementById("assetsSub-" + cat);
   if(!container) return;
+  var oldHelp = container.querySelector("#superEstimateHelp");
+  var helpOpen = !!(oldHelp && oldHelp.classList.contains("help-open"));
   var data = assetCategoryItems(cat);
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
   var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="assets:' + escapeAttr(cat) + '">+ Add ' + escapeAttr(ADD_NOUN[cat] || String(cat).toLowerCase()) + '</button>';
@@ -622,7 +626,7 @@ export function renderAssetCategoryPage(cat){
   var superCard = cat === "Super" ? superContributionsCardHtml(superContributions(currentTaxFy()), fyLabel(currentTaxFy())) : "";
   if(cat === "Super"){
     var controls = assetListControlsHtml(cat, assetPersonFilter ? 1 : 0, '<button type="button" class="btn btn-sm btn-ghost" data-asset-list-jump="superContributions">Contributions</button>');
-    container.innerHTML = '<div class="ledgers"><section class="ledger record-list">' + listToolbarHtml(cat, fmtCurrency0.format(total), controls) +
+    container.innerHTML = '<p class="page-intro help' + (helpOpen ? ' help-open' : '') + '" id="superEstimateHelp">' + escapeAttr(SUPER_ESTIMATE_HELP) + '</p><div class="ledgers"><section class="ledger record-list">' + listToolbarHtml(cat, fmtCurrency0.format(total), controls) +
       '<div class="ledger-body"><div id="assetListFilters-Super" class="record-filter-panel"' + (assetListUi.filters === cat ? '' : ' hidden') + '><div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-asset-list-filters="Super">Done</button></div>' + (assetPersonSelectHtml() || '<p class="record-summary">Tag funds with a person to filter them.</p>') + '</div>' + assetAppliedHtml(cat) + body + '</div></section>' +
       '<div id="superContributions">' + superCard + '</div>' + historyCard + '</div>';
   } else container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
@@ -700,8 +704,8 @@ export function modernVehicleRowHtml(item, idx, colorIdx){
       field("v-person", "Person", {value:item.person || "",attrs:{list:"personSuggestions"},placeholder:"Household",help:"Leave blank for a household vehicle."}, {className:"span3"}) +
     '</div>' +
     '<p class="ledger-note v-value-cell" style="margin:8px 0 0">Current value <b>' + fmtCurrency0.format(Number(item.amount) || 0) + '</b>' + (item.computed ? '<span class="computed-note">auto</span>' : '<span class="computed-note">set price + date to auto-depreciate</span>') + '</p>' +
-    '<p class="field-help">Record value saves today’s current value as a dated snapshot for the history chart.</p>' +
-    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" title="Record the value above as of today, so it shows up in the portfolio-over-time chart below">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
+    '<p class="field-help" id="' + escapeAttr(ledgerFieldId(item, "assets", idx, "vehicle", "record-help")) + '">Record value saves today’s current value as a dated snapshot for the history chart.</p>' +
+    '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" aria-describedby="' + escapeAttr(ledgerFieldId(item, "assets", idx, "vehicle", "record-help")) + '">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete vehicle">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="assets" data-index="' + idx + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
 }
@@ -711,7 +715,7 @@ export function renderVehiclesSubpage(){
   if(!container) return;
   var data = assetCategoryItems("Vehicle");
   var total = data.items.reduce(function(s, a){ return s + (Number(a.amount) || 0); }, 0);
-  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" title="Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you">+ Add vehicle</button>';
+  var footerBtn = '<button type="button" class="btn btn-sm' + (data.items.length ? " btn-ghost" : "") + '" data-add="vehicle" aria-describedby="vehicleMethodHelp">+ Add vehicle</button>';
   var body;
   if(!data.items.length){
     body = emptyStateHtml("No vehicles tracked yet.", { beside: true }) + footerBtn;
@@ -722,7 +726,7 @@ export function renderVehiclesSubpage(){
   container.innerHTML = '<div class="ledgers"><details class="ledger" open>' +
     '<summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Vehicle</h2></div>' +
     '<div class="ledger-total">Total <b>' + fmtCurrency0.format(total) + '</b></div></summary>' +
-    '<div class="ledger-body"><p class="ledger-note help" style="margin-left:0">Declining-balance depreciation is an estimate, not a market valuation. A positive purchase price and purchase date recalculate the value; missing either keeps the stored value. Blank or 0 depreciation applies no decline.</p>' + body + '</div></details>' +
+    '<div class="ledger-body"><p class="ledger-note help" id="vehicleMethodHelp" style="margin-left:0">Track a car or other depreciating vehicle — enter purchase price, date, and an annual depreciation rate and its current value is estimated for you. Declining-balance depreciation is an estimate, not a market valuation. A positive purchase price and purchase date recalculate the value; missing either keeps the stored value. Blank or 0 depreciation applies no decline.</p>' + body + '</div></details>' +
     // Vehicles get the same over-time chart as every other category. Theirs is the one most likely
     // to be empty — a depreciating car is exactly the thing nobody logs — so the panel's job here
     // is mostly to say that out loud rather than to draw anything.

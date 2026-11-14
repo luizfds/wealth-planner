@@ -6,12 +6,17 @@ import { fieldHtml } from "./field.js";
 
 // Stable ids include the surface: the same property cost is editable from Budget and Property.
 // Keep the existing grid/conditional wrappers; fieldHtml owns the label, control, help and error.
-export function ledgerFields(item, section, idx, surface){
+// Actions can describe the same field help without maintaining a second copy of its id formula.
+export function ledgerFieldId(item, section, idx, surface, name){
   var key = encodeURIComponent((surface || "ledger") + ":" + (section || "income") + ":" + (item.id == null ? idx : item.id));
+  return "ledger-" + key + "-" + name;
+}
+export function ledgerFields(item, section, idx, surface){
+  var prefix = ledgerFieldId(item, section, idx, surface, "");
   return function(name, label, options, layout){
     layout = layout || {};
     return '<div class="m-edit-field' + (layout.className ? " " + escapeAttr(layout.className) : "") + (options && options.type === "date" ? " ledger-date-field" : "") + '"' + (layout.hidden ? " hidden" : "") + ">" +
-      fieldHtml(Object.assign({}, options, { id: "ledger-" + key + "-" + name, label: label, className: name })) + "</div>";
+      fieldHtml(Object.assign({}, options, { id: prefix + name, label: label, className: name })) + "</div>";
   };
 }
 function choices(values){ return values.map(function(value){ return { value: value, label: value }; }); }

@@ -158,6 +158,9 @@ means a button, or a link to the place the step is done:
 - **Property actions:** Record today's value and move-to-loan explanations use local ⓘ controls with linked
   descriptions on the action buttons. Move-to-loan help appears only for an investment property with a loan.
   Open action help survives a redraw; the page's ⓘ explains that loan CSV export covers every property.
+- **Property schedules and charts:** the quantity surveyor's schedule explains Division 43/40 behind its ⓘ
+  and describes each amount field, including validation errors. Loan and acquisition-cost segments expose the same
+  exact name, value and share as their hover title. The depreciation year's basis remains in the visible summary.
 - **Data quality** (estimated, stale, from a statement, missing a figure): a short tag beside the figure, the same
   wording everywhere ("estimate", "as of 3 Nov", "from statement"), in `--ink-soft`. Warnings use `--warn-ink`.
 - **Units and basis:** "/mo", "/yr" and "a year" follow the figure. Today's dollars or future dollars, and "FY26/27",
@@ -188,7 +191,7 @@ Proposed primary task and changes per view. "Add" is the item 3 wording; "Empty"
 | Net worth | — (reading) | Period chip: see question 1 |
 | Accounts | + Add account | Period chip: see question 1 |
 | Investments (7 tabs) | + Add … per tab ("+ Add cash account", "+ Add holding", "+ Add super fund") | One rail (item 6); Offsets' empty state links to Property; 7 tips on Summary |
-| Property | + Add property | Cash-rate "Record on the loans ticked" becomes `.btn`; 9 tips |
+| Property | + Add property | Portfolio, card figures, actions and depreciation schedule use ⓘ; composition charts have exact accessible labels |
 | Tax → This year | — | 12 tips |
 | Tax → Returns | The open year's next step: open its worksheet, then Mark as lodged | One primary at a time; empty state links to Income |
 | Tax → Documents | — | Empty state links to Income |
@@ -229,7 +232,9 @@ Each step is its own PR, with the smoke run, journeys, accessibility scan and sc
    migrated views. Tax → This year shipped v3.269.0 (PR #353), moving cap, warning and household-setting
    explanations behind ⓘ, preserving visible warnings and labelling waterfall figures for screen readers, including live updates. Reports → Month
    now names its native month buttons with the exact figures and selected state. Separate 44px targets scroll
-   locally on phones, with the selected month visible after redraws. Property and the remaining views follow.
+   locally on phones, with the selected month visible after redraws. Property now uses ⓘ for portfolio/card figures,
+   actions and the depreciation schedule, with described schedule fields and labelled composition charts. The
+   Property-wide smoke ratchet also checks field titles. The remaining views follow.
 5. **One rail on Investments.**
 
 No calculation, stored data or wording of risk information changes. Where a step moves text, the text stays the same.

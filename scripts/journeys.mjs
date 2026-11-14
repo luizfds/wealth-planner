@@ -22,6 +22,7 @@
 //   incomefields — income labels/help, sacrifice modes, pay schedules, pay-change drafts/history and mobile reflow
 //   goals       — Plan → Goals' editor: labelled fields with help; a blank or negative target isn't saved; Tab keeps
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
+//   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
 //   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
 //   propertyfigurehelp — Property-card figure help by touch and keyboard, conditional explanations, live edits
 //                 and redraws, independent cards and unchanged stored/visible figures
@@ -1381,6 +1382,81 @@ const JOURNEYS = {
     }
   },
   // #255 step 4: Tax's explanations work by keyboard/touch and survive live card updates.
+  async propertyremaininghelp(page){
+    await go(page, 'properties');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'), p = s.state.properties[0];
+      const fy = (await import('/src/calc/property.js')).financialYearOf((await import('/src/calc/ledger.js')).householdYearWindow().start);
+      p.acquisitionCosts = [{what:'Cost <A> & "example"',amount:2000},{what:'Second cost',amount:1000}];
+      p.loans = [{...p.loans[0],what:'Loan <A> & "example"',balance:200000,offsetBalance:0}, {...structuredClone(p.loans[0]),id:'example-second-loan',what:'Second loan',balance:100000,offsetBalance:0}];
+      p.depreciationSchedule = [{fy,capitalWorks:2000,plant:500}]; s.persist();
+      (await import('/src/components/properties.js')).renderProperties();
+    });
+    const card = page.locator('.property-card').first();
+    await card.locator('[data-prop-edit]').click();
+    const tab = async (name, section) => {
+      const button = card.locator('[data-prop-tab][data-tab="' + name + '"]');
+      const picker = card.locator('.prop-tabs select');
+      if(await picker.isVisible()) await picker.selectOption({label:(await button.textContent()).trim()});
+      else await button.click();
+      const toggle = card.locator('[data-prop-section-toggle="' + section + '"]');
+      if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+    };
+    const chartLabels = async root => {
+      const segments = root.locator('[data-comp-bar] [role="img"]');
+      check(await segments.count() === 2, 'composition chart lacks named segments');
+      for(const segment of await segments.all()){
+        const label = await segment.getAttribute('aria-label');
+        check(label === await segment.getAttribute('title') && /\$.*\([0-9.,]+%\)/.test(label), 'chart name differs from its exact hover value');
+      }
+      check((await segments.first().getAttribute('aria-label')).includes('<A> & "example"'), 'chart name lost escaped text');
+    };
+    await tab('overview','acquisition');
+    await chartLabels(card.locator('[id^="propAcqCostRows_"]'));
+    await tab('loans','loans');
+    await chartLabels(card.locator('[id^="propLoanRows_"]'));
+    const oldLabel = await card.locator('[id^="propLoanRows_"] [role="img"]').first().getAttribute('aria-label');
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'), p = s.state.properties[0]; p.loans[0].balance = 300000;
+      (await import('/src/components/properties.js')).patchPropertyCardComputed(p); s.persist();
+    });
+    check(await card.locator('[id^="propLoanRows_"] [role="img"]').first().getAttribute('aria-label') !== oldLabel, 'live loan patch left chart labels stale');
+    await tab('tax','depreciation');
+    const group = card.locator('[data-property-help="depreciation-schedule"]');
+    const help = group.locator('[data-help-toggle]'), note = group.locator('.help');
+    const saved = await stored(page, 'JSON.stringify(state.properties)');
+    check(!await note.isVisible(), 'schedule help is not folded initially');
+    await help.focus(); await page.keyboard.press('Enter');
+    check(await note.isVisible(), 'Enter did not reveal schedule help');
+    await page.keyboard.press('Space');
+    check(!await note.isVisible(), 'Space did not fold schedule help');
+    for(const scheme of ['light','dark']){
+      await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
+      for(const width of [320,390,1280]){
+        await page.setViewportSize({width,height:844});
+        await help.tap();
+        check(await note.isVisible() && /Division 43.*Division 40/s.test(await note.innerText()), 'schedule help is missing on touch');
+        check(await page.evaluate(w => document.documentElement.scrollWidth <= w, width), 'expanded schedule help overflows at ' + width + ' in ' + scheme);
+        await help.tap();
+      }
+    }
+    check(await stored(page, 'JSON.stringify(state.properties)') === saved, 'opening schedule help changed stored properties');
+    for(const cls of ['dep-sched-cw','dep-sched-plant']){
+      check(await group.locator('.'+cls).getAttribute('title') === null, 'schedule field still uses a title');
+      check(await group.locator('.'+cls).evaluate(e => !!document.getElementById(e.getAttribute('aria-describedby'))?.textContent), 'schedule field description is missing');
+    }
+    await help.tap();
+    const capitalHelp = await group.locator('.dep-sched-cw').getAttribute('aria-describedby');
+    await group.locator('.dep-sched-cw').fill(''); await group.locator('.dep-sched-cw').press('Tab');
+    check(await stored(page,'state.properties[0].depreciationSchedule[0].capitalWorks') === 2000, 'blank schedule amount changed saved data');
+    check((await group.locator('.dep-sched-cw').getAttribute('aria-describedby')).split(/\s+/).includes(capitalHelp), 'validation dropped the schedule description');
+    await group.locator('.dep-sched-cw').fill('3000'); await group.locator('.dep-sched-cw').press('Tab');
+    check(await stored(page,'state.properties[0].depreciationSchedule[0].capitalWorks') === 3000, 'schedule edit did not save');
+    check(await note.isVisible(), 'schedule edit folded help');
+    await help.focus();
+    await page.evaluate(async () => { (await import('/src/components/properties.js')).renderProperties(); });
+    check(await note.isVisible() && await help.evaluate(e=>e === document.activeElement), 'redraw lost open schedule help or its focus');
+  },
   async propertyactionhelp(page){
     await go(page, 'properties');
     await page.evaluate(async () => {
@@ -4238,7 +4314,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

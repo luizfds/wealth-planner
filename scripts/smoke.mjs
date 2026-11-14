@@ -167,11 +167,11 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
         // Exact chart values may keep hover titles when the figure or month button has the same accessible name.
         const tooltipHelp = [];
-        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year, #reportsBody .md, #propertiesSummary, #propertiesEquityDebtBar, .property-figures, [data-property-help], #propertyLoansExportCsvBtn").forEach(view => {
+        document.querySelectorAll("#expensesSub-spending, #planSub-projections, #taxSub-year, #reportsBody .md, #page-properties").forEach(view => {
           if(!view.getClientRects().length) return;
           view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");
-            if(!el.getClientRects().length || title.length <= 40 || el.matches("input, select, textarea")) return;
+            if(!el.getClientRects().length || title.length <= 40 || (el.matches("input, select, textarea") && !el.closest("#page-properties"))) return;
             if(el.getAttribute("role") === "img" && el.getAttribute("aria-label") === title) return;
             if(el.matches("button.md-bar[data-md-open]") && el.getAttribute("aria-label") === title) return;
             if(el.parentElement && el.parentElement.closest('[role="img"][aria-label]')) return;

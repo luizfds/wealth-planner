@@ -9,18 +9,22 @@
 // a key: the element's tag, data-* attributes and first class, and its ancestors' up to the nearest id. It does
 // almost nothing unless the draw removed the focused element or an open section, so a redraw costs what it did. It
 // never takes focus from where something else deliberately put it: only when focus fell to the page body.
+// Long-form invalid drafts also survive when unfocused, so their summaries remain an accurate index.
 
+import { longFormScope } from "./error-summary.js";
 import { markField } from "./validate.js";
 
 function uiKey(el){
+  var draftKey = el.getAttribute("data-error-key");
+  if(draftKey) return el.tagName.toLowerCase() + "[error-key=" + draftKey + "]";
   var parts = [];
   for(var n = el, depth = 0; n && n.nodeType === 1 && n !== document.body && depth < 8; n = n.parentElement, depth++){
     var seg = n.tagName.toLowerCase();
-    if(n.id){ parts.push(seg + "#" + n.id); break; }
+    if(n.id && !n.hasAttribute("data-validation-generated-id")){ parts.push(seg + "#" + n.id); break; }
     var data = [];
     for(var i = 0; i < n.attributes.length; i++){
       var a = n.attributes[i];
-      if(a.name.indexOf("data-") === 0) data.push([a.name, a.value].join("\u0001")); // a lookup key, never markup
+      if(a.name.indexOf("data-") === 0 && a.name !== "data-validation-generated-id") data.push([a.name, a.value].join("\u0001")); // a lookup key, never markup
     }
     if(n.classList && n.classList.length) seg += "." + n.classList[0];
     parts.push(seg + (data.length ? "[" + data.sort().join(",") + "]" : ""));
@@ -39,6 +43,9 @@ export function keepUi(draw){
   // Keys are taken now, while the elements are still in the page — once removed, their ancestors are gone.
   var focused = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
   var focusedKey = focused ? uiKey(focused) : null, typing = typingOf(focused);
+  var invalid = Array.from(document.querySelectorAll('[data-error-scope] [aria-invalid="true"]')).filter(longFormScope).map(function(el){
+    return {el:el, key:uiKey(el), typing:typingOf(el)};
+  });
   var open = Array.prototype.map.call(document.querySelectorAll("details[open]"), function(d){ return { el: d, key: uiKey(d) }; });
   try { return draw(); }
   finally {
@@ -47,6 +54,11 @@ export function keepUi(draw){
       if(o.el.isConnected) return;
       var again = findByKey("details", o.key, function(x){ return !x.open; });
       if(again) again.open = true;
+    });
+    invalid.forEach(function(draft){
+      if(draft.el.isConnected) return;
+      var to = findByKey(draft.el.tagName.toLowerCase(), draft.key, longFormScope);
+      if(to) keepTyping(draft.typing, to);
     });
     if(focused && !focused.isConnected && (!document.activeElement || document.activeElement === document.body)){
       var to = findByKey(focused.tagName.toLowerCase(), focusedKey, visible);
@@ -63,10 +75,11 @@ function typingOf(el){
   var msg = el.getAttribute("aria-invalid") === "true" && el.id ? document.getElementById(el.id + "-error") : null;
   var sel = null;
   try { sel = [el.selectionStart, el.selectionEnd]; } catch(e){ /* number, date: no selection API */ }
-  return { value: el.value, message: msg && msg.textContent ? msg.textContent : null, sel: sel };
+  return { generatedId:el.hasAttribute("data-validation-generated-id") ? el.id : null, value: el.value, message: msg && msg.textContent ? msg.textContent : null, sel: sel };
 }
 function keepTyping(t, to){
   if(!t || to.tagName === "SELECT") return;
+  if(t.generatedId && !to.id){ to.id = t.generatedId; to.setAttribute("data-validation-generated-id", ""); }
   if(t.value !== to.value) to.value = t.value;
   if(t.message) markField(to, { ok: false, message: t.message });
   if(t.sel && t.sel[0] != null){ try { to.setSelectionRange(t.sel[0], t.sel[1]); } catch(e){ /* no selection API */ } }

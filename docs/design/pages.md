@@ -149,6 +149,10 @@ heading always states its effective dates, including with Filters closed. Report
 names the default “Selected year · FY…”, and states actual start/end dates on screen and in print. Presets such
 as This month keep their current-date meaning; custom reports retain their own dates when the global year changes.
 
+Long forms use the error-summary contract in [validation.md](validation.md#long-form-error-summaries-301-targeted-267-coverage):
+a polite error count and field links at the top of each property card, person's return, purchase calculator and
+Tax → People card. Links reveal the relevant tab/disclosure and focus the field. Short editors keep inline errors.
+
 ### 4. Empty and no-results states
 
 An empty section says three things in one line: what it holds, why it's empty, and the next step **as a control**. That

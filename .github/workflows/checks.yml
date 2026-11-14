@@ -78,6 +78,13 @@ jobs:
       - run: node scripts/accessibility.mjs
         env:
           A11Y_DIR: accessibility-report
+      - name: Bill confirmation
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: billconfirmation
+          SPEED: 0
+          BILLS_A11Y: 1
+          BILLS_SHOTS: accessibility-report/bill-confirmation
       - name: Exact-record search
         run: node scripts/journeys.mjs
         env:

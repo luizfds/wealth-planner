@@ -564,12 +564,14 @@
   /* v3.113.0: bills to confirm — one list, confirmed together. */
   .review-panel-wide{ max-width:560px; }
   .bc-confirm-list{ display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:12px; }
-  .bc-confirm-row{ display:grid; grid-template-columns:24px minmax(0,1fr) 140px 110px; gap:10px; align-items:center; padding:8px 10px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .bc-confirm-row{ display:grid; grid-template-columns:minmax(0,1fr) 140px 110px; gap:10px; align-items:center; padding:10px; border-bottom:1px solid var(--border); }
   .bc-confirm-row:last-child{ border-bottom:0; }
-  .bc-confirm-check{ width:18px; height:18px; }
-  .bc-confirm-name{ font-size:var(--fs-md); font-weight:600; color: var(--ink); min-width:0; overflow:hidden; text-overflow:ellipsis; }
-  .bc-confirm-name small{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
-  .bc-confirm-amt{ display:flex; align-items:center; gap:4px; color: var(--ink-soft); }
+  .bc-confirm-toggle{ display:flex; align-items:center; gap:10px; min-width:0; cursor:pointer; }
+  .bc-confirm-check{ width:18px; height:18px; flex:none; }
+  .bc-confirm-name{ flex:1; font-size:var(--fs-md); font-weight:600; color:var(--ink); min-width:0; overflow-wrap:anywhere; }
+  .bc-confirm-name small{ display:block; font-weight:400; font-size:var(--fs-xs); color:var(--ink-soft); }
+  .bc-confirm-date-field, .bc-confirm-amount-field{ display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--ink-soft); font-size:var(--fs-xs); }
+  .bc-confirm-amt{ display:flex; align-items:center; gap:4px; color:var(--ink-soft); min-width:0; }
   .bc-confirm-amt input, .bc-confirm-date{ width:100%; min-width:0; }
   /* The fields look like every other field (they carry classes, so the base field style skips them). */
   .bc-confirm-date, .bc-confirm-amount, .ap-other-amount{
@@ -577,16 +579,13 @@
     border:1px solid var(--border); border-radius:6px; padding:5px 8px; min-height:36px; box-sizing:border-box;
   }
   .bc-confirm-date:focus-visible, .bc-confirm-amount:focus-visible, .ap-other-amount:focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
-  /* A phone or a bottom sheet (≤880px): the name gets the whole first line (wrapping, never cut short), date and amount share the second. */
+  /* The outer row isn't a checkbox label, so phone's checkbox tap-target rule cannot
+     replace this layout. Give the name its own full-width row above the two fields. */
   @media (max-width:880px){
-    /* .bc-confirm-list > label: outweighs the phone rule that makes every checkbox's label a flex row (projections.css). */
-    .bc-confirm-list > label.bc-confirm-row{ display:grid; grid-template-columns:24px minmax(0,1.4fr) minmax(0,1fr); grid-template-areas: "check name name" ". date amt"; row-gap:8px; padding:10px 12px; }
-    .bc-confirm-check{ grid-area:check; }
-    .bc-confirm-name{ grid-area:name; white-space:normal; overflow:visible; overflow-wrap:anywhere; }
-    .bc-confirm-date{ grid-area:date; }
-    .bc-confirm-amt{ grid-area:amt; }
+    .bc-confirm-row{ grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); row-gap:8px; padding:10px 12px; }
+    .bc-confirm-toggle{ grid-column:1 / -1; }
   }
-  .review-head h4{ margin:0; font-size:var(--fs-md); color: var(--ink); }
+  .review-head h4, .review-head h2{ margin:0; font-size:var(--fs-md); color: var(--ink); }
   .review-progress{ font-size:var(--fs-xs); color: var(--ink-soft); font-weight:600; }
   .review-card{
     background: var(--paper); border:1px solid var(--border); border-radius:10px; padding:20px 16px;

@@ -4970,6 +4970,57 @@ const JOURNEYS = {
     check(await page.locator('#planSub-goals').isVisible(), 'setup Goals action did not open Plan goals');
   },
 
+  async billconfirmation(page){
+    await quiet(page);
+    await page.evaluate(async()=>{
+      const {state,commit}=await import('/src/state.js');
+      state.shared=[{id:'example-generic-bill',what:'Spending',category:'Utilities',account:'Bank One',amount:100,freq:'Monthly',billKind:'bill'},
+        {id:'example-long-bill',what:'Example household subscription with a long descriptive name',category:'Subscriptions',account:'Bank One',amount:200,freq:'Monthly',billKind:'bill'}];
+      state.home=Object.fromEntries(state.scenarios.map(name=>[name,[]]));state.properties=[];state.accounts=[{id:'example-bank',name:'Bank One',type:'everyday'}];
+      state.transactions=[{id:'example-first-paid',linkedExpenseId:'example-generic-bill',what:'Example bill',date:'2026-08-19',amount:100,account:'Bank One'},
+        {id:'example-second-paid',linkedExpenseId:'example-long-bill',what:'Example subscription',date:'2026-08-20',amount:200,account:'Bank One'}];
+      commit(['shared','home','properties','accounts','transactions']);
+    });
+    await go(page,'expenses','data-expenses-sub','spending');
+    const planned=await st(page,'JSON.stringify(state.shared)');
+    const original=await st(page,'JSON.stringify(state.transactions)');
+    if(process.env.BILLS_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.BILLS_SHOTS) fs.mkdirSync(process.env.BILLS_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      await click(page,'#reviewExpensesBtn');
+      await waited(page,()=>document.querySelectorAll('.bc-confirm-row').length===4,'four separate due payments');
+      if(process.env.BILLS_SHOTS) await page.locator('#expenseReviewRoot .review-panel').screenshot({path:path.join(process.env.BILLS_SHOTS,width+'-'+theme+'.png')});
+      const layout=await page.locator('.bc-confirm-row').evaluateAll(rows=>rows.map(row=>{
+        const r=row.getBoundingClientRect(), n=row.querySelector('.bc-confirm-name').getBoundingClientRect(), d=row.querySelector('.bc-confirm-date').getBoundingClientRect(), a=row.querySelector('.bc-confirm-amount').getBoundingClientRect();
+        return {display:getComputedStyle(row).display,width:r.width,nameWidth:n.width,fieldsBelow:n.bottom<=d.top+1&&n.bottom<=a.top+1,inside:r.left>=0&&r.right<=innerWidth&&row.scrollWidth<=row.clientWidth+1&&d.right<=r.right&&a.right<=r.right};
+      }));
+      check(layout.every(r=>r.display==='grid'&&r.inside),'bill rows lose grid or overflow at '+width+'/'+theme+': '+JSON.stringify(layout));
+      if(width<=880) check(layout.every(r=>r.nameWidth>r.width*0.65&&r.fieldsBelow),'mobile bill names are squeezed: '+JSON.stringify(layout));
+      check(await page.locator('.bc-confirm-name').first().innerText().then(t=>t.includes('Utilities')&&t.includes('Bank One')),'bill source context missing');
+      check((await page.locator('#expenseReviewRoot').innerText()).includes('Each row confirms one payment'),'repeated payments unexplained');
+      if(process.env.BILLS_A11Y){const violations=await page.locator('#expenseReviewRoot .review-panel').evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'bills accessibility: '+JSON.stringify(violations));}
+      await page.keyboard.press('Escape');
+      await waited(page,()=>!document.querySelector('#expenseReviewRoot .review-panel'),'close bills without confirming');
+    }
+    check(await st(page,'JSON.stringify(state.transactions)')===original,'opening and closing bills changed transactions');
+    await click(page,'#reviewExpensesBtn');
+    await page.locator('.bc-confirm-amount').first().fill('300');
+    await page.locator('.bc-confirm-date').first().fill('2026-09-21');
+    check(await page.locator('.bc-confirm-check:checked').count()===4,'editing a field toggled a bill checkbox');
+    await page.locator('.bc-confirm-check').nth(1).uncheck();
+    const expected=await page.locator('.bc-confirm-row').evaluateAll(rows=>rows.filter(r=>r.querySelector('.bc-confirm-check').checked).map(r=>({date:r.querySelector('.bc-confirm-date').value,amount:Number(r.querySelector('.bc-confirm-amount').value)})));
+    await click(page,'[data-review-confirm]');
+    await waited(page,()=>document.querySelector('.review-complete-note')?.textContent.includes('Logged 3 bills'),'three selected payments logged');
+    const added=await st(page,'state.transactions.slice(2).map(t=>({date:t.date,amount:t.amount}))');
+    check(JSON.stringify(added)===JSON.stringify(expected),'confirmed dates or amounts differ');
+    check(await st(page,'JSON.stringify(state.shared)')===planned,'confirmation changed the budget plan');
+    await click(page,'[data-review-close]');
+    await waited(page,()=>!document.querySelector('#expenseReviewRoot .review-panel'),'close completed bills');
+    await click(page,'#reviewExpensesBtn');
+    check(await page.locator('.bc-confirm-row').count()===1,'confirmed payment offered again or unchecked payment lost');
+  },
   async bills(page){
     await go(page, "expenses", "data-expenses-sub", "spending");
     const before = await st(page, "state.transactions.length");
@@ -5159,7 +5210,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

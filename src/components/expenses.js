@@ -729,11 +729,30 @@ export function confirmReviewBills(values){
   expenseReview.confirmed = n;
   return n;
 }
+// One label per control: wrapping date and amount inside the checkbox label both confused
+// activation and let the general phone checkbox-label rule override the row's grid.
+export function expenseReviewRowsHtml(bills, items){
+  return bills.map(function(b){
+    var item = items.find(function(i){ return i.id === b.id; }) || {};
+    var name = b.what || "Unnamed bill", due = fmtDate(b.due, { year: true });
+    var context = [item.category, item.account].filter(Boolean).join(" · ");
+    var generic = !b.what || /^(spending|bill|expense)$/i.test(b.what.trim());
+    var identity = name + " due " + due;
+    return '<div class="bc-confirm-row" data-confirm-key="' + escapeAttr(b.key) + '">' +
+      '<label class="bc-confirm-toggle"><input type="checkbox" class="bc-confirm-check"' + (b.checked ? ' checked' : '') + ' aria-label="Confirm ' + escapeAttr(identity) + '">' +
+        '<span class="bc-confirm-name">' + escapeAttr(name) + '<small>Due ' + escapeAttr(due) + (b.estimated ? ' · expected' : '') + '</small>' +
+        (context ? '<small>' + escapeAttr(context) + '</small>' : '') +
+        (generic ? '<small>This is the name saved in Budget. Rename that line to identify the bill.</small>' : '') + '</span></label>' +
+      '<label class="bc-confirm-date-field"><span>Date paid</span><input type="date" class="bc-confirm-date field-control" value="' + escapeAttr(b.due) + '" aria-label="Date paid for ' + escapeAttr(identity) + '"></label>' +
+      '<label class="bc-confirm-amount-field"><span>Amount paid</span><span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount field-control" value="' + b.amount + '" aria-label="Amount paid for ' + escapeAttr(identity) + '"></span></label>' +
+    '</div>';
+  }).join("");
+}
 export function renderExpenseReviewPanel(){
   var root = document.getElementById("expenseReviewRoot");
   if(!root) return;
   if(!expenseReview){ root.innerHTML = ""; return; }
-  var head = function(title){ return '<div class="review-head"><h4>' + title + '</h4><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>'; };
+  var head = function(title){ return '<div class="review-head"><h2>' + title + '</h2><button type="button" class="icon-btn" data-review-close aria-label="Close">✕</button></div>'; };
   if(expenseReview.confirmed != null){
     root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel" role="dialog" aria-label="Bills confirmed">' + head("Done") +
       '<p class="review-complete-note">Logged ' + expenseReview.confirmed + ' bill' + (expenseReview.confirmed === 1 ? '' : 's') + '. When a statement brings the same payment in, the import points out the one logged here.</p>' +
@@ -741,17 +760,12 @@ export function renderExpenseReviewPanel(){
     return;
   }
   var bills = expenseReview.bills;
-  var rows = bills.map(function(b){
-    return '<label class="bc-confirm-row" data-confirm-key="' + b.key + '">' +
-      '<input type="checkbox" class="bc-confirm-check"' + (b.checked ? ' checked' : '') + ' aria-label="Confirm ' + escapeAttr(b.what) + '">' +
-      '<span class="bc-confirm-name">' + escapeAttr(b.what) + '<small>due ' + escapeAttr(fmtDate(b.due)) + (b.estimated ? ' · expected' : '') + '</small></span>' +
-      '<input type="date" class="bc-confirm-date field-control" value="' + escapeAttr(b.due) + '" aria-label="Date paid">' +
-      '<span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount field-control" value="' + b.amount + '" aria-label="Amount paid"></span>' +
-    '</label>';
-  }).join("");
+  var rows = expenseReviewRowsHtml(bills, budgetLineItems(currentScenario()));
+  var repeated = bills.some(function(b, index){ return bills.findIndex(function(other){ return other.id === b.id; }) !== index; });
   root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel review-panel-wide" role="dialog" aria-label="Bills to confirm">' +
-    head(bills.length + " bill" + (bills.length === 1 ? "" : "s") + " to confirm") +
+    head(bills.length + " bill payment" + (bills.length === 1 ? "" : "s") + " to confirm") +
     '<p class="review-hint" style="margin:0 0 10px">Fallen due and not logged yet, at the amount planned. Change an amount or date if it was different; untick any that wasn\'t paid.</p>' +
+    (repeated ? '<p class="review-hint">Some bills have more than one unpaid due date. Each row confirms one payment.</p>' : '') +
     '<div class="bc-confirm-list">' + rows + '</div>' +
     '<div class="review-actions"><button type="button" class="btn btn-primary" data-review-confirm>Confirm ' + bills.filter(function(b){ return b.checked; }).length + '</button></div>' +
   '</div></div>';

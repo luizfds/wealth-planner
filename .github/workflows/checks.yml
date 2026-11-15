@@ -98,6 +98,13 @@ jobs:
           SPEED: 0
           MENU_A11Y: 1
           MENU_SHOTS: accessibility-report/user-menu
+      - name: Bank statement save recovery
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: bankconfirmfailure
+          SPEED: 0
+          BANK_SAVE_A11Y: 1
+          BANK_SAVE_SHOTS: accessibility-report/bank-save
       - name: Bank statement read recovery
         run: node scripts/journeys.mjs
         env:

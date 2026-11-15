@@ -2818,6 +2818,112 @@ const JOURNEYS = {
   // #261: Net worth → Property while editing, every tab — each field named from its visible label, no help left in a
   // title tooltip (on the field or its wrapper), every visible label tied to its field; clicking a label reaches its
   // field, and fields still save.
+  // #300: signed planning adjustments retain their meaning through save, totals and reload.
+  async signedamounts(page){
+    await quiet(page);
+    await page.evaluate(async()=>{
+      const s=await import('/src/state.js'), next=s.defaultState();
+      next.firstRunDone=true;next.setupDismissed=true;
+      next.income=[
+        {id:'example-salary',what:'Employer A',person:'Alex',incomeType:'Gross',amount:120000,freq:'Yearly',superMode:'On top'},
+        {id:'example-gross-offset',what:'Gross adjustment',person:'Alex',incomeType:'Gross',amount:0,freq:'Yearly',superMode:'On top'},
+        {id:'example-net',what:'Net income',incomeType:'Net',amount:500,freq:'Monthly'},
+        {id:'example-net-offset',what:'Net adjustment',incomeType:'Net',amount:0,freq:'Monthly'}
+      ];
+      next.shared=[
+        {id:'example-cost',what:'Planned spending',amount:1000,freq:'Monthly',classification:'Needs'},
+        {id:'example-cost-offset',what:'Budget adjustment',amount:0,freq:'Monthly',classification:'Needs'}
+      ];
+      Object.assign(next.projection,{investReturnRate:0,inflationRate:0,incomeGrowthRate:0,realTerms:false});
+      next.tax.sgRate=12;s.setState(next);
+      (await import('/src/calc/engine.js')).recalcComputedItems();
+      s.commit(['*']);
+      (await import('/src/components/income.js')).setIncomeShowAs('month');
+    });
+    const snapshot=()=>page.evaluate(async()=>{
+      const s=(await import('/src/state.js')).state,e=await import('/src/calc/engine.js'),t=await import('/src/calc/tax.js');
+      const name=s.baselineScenario;
+      return {totals:e.scenarioTotals(name),forecast:e.computeNetWorthSeries(name,1)[1].y,
+        gross:t.personIncomeBreakdown('Alex'),actual:JSON.stringify([s.transactions,s.incomeLog])};
+    });
+    const initial=await snapshot(), close=(a,b)=>Math.abs(a-b)<0.01;
+    const row=async(section,id)=>{
+      const index=await page.evaluate(async([section,id])=>(await import('/src/state.js')).state[section].findIndex(x=>x.id===id),[section,id]);
+      return page.locator('.m-row[data-section="'+section+'"][data-index="'+index+'"]');
+    };
+    const open=async(section,id)=>{
+      const closeEditor=page.getByRole('button',{name:/Close editor$/});
+      if(await closeEditor.isVisible()) await closeEditor.click();
+      await go(page,'expenses','data-expenses-sub',section==='income'?'income':'budget');
+      const r=await row(section,id);
+      if(section==='shared'){
+        const group=r.locator('xpath=ancestor::*[contains(@class,"m-card")][1]').locator('[data-budget-group-toggle]');
+        if(await group.getAttribute('aria-expanded')==='false') await group.click();
+      }
+      if(!await r.locator('.f-amount').isVisible()){
+        await r.locator('[data-row-toggle]').first().focus();await page.keyboard.press('Enter');
+      }
+      return r;
+    };
+    let r=await open('shared','example-cost-offset');
+    await r.getByLabel('Amount',{exact:true}).fill('-100');
+    let after=await snapshot();
+    check(close(after.totals.expensesMonthly,initial.totals.expensesMonthly-100),'negative Budget did not reduce planned spending');
+    check(close(after.forecast,initial.forecast+1200),'negative Budget did not increase annual projected savings');
+    r=await open('income','example-net-offset');
+    await r.getByLabel('Amount',{exact:true}).fill('-200');
+    after=await snapshot();
+    check(close(after.totals.incomeMonthly,initial.totals.incomeMonthly-200),'negative Net did not reduce take-home income');
+    check(close(after.totals.netMonthly,initial.totals.netMonthly-100) && close(after.forecast,initial.forecast-1200),'signed adjustments did not flow into surplus/projections');
+    r=await open('income','example-gross-offset');
+    await r.getByLabel('Amount',{exact:true}).fill('-12000');
+    after=await snapshot();
+    check(close(after.gross.baseGross,108000) && close(after.gross.sg,12960),'negative Gross did not adjust combined pay and employer super');
+    check(after.totals.incomeMonthly<initial.totals.incomeMonthly-200,'negative Gross did not reduce computed take-home income');
+    const finalForecast=after.forecast, finalTotals=after.totals;
+    check(after.actual===initial.actual,'planning adjustments created actual records');
+    await r.getByLabel('Amount',{exact:true}).fill('');
+    check(await stored(page,"state.income.find(x=>x.id==='example-gross-offset').amount")===-12000 && await r.locator('.f-amount').getAttribute('aria-invalid')==='true','blank draft overwrote negative Gross');
+    await r.getByLabel('Amount',{exact:true}).fill('-12000');
+    for(const [section,id,meaning] of [['shared','example-cost-offset','reduces planned spending'],['income','example-net-offset','reduces planned take-home'],['income','example-gross-offset','combined gross pay']]){
+      r=await open(section,id);
+      const amount=r.getByLabel('Amount',{exact:true}), savedAmount=await amount.inputValue();
+      await amount.fill('');
+      check(await stored(page,"state["+JSON.stringify(section)+"].find(x=>x.id==="+JSON.stringify(id)+").amount")===Number(savedAmount) && await amount.getAttribute('aria-invalid')==='true','blank draft overwrote signed amount');
+      await amount.fill(savedAmount);
+      check(await amount.evaluate((el,meaning)=>(el.getAttribute('aria-describedby')||'').split(/\s+/).some(id=>document.getElementById(id)?.textContent.includes(meaning)),meaning),'signed amount help is not associated with its input');
+      check(/-.*\$/.test(await r.locator('.m-row-amt').first().textContent()),'row summary lost its minus sign');
+      for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+        await page.setViewportSize({width,height:844});
+        await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+        const label=r.locator('label[for="'+await amount.getAttribute('id')+'"]');
+        await label.tap();check(await amount.evaluate(el=>document.activeElement===el),'touching Amount label did not focus input');
+        check(await page.evaluate(w=>document.documentElement.scrollWidth<=w+1,width),'signed editor overflows at '+width+'/'+theme);
+        if(process.env.SIGNED_A11Y){
+          const axe=await import('axe-core');await page.evaluate(axe.default.source);
+          const violations=await r.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));
+          check(!violations.length,'signed editor accessibility: '+JSON.stringify(violations));
+        }
+      }
+    }
+    // Changing type must replace the explanation as well as the calculation rule.
+    r=await open('income','example-gross-offset');
+    await r.getByLabel('Income type',{exact:true}).selectOption('Net');
+    r=await open('income','example-gross-offset');
+    await r.getByText('A negative amount reduces planned take-home income. It does not record a payment.',{exact:true}).waitFor();
+    await r.getByLabel('Income type',{exact:true}).selectOption('Gross');
+    r=await open('income','example-gross-offset');
+    await r.getByText('A negative amount adjusts this person’s combined gross pay. Tax and super are recalculated; no payment is recorded.',{exact:true}).waitFor();
+    await page.keyboard.press('Escape');
+    // The minimal test server serves index.html directly; production's 404 redirects nested routes to the app root.
+    await go(page,'dashboard');
+    await page.reload();await quiet(page);
+    check(await stored(page,"state.shared.find(x=>x.id==='example-cost-offset').amount")===-100,'Budget adjustment lost on reload');
+    check(await stored(page,"state.income.find(x=>x.id==='example-net-offset').amount")===-200,'Net adjustment lost on reload');
+    check(await stored(page,"state.income.find(x=>x.id==='example-gross-offset').amount")===-12000,'Gross adjustment lost on reload');
+    after=await snapshot();
+    check(close(after.forecast,finalForecast) && close(after.totals.netMonthly,finalTotals.netMonthly) && after.actual===initial.actual,'reload changed signed totals/projections or actual records');
+  },
   async budgetclarity(page){
     await quiet(page);
     await go(page,'expenses','data-expenses-sub','budget');
@@ -6091,7 +6197,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

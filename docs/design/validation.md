@@ -250,9 +250,29 @@ Chromium emulation; #267's wider state catalogue and #299's real device/screen-r
 
 The earlier standard-height `errorsummaries` timeout did not have enough diagnostics to establish its cause. It remains distinct from these confirmed defects. A subsequent traced run caught a missed source-link activation during header reflow, with an unchanged destination node. The gesture driver now waits for actual header transitions before activating, without retrying a failed click. Every activation records form, width/theme, target/node identity, source bounds and pointer/click events, focus, header/navigation/viewport bounds, hit testing, scroll and redraw events. A timeout includes the recent trace; `ERROR_TRACE_DIR` keeps complete failure traces and settled samples as accessibility artifacts. Existing atomic focus/occlusion checks and timeouts remain. The test focuses the source link before activation, representing keyboard/assistive navigation away from the previously selected field, then verifies the actual destination with keyboard or touch.
 
+## Signed planned amounts (#300)
+
+Budget and editable income lines continue to accept finite negative amounts. They are signed planning
+adjustments, with the same frequency, dates and scenario rules as positive lines. Zero is valid; blank or
+invalid input still reports an inline error and preserves the last saved amount. Existing saved values are
+preserved without migration, clamping or reinterpretation.
+
+| Line | Meaning of a negative amount |
+| --- | --- |
+| Budget | Reduces planned spending, increasing the planned surplus by the same amount. |
+| Net income | Reduces planned take-home income and the planned surplus. |
+| Gross income | Adjusts the person's combined gross pay under the selected super treatment. Existing aggregate tax, super and salary-sacrifice calculations determine the resulting take-home income; it is not a dollar-for-dollar net adjustment. |
+
+Signed amounts convert to monthly/yearly totals using the selected frequency. Row summaries retain the
+minus sign. The resulting planned surplus feeds projections under their existing growth/date/scenario
+assumptions. These edits do not create a spending refund or an income receipt: actual transactions and
+income received remain separate. The Amount field describes the applicable meaning before entry, including
+when Income type changes. The `signedamounts` journey checks edits, persisted/reloaded values, signed
+summaries, totals, gross/super treatment, projections, blank drafts and unchanged actual records.
+
 ## Open questions
 
-1. **Negative amounts on budget and income lines:** allowed (as now), or an error with a way to record an offset?
+1. **Negative planned amounts:** resolved above; the existing signed-amount rule is retained.
 2. **Long forms:** resolved by the scoped summaries above (#301).
 3. **Blank meaning "unknown":** for some fields (a property's purchase cost, a date of birth), blank is a real answer.
    Those rules leave `empty` out, so blank saves as `null`, and the calculation must already handle `null`. Each

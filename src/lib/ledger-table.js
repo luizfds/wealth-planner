@@ -332,7 +332,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var fieldsHtml =
     field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
     classField + categoryField +
-    field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"}}) +
+    field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"},help:opts.amountHelp || ""}) +
     field("f-freq", "Frequency", {type:"select",value:item.freq,options:choices(FREQS)}) +
     accountField + rentLineField + logField + (opts.extraFieldsHtml || "");
   var flexField = opts.showClass ? field("f-flexkind", "Counts as", {type:"select",value:item.flexKind || "",options:[["","Worked out"],["fixed","Fixed bill"],["flex","Flexible"],["nonmonthly","Non-monthly"]].map(function(o){return {value:o[0],label:o[1]};}),help:"Where this line sits when Budget is grouped Flexible."}) : "";

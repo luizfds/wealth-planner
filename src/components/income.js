@@ -512,7 +512,8 @@ export function modernIncomeRowHtml(item, idx, colorIdx){
     '<div class="m-edit-grid">' +
       field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
       field("f-incometype", "Income type", {type:"select",value:item.incomeType || "Net",options:options(INCOME_TYPES)}) +
-      field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"}}) +
+      field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"},
+        help:isGrossRef ? "A negative amount adjusts this person’s combined gross pay. Tax and super are recalculated; no payment is recorded." : "A negative amount reduces planned take-home income. It does not record a payment."}) +
       field("f-freq", "Frequency", {type:"select",value:item.freq,options:options(FREQS)}) +
       field("f-superincluded", "Super treatment", {
         type:"select",value:item.superMode || "On top",options:options(SUPER_MODES),

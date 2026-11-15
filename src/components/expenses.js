@@ -483,7 +483,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';

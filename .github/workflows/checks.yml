@@ -146,6 +146,12 @@ jobs:
           JOURNEYS: errorsummarybounds
           SPEED: 0
           ERROR_BOUNDS_SHOTS: accessibility-report/error-bounds
+      - name: Signed budget and income amounts
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: signedamounts
+          SPEED: 0
+          SIGNED_A11Y: 1
       - name: Long-form error summaries
         run: node scripts/journeys.mjs
         env:

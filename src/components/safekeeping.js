@@ -1,3 +1,4 @@
+import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
 import { folderBackupSupported, savedFolder, passcodeSet } from "../lib/safekeeping.js";
 import { syncLocal, syncVia } from "../lib/foldersync.js";
@@ -72,6 +73,6 @@ export function renderSafekeeping(){
       // v3.202.0 (item 233): errors the app hit on this device, to copy into a bug report.
       errorLogHtml(errorLog(), escapeAttr);
   };
-  el.innerHTML = safekeepingHtml(null) + storage();
-  return Promise.all([savedFolder(), receiptsStorageUse().catch(function(){ return null; })]).then(function(x){ rc = x[1]; el.innerHTML = safekeepingHtml(x[0] ? x[0].name : null) + storage(); });
+  keepUi(function(){ el.innerHTML = safekeepingHtml(null) + storage(); });
+  return Promise.all([savedFolder(), receiptsStorageUse().catch(function(){ return null; })]).then(function(x){ rc = x[1]; keepUi(function(){ el.innerHTML = safekeepingHtml(x[0] ? x[0].name : null) + storage(); }); });
 }

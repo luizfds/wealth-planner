@@ -136,13 +136,15 @@
   /* The period menu's control fills its row (moved from shell.css, item 238). */
   .period-menu .seg-control{ width:100%; }
   .period-menu .seg-option{ flex:1; }
-  /* #267: two controls whose last options sat past a 320px phone's edge, on a track with no scrollbar to say so.
-     Settings' year basis stays one row: its two buttons share the width and wrap their words. Income's Show as
-     has six choices, more than 44px buttons fit in one row there, so below 360px they sit in two rows of three
-     on the same track (the owner's choice) — every option visible, wider screens unchanged. */
-  #yearBasisControl{ display:flex; width:100%; }
-  #yearBasisControl .seg-option{ flex:1 1 0; white-space:normal; line-height:1.25; }
-  @media (max-width: 359px){
+  /* #267: controls whose last options sat past a phone's edge, on a track with no scrollbar to say so. Whether one
+     row fits depends on the font that loads as much as the width: with a wider fallback font (DejaVu Sans, as CI
+     has) Show as needed 346px at 390px, and Inter only fits it by 3px. So these don't count on it:
+     - Settings' year basis and Goals' months stay one row; their buttons share the width and wrap their words.
+     - Income's Show as has six choices: on a phone they sit in two rows of three on the same track (the owner's
+       choice), every option visible; wider screens are unchanged. */
+  #yearBasisControl, .ef-seg{ display:flex; width:100%; }
+  #yearBasisControl .seg-option, .ef-seg .seg-option{ flex:1 1 0; white-space:normal; line-height:1.25; }
+  @media (max-width: 480px){
     .income-showas .seg-control{ display:grid; grid-template-columns:repeat(3, 1fr); overflow-x:visible; }
   }
   #sharesSortSelect{

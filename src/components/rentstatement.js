@@ -5,7 +5,9 @@
 // form is opened, filled in, from the main import (a statement PDF dropped into Spending, the Statements folder or
 // shared to the app — importwiring.js), from the property's Overview tab and from the + menu. This module opens it.
 import { statementTotals } from "../calc/agentstatement.js";
-import { fmtCurrency2 } from "../lib/format.js";
+import { propertyOwnershipPct } from "../calc/property.js";
+import { getTaxPeople } from "../calc/tax.js";
+import { fmtCurrency2, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { showToast } from "../lib/toast.js";
@@ -60,30 +62,64 @@ export async function openStatementForm(p, filled, options){
   return true;
 }
 
-// Which investment property: the only one straight away, else a sheet to pick from (Back and Escape close it).
+// Choose a live destination after the modal's history entry has actually closed.
+var propertyPicker = null, propertyPickerSequence = 0;
 export function chooseInvestmentProperty(title, then){
-  var ips = investmentProperties();
+  if(propertyPicker){ propertyPicker.querySelector("button").focus(); return; }
+  var ips = investmentProperties(), household = state;
   if(!ips.length){ showToast("Add the investment property first (Net worth → Property), then log its statements there"); return; }
   if(ips.length === 1){ then(ips[0]); return; }
-  var chosen = null;
-  var root = document.createElement("div");
-  root.innerHTML = '<div class="review-backdrop" data-ipp-backdrop><div class="review-panel qfab-panel" role="dialog" aria-label="' + escapeAttr(title) + '">' +
-    '<div class="review-head"><h4>' + escapeAttr(title) + '</h4><button type="button" class="icon-btn" data-ipp-close aria-label="Close">✕</button></div>' +
+  var opener = document.activeElement, request = ++propertyPickerSequence, closing = false;
+  var menu = opener && opener.closest("[data-overflow-menu]");
+  if(menu) opener = menu.parentElement.querySelector("[data-overflow-toggle]");
+  var root = propertyPicker = document.createElement("dialog"), people = getTaxPeople();
+  root.className = "app-dialog property-picker";
+  root.setAttribute("aria-labelledby", "propertyPickerTitle");
+  root.setAttribute("aria-describedby", "propertyPickerHelp");
+  root.innerHTML = '<h2 id="propertyPickerTitle">' + escapeAttr(title) + '</h2>' +
+    '<p id="propertyPickerHelp">Choose the investment property. You will review the statement before logging it.</p>' +
     '<div class="qfab-actions">' + ips.map(function(p){
-      return '<button type="button" class="qfab-action" data-ipp="' + escapeAttr(p.id) + '"><span class="qfab-action-label">' + escapeAttr(p.what || "Investment property") + '</span></button>';
-    }).join("") + '</div></div></div>';
+      var owners = people.filter(function(person){ return propertyOwnershipPct(p, person, people) > 0; }).join(" / ");
+      var context = [p.state, p.purchaseDate ? "Bought " + fmtDate(p.purchaseDate) : "", owners].filter(Boolean).join(" · ");
+      return '<button type="button" class="qfab-action property-picker-choice" data-ipp="' + escapeAttr(p.id) + '"><span class="qfab-action-label">' + escapeAttr(p.what || "Investment property") + '</span>' +
+        (context ? '<span class="qfab-action-hint">' + escapeAttr(context) + '</span>' : '') + '</button>';
+    }).join("") + '</div><div class="app-dialog-actions"><button type="button" class="btn btn-ghost" data-ipp-close>Cancel</button></div>';
   document.body.appendChild(root);
-  // The choice is acted on once the sheet has closed (its history entry popped), so the page change that follows
-  // doesn't race the Back the close made.
-  pushActiveOverlay(function(){ root.remove(); if(chosen) setTimeout(function(){ then(chosen); }, 0); });
-  root.addEventListener("click", function(e){
-    if(e.target.closest("[data-ipp-close]") || (e.target.matches && e.target.matches("[data-ipp-backdrop]"))){ requestCloseActiveOverlay(); return; }
-    var b = e.target.closest("[data-ipp]");
-    if(!b) return;
-    chosen = ips.find(function(p){ return p.id === b.getAttribute("data-ipp"); }) || null;
-    requestCloseActiveOverlay();
+  function restoreFocus(){
+    var target = opener && opener.isConnected ? opener : opener && opener.id ? document.getElementById(opener.id) : null;
+    function available(el){ return el && el !== document.body && el.getClientRects().length && !el.disabled && !el.closest("[inert]"); }
+    if(!available(target)) target = ["bankImportPickBtn", "quickFab", "avatarBtn"].map(function(id){ return document.getElementById(id); }).find(available);
+    if(target) target.focus({ preventScroll: true });
+  }
+  pushActiveOverlay(function(){
+    root.close(); root.remove();
+    if(propertyPicker === root) propertyPicker = null;
+    restoreFocus();
   });
-  root.addEventListener("keydown", function(e){ if(e.key === "Escape") requestCloseActiveOverlay(); });
-  var first = root.querySelector("[data-ipp]");
-  if(first) first.focus();
+  function cancelChoice(){ if(closing) return; closing = true; requestCloseActiveOverlay(); }
+  root.addEventListener("cancel", function(e){ e.preventDefault(); cancelChoice(); });
+  root.addEventListener("click", function(e){
+    if(closing) return;
+    var bounds = root.getBoundingClientRect();
+    var backdrop = e.target === root && (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom);
+    if(e.target.closest("[data-ipp-close]") || backdrop){ cancelChoice(); return; }
+    var button = e.target.closest("[data-ipp]");
+    if(!button) return;
+    var chosen = ips.find(function(p){ return p.id === button.getAttribute("data-ipp"); });
+    closing = true;
+    requestCloseActiveOverlay().then(function(closed){
+      if(!closed || request !== propertyPickerSequence) return;
+      if(state !== household || investmentProperties().indexOf(chosen) === -1){ showToast("That property or statement is no longer available. Choose the statement again."); return; }
+      then(chosen);
+    });
+  });
+  root.addEventListener("keydown", function(e){
+    e.stopPropagation();
+    if(e.key !== "Tab") return;
+    var stops = Array.from(root.querySelectorAll("button")), first = stops[0], last = stops[stops.length - 1];
+    if(e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
+  });
+  root.showModal();
+  root.querySelector("[data-ipp]").focus();
 }

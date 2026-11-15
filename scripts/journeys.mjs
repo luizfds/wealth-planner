@@ -5740,7 +5740,7 @@ const JOURNEYS = {
     await preview.click();
     message = await page.locator('#appDialogMessage').innerText();
     await answerDialog(page, false);
-    check(message.includes('\n\n2026-10-01') && !message.includes('\\n'), 'preview must show readable occurrence lines');
+    check(message.includes('\n\n1 Oct 2026') && message.includes('\n1 Nov 2026') && !message.includes('\\n') && !message.includes('2026-10-01'), 'preview must show readable occurrence lines');
     check(await st(page, "state.transactions.length") === before, 'cancelled preview wrote transactions');
     await preview.click(); await answerDialog(page, true);
     check(await st(page, "state.transactions.length") === before + 2, 'approved monthly occurrences were not recorded');
@@ -6234,7 +6234,7 @@ const JOURNEYS = {
     await disclosure.locator('summary').focus();
     await page.keyboard.press('Enter');
     check(await disclosure.locator('details').evaluate(el => el.open), 'report disclosure is not keyboard operable');
-    check((await disclosure.innerText()).includes('2026-11-03'), 'report has no as-of date');
+    check((await disclosure.innerText()).includes('3 Nov 2026'), 'report has no readable as-of date');
     const result = await page.evaluate(async () => {
       const m = await import('/src/components/reports.js');
       const csv = m.reportCsv(), printed = m.reportPrintHtml();
@@ -6245,7 +6245,7 @@ const JOURNEYS = {
     check(JSON.stringify(result.csv.headers) === JSON.stringify(result.expected.headers), 'CSV headers disagree with report');
     check(JSON.stringify(result.csv.rows.slice(0, result.expected.rows.length)) === JSON.stringify(result.expected.rows), 'CSV calculations disagree with report');
     check(result.csv.rows.some(r => r[0] === 'As of' && r[1] === '2026-11-03'), 'CSV omits as-of metadata');
-    check(result.printed.includes('<details open>') && result.printed.includes('2026-11-03'), 'print omits visible disclosures');
+    check(result.printed.includes('<details open>') && result.printed.includes('3 Nov 2026'), 'print omits readable disclosures');
     const download = page.waitForEvent('download');
     await page.locator('[data-report-csv]').click();
     const file = await download;

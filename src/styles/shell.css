@@ -432,8 +432,10 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .avatar-btn:focus-visible{ box-shadow: var(--focus-ring); }
 .avatar-dot{ position:absolute; top:-1px; right:-1px; width:10px; height:10px; border-radius:50%; background: var(--bad); border:2px solid var(--paper); box-sizing:border-box; }
 .avatar-dot[hidden]{ display:none; }
-.avatar-menu{ min-width:230px; top:42px; right:0; }
-.avatar-menu .btn, .avatar-menu .avatar-item{ justify-content:flex-start; text-align:left; width:100%; }
+.avatar-menu{ position:fixed; width:230px; min-width:0; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); max-height:calc(100dvh - 16px); right:auto; overflow-y:auto; overscroll-behavior:contain; }
+.avatar-menu > *{ flex-shrink:0; }
+.app-topbar:has(.avatar-menu:not([hidden])){ z-index:20; }
+.avatar-menu .btn, .avatar-menu .avatar-item{ justify-content:flex-start; text-align:left; width:100%; white-space:normal; overflow-wrap:anywhere; }
 .avatar-item small{ margin-left:auto; color: var(--ink-soft); font-weight:400; }
 .avatar-divider{ height:1px; background: var(--border); margin:4px 2px; }
 .avatar-version{ font: var(--fs-xs) var(--font-num); color: var(--ink-soft); margin:2px 8px 4px; }

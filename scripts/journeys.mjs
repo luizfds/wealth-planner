@@ -306,6 +306,98 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async usermenubounds(page){
+    await quiet(page);
+    await waited(page,()=>!document.querySelector('#toastWrap .toast'),'sample-data toast clears');
+    const before=await st(page,'JSON.stringify(state)');
+    if(process.env.MENU_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.MENU_SHOTS) fs.mkdirSync(process.env.MENU_SHOTS,{recursive:true});
+    const metrics=()=>page.evaluate(()=>{
+      const menu=document.querySelector('.avatar-menu'), r=menu.getBoundingClientRect(), vv=visualViewport;
+      const v={left:vv?.offsetLeft||0,top:vv?.offsetTop||0,width:vv?.width||innerWidth,height:vv?.height||innerHeight};
+      let bottom=v.top+v.height;const nav=document.querySelector('.mobile-tabbar'),nr=nav.getBoundingClientRect();
+      if(nav.getClientRects().length&&nr.top>v.top&&nr.top<bottom)bottom=nr.top;
+      const last=menu.querySelector('[data-avatar-go="updates"]'),l=last.getBoundingClientRect(), version=menu.querySelector('.avatar-version').getBoundingClientRect();
+      const hit=document.elementFromPoint(l.left+l.width/2,l.top+l.height/2);
+      return {inside:r.left>=v.left-1&&r.right<=v.left+v.width+1&&r.top>=v.top-1&&r.bottom<=bottom-4,
+        horizontal:menu.scrollWidth<=menu.clientWidth+1,scrollable:menu.scrollHeight>menu.clientHeight,
+        lastVisible:l.top>=r.top&&l.bottom<=r.bottom&&l.bottom<=bottom,hit:hit===last||last.contains(hit),hitElement:hit?.outerHTML.slice(0,300),lastRect:{top:l.top,bottom:l.bottom},
+        versionVisible:version.top>=r.top&&version.bottom<=r.bottom,scrollTop:menu.scrollTop,rect:{top:r.top,bottom:r.bottom,left:r.left,right:r.right},bottom};
+    });
+    const bounded=async what=>{await waited(page,()=>{
+      const menu=document.querySelector('.avatar-menu'),r=menu.getBoundingClientRect(),vv=visualViewport;
+      const left=vv?.offsetLeft||0,top=vv?.offsetTop||0,right=left+(vv?.width||innerWidth);let bottom=top+(vv?.height||innerHeight);
+      const nav=document.querySelector('.mobile-tabbar'),nr=nav.getBoundingClientRect();if(nav.getClientRects().length&&nr.top>top&&nr.top<bottom)bottom=nr.top;
+      return !menu.hidden&&r.left>=left-1&&r.right<=right+1&&r.top>=top-1&&r.bottom<=bottom-4;
+    },what);};
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>{document.documentElement.dataset.theme=t;window.scrollTo(0,0);},theme);
+      await page.locator('#avatarBtn').click();
+      if(process.env.MENU_SHOTS) await page.screenshot({path:path.join(process.env.MENU_SHOTS,width+'-'+theme+'-open.png')});
+      check((await metrics()).inside,'user menu extends outside usable viewport: '+JSON.stringify(await metrics()));
+      check((await metrics()).horizontal,'user menu has horizontal overflow');
+      if(process.env.MENU_A11Y){const violations=await page.locator('.avatar-menu').evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'user menu accessibility: '+JSON.stringify(violations));}
+      // Native Tab must scroll the last action into view, without the page's + covering it.
+      const count=await page.locator('.avatar-menu button:visible,.avatar-menu a:visible').count();
+      for(let i=0;i<count+1;i++){
+        await page.keyboard.press('Tab');
+        if(await page.locator('[data-avatar-go="updates"]').evaluate(el=>el===document.activeElement)) break;
+      }
+      check(await page.locator('[data-avatar-go="updates"]').evaluate(el=>el===document.activeElement),'last menu action unreachable by Tab');
+      check((await metrics()).lastVisible&&(await metrics()).hit,'last menu action is clipped or covered '+width+'/'+theme+': '+JSON.stringify(await metrics()));
+      await page.locator('.avatar-menu').evaluate(el=>el.scrollTop=el.scrollHeight);
+      check((await metrics()).versionVisible,'version clipped at the menu bottom');
+      if(process.env.MENU_SHOTS) await page.screenshot({path:path.join(process.env.MENU_SHOTS,width+'-'+theme+'-bottom.png')});
+      await page.keyboard.press('Escape');
+      check(await page.locator('.avatar-menu').evaluate(el=>el.hidden)&&await page.locator('#avatarBtn').evaluate(el=>el===document.activeElement),'Escape did not close/restore focus');
+    }
+    await page.setViewportSize({width:390,height:844});
+    await page.evaluate(()=>window.scrollTo(0,500));
+    await waited(page,()=>document.querySelector('.app-topbar').classList.contains('is-compact'),'compact header');
+    await page.locator('#avatarBtn').click();await bounded('compact menu fits');
+    await page.setViewportSize({width:844,height:390});await bounded('landscape menu fits');
+    await page.setViewportSize({width:320,height:240});await bounded('short-screen menu fits');
+    check((await metrics()).scrollable,'short-screen menu cannot scroll');
+    await page.setViewportSize({width:390,height:700});
+    await page.evaluate(()=>{
+      document.querySelectorAll('.avatar-menu .btn').forEach(el=>el.style.fontSize='20px');
+      document.querySelector('.avatar-menu a').textContent='Request a feature with a longer descriptive label';
+      document.getElementById('shareBtn').hidden=false;
+      document.querySelector('.mobile-tabbar').style.paddingBottom='40px';
+    });
+    await bounded('large text and safe-area-sized navigation fit');
+    await page.locator('.avatar-menu').evaluate(el=>el.scrollTop=el.scrollHeight);
+    check((await metrics()).inside&&(await metrics()).horizontal&&(await metrics()).versionVisible,'larger text or safe-area simulation clipped the menu');
+    const cdp=await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
+    await bounded('zoomed visual viewport fits');
+    check((await metrics()).horizontal,'zoomed menu overflows horizontally');
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    await bounded('menu fits after zoom reset');await page.keyboard.press('Escape');
+    check(await st(page,'JSON.stringify(state)')===before,'menu navigation changed household data');
+    const touch=await fresh({touch:true});
+    try{
+      await quiet(touch.page);
+      await touch.page.setViewportSize({width:390,height:600});
+      await waited(touch.page,()=>!document.querySelector('#toastWrap .toast'),'touch sample-data toast clears');
+      await touch.page.locator('#avatarBtn').tap();
+      const box=await touch.page.locator('.avatar-menu').boundingBox();
+      const session=await touch.page.context().newCDPSession(touch.page);
+      const x=Math.round(box.x+box.width/2),y=Math.round(box.y+box.height-40);
+      await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      for(let distance=20;distance<=200;distance+=20){
+        await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-distance}]});
+        await touch.page.evaluate(()=>new Promise(requestAnimationFrame));
+      }
+      await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await waited(touch.page,()=>document.querySelector('.avatar-menu').scrollTop>0,'touch scroll inside menu');
+      await touch.page.locator('.avatar-menu').evaluate(el=>el.scrollTop=el.scrollHeight);
+      await touch.page.evaluate(()=>document.addEventListener('click',e=>{if(e.target.closest('[data-avatar-go="updates"]')){e.preventDefault();e.stopImmediatePropagation();window.__menuLastActivated=true;}},true));
+      await touch.page.locator('[data-avatar-go="updates"]').tap();
+      check(await touch.page.evaluate(()=>window.__menuLastActivated),'bottom action could not be tapped');
+      check(!touch.errors.length,'touch user menu errors: '+touch.errors.join('; '));
+    }finally{await touch.ctx.close();}
+  },
   async brokerreview(page){
     const csv='Date,Code,Side,Quantity,Price,Brokerage,Currency\n2026-10-01,EXA,Buy,100,20,0,USD';
     const setup=async p=>{

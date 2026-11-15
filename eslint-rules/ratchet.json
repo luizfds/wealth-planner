@@ -80,7 +80,7 @@
   "stateWrites": 0
  },
  "src/components/propertieswiring.js": {
-  "persist": 32,
+  "persist": 30,
   "stateWrites": 3
  },
  "src/components/redraw.js": {

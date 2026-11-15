@@ -118,17 +118,17 @@ async function fresh(opts){
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
   await ctx.route(/fonts\.(googleapis|gstatic)\.com|docs\.google\.com|coingecko|frankfurter|dropboxapi|anthropic/, r => r.abort());
-  if(opts.bankRead){
+  if(opts.bankRead || opts.propertyReview){
     await ctx.route('**/src/lib/inbox.js*', r => {
       const source=fs.readFileSync(path.join(root,'src/lib/inbox.js'),'utf8');
       const probe=source.replace('export function listInbox(){', `export function listInbox(){
-        return Promise.resolve(globalThis.__bankInboxMarked ? [] : [{name:'Inbox Example.csv',via:'journey',label:'Example folder'}]);
+        return Promise.resolve(globalThis.__bankInboxMarked ? [] : [{name:'${opts.propertyReview ? 'Owner Example.pdf' : 'Inbox Example.csv'}',via:'journey',label:'Example folder'}]);
       }
       function journeyListInbox(){`).replace('export function readInboxFile(f){', `export function readInboxFile(f){
         if(f.via==='journey') return new Promise(function(resolve,reject){
           globalThis.__finishBankInbox=function(fail){
             if(fail) reject(new Error('Synthetic inbox open failure'));
-            else resolve(new File([globalThis.__bankInboxCsv], f.name, {type:'text/csv'}));
+            else resolve(globalThis.__propertyInboxFile || new File([globalThis.__bankInboxCsv], f.name, {type:'text/csv'}));
           };
         });`).replace('export function markInboxFileImported(f){', `export function markInboxFileImported(f){
         if(f.via==='journey'){globalThis.__bankInboxMarked=(globalThis.__bankInboxMarked||0)+1;return Promise.resolve();}`);
@@ -340,6 +340,131 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async propertystatementreview(page){
+    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
+    const original=await st(page,'JSON.stringify(state)');
+    const saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    const panel=()=>page.locator('[data-as-panel][open]').filter({has:page.locator('[data-as-source]')}).first();
+    const read=async (p,buffer=agentStatementPdf(),choosing=false)=>{
+      await go(p,'expenses','data-expenses-sub','spending');
+      await p.evaluate(async bytes=>{
+        window.__propertyInboxFile=new File([new Uint8Array(bytes)],'Owner Example.pdf',{type:'application/pdf'});
+        await (await import('/src/components/importwiring.js')).checkInbox(false);
+      },[...buffer]);
+      await p.locator('[data-inbox-next]').click();
+      await waited(p,()=>typeof window.__finishBankInbox==='function','inbox file request');
+      await p.evaluate(()=>window.__finishBankInbox(false));
+      if(choosing) return;
+      await waited(p,()=>[...document.querySelectorAll('[data-as-panel]')].some(el=>el.open&&el.getClientRects().length&&Number(el.querySelector('[data-as="rent"]').value)>0),'filled property statement');
+    };
+    const restore=async()=>page.evaluate(async raw=>{
+      const m=await import('/src/state.js');m.setState(JSON.parse(raw));
+      (await import('/src/components/redraw.js')).renderAll();window.__bankInboxMarked=0;
+    },original);
+    await read(page);
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'opening property review prematurely moved inbox file to Imported');
+    check(await st(page,'JSON.stringify(state)')===original,'reading property statement changed household');
+    check(await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===saved,'reading property statement changed saved data');
+    check((await panel().locator('[data-as-source]').innerText()).includes('Owner Example.pdf'),'property review has no source filename');
+    await panel().locator('[data-as="rent"]').fill('1400');await panel().locator('[data-as="water"]').fill('20');
+    await panel().locator('[data-as="otherAmount"]').fill('30');
+    const values=()=>panel().locator('[data-as]').evaluateAll(els=>Object.fromEntries(els.map(el=>[el.dataset.as,el.value])));
+    const draft=await values();
+    await page.evaluate(async()=>{const ui=(await import('/src/components/properties.js')).agentStatementUi;Object.values(ui.reviews)[0].name='Owner Example <b>statement</b> with a long descriptive filename.pdf';});
+    await page.locator('#toastWrap .toast-close-btn').evaluateAll(els=>els.forEach(el=>el.click()));
+    await waited(page,()=>!document.querySelector('#toastWrap .toast'),'property review notices clear');
+    if(process.env.PROPERTY_READ_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.PROPERTY_READ_SHOTS)fs.mkdirSync(process.env.PROPERTY_READ_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      await page.evaluate(async()=>{(await import('/src/components/redraw.js')).renderAll();});
+      check(JSON.stringify(await values())===JSON.stringify(draft),'property review draft lost on redraw');
+      check(await panel().evaluate(el=>el.scrollWidth<=el.clientWidth+1),'property review local overflow');
+      check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'property review page overflow');
+      if(process.env.PROPERTY_READ_A11Y){const violations=await panel().evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'property review accessibility: '+JSON.stringify(violations));}
+      check((await panel().locator('[data-as-source]').innerHTML()).includes('&lt;b&gt;'),'source filename interpreted as markup');
+      if(process.env.PROPERTY_READ_SHOTS){await panel().locator('[data-as-source]').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.PROPERTY_READ_SHOTS,width+'-'+theme+'.png')});}
+    }
+    await panel().locator('[data-as-discard]').focus();await page.keyboard.press('Enter');
+    check(!await page.locator('[data-as-source]').count(),'Discard kept the read');
+    check(await page.locator('[data-as-pick]').evaluateAll(els=>els.includes(document.activeElement)),'Discard did not restore file chooser focus');
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'Discard moved inbox file');
+    check(await st(page,'JSON.stringify(state)')===original,'Discard changed household');
+    await read(page);
+    await page.evaluate(async()=>{
+      const m=await import('/src/state.js'),p=Object.values((await import('/src/components/properties.js')).agentStatementUi.reviews)[0].property;
+      m.state.incomeLog.push({id:'example-duplicate',target:'rent:'+p.id,amount:1116,date:'2026-10-31',what:'Example payment',account:''});
+    });
+    let before=await st(page,'JSON.stringify(state)');await panel().locator('[data-as-log]').click();
+    await page.locator('.app-dialog[open] [data-dialog-cancel]').click();
+    check(await st(page,'JSON.stringify(state)')===before&&!await page.evaluate(()=>window.__bankInboxMarked),'declined duplicate changed data or moved file');
+    await panel().locator('[data-as-log]').click();
+    await page.evaluate(async()=>{const m=await import('/src/state.js'),ui=(await import('/src/components/properties.js')).agentStatementUi;const id=Object.keys(ui.reviews)[0];m.state.properties=m.state.properties.filter(p=>p.id!==id);});
+    before=await st(page,'JSON.stringify(state)');await page.locator('.app-dialog[open] [data-dialog-submit]').click();
+    check(await st(page,'JSON.stringify(state)')===before&&!await page.evaluate(()=>window.__bankInboxMarked),'deleted property accepted duplicate confirmation');
+    await restore();await read(page);
+    // A newer bank selection invalidates the earlier recognised source, including its completion hook.
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.setInputFiles('#bankImportFile',{name:'newer.csv',mimeType:'text/csv',buffer:Buffer.from('Date,Description,Amount\n01/10/2026,Example Market,-100\n')});
+    await waited(page,()=>!!document.querySelector('#bankImportConfirmBtn'),'new bank selection');
+    await go(page,'properties');before=await st(page,'JSON.stringify(state)');
+    await panel().locator('[data-as-log]').click();check(await st(page,'JSON.stringify(state)')===before&&!await page.evaluate(()=>window.__bankInboxMarked),'superseded source was logged');
+    await restore();await go(page,'expenses','data-expenses-sub','spending');
+    const navigation=await page.evaluate(async()=>{
+      const m=await import('/src/state.js'),r=await import('/src/components/rentstatement.js');
+      const p=r.investmentProperties()[0],pending=r.openStatementForm(p,{date:'2026-10-31',rent:1000,water:0,fees:100,waterRates:0,others:[],received:900});
+      m.setState(JSON.parse(JSON.stringify(m.state)));return pending;
+    });
+    check(navigation===false&&!await page.locator('[data-as-source]').count(),'replaced household accepted a pending navigation handoff');
+    await restore();
+    await page.evaluate(async()=>{const m=await import('/src/state.js'),p=structuredClone(m.state.properties.find(p=>p.kind==='IP'));p.id='example-second-property';p.what='2 Example St';m.state.properties.push(p);});
+    const unknown=statementPdf([['Example Realty owner statement'],['31 Oct 2026'],['Property: Unknown Example'],['Details','','Money Out','Money In'],['Rent paid to 24/10/2026','','','1,000.00'],['Management Fee','','100.00',''],['You Received','','','','900.00']]);
+    before=await st(page,'JSON.stringify(state)');await read(page,unknown,true);await page.locator('[data-ipp]').first().waitFor();
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'choosing a property moved inbox file');
+    await page.keyboard.press('Escape');await waited(page,()=>!document.querySelector('[data-ipp]'),'property choice cancelled');
+    check(await st(page,'JSON.stringify(state)')===before&&!await page.evaluate(()=>window.__bankInboxMarked),'cancelled property choice changed data or moved source');
+    await read(page,unknown,true);await page.locator('[data-ipp]').first().waitFor();
+    const choice=await page.locator('[data-ipp]').first().getAttribute('data-ipp');
+    await page.evaluate(async id=>{const m=await import('/src/state.js');m.state.properties=m.state.properties.filter(p=>p.id!==id);},choice);
+    before=await st(page,'JSON.stringify(state)');await page.locator('[data-ipp]').first().click();
+    await page.locator('#toastWrap').getByText('That property or statement is no longer available. Choose the statement again.',{exact:true}).waitFor();
+    check(await st(page,'JSON.stringify(state)')===before&&!await page.evaluate(()=>window.__bankInboxMarked),'deleted property choice staged data or completed source');
+    await restore();await read(page);
+    for(const key of ['rent','water','fees','waterRates','otherAmount'])await panel().locator('[data-as="'+key+'"]').fill('0');
+    await panel().locator('[data-as-log]').click();check(!await page.evaluate(()=>window.__bankInboxMarked),'empty statement completed inbox file');
+    await panel().locator('[data-as="rent"]').fill('1000');await panel().locator('[data-as="fees"]').fill('100');
+    const count=await st(page,'state.incomeLog.length');await panel().locator('[data-as-log]').click();
+    check(await st(page,'state.incomeLog.length')===count+1&&await page.evaluate(()=>window.__bankInboxMarked)===1,'successful log did not record and complete inbox exactly once');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    check(await st(page,'state.incomeLog.length')===count,'property statement Undo failed');
+    // Storage errors latch saving off for this tab; keep the source pending and allow an unsaved rollback.
+    await restore();await read(page);
+    const beforeFailedSave=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    await page.evaluate(()=>{window.__statementSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='wealthPlanner.v1')throw new Error('Synthetic storage failure');return window.__statementSetItem.call(this,key,value);};});
+    await panel().locator('[data-as-log]').click();
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'failed save completed inbox file');
+    check(await st(page,'state.incomeLog.length')===count+1,'storage failure test did not stage an unsaved log');
+    check(await panel().locator('[data-as-log]').isDisabled(),'failed save allows duplicate logging');
+    await panel().locator('[data-as-discard]').click();
+    check(await st(page,'state.incomeLog.length')===count&&!await page.evaluate(()=>window.__bankInboxMarked),'discard failed to remove unsaved records or moved source');
+    check(await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===beforeFailedSave,'failed save or discard changed stored data');
+    await page.evaluate(()=>Storage.prototype.setItem=window.__statementSetItem);
+    // Direct PDF selection uses a keyboard-operable button and the same staged review.
+    await restore();await page.evaluate(async()=>{const r=await import('/src/components/rentstatement.js');await r.openStatementForm(r.investmentProperties()[0]);});
+    const picker=page.locator('[data-as-pick]:visible').first(),chooser=page.waitForEvent('filechooser');await picker.focus();await page.keyboard.press('Enter');
+    await (await chooser).setFiles({name:'Direct Example.pdf',mimeType:'application/pdf',buffer:agentStatementPdf()});
+    await waited(page,()=>!!document.querySelector('[data-as-source]'),'direct PDF staged review');
+    check((await panel().locator('[data-as-source]').innerText()).includes('Direct Example.pdf'),'direct PDF retained previous source');
+    await page.evaluate(()=>{const original=File.prototype.arrayBuffer;File.prototype.arrayBuffer=function(){const file=this;if(file.name==='Slow Example.pdf')return new Promise(resolve=>window.__finishPropertyRead=()=>original.call(file).then(resolve));return original.call(file);};});
+    await panel().locator('[data-as-pdf]').setInputFiles({name:'Slow Example.pdf',mimeType:'application/pdf',buffer:agentStatementPdf()});
+    await waited(page,()=>typeof window.__finishPropertyRead==='function','direct PDF read held');
+    await page.evaluate(async()=>{const m=await import('/src/state.js');m.setState(JSON.parse(JSON.stringify(m.state)));await window.__finishPropertyRead();});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    check(!await page.locator('[data-as-source]').count(),'late direct PDF filled a replacement household');
+    const touch=await fresh({touch:true,propertyReview:true});
+    try{await quiet(touch.page);await read(touch.page);await touch.page.locator('[data-as-discard]').tap();check(!await touch.page.evaluate(()=>window.__bankInboxMarked),'touch Discard moved source');check(!touch.errors.length,'touch property review errors: '+touch.errors.join('; '));}
+    finally{await touch.ctx.close();}
+  },
   async bankreadrecovery(page){
     await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
     const csv='Date,Description,Amount\n01/10/2026,Example Market,-100\n02/10/2026,Example Cafe,-20\n';
@@ -5745,7 +5870,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

@@ -121,7 +121,7 @@ function importBankFile(file, fromInbox, request){
     if(pdf){
       var st = statementFromLines(content);
       // Guard recognition as well as the final bank preview: a late PDF must not open another tool.
-      if(openAsPayslip(content, st, fromInbox, request) || openAsAgentStatement(content, fromInbox, request)){
+      if(openAsPayslip(content, st, fromInbox, request) || openAsAgentStatement(content, fromInbox, request, file.name)){
         request.file = null; clearBankImport(); return;
       }
       if(!st.rows.length) throw new Error("No statement transactions");
@@ -172,15 +172,14 @@ function openAsPayslip(lines, st, fromInbox, request){
   showToast("A payslip for " + person + " — review before saving");
   return true;
 }
-function openAsAgentStatement(lines, fromInbox, request){
+function openAsAgentStatement(lines, fromInbox, request, name){
   var r = agentStatementFromLines(lines);
   if(!isAgentStatement(r)) return false;
   inbox.current = null; renderInbox();
   var text = lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join(" "); }).join(" ");
   var go = function(p){
     if(!currentBankRequest(request)) return;
-    if(fromInbox) inboxFileDone(fromInbox);
-    openStatementForm(p, r);
+    openStatementForm(p, r, { name: name, isCurrent: function(){ return currentBankRequest(request); }, onLogged: fromInbox ? function(){ inboxFileDone(fromInbox); } : null });
   };
   var named = propertyNamedIn(text, investmentProperties());
   if(named) go(named); else chooseInvestmentProperty("Which property is this statement for?", go);

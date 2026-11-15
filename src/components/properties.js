@@ -619,8 +619,18 @@ export function statementLineHtml(p){
     '<button type="button" class="btn btn-sm" data-as-open="' + escapeAttr(p.id) + '">Log a statement</button></div>';
 }
 // v3.79.0: a property manager's monthly statement, entered once (calc/agentstatement.js).
-export var agentStatementUi = { open: {} };
+export var agentStatementUi = { open: {}, reviews: {} };
+export function rememberAgentStatementForm(panel){
+  var review = agentStatementUi.reviews[panel.getAttribute("data-as-panel")];
+  if(!review) return;
+  review.values = {};
+  panel.querySelectorAll("[data-as]").forEach(function(el){ review.values[el.getAttribute("data-as")] = el.value; });
+}
 function agentStatementHtml(p, win){
+  var review = agentStatementUi.reviews[p.id];
+  if(review && (review.household !== state || review.property !== p)){ delete agentStatementUi.reviews[p.id]; review = null; }
+  var values = review && review.values || {}, disabled = review && review.logged ? " disabled" : "";
+  var value = function(k, fallback){ return values[k] != null ? values[k] : fallback || ""; };
   var fy = financialYearOf(win.end < localDateStr() ? win.end : localDateStr());
   var sum = statementsForFy(p, fy);
   var costLines = (p.expenses || []).filter(function(e){ return !e.computed && e.id; });
@@ -632,23 +642,24 @@ function agentStatementHtml(p, win){
   // #261: help shows in the field, described — it was a title tooltip.
   var field = function(key, label, help){
     var hid = help ? "as-" + key + "-help-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") : "";
-    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" class="field-control" data-as="' + key + '"' + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
+    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" class="field-control" data-as="' + key + '" value="' + escapeAttr(value(key)) + '"' + disabled + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
       (help ? '<small class="field-help" id="' + hid + '">' + escapeAttr(help) + '</small>' : "") + '</label>';
   };
   var accounts = (state.accounts || []).map(function(a){ return a.name; });
-  var defAcct = (p.income && p.income[0] && p.income[0].account) || "";
+  var defAcct = value("account", (p.income && p.income[0] && p.income[0].account) || "");
   return '<details class="agent-stmt"' + (agentStatementUi.open[p.id] ? ' open' : '') + ' data-as-panel="' + escapeAttr(p.id) + '"><summary>Log a property manager statement</summary>' +
     '<p class="ledger-note">One statement in one go: what was collected, what was paid out of it, and what reached you. Rent received and any bills paid from the rent are logged for you.</p>' +
-    '<p class="agent-pdf"><label class="btn btn-sm btn-ghost">Fill from the statement PDF<input type="file" accept=".pdf,application/pdf" data-as-pdf hidden></label></p>' +
+    (review ? '<p class="ledger-note agent-read-source" data-as-source>Review ' + escapeAttr(review.name || 'statement PDF') + ' for <b>' + escapeAttr(p.what || 'Investment property') + '</b>. ' + (review.logged ? 'This statement could not be saved. Export a backup from the user menu before closing, or discard the unsaved statement.' : 'Check the figures, then Log statement.') + (review.onLogged ? ' The inbox file stays pending until the statement is saved.' : '') + '</p>' + '<button type="button" class="btn btn-sm btn-ghost" data-as-discard>' + (review.logged ? 'Discard unsaved statement' : 'Discard read') + '</button>' : '') +
+    '<p class="agent-pdf"><button type="button" class="btn btn-sm btn-ghost" data-as-pick' + disabled + '>Fill from the statement PDF</button><input type="file" accept=".pdf,application/pdf" data-as-pdf hidden></p>' +
     '<div class="agent-grid">' +
-      '<label class="fr-field"><span>Statement date</span><input type="date" class="field-control" data-as="date" value="' + escapeAttr(localDateStr()) + '"></label>' +
+      '<label class="fr-field"><span>Statement date</span><input type="date" class="field-control" data-as="date" value="' + escapeAttr(value("date", localDateStr())) + '"' + disabled + '></label>' +
       field("rent", "Rent collected $") + field("water", "Water usage recovered $") +
       field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? "" : "No water line on this property — it will be logged without one.") +
       field("otherAmount", "Other cost paid $") +
-      '<label class="fr-field"><span>Other cost is for</span><select class="field-control" data-as="otherLine">' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '">' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
-      '<label class="fr-field"><span>Paid into</span><select class="field-control" data-as="account"><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
+      '<label class="fr-field"><span>Other cost is for</span><select class="field-control" data-as="otherLine"' + disabled + '>' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '"' + (e.id === value("otherLine") ? ' selected' : '') + '>' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
+      '<label class="fr-field"><span>Paid into</span><select class="field-control" data-as="account"' + disabled + '><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
     '</div>' +
-    '<div class="agent-foot"><span>Paid to you <b data-as-net>$0.00</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log>Log statement</button></div>' +
+    '<div class="agent-foot"><span>Paid to you <b data-as-net>' + fmtCurrency2.format(statementTotals({rent:values.rent,water:values.water,fees:values.fees,waterRates:values.waterRates,others:[{amount:values.otherAmount}]}).net) + '</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log' + disabled + '>' + (review && review.logged ? 'Not saved' : 'Log statement') + '</button></div>' +
     (sum.count ? '<p class="agent-sum">' + escapeAttr(fyLabel(fy)) + ' from ' + sum.count + ' statement' + (sum.count === 1 ? '' : 's') + ': rent ' + fmtCurrency0.format(sum.rent) + ' · water back ' + fmtCurrency0.format(sum.water) + ' · fees ' + fmtCurrency0.format(sum.fees) + ' · bills paid ' + fmtCurrency0.format(sum.waterRates + sum.other) + ' · to you ' + fmtCurrency0.format(sum.net) + '</p>' : '') +
     (recent ? '<ul class="agent-list">' + recent + '</ul>' : '') +
   '</details>';

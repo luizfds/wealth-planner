@@ -11,7 +11,7 @@ import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystac
 import { showToast } from "../lib/toast.js";
 import { state } from "../state.js";
 import { showPage } from "./nav.js";
-import { renderProperties, propertyTabs, agentStatementUi, agentStatementFormValues } from "./properties.js";
+import { renderProperties, propertyTabs, agentStatementUi, agentStatementFormValues, rememberAgentStatementForm } from "./properties.js";
 
 export function investmentProperties(){
   return (state.properties || []).filter(function(p){ return p && p.kind === "IP"; });
@@ -39,20 +39,25 @@ export function fillAgentStatementForm(panel, r){
 
 // The property's statement form, on its Income & costs tab, open and in view — filled in when `filled` (what
 // agentStatementFromLines read) is given.
-export function openStatementForm(p, filled){
+var statementOpening = 0;
+export async function openStatementForm(p, filled, options){
+  var request = ++statementOpening, household = state, o = options || {};
+  var current = function(){ return state === household && investmentProperties().indexOf(p) !== -1 && (!o.isCurrent || o.isCurrent()); };
+  if(!current()){ showToast("That property or statement is no longer available. Choose the statement again."); return false; }
+  var shown = await showPage("properties", { replace: true });
+  if(shown === false || request !== statementOpening || !current()) return false;
   propertyTabs[p.id] = "income";
   agentStatementUi.open[p.id] = true;
-  showPage("properties", { replace: true });
+  if(filled) agentStatementUi.reviews[p.id] = { household: household, property: p, name: o.name || "statement PDF", values: {}, isCurrent: current, onLogged: o.onLogged };
   renderProperties();
-  setTimeout(function(){
-    var panel = document.querySelector('[data-as-panel="' + CSS.escape(p.id) + '"]');
-    if(!panel) return;
-    panel.open = true;
-    if(filled) fillAgentStatementForm(panel, filled);
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-    var first = panel.querySelector(filled ? "[data-as-log]" : "[data-as-pdf]");
-    if(first && filled) first.focus({ preventScroll: true });
-  }, 280);
+  var panel = document.querySelector('[data-as-panel="' + CSS.escape(p.id) + '"]');
+  if(!panel) return false;
+  panel.open = true;
+  if(filled){ fillAgentStatementForm(panel, filled); rememberAgentStatementForm(panel); }
+  panel.scrollIntoView({ block: "start" });
+  var first = panel.querySelector(filled ? "[data-as-log]" : "[data-as-pdf]");
+  if(first && filled) first.focus({ preventScroll: true });
+  return true;
 }
 
 // Which investment property: the only one straight away, else a sheet to pick from (Back and Escape close it).

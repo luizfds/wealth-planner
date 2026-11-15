@@ -140,6 +140,12 @@ jobs:
           SPEED: 0
           IMPORT_A11Y: 1
           IMPORT_SHOTS: accessibility-report/import-chooser
+      - name: Error-summary viewport bounds
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: errorsummarybounds
+          SPEED: 0
+          ERROR_BOUNDS_SHOTS: accessibility-report/error-bounds
       - name: Long-form error summaries
         run: node scripts/journeys.mjs
         env:
@@ -147,6 +153,7 @@ jobs:
           SPEED: 0
           ERROR_A11Y: 1
           ERROR_A11Y_DIR: accessibility-report/error-summaries
+          ERROR_TRACE_DIR: accessibility-report/error-summary-trace
           ERROR_SHOTS: accessibility-report/error-summaries
       - uses: actions/upload-artifact@v4
         if: always()

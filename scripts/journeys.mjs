@@ -1272,8 +1272,81 @@ const JOURNEYS = {
   },
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
+  async errorsummarybounds(page){
+    await quiet(page);await go(page,'properties');await page.locator('[data-prop-edit]').first().click();
+    const card=page.locator('.property-card').first(),id=await card.getAttribute('data-property-id');
+    const before=await page.evaluate(async id=>{const m=await import('/src/state.js');const p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},id);
+    await card.locator('.prop-value').fill('');await card.locator('.prop-purchase-price').fill('-100');await card.locator('.prop-purchase-price').press('Tab');
+    await waited(page,()=>document.querySelector('[data-error-summary] a')&&document.querySelector('[data-error-summary]').querySelectorAll('a').length===2,'two property errors');
+    if(process.env.ERROR_BOUNDS_SHOTS)fs.mkdirSync(process.env.ERROR_BOUNDS_SHOTS,{recursive:true});
+    let phase='activation';
+    const visible=async target=>waited(page,id=>{
+      const input=document.getElementById(id);if(!input||input!==document.activeElement)return false;
+      const v=visualViewport;let top=v?.offsetTop||0,bottom=top+(v?.height||innerHeight);
+      const header=document.querySelector('.app-topbar').getBoundingClientRect();if(header.top<=top&&header.bottom>top)top=header.bottom;
+      const nav=document.querySelector('.mobile-tabbar'),n=nav.getBoundingClientRect();if(nav.getClientRects().length&&n.top>top&&n.top<bottom)bottom=n.top;
+      const r=input.getBoundingClientRect();return r.top>top+1&&r.bottom<bottom-1&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===input;
+    },'error field inside usable viewport after '+phase,target).catch(async error=>{
+      const diagnostic=await page.evaluate(id=>{const e=document.getElementById(id),r=e?.getBoundingClientRect(),v=visualViewport,nav=document.querySelector('.mobile-tabbar');return {id,width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.theme,scrollY,focus:document.activeElement?.outerHTML.slice(0,250),target:e?.outerHTML.slice(0,250),rect:r?.toJSON(),header:document.querySelector('.app-topbar').getBoundingClientRect().toJSON(),nav:nav.getBoundingClientRect().toJSON(),navVisible:!!nav.getClientRects().length,viewport:{top:v.offsetTop,left:v.offsetLeft,width:v.width,height:v.height},hit:r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML.slice(0,250):null};},target);
+      throw new Error(error.message+'; '+JSON.stringify(diagnostic));
+    });
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark'])for(const height of [190,240,390,844]){
+      await page.setViewportSize({width,height});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(let i=0;i<2;i++){
+        const link=card.locator('[data-error-summary] a').nth(i),target=await link.getAttribute('data-error-target');
+        await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+        if(width<700)await link.tap();else{await link.focus();await page.keyboard.press('Enter');}
+        phase='activation';await visible(target);
+        // A redraw preserves the same focused draft and must not let the deferred adjustment scroll an old node.
+        await page.evaluate(async()=>{(await import('/src/components/properties.js')).renderProperties();});phase='redraw';await visible(target);
+        if(process.env.ERROR_BOUNDS_SHOTS&&i===0&&[190,844].includes(height))await page.screenshot({path:path.join(process.env.ERROR_BOUNDS_SHOTS,width+'-'+theme+'-'+height+'.png')});
+      }
+    }
+    await page.setViewportSize({width:390,height:390});
+    const link=card.locator('[data-error-summary] a').first(),target=await link.getAttribute('data-error-target');
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await page.evaluate(()=>{window.__errorBoundsWheel=false;window.addEventListener('wheel',()=>window.__errorBoundsWheel=true,{once:true,capture:true});});
+    await page.mouse.move(20,180);await page.mouse.wheel(0,500);
+    await waited(page,()=>window.__errorBoundsWheel,'native wheel event delivered');
+    await waited(page,id=>document.getElementById(id).getBoundingClientRect().bottom<0,'user scroll moves away from selected field',target);
+    await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    check(await page.evaluate(id=>document.getElementById(id).getBoundingClientRect().bottom<0,target),'layout adjustment fought a manual scroll');
+    const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    check(await page.evaluate(async id=>{const m=await import('/src/state.js');return JSON.stringify({...m.state.properties.find(p=>p.id===id),sectionsCollapsed:undefined});},id)===before,'summary navigation or redraw changed property figures');
+  },
   async errorsummaries(page){
     await quiet(page);
+    await page.evaluate(()=>{
+      window.__errorSummaryTrace=[];window.__errorSummarySamples=[];
+      const nodes=new WeakMap();let nextNode=0;const nodeId=el=>{if(!el)return null;if(!nodes.has(el))nodes.set(el,++nextNode);return nodes.get(el);};
+      const identity=el=>el?el.tagName+(el.id?'#'+el.id:'')+'.'+String(el.className):null;
+      const rect=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right};};
+      window.__captureErrorSummary=(event)=>{
+        const a=window.__errorSummaryActivation;if(!a)return;
+        const target=document.getElementById(a.id),r=target?.getBoundingClientRect(),vv=visualViewport;
+        const sample={event,time:Math.round(performance.now()),...a,page:document.body.dataset.currentPage,width:innerWidth,height:innerHeight,scrollY,
+          focus:identity(document.activeElement),focusNode:nodeId(document.activeElement),target:identity(target),targetNode:nodeId(target),focused:target===document.activeElement,connected:target?.isConnected,
+          duplicates:[...document.querySelectorAll('[id]')].filter(el=>el.id===a.id).length,
+          bounds:rect(target),source:rect([...document.querySelectorAll('[data-error-target]')].find(el=>el.dataset.errorTarget===a.id)),header:rect(document.querySelector('.app-topbar')),nav:rect(document.querySelector('.mobile-tabbar')),
+          hit:r?identity(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)):null,
+          viewport:vv?{top:vv.offsetTop,left:vv.offsetLeft,width:vv.width,height:vv.height}:null};
+        window.__errorSummaryTrace.push(sample);if(window.__errorSummaryTrace.length>100)window.__errorSummaryTrace.shift();
+        if(event==='settled')window.__errorSummarySamples.push(sample);
+      };
+      document.addEventListener('focusin',()=>window.__captureErrorSummary('focusin'),true);
+      document.addEventListener('focusout',()=>window.__captureErrorSummary('focusout'),true);
+      new ResizeObserver(()=>window.__captureErrorSummary('header resize')).observe(document.querySelector('.app-topbar'));
+      for(const kind of ['pointerdown','pointerup','click'])document.addEventListener(kind,e=>{const a=e.target.closest('[data-error-target]');window.__captureErrorSummary(kind+' '+identity(e.target)+' '+(a?.dataset.errorTarget||'')+' @'+e.clientX+','+e.clientY);},true);
+      window.addEventListener('scroll',()=>window.__captureErrorSummary('scroll'),{passive:true});
+      window.addEventListener('resize',()=>window.__captureErrorSummary('resize'),{passive:true});
+      new MutationObserver(ms=>{
+        const a=window.__errorSummaryActivation;if(!a)return;
+        if(ms.some(m=>[...m.removedNodes].some(n=>n.nodeType===1&&(n.id===a.id||[...n.querySelectorAll('[id]')].some(el=>el.id===a.id)))))window.__captureErrorSummary('target removed');
+      }).observe(document,{childList:true,subtree:true});
+    });
     const a11yResults=[];
     if(process.env.ERROR_SHOTS) fs.mkdirSync(process.env.ERROR_SHOTS,{recursive:true});
     if(process.env.ERROR_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
@@ -1303,17 +1376,27 @@ const JOURNEYS = {
         await page.evaluate(s=>{document.documentElement.dataset.theme=s;},scheme);
         for(const width of [320,390,768,1280]){
           await page.setViewportSize({width,height:844});
+          await summary.locator('a').first().focus();
           await summary.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
           await scan(summary);
           if(process.env.ERROR_SHOTS && [390,1280].includes(width)) await summary.screenshot({path:process.env.ERROR_SHOTS+'/'+name+'-'+width+'-'+scheme+'.png'});
           for(let i=0;i<2;i++){
             await summary.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
           const link=summary.locator('a').nth(i), target=await link.getAttribute('data-error-target');
+          await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+          await page.evaluate(activation=>{window.__errorSummaryActivation=activation;window.__errorSummaryTrace=[];window.__captureErrorSummary('before activation');},{id:target,form:name,scheme,width,index:i});
+          // A viewport/scroll change can still be compacting the header. Finish that layout before the gesture.
+          await page.evaluate(async()=>{await new Promise(requestAnimationFrame);await Promise.all(document.querySelector('.app-topbar').getAnimations({subtree:true}).filter(a=>'transitionProperty' in a).map(a=>a.finished.catch(()=>{})));});
           if(width<700) await link.tap(); else { await link.focus(); await page.keyboard.press('Enter'); }
           await waited(page,id=>{
             const e=document.getElementById(id);if(!e||e!==document.activeElement)return false;
             const r=e.getBoundingClientRect();return r.top>document.querySelector('.app-topbar').getBoundingClientRect().bottom && r.bottom<innerHeight-64 && document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===e;
-          },'the summary target to be focused and unobscured',target);
+          },'the '+name+' summary target '+i+' at '+width+'/'+scheme+' to be focused and unobscured',target).catch(async error=>{
+            const trace=await page.evaluate(()=>{window.__captureErrorSummary('timeout');return window.__errorSummaryTrace;});
+            if(process.env.ERROR_TRACE_DIR){fs.mkdirSync(process.env.ERROR_TRACE_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.ERROR_TRACE_DIR,'failure.json'),JSON.stringify(trace,null,2));}
+            throw new Error(error.message+'; target trace: '+JSON.stringify(trace.slice(-20)));
+          });
+          await page.evaluate(()=>window.__captureErrorSummary('settled'));
           const field=page.locator('[id="'+target+'"]');
           await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field")][1]'));
           }
@@ -1399,6 +1482,7 @@ const JOURNEYS = {
     check(await page.locator(calc+' .calc-price').inputValue()==='' && await page.locator(calc+' .calc-term').inputValue()==='0','calculator redraw lost drafts');
     await page.locator(calc+' .calc-price').fill(paid);await page.locator(calc+' .calc-term').fill(term);
     await count(calc,0);
+    if(process.env.ERROR_TRACE_DIR){fs.mkdirSync(process.env.ERROR_TRACE_DIR,{recursive:true});fs.writeFileSync(path.join(process.env.ERROR_TRACE_DIR,'samples.json'),JSON.stringify(await page.evaluate(()=>window.__errorSummarySamples),null,2));}
     if(process.env.ERROR_A11Y) console.log('Error-summary accessibility: '+a11yResults.length+' scopes, zero violations.');
   },
   async periodranges(page){
@@ -5956,7 +6040,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

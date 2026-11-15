@@ -3,7 +3,7 @@ import { periodsOf } from "../calc/ledger.js";
 import { incomeActuals, incomeTargets } from "../calc/received.js";
 import { takeHomeDrifts } from "../calc/takehome.js";
 import { getTaxPeople, takeHomeAdjust } from "../calc/tax.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { emptyStateHtml } from "../lib/empty.js";
 
@@ -65,8 +65,8 @@ export function receivedPanelHtml(monthStr){
         '</button>' +
         (open ? '<div class="rcv-detail">' + (r.rows.length
           ? r.rows.map(function(x){
-              return '<div class="rcv-item"><span>' + escapeAttr(x.date) + (x.what ? ' · ' + escapeAttr(x.what) : '') + '</span><b>' + fmtCurrency2.format(x.amount) + '</b>' +
-                '<button type="button" class="icon-btn btn-danger" data-rcv-del="' + escapeAttr(x.id) + '" aria-label="' + escapeAttr("Delete " + (x.what || "the record") + " received " + x.date) + '">✕</button></div>';
+              return '<div class="rcv-item"><span>' + escapeAttr(fmtDate(x.date, { year: true })) + (x.what ? ' · ' + escapeAttr(x.what) : '') + '</span><b>' + fmtCurrency2.format(x.amount) + '</b>' +
+                '<button type="button" class="icon-btn btn-danger" data-rcv-del="' + escapeAttr(x.id) + '" aria-label="' + escapeAttr("Delete " + (x.what || "the record") + " received " + fmtDate(x.date, { year: true })) + '">✕</button></div>';
             }).join("")
           : '<p class="ledger-note" style="margin:0">Nothing logged ' + escapeAttr(r.period) + '.</p>') +
           '<button type="button" class="btn btn-sm btn-ghost" data-rcv-log="' + escapeAttr(r.key) + '">+ Log ' + escapeAttr(r.kind === "payout" ? "a distribution" : r.kind === "rent" ? "rent" : "pay") + '</button></div>' : '') +

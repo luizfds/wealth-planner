@@ -400,7 +400,7 @@ function priceChangeHtml(item){
   if(!c) return windowFallbackHtml();
   var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
   var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
-  return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(c.fromDate) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
+  return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(fmtDate(c.fromDate, { year: true })) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
 }
 // "YTD" on the calendar basis, "FYTD" on the financial one — see SHARES_CHANGE_WINDOWS.
 function sharesWindowLabel(w){

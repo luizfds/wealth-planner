@@ -111,6 +111,16 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const r = await page.evaluate((w) => {
         const pageEl = document.querySelector(".app-page:not([hidden])");
         const text = pageEl ? pageEl.innerText : "";
+        // The synthetic household has no literal date names. Inputs, source filenames and
+        // diagnostic/source text deliberately retain machine-readable values.
+        const rawDates = [], walker = document.createTreeWalker(pageEl, NodeFilter.SHOW_TEXT);
+        for(let node=walker.nextNode();node;node=walker.nextNode()){
+          if(!/\b\d{4}-\d{2}-\d{2}\b/.test(node.textContent)) continue;
+          const parent=node.parentElement;
+          if(!parent || parent.closest('input,textarea,pre,code,.el-log,.bank-import-source,[hidden]') || getComputedStyle(parent).visibility==='hidden') continue;
+          const range=document.createRange();range.selectNodeContents(node);
+          if(range.getClientRects().length) rawDates.push(node.textContent.trim().slice(0,120));
+        }
         const bad = ["NaN", "undefined", "[object Object]", "Infinity"].filter(t => text.includes(t));
         const zeroBars = [...pageEl.querySelectorAll('[style*="width:"]')].filter(e => e.style.width.endsWith("%") && parseFloat(e.style.width) > 0.5 &&
           e.getBoundingClientRect().width === 0 && e.parentElement.getBoundingClientRect().width > 0 && e.offsetParent !== null).map(e => e.className);
@@ -184,11 +194,12 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";
         if(!notices && line && !line.hidden && !pageEl.contains(line)) notices = "the notices line is on another page";
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, bad, zeroBars, small, navigationOverflow, fab, primaries, about, tooltipHelp, wording: [...new Set(wording)], notices };
+        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, rawDates: [...new Set(rawDates)], bad, zeroBars, small, navigationOverflow, fab, primaries, about, tooltipHelp, wording: [...new Set(wording)], notices };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
       if(r.navigationOverflow.length) failures.push(where + ": sideways navigation: " + r.navigationOverflow.join(', '));
+      if(r.rawDates.length) failures.push(where + ": raw display dates: " + r.rawDates.join("; "));
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
       if(r.zeroBars.length) failures.push(where + ": bars that don't draw: " + [...new Set(r.zeroBars)].join(", "));
       if(r.fab) failures.push(where + ": " + r.fab);

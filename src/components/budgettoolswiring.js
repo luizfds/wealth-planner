@@ -12,7 +12,7 @@ import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
 import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
 import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { setNoticeDismissed } from "../lib/attention.js";
@@ -353,7 +353,7 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
     var pending = approvedOccurrences(rule, state.transactions, state.incomeLog, from, today);
     if(!pending.length){ showToast("No unrecorded occurrences in the last 60 days."); return; }
     if(pending.length > 30){ showToast("Too many occurrences to approve at once. Narrow the rule interval."); return; }
-    var details = pending.map(function(x){ return x.date + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\n");
+    var details = pending.map(function(x){ return fmtDate(x.date, { year: true }) + " — " + x.what + " — $" + x.amount.toFixed(2); }).join("\n");
     if(!(await confirmDialog("Record these " + pending.length + " " + rule.kind.toLowerCase() + " occurrence(s)?\n\n" +
       details + "\n\nOnly confirm if these payments actually occurred. Check imported transactions to avoid double-counting.", {"title":"Record past payments","accept":"Record payments"}))) return;
     // Recompute at the write boundary: repeated clicks cannot duplicate a recorded rule/date.

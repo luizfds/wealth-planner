@@ -8,7 +8,7 @@ import { rentalComparison, budgetComparison, householdBudgetLines } from "../cal
 import { localDateStr } from "../lib/format.js";
 import { fyLabel, ipProperties, propertyOwnershipPct } from "../calc/property.js";
 import { taxYearRecord, personYear, rentalSchedules, RENT_LINES, usesBudgetLines, budgetLineDeductions, expectedGrossForYear } from "../calc/taxyear.js";
-import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { applyTaxYear } from "./period.js";
 import { receiptsFieldHtml, deductionReceiptsHtml } from "./receipts.js";
@@ -128,7 +128,7 @@ export function evidenceItems(fy){
     if(a.category !== "Shares") return;
     (a.taxStatements || []).forEach(function(st){ if(Number(st.fy) === fy) add("stmt:" + a.what, "Annual tax statement — " + a.what); });
     (a.sales || []).forEach(function(sale){
-      if(sale.date >= fy + "-07-01" && sale.date <= (fy + 1) + "-06-30") add("sale:" + a.what + ":" + sale.date, "Buy and sell confirmations — " + a.what + " sold " + sale.date);
+      if(sale.date >= fy + "-07-01" && sale.date <= (fy + 1) + "-06-30") add("sale:" + a.what + ":" + sale.date, "Buy and sell confirmations — " + a.what + " sold " + fmtDate(sale.date, { year: true }));
     });
   });
   ipProperties().forEach(function(p){

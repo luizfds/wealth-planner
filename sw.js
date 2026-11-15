@@ -4,6 +4,8 @@
 // No fixed precache list to keep in sync with src/ — whatever the app actually requests gets
 // cached the first time it's fetched successfully.
 var CACHE_NAME = "wealth-planner-cache-v1";
+// Pending shared files are user input, kept separately from disposable app resources.
+var SHARE_CACHE = "wealth-planner-share";
 
 self.addEventListener("install", function(event){
   self.skipWaiting();
@@ -12,7 +14,7 @@ self.addEventListener("install", function(event){
 self.addEventListener("activate", function(event){
   event.waitUntil(
     caches.keys().then(function(names){
-      return Promise.all(names.filter(function(n){ return n !== CACHE_NAME && n !== "wealth-planner-share"; }).map(function(n){ return caches.delete(n); }));
+      return Promise.all(names.filter(function(n){ return n !== CACHE_NAME && n !== SHARE_CACHE; }).map(function(n){ return caches.delete(n); }));
     }).then(function(){ return self.clients.claim(); })
   );
 });
@@ -35,7 +37,7 @@ self.addEventListener("message", function(event){
   };
   event.waitUntil(
     caches.keys()
-      .then(function(names){ return Promise.all(names.map(function(n){ return caches.delete(n); })); })
+      .then(function(names){ return Promise.all(names.filter(function(n){ return n !== SHARE_CACHE; }).map(function(n){ return caches.delete(n); })); })
       // Straight back with a fresh shell, so the reload this is about to trigger has something to
       // fall back on even if it lands offline. Failure here is survivable — the page reloads either
       // way and the fetch handler re-caches as it goes — so it resolves rather than rejects.
@@ -52,7 +54,6 @@ self.addEventListener("message", function(event){
 // v3.93.0: a statement shared to the installed app from a banking app (the manifest's
 // share_target) arrives here as a POST. The file is parked in its own cache and the app opened on
 // the import screen, which picks it up — nothing leaves the device.
-var SHARE_CACHE = "wealth-planner-share";
 var SHARE_KEY = new URL("shared-statement", self.registration.scope).href;
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "POST" || !/\/share-target\/?$/.test(new URL(event.request.url).pathname)) return;

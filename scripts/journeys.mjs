@@ -90,8 +90,10 @@ import { STATEMENT_CSV, statementPdf, agentStatementPdf, LOAN_STATEMENT_CSV } fr
 const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json",
   ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
+let dropShellRequests = false, droppedShellRequests = 0;
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if(dropShellRequests && p === "/index.html"){ droppedShellRequests++; res.destroy(); return; }
   let file = path.join(root, p);
   if(!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, "index.html");
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
@@ -340,6 +342,55 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async shareupdate(page){
+    await quiet(page);
+    const before=await st(page,'JSON.stringify(state)'),saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    const bytes=[...Buffer.from('Date,Description,Amount\n01/10/2026,Example Market,-100\n')];
+    const expected={bytes,type:'text/csv',name:encodeURIComponent('Example statement.csv')};
+    await page.evaluate(async ({bytes,name})=>{
+      const registration=await navigator.serviceWorker.register(new URL('/sw.js',location.href));
+      await navigator.serviceWorker.ready;
+      if(!navigator.serviceWorker.controller)await new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+      window.__shareScope=registration.scope;
+      const share=await caches.open('wealth-planner-share');
+      await share.put(new URL('shared-statement',registration.scope),new Response(new Uint8Array(bytes),{headers:{'Content-Type':'text/csv','X-File-Name':name}}));
+      const app=await caches.open('wealth-planner-cache-v1');
+      await app.put(new URL('index.html',registration.scope),new Response('stale app shell'));
+      await app.put(new URL('stale-example.js',registration.scope),new Response('stale script'));
+      const old=await caches.open('wealth-planner-cache-old');await old.put(new URL('old-example.js',registration.scope),new Response('old script'));
+      window.__requestShareUpdate=()=>new Promise((resolve,reject)=>{
+        const channel=new MessageChannel(),timer=setTimeout(()=>reject(new Error('Update worker did not reply')),10000);
+        channel.port1.onmessage=e=>{clearTimeout(timer);channel.port1.close();resolve(e.data.ok);};
+        navigator.serviceWorker.controller.postMessage({type:'purge-and-reprime'},[channel.port2]);
+      });
+    },{bytes,name:expected.name});
+    const pending=()=>page.evaluate(async()=>{
+      if(!await caches.has('wealth-planner-share'))return null;
+      const response=await (await caches.open('wealth-planner-share')).match(new URL('shared-statement',window.__shareScope||new URL('/',location.href)));
+      return response?{bytes:[...new Uint8Array(await response.arrayBuffer())],type:response.headers.get('Content-Type'),name:response.headers.get('X-File-Name')}:null;
+    });
+    check(await page.evaluate(()=>window.__requestShareUpdate())===true,'online update did not complete');
+    check(JSON.stringify(await pending())===JSON.stringify(expected),'app update deleted or changed pending shared statement');
+    check(await page.evaluate(async()=>{
+      const cache=await caches.open('wealth-planner-cache-v1'),shell=await cache.match(new URL('index.html',window.__shareScope));
+      return !await caches.has('wealth-planner-cache-old')&&!await cache.match(new URL('stale-example.js',window.__shareScope))&&!!shell&&(await shell.text()).includes('Wealth Planner');
+    }),'app update failed to clear stale resources and re-prime the shell');
+    try{
+      // Context offline emulation does not cover the worker's own fetches. Drop the actual shell connection.
+      dropShellRequests = true;
+      for(let attempt=0;attempt<2;attempt++){
+        const previousDrops = droppedShellRequests;
+        check(await page.evaluate(()=>window.__requestShareUpdate())===false,'failed refresh did not report failure');
+        check(droppedShellRequests>previousDrops,'failure probe did not reach the shell request');
+        check(JSON.stringify(await pending())===JSON.stringify(expected),'failed update changed pending shared file');
+      }
+    }finally{dropShellRequests = false;}
+    check(await page.evaluate(()=>window.__requestShareUpdate())===true,'online retry did not complete');
+    check(JSON.stringify(await pending())===JSON.stringify(expected),'online retry changed pending shared file');
+    check(await st(page,'JSON.stringify(state)')===before&&await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===saved,'update cleanup changed household data');
+    await page.reload();await quiet(page);
+    check(JSON.stringify(await pending())===JSON.stringify(expected),'pending shared file did not survive reload after update');
+  },
   async propertypicker(page){
     await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
     const setup=async p=>p.evaluate(async()=>{

@@ -947,6 +947,7 @@
   .bank-import-field select{ width:100%; }
   .bank-import-aside{ margin-top:14px; }
   .bank-import-aside-list{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bank-import-source{ overflow-wrap:anywhere; }
   .bank-import-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
   /* After the base rule, never before — a same-specificity @media block placed above the rule it
      overrides loses to it on every viewport, mobile included (see CLAUDE.md). */

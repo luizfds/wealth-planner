@@ -17,9 +17,9 @@ import { listInbox, readInboxFile, markInboxFileImported } from "../lib/inbox.js
 import { pdfLines } from "../lib/pdftext.js";
 import { savedFolder } from "../lib/safekeeping.js";
 import { showToast, showUndoToast, showPersistentToast } from "../lib/toast.js";
-import { state, persist, commit } from "../state.js";
+import { state, persist, commit, onStateReplaced } from "../state.js";
 import { parseAssetsImportCsv, renderAssetsImportPreview } from "./assets.js";
-import { useLoanForStatement, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
+import { useLoanForStatement, setBankRead, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
 import { currentHistoryBudget, renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderYearSpending, parseExpensesImportCsv, renderExpensesImportPreview, renderSpendCategoryChart, renderSpendingTrends } from "./expenses.js";
@@ -86,48 +86,67 @@ function applyPayslipYtd(person, read, expected){
   return true;
 }
 // One way in for a statement file, whether chosen here or shared to the app (v3.93.0).
-function importBankFile(file, fromInbox){
+var bankRequest = null;
+function currentBankRequest(request){ return bankRequest === request && state === request.household; }
+function cancelBankRead(){
+  bankRequest = null;
+  clearBankImport();
+  if(inbox){ inbox.current = null; renderInbox(); }
+}
+function focusBankRead(){
+  var card = document.getElementById("bankImportCard");
+  if(card) card.open = true;
+  var status = document.querySelector("[data-bank-read-status]") || document.getElementById("bankImportPanel");
+  if(status && !status.hidden && status.getClientRects().length){
+    status.setAttribute("tabindex", "-1"); status.scrollIntoView({ block: "center" }); status.focus({ preventScroll: true }); }
+}
+function importBankFile(file, fromInbox, request){
+  if(request && !currentBankRequest(request)) return;
+  if(!request){ cancelBankRead(); request = bankRequest = { file: file, fromInbox: fromInbox, household: state }; }
+  else request.file = file;
   inbox.current = fromInbox || null;
   renderInbox();
-  // v3.92.0: a PDF statement is read into the same CSV the import already understands.
-  if(/\.pdf$/i.test(file.name) || file.type === "application/pdf"){
-    showToast("Reading the PDF…");
-    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
-      var st = statementFromLines(lines);
-      // v3.148.0: a payslip, not a statement — to the payslip check instead.
-      if(openAsPayslip(lines, st, fromInbox)) return;
-      // v3.208.0 (item 240): a property manager's statement — to its property's statement form, filled in.
-      if(openAsAgentStatement(lines, fromInbox)) return;
-      if(!st.rows.length){ showToast("Couldn't find transactions in that PDF — a CSV export from your bank will work"); return; }
+  setBankRead({ name: file.name });
+  renderBankImportPanel();
+  focusBankRead();
+  var pdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+  Promise.resolve().then(function(){
+    if(!currentBankRequest(request)) return null;
+    return pdf ? file.arrayBuffer().then(function(buf){
+      if(!currentBankRequest(request)) return null;
+      return pdfLines(new Uint8Array(buf));
+    }) : file.text();
+  }).then(function(content){
+    if(!currentBankRequest(request)) return;
+    if(pdf){
+      var st = statementFromLines(content);
+      // Guard recognition as well as the final bank preview: a late PDF must not open another tool.
+      if(openAsPayslip(content, st, fromInbox, request) || openAsAgentStatement(content, fromInbox, request)){
+        request.file = null; clearBankImport(); return;
+      }
+      if(!st.rows.length) throw new Error("No statement transactions");
       startBankImport(statementCsv(st.rows), file.name);
-      // v3.149.1: a card's statement (a limit, a minimum payment) with no account picked from its
-      // name: the only credit card, so its payment reads as a transfer and its balance can be set.
       var cards = (state.accounts || []).filter(function(a){ return a.type === "credit" && a.name; });
       if(st.card && cards.length === 1 && bankImport && !bankImport.account) setStatementAccount(cards[0].name);
-      renderBankImportPanel();
-      var card = document.getElementById("bankImportCard");
-      if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
-    }).catch(function(){ showToast("Couldn't read that PDF"); });
-    return;
-  }
-  var reader = new FileReader();
-  reader.onload = function(){
-    var text = String(reader.result);
-    // startBankImport holds onto the parsed rows itself, so the date-order control can re-parse
-    // without the user having to find the file again.
-    startBankImport(text, file.name);
+    }else{
+      startBankImport(content, file.name);
+    }
+    request.file = null;
     renderBankImportPanel();
-    var card = document.getElementById("bankImportCard");
-    if(card) card.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-  reader.onerror = function(){ showToast("Couldn't read that file"); };
-  reader.readAsText(file);
+    var panel = document.getElementById("bankImportPanel");
+    panel.setAttribute("tabindex", "-1");
+    panel.scrollIntoView({ block: "start" }); panel.focus({ preventScroll: true });
+  }).catch(function(){
+    if(!currentBankRequest(request)) return;
+    setBankRead({ name: file.name, error: pdf ? "Couldn't read transactions from this PDF. Retry, or choose a CSV export from your bank." : "Couldn't read this file. Retry, or choose another statement." });
+    renderBankImportPanel(); focusBankRead();
+  });
 }
 // v3.148.0: a payslip chosen or dropped in Statements reads as one (gross, net, and tax or super,
 // and next to no statement rows) — it opens on that person's tax card (Tax → This year), checked
 // against the plan.
 // Whose: the person it names, else the one whose pay is nearest its gross.
-function openAsPayslip(lines, st, fromInbox){
+function openAsPayslip(lines, st, fromInbox, request){
   var text = lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); });
   var slip = parsePayslip(text);
   if(!(slip.gross > 0 && slip.net > 0 && (slip.tax != null || slip.super != null)) || st.rows.length > 2) return false;
@@ -145,7 +164,7 @@ function openAsPayslip(lines, st, fromInbox){
   inbox.current = null; renderInbox();
   // The person's tax card, where the payslip panel lives: Tax → This year.
   Promise.resolve(showPage("tax")).then(function(shown){
-    if(shown === false) return;
+    if(shown === false || !currentBankRequest(request)) return;
     showTaxSubpage("year", { replace: true });
     redrawPayslipPanel(person);
     focusPayslipReview(person);
@@ -153,12 +172,13 @@ function openAsPayslip(lines, st, fromInbox){
   showToast("A payslip for " + person + " — review before saving");
   return true;
 }
-function openAsAgentStatement(lines, fromInbox){
+function openAsAgentStatement(lines, fromInbox, request){
   var r = agentStatementFromLines(lines);
   if(!isAgentStatement(r)) return false;
   inbox.current = null; renderInbox();
   var text = lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join(" "); }).join(" ");
   var go = function(p){
+    if(!currentBankRequest(request)) return;
     if(fromInbox) inboxFileDone(fromInbox);
     openStatementForm(p, r);
   };
@@ -185,13 +205,24 @@ function checkInbox(announce){
     if(announce && inbox.files.length) showPersistentToast(inboxMessage(inbox.files.length, inbox.files[0].label) + ".", "Review", openNextInbox);
   }).catch(function(){});
 }
-function openNextInbox(){
-  var f = inbox.files[0];
+function openNextInbox(file){
+  var f = file || inbox.files[0];
   if(!f) return;
-  showPage("expenses");
-  showExpensesSubpage("spending");
-  showToast("Opening " + f.name + "…");
-  readInboxFile(f).then(function(file){ importBankFile(file, f); }).catch(function(){ showToast("Couldn't open " + f.name + " — try again in a moment"); });
+  cancelBankRead();
+  var request = bankRequest = { file: null, fromInbox: f, household: state };
+  inbox.current = f; renderInbox();
+  Promise.resolve(showPage("expenses")).then(function(shown){
+    if(shown === false || !currentBankRequest(request)) return;
+    showExpensesSubpage("spending"); focusBankRead();
+  });
+  setBankRead({ name: f.name }); renderBankImportPanel(); focusBankRead();
+  readInboxFile(f).then(function(chosen){
+    if(currentBankRequest(request)) importBankFile(chosen, f, request);
+  }).catch(function(){
+    if(!currentBankRequest(request)) return;
+    setBankRead({ name: f.name, error: "Couldn't open this statement. Retry, or choose another file.", note: f.name + " is still in your inbox." });
+    renderBankImportPanel(); focusBankRead();
+  });
 }
 function inboxFileDone(f){
   if(inbox.current === f) inbox.current = null;
@@ -276,7 +307,9 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
   });
 }
 
-export function wireImports(){  document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);
+export function wireImports(){
+  onStateReplaced(cancelBankRead);
+  document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);
   document.getElementById("expenseImportBtn").addEventListener("click", function(){
     document.getElementById("expenseImportFile").click();
   });
@@ -338,6 +371,11 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
     if(lineSel || catSel) patchBankImportPanel((lineSel || catSel).getAttribute("data-bank-group"));
   });
   document.getElementById("bankImportPanel").addEventListener("click", function(e){
+    if(e.target.closest("[data-bank-read-retry]")){
+      if(bankRequest && bankRequest.file) importBankFile(bankRequest.file, bankRequest.fromInbox);
+      else if(bankRequest && bankRequest.fromInbox) openNextInbox(bankRequest.fromInbox);
+      return;
+    }
     var orderBtn = e.target.closest("[data-bank-date-order]");
     if(orderBtn){
       reparseBankImportWith(orderBtn.getAttribute("data-bank-date-order"));
@@ -370,10 +408,10 @@ export function wireImports(){  document.getElementById("expenseDownloadTemplate
       renderBankImportPanel();
       return;
     }
-    if(e.target.closest("#bankImportCancelBtn")){ clearBankImport(); inbox.current = null; renderInbox(); return; }
+    if(e.target.closest("#bankImportCancelBtn")){ cancelBankRead(); document.getElementById("bankImportPickBtn").focus(); return; }
     if(!e.target.closest("#bankImportConfirmBtn")) return;
     var result = commitBankImport();
-    clearBankImport();
+    bankRequest = null; clearBankImport();
     if(inbox.current) inboxFileDone(inbox.current);
     refreshAfterBankImport();
     // v3.163.0 (item 193): what was just imported waits to be reviewed — say so where it's counted.

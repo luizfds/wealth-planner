@@ -118,6 +118,40 @@ async function fresh(opts){
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
   await ctx.route(/fonts\.(googleapis|gstatic)\.com|docs\.google\.com|coingecko|frankfurter|dropboxapi|anthropic/, r => r.abort());
+  if(opts.bankRead){
+    await ctx.route('**/src/lib/inbox.js*', r => {
+      const source=fs.readFileSync(path.join(root,'src/lib/inbox.js'),'utf8');
+      const probe=source.replace('export function listInbox(){', `export function listInbox(){
+        return Promise.resolve(globalThis.__bankInboxMarked ? [] : [{name:'Inbox Example.csv',via:'journey',label:'Example folder'}]);
+      }
+      function journeyListInbox(){`).replace('export function readInboxFile(f){', `export function readInboxFile(f){
+        if(f.via==='journey') return new Promise(function(resolve,reject){
+          globalThis.__finishBankInbox=function(fail){
+            if(fail) reject(new Error('Synthetic inbox open failure'));
+            else resolve(new File([globalThis.__bankInboxCsv], f.name, {type:'text/csv'}));
+          };
+        });`).replace('export function markInboxFileImported(f){', `export function markInboxFileImported(f){
+        if(f.via==='journey'){globalThis.__bankInboxMarked=(globalThis.__bankInboxMarked||0)+1;return Promise.resolve();}`);
+      return r.fulfill({contentType:'text/javascript',body:probe});
+    });
+    await ctx.route('**/src/lib/pdftext.js*', r => {
+      const source=fs.readFileSync(path.join(root,'src/lib/pdftext.js'),'utf8');
+      const probe=source.replace('export function pdfLines(data, pdfjs){', `export function pdfLines(data, pdfjs){
+        if(!globalThis.__holdBankPdf) return journeyPdfLines(data,pdfjs);
+        globalThis.__holdBankPdf=false;
+        var parsed=journeyPdfLines(data,pdfjs);
+        globalThis.__bankPdfReady=parsed.then(function(){return true;});
+        return new Promise(function(resolve,reject){
+          globalThis.__finishBankPdf=function(fail){return parsed.then(function(lines){
+            if(fail) reject(new Error("Synthetic PDF extraction failure")); else resolve(lines);
+          });};
+        });
+      }
+      function journeyPdfLines(data, pdfjs){`);
+      if(probe===source) throw new Error('Bank PDF probe no longer matches extraction boundary');
+      return r.fulfill({contentType:'text/javascript',body:probe});
+    });
+  }
   if(opts.taxFailure){
     await ctx.route('**/src/components/taxyear.js*', r => {
       const source = fs.readFileSync(path.join(root,'src/components/taxyear.js'),'utf8');
@@ -306,6 +340,133 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async bankreadrecovery(page){
+    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
+    const csv='Date,Description,Amount\n01/10/2026,Example Market,-100\n02/10/2026,Example Cafe,-20\n';
+    const pick=async (name,buffer=Buffer.from(csv))=>page.setInputFiles('#bankImportFile',{name,mimeType:name.endsWith('.pdf')?'application/pdf':'text/csv',buffer});
+    const review=()=>waited(page,()=>!!document.querySelector('#bankImportConfirmBtn'),'statement review');
+    const reading=()=>waited(page,()=>document.querySelector('[data-bank-read-status]')?.textContent.startsWith('Reading '),'statement loading');
+    const error=()=>waited(page,()=>!!document.querySelector('[data-bank-read-retry]'),'statement read error with Retry');
+    await page.evaluate(()=>{
+      window.__bankPending={};window.__bankFailures=new Set();
+      // Also hold the released FileReader path so the same regression proves the old preview bug.
+      const readAsText=FileReader.prototype.readAsText;
+      FileReader.prototype.readAsText=function(file){if(file.name.startsWith('slow-'))return;return readAsText.call(this,file);};
+      for(const method of ['text','arrayBuffer']){
+        const original=File.prototype[method];
+        File.prototype[method]=function(){
+          const file=this;
+          if(file.name.startsWith('slow-'))return new Promise((resolve,reject)=>{
+            window.__bankPending[file.name]=fail=>{if(fail){reject(new Error('Synthetic read failure'));return;}return original.call(file).then(resolve);};
+          });
+          if(file.name.startsWith('retry-')&&!window.__bankFailures.has(file.name)){
+            window.__bankFailures.add(file.name);return Promise.reject(new Error('Synthetic first read failure'));
+          }
+          if(file.name==='throw.csv')throw new Error('Synthetic synchronous read failure');
+          return original.call(file);
+        };
+      }
+    });
+    const finish=async (name,fail=false)=>{
+      await page.evaluate(async ({name,fail})=>{await window.__bankPending[name](fail);},{name,fail});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    };
+    const before=await st(page,'JSON.stringify(state)'),saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    await pick('previous.csv');await review();
+    const name='slow-Example <b>statement</b> with a long file name.csv';
+    await pick(name);
+    check(!await page.locator('#bankImportConfirmBtn').count(),'old preview remains confirmable while reading');
+    await reading();
+    check(await page.evaluate(async()=>!(await import('/src/components/bank-import.js')).bankImport),'previous in-memory review retained');
+    check(!await page.locator('[data-bank-read-status] b').count(),'file name interpreted as markup');
+    if(process.env.BANK_READ_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.BANK_READ_SHOTS)fs.mkdirSync(process.env.BANK_READ_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      const audit=async state=>{
+        check(await page.locator('#bankImportPanel').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'statement '+state+' local overflow');
+        check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'statement '+state+' page overflow');
+        if(process.env.BANK_READ_A11Y){const violations=await page.locator('#bankImportPanel').evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'bank read '+state+' accessibility: '+JSON.stringify(violations));}
+        if(process.env.BANK_READ_SHOTS)await page.locator('#bankImportPanel').screenshot({path:path.join(process.env.BANK_READ_SHOTS,width+'-'+theme+'-'+state+'.png')});
+      };
+      await audit('loading');
+      await finish(name,true);await error();await audit('error');
+      check(await page.locator('[data-bank-read-status]').evaluate(el=>el===document.activeElement),'read error focus missing');
+      await page.keyboard.press('Tab');check(await page.locator('[data-bank-read-retry]').evaluate(el=>el===document.activeElement),'Retry unreachable by keyboard');
+      await page.keyboard.press('Enter');await reading();
+    }
+    await page.locator('#bankImportCancelBtn').click();
+    check(await page.locator('#bankImportPanel').isHidden(),'cancelled read left panel visible');
+    check(await page.locator('#bankImportPickBtn').evaluate(el=>el===document.activeElement),'Cancel did not restore file chooser focus');
+    await finish(name);check(await page.locator('#bankImportPanel').isHidden(),'cancelled successful read reopened preview');
+    await pick('retry-example.csv');await error();await page.locator('[data-bank-read-retry]').click();await review();
+    check((await page.locator('#bankImportPanel').innerText()).includes('retry-example.csv'),'Retry lost selected file');
+    await pick('slow-older.csv');await reading();await pick('newer.csv',Buffer.from(csv.replaceAll('Example','Another')));await review();
+    await finish('slow-older.csv');check((await page.locator('#bankImportPanel').innerText()).includes('newer.csv'),'older success replaced newer preview');
+    await pick('slow-failure.csv');await reading();await pick('latest.csv');await review();await finish('slow-failure.csv',true);
+    check(!await page.locator('[data-bank-read-retry]').count()&&(await page.locator('#bankImportPanel').innerText()).includes('latest.csv'),'older failure replaced newer preview');
+    await pick('throw.csv');await error();await page.locator('#bankImportCancelBtn').click();
+    await pick('retry-example.pdf',statementPdf());await error();await page.locator('[data-bank-read-retry]').click();await review();
+    await pick('empty.pdf',statementPdf([['Example statement with no transactions']]));await error();
+    check((await page.locator('[data-bank-read-status]').innerText()).includes('CSV export'),'empty PDF lacks recovery advice');
+    await page.locator('#bankImportCancelBtn').click();
+    await pick('broken.pdf',Buffer.from('invalid synthetic PDF'));await error();await page.locator('#bankImportCancelBtn').click();
+    // Pause after real PDF extraction, not only before bytes arrive. Cancelled recognition must not navigate.
+    const payslip=statementPdf([['Alex'],['Gross Pay','2,000.00'],['Tax','400.00'],['Net Pay','1,600.00']]);
+    for(const [buffer,fail] of [[statementPdf(),false],[payslip,false],[agentStatementPdf(),false],[statementPdf(),true]]){
+      await page.evaluate(()=>{window.__holdBankPdf=true;window.__bankPdfReady=null;});
+      await pick('extraction.pdf',buffer);await reading();
+      await waited(page,()=>!!window.__bankPdfReady,'PDF extraction starts');await page.evaluate(()=>window.__bankPdfReady);
+      await page.locator('#bankImportCancelBtn').click();await page.evaluate(fail=>window.__finishBankPdf(fail),fail);
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      check(await page.locator('#bankImportPanel').isHidden()&&await page.evaluate(()=>document.body.dataset.currentPage==='expenses'),'cancelled PDF reopened review or recognition destination');
+      check(!await page.locator('.app-dialog[open]').count(),'cancelled property statement opened a chooser');
+    }
+    await pick('slow-household.csv');await reading();
+    await page.evaluate(async()=>{const m=await import('/src/state.js');m.setState(JSON.parse(JSON.stringify(m.state)));});
+    await finish('slow-household.csv');check(await page.locator('#bankImportPanel').isHidden(),'replaced household accepted an older read');
+    await pick('replaced-review.csv');await review();
+    await page.evaluate(async()=>{const m=await import('/src/state.js');m.setState(JSON.parse(JSON.stringify(m.state)));});
+    check(await page.locator('#bankImportPanel').isHidden(),'household replacement kept an old confirmation');
+    await page.evaluate(text=>window.__bankInboxCsv=text,csv);
+    const openInbox=async()=>{await page.locator('[data-inbox-next]').click();await reading();};
+    await page.locator('#bankImportCard').evaluate(el=>el.open=false);
+    await go(page,'dashboard');
+    await page.evaluate(async()=>{const m=await import('/src/components/importwiring.js');await m.checkInbox(true);});
+    await page.locator('#toastWrap .toast-undo-btn').filter({hasText:'Review'}).last().click();
+    await waited(page,()=>document.body.dataset.currentPage==='expenses'&&document.querySelector('[data-bank-read-status]')===document.activeElement,'inbox navigation and loading focus');
+    await page.evaluate(()=>window.__finishBankInbox(true));await error();
+    await page.locator('[data-bank-read-retry]').click();await reading();await page.evaluate(()=>window.__finishBankInbox(false));await review();
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'inbox file marked imported before confirmation');
+    await page.locator('#bankImportCancelBtn').click();
+    await openInbox();await page.locator('#bankImportCancelBtn').click();await page.evaluate(()=>window.__finishBankInbox(false));
+    await page.evaluate(()=>new Promise(requestAnimationFrame));check(await page.locator('#bankImportPanel').isHidden(),'cancelled inbox retrieval reopened preview');
+    await openInbox();await pick('chosen-after-inbox.csv');await review();await page.evaluate(()=>window.__finishBankInbox(false));
+    await page.evaluate(()=>new Promise(requestAnimationFrame));check((await page.locator('#bankImportPanel').innerText()).includes('chosen-after-inbox.csv'),'late inbox retrieval replaced chosen file');
+    await openInbox();await page.evaluate(async()=>{const m=await import('/src/state.js');m.setState(JSON.parse(JSON.stringify(m.state)));});
+    await page.evaluate(()=>window.__finishBankInbox(false));await page.evaluate(()=>new Promise(requestAnimationFrame));
+    check(await page.locator('#bankImportPanel').isHidden(),'household replacement accepted late inbox retrieval');
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'failure or cancellation moved inbox file');
+    check(await st(page,'JSON.stringify(state)')===before,'reading, retry or cancellation changed household data');
+    check(await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===saved,'reading, retry or cancellation changed saved data');
+    // Keep confirmation, inbox completion and Undo on the existing path.
+    await openInbox();await page.evaluate(()=>window.__finishBankInbox(false));await review();const count=await st(page,'state.transactions.length');
+    await page.locator('#bankImportConfirmBtn').click();
+    check(await st(page,'state.transactions.length')===count+2,'reviewed statement no longer imports purchases');
+    check(await page.evaluate(()=>window.__bankInboxMarked)===1,'confirmed inbox file was not marked imported exactly once');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    check(await st(page,'state.transactions.length')===count,'statement Undo no longer removes imported purchases');
+    const touch=await fresh({touch:true});
+    try{
+      await quiet(touch.page);await go(touch.page,'expenses','data-expenses-sub','spending');
+      await touch.page.evaluate(()=>{File.prototype.text=()=>Promise.reject(new Error('Synthetic touch read failure'));});
+      await touch.page.setInputFiles('#bankImportFile',{name:'touch.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+      await waited(touch.page,()=>!!document.querySelector('[data-bank-read-retry]'),'touch error');
+      await touch.page.locator('[data-bank-read-retry]').tap();await waited(touch.page,()=>!!document.querySelector('[data-bank-read-retry]'),'touch retry');
+      await touch.page.locator('#bankImportCancelBtn').tap();check(await touch.page.locator('#bankImportPanel').isHidden(),'touch cancel failed');
+      check(!touch.errors.length,'touch bank read errors: '+touch.errors.join('; '));
+    }finally{await touch.ctx.close();}
+  },
   async usermenubounds(page){
     await quiet(page);
     await waited(page,()=>!document.querySelector('#toastWrap .toast'),'sample-data toast clears');
@@ -5584,7 +5745,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

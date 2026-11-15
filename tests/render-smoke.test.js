@@ -2640,3 +2640,32 @@ test("payslip preview names its destination and requires an explicit YTD save", 
     assert.match(failed,/Dismiss review/);
   }finally{state.tax=oldTax;state.income=oldIncome;delete payslipRead.Sam;}
 });
+
+
+test("broker review requires ambiguous destinations and keeps a selected holding through reorder", async () => {
+  const b=await import('../src/components/brokertrades.js'), old=state.assets;
+  try{
+    state.assets=[{id:'example-first',what:'Alex holding',person:'Alex',category:'Shares',symbol:'EXA',quantity:100,currency:'AUD'},
+      {id:'example-second',what:'Sam holding',person:'Sam',category:'Shares',symbol:'EXA',quantity:100,currency:'USD'}];
+    b.readTradesText('Date,Code,Side,Quantity,Price,Currency\n2026-10-01,EXA,Buy,100,20,USD');
+    assert.equal(b.currentTradePlan()[0].needsChoice,true);
+    assert.match(b.tradesCardHtml(),/Choose a holding/);
+    b.tradesUi.choice.EXA=b.tradeHoldingKey(state.assets[1]);
+    state.assets.reverse();
+    assert.equal(b.currentTradePlan()[0].target,0);
+    assert.equal(b.currentTradePlan()[0].currencyProblem,'');
+    state.assets[0].currency='AUD';
+    assert.match(b.currentTradePlan()[0].currencyProblem,/does not match/);
+    state.assets.shift();
+    assert.equal(b.currentTradePlan()[0].needsChoice,true);
+    b.readTradesText('Date,Code,Side,Quantity,Price,Currency\n2026-10-01,EXA,Buy,100,20,AUD\n2026-10-02,EXA,Buy,100,30,USD');
+    b.tradesUi.choice.EXA=b.tradeHoldingKey(state.assets[0]);
+    assert.match(b.currentTradePlan()[0].currencyProblem,/AUD.*USD/);
+    b.tradesUi.sourceText='</textarea><script>example</script>';
+    assert.match(b.tradesCardHtml(),/&lt;\/textarea>&lt;script>/);
+    assert.doesNotMatch(b.tradesCardHtml(),/<script>example/);
+    const request=b.beginTradesRead('Example draft'); b.cancelTradesRead();
+    assert.equal(b.useParsedTrades({trades:[]},request),null);
+    assert.equal(b.failTradesRead(request),false);
+  }finally{state.assets=old;b.cancelTradesRead();}
+});

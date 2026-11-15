@@ -29,7 +29,7 @@ test("CommSec's Details column: buys, a sell, brokerage from the cash; non-trade
   assert.equal(r.format, "CommSec");
   assert.equal(r.trades.length, 3);
   assert.equal(r.skipped, 1);
-  assert.deepEqual(r.trades[0], { date: "2025-02-03", code: "ABC", side: "buy", units: 40, price: 25.5, brokerage: 19.95 });
+  assert.deepEqual(r.trades[0], { date: "2025-02-03", code: "ABC", side: "buy", units: 40, price: 25.5, brokerage: 19.95, reference: "C1001" });
   assert.equal(r.trades[2].side, "sell");
   assert.equal(r.trades[2].brokerage, 19.95);
 });
@@ -108,7 +108,7 @@ test("a broker's Excel report: every sheet read, GST added to the brokerage", as
   assert.deepEqual(sheets.map(function(s){ return s.name; }), ["Notes", "Aus", "US"]);
   var r = parseTradeSheets(sheets.map(function(s){ return s.grid; }));
   assert.equal(r.trades.length, 3);
-  assert.deepEqual(r.trades[0], { date: "2025-03-04", code: "ABC", side: "buy", units: 30, price: 12.5, brokerage: 3 });
+  assert.deepEqual(r.trades[0], { date: "2025-03-04", code: "ABC", side: "buy", units: 30, price: 12.5, brokerage: 3, reference: "T1" });
   assert.equal(r.trades[2].side, "sell");
   assert.equal(r.trades[2].units, 10);
   assert.equal(sheetGrid('<row><c r="B1" t="inlineStr"><is><t>x &amp; y</t></is></c></row>', [])[0][1], "x & y", "a cell's place comes from its reference; entities decoded");
@@ -164,4 +164,35 @@ test("a sale can only use what was bought before it; any shortfall is said out l
   assert.equal(assets[0].sales[0].parcels.length, 1);
   assert.equal(assets[0].lots[1].soldUnits, 0);
   assert.ok(Math.abs(assets[0].avgCost - (0.5 * 150 + 2) / 0.5) < 0.001);
+});
+
+
+test("broker reads keep source currencies and report partial/duplicate rows", () => {
+  const csv='Date,Code,Side,Quantity,Price,Brokerage,Currency\n2026-10-01,EXA,Buy,100,20,0,AUD\n2026-10-01,EXA,Buy,100,20,0,AUD\n2026-02-31,EXA,Buy,100,20,0,AUD\n2026-10-02,EXB,Buy,100,30,0,USD';
+  const parsed=parseTrades(csv);
+  assert.equal(parsed.trades.length,2); assert.equal(parsed.duplicates,1); assert.equal(parsed.skipped,1);
+  assert.equal(parsed.trades[0].currency,'AUD'); assert.equal(parsed.trades[1].currency,'USD');
+  const grids=[csv.split('\n').map(l=>l.split(',')),[['Unsupported','Columns'],['Example','row']]];
+  const batch=parseTradeSheets(grids);
+  assert.equal(batch.unrecognised,1); assert.equal(batch.skipped,3);
+  assert.equal(parseTradeSheets([grids[0],grids[0]]).trades.length,2);
+});
+
+
+test("different source references preserve separate same-day trades", () => {
+  const parsed=parseTrades('Date,Code,Side,Quantity,Price,Reference\n2026-10-01,EXA,Buy,100,20,Example order A\n2026-10-01,EXA,Buy,100,20,Example order B');
+  assert.equal(parsed.trades.length,2); assert.equal(parsed.duplicates,undefined);
+});
+
+
+test("an unsupported explicit transaction type is not guessed to be a buy", () => {
+  const parsed=parseTrades('Date,Code,Side,Quantity,Price\n2026-10-01,EXA,Dividend,100,20');
+  assert.equal(parsed.trades.length,0); assert.equal(parsed.skipped,1);
+});
+
+
+test("overflowing trade consideration is skipped before review", () => {
+  const n='9'.repeat(200);
+  const parsed=parseTrades('Date,Code,Side,Quantity,Price\n2026-10-01,EXA,Buy,'+n+','+n);
+  assert.equal(parsed.trades.length,0); assert.equal(parsed.skipped,1);
 });

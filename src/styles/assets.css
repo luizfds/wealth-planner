@@ -338,3 +338,11 @@
 .sold-list > summary span{ font-weight:400; font-size:var(--fs-sm); color: var(--ink-soft); margin-left:6px; }
 .sold-list .m-card{ margin-top:6px; opacity:.85; }
 .ps-summary-line{ font-weight:400; text-transform:none; letter-spacing:0; color: var(--ink-soft); margin-left:6px; }
+
+/* Import review destinations and counts must wrap inside the holding tool. */
+.tr-pick{ min-width:0; }
+.tr-pick label{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.tr-row{ grid-template-columns:64px minmax(0,1fr); }
+.tr-new{ grid-column:1 / -1; text-align:left; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.tr-problem, [data-tr-review], [data-tr-status]{ overflow-wrap:anywhere; }
+[data-tr-status]:empty{ display:none; }

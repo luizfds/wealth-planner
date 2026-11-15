@@ -23,3 +23,15 @@ Save checks that the person still exists and the saved figures match those shown
 Salary updates and logging take-home pay remain separate explicit actions. An inbox payslip is not moved to Imported on reading or applying figures; Finish review explicitly completes that file, including when its figures were already saved. Dismissing leaves it available. Reading does not certify the inferred person or source currency; check the named destination and parsed figures. Broader import mapping/currency/recovery work stays in #265.
 
 The payslipreview journey checks staging, dismissal, malformed/partial/invalid/duplicate/older reads, stale saves and guarded Undo, deleted people, cancelled asynchronous failure, direct and recognised PDFs, persisted-state invariance before apply, and four widths in both themes with scoped axe checks.
+
+## Broker trade review
+
+Broker reads are staged with loading/error/cancel/retry states and retained paste text. A newer read or cancellation invalidates older file completions. Editing pasted text requires another Read before Apply. CSV and Excel file selection is keyboard-operable.
+
+A unique matching holding is preselected by stable identity; ambiguous or missing matches require a destination or explicit Leave out. Options name the holding, person and currency. Reordering assets cannot redirect a selection, and a deleted/changed destination is reviewed again. The review shows date range, purchase/sale counts and totals in the source/destination currency, duplicate and skipped rows, and unrecognised tables. Known source currencies must match the destination; mixed currencies within a ticker are blocked until split or left out. No conversion is performed. When the file has no currency column, the user must check it against the destination.
+
+Identical input rows (including any Reference) count once; distinct reference values preserve separate same-detail trades within a read. Existing recorded-trade matching remains date/units/price based for purchases and date/units based for sales, so historical matching cannot certify order identity. FIFO allocation, current holding quantities and existing cost-base warnings remain unchanged.
+
+Apply verifies the displayed holding snapshots before changing assets. It commits only the chosen import and offers Undo. Undo restores only unchanged selected holdings, preserving unrelated assets, and refuses to overwrite later edits to an imported holding. This is a broker-specific slice of #265; other parsers and real-device checks remain separate.
+
+The brokerreview journey covers ambiguous and currency-mismatched destinations, duplicate/partial input, all four widths and both themes with axe, cancellation, stale/deleted/reordered targets, guarded Undo, changed paste text, file error/retry, late cancelled reads and a separate touch import.

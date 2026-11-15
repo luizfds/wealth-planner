@@ -306,6 +306,108 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async brokerreview(page){
+    const csv='Date,Code,Side,Quantity,Price,Brokerage,Currency\n2026-10-01,EXA,Buy,100,20,0,USD';
+    const setup=async p=>{
+      await quiet(p);
+      await p.evaluate(async()=>{
+        const {state,commit,normalizeShareAsset}=await import('/src/state.js');
+        state.assets=[{id:'example-alex',what:'Example Alex holding with a long descriptive name',person:'Alex',category:'Shares',symbol:'EXA',quantity:100,price:20,currency:'AUD',sales:[]},
+          {id:'example-sam',what:'Example Sam holding',person:'Sam',category:'Shares',symbol:'EXA',quantity:100,price:30,currency:'USD',sales:[]},
+          {id:'example-cash',what:'Example cash',category:'Cash',amount:1000}];
+        state.assets.filter(a=>a.category==='Shares').forEach(normalizeShareAsset);
+        state.autoPrices=Object.assign({},state.autoPrices,{on:false});commit(['assets','autoPrices']);
+      });
+      await go(p,'assets','data-assets-sub','Shares');
+      await p.locator('[data-asset-list-tool="trades"]').evaluate(el=>el.closest('.page-overflow').querySelector('[data-overflow-toggle]').click());
+      await p.locator('[data-asset-list-tool="trades"]').click();
+    };
+    await setup(page);
+    const read=async text=>{await page.locator('[data-tr-text]').fill(text);await page.locator('[data-tr-read]').click();};
+    const saved=()=>stored(page,'JSON.stringify(state.assets)');
+    const before=await saved();
+    await read(csv);
+    check(await page.locator('[data-tr-apply]').isDisabled(),'ambiguous ticker silently selected a holding');
+    check(await saved()===before,'reading broker data wrote assets');
+    await page.selectOption('[data-tr-pick="EXA"]','id:example-alex');
+    check(await page.locator('[data-tr-apply]').isDisabled(),'currency mismatch allowed apply');
+    check((await page.locator('.tr-preview').innerText()).includes('does not match'),'currency mismatch unexplained');
+    await read(csv+'\n2026-10-02,EXB,Buy,100,30,0,USD');
+    await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    check(await page.locator('[data-tr-apply]').isDisabled(),'unmatched code was silently skipped');
+    await page.selectOption('[data-tr-pick="EXB"]','skip');
+    check(await page.locator('[data-tr-apply]').isEnabled(),'explicit partial import could not proceed');
+    await page.locator('[data-tr-cancel]').click();
+    await read(csv);await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    if(process.env.BROKER_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.BROKER_SHOTS) fs.mkdirSync(process.env.BROKER_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      const panel=page.locator('[data-tr-panel]');
+      check(await panel.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth+1&&Array.from(el.querySelectorAll('.tr-row,select')).every(x=>x.scrollWidth<=x.clientWidth+1);}), 'broker review overflow '+width+'/'+theme);
+      if(process.env.BROKER_A11Y){const violations=await panel.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'broker review accessibility: '+JSON.stringify(violations));}
+      await page.locator('[data-tr-review]').evaluate(el=>el.scrollIntoView({block:'center'}));
+      if(process.env.BROKER_SHOTS) await page.screenshot({path:path.join(process.env.BROKER_SHOTS,width+'-'+theme+'.png')});
+    }
+    await page.locator('[data-tr-cancel]').click();check(await saved()===before,'Cancel changed saved assets');
+    await read('Example unsupported columns\nExample text');
+    check(!await page.locator('[data-tr-apply]').count(),'unsupported text offered apply');
+    check(await page.locator('[data-tr-text]').inputValue()==='Example unsupported columns\nExample text','failed parse lost source text');
+    await read(csv+'\n2026-10-01,EXA,Buy,100,20,0,USD\n2026-02-31,EXA,Buy,100,20,0,USD');
+    check((await page.locator('[data-tr-review]').innerText()).includes('1 duplicate row ignored'),'input duplicates not reported');
+    check((await page.locator('[data-tr-review]').innerText()).includes('1 row skipped'),'invalid row not reported');
+    await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    await page.evaluate(async()=>{(await import('/src/state.js')).state.assets.reverse();});
+    await page.locator('[data-tr-apply]').click();
+    check(await st(page,'state.assets.find(a=>a.id==="example-sam").lots.length')===1,'reordered destination received no trade');
+    check(await st(page,'state.assets.find(a=>a.id==="example-alex").lots.length')===0,'trade went to wrong same-symbol holding');
+    await page.evaluate(async()=>{(await import('/src/state.js')).state.assets.find(a=>a.id==='example-cash').amount=2000;});
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'state.assets.find(a=>a.id==="example-sam").lots.length')===0,'Undo failed');
+    check(await st(page,'state.assets.find(a=>a.id==="example-cash").amount')===2000,'Undo replaced an unrelated edit');
+    await read(csv);await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');state.assets.find(a=>a.id==='example-sam').what='Renamed Example holding';});
+    await page.locator('[data-tr-apply]').click();
+    check(await st(page,'state.assets.find(a=>a.id==="example-sam").lots.length')===0,'stale review applied without another review');
+    check((await page.locator('[data-tr-status]').innerText()).includes('Holdings changed'),'stale review failed silently');
+    await page.locator('[data-tr-apply]').click();
+    await page.evaluate(async()=>{const {state,commit}=await import('/src/state.js');state.assets.find(a=>a.id==='example-sam').lots[0].brokerage=100;commit(['assets']);});
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'state.assets.find(a=>a.id==="example-sam").lots[0].brokerage')===100,'Undo clobbered a later imported-holding edit');
+    await read(csv);await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    check(await page.locator('[data-tr-apply]').isDisabled(),'repeat import offered duplicate lot');
+    await page.locator('[data-tr-text]').fill(csv.replace('100,20','100,40'));
+    check(await page.locator('[data-tr-apply]').isDisabled(),'edited source could apply the old preview');
+    await page.locator('[data-tr-read]').click();await page.selectOption('[data-tr-pick="EXA"]','id:example-sam');
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');window.__removedBrokerHolding=state.assets.find(a=>a.id==='example-sam');state.assets=state.assets.filter(a=>a.id!=='example-sam');});
+    const deleted=await st(page,'JSON.stringify(state.assets)');await page.locator('[data-tr-apply]').click();
+    check(await st(page,'JSON.stringify(state.assets)')===deleted,'deleted destination redirected an import');
+    check(await page.locator('[data-tr-apply]').isDisabled(),'deleted destination did not require a choice');
+    await page.locator('[data-tr-cancel]').click();
+    await page.evaluate(()=>{
+      const text=File.prototype.text;
+      File.prototype.text=function(){
+        if(this.name==='broken.csv'&&!window.__brokerFailed){window.__brokerFailed=true;return Promise.reject(new Error('Synthetic file read failure'));}
+        if(this.name==='slow.csv')return window.__brokerSlow=new Promise(resolve=>{window.__brokerRelease=resolve;});
+        return text.call(this);
+      };
+    });
+    await page.setInputFiles('[data-tr-file]',{name:'broken.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+    await waited(page,()=>document.querySelector('[data-tr-status]')?.textContent.includes("Couldn't read"),'actionable file error');
+    await page.setInputFiles('[data-tr-file]',{name:'broken.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+    await waited(page,()=>!!document.querySelector('[data-tr-review]'),'retry read succeeds');
+    await page.setInputFiles('[data-tr-file]',{name:'slow.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+    await page.locator('[data-tr-cancel]').click();await read(csv.replace('EXA','EXB'));
+    await page.evaluate(async text=>{window.__brokerRelease(text);await window.__brokerSlow;},csv);
+    check((await page.locator('.tr-preview').innerText()).includes('EXB'),'late cancelled read replaced the newer review');
+    const touch=await fresh({touch:true});
+    try{
+      await setup(touch.page);await touch.page.locator('[data-tr-text]').fill(csv);await touch.page.locator('[data-tr-read]').tap();
+      await touch.page.selectOption('[data-tr-pick="EXA"]','id:example-sam');await touch.page.locator('[data-tr-apply]').tap();
+      check(await st(touch.page,'state.assets.find(a=>a.id==="example-sam").lots.length')===1,'touch import destination differs');
+      check(!touch.errors.length,'touch broker errors: '+touch.errors.join('; '));
+    }finally{await touch.ctx.close();}
+  },
   async payslipreview(page){
     await quiet(page);
     await go(page,'tax','data-tax-sub','year');

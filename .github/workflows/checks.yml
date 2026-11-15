@@ -105,6 +105,13 @@ jobs:
           SPEED: 0
           BANK_READ_A11Y: 1
           BANK_READ_SHOTS: accessibility-report/bank-read
+      - name: Property chooser modal
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: propertypicker
+          SPEED: 0
+          PROPERTY_PICKER_A11Y: 1
+          PROPERTY_PICKER_SHOTS: accessibility-report/property-picker
       - name: Property statement review and completion
         run: node scripts/journeys.mjs
         env:

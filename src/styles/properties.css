@@ -662,3 +662,5 @@
 .prop-pmfee-panel .field-control{ width:110px; text-align:right; }
 .rentp .cf-filter .field-control{ width:100%; }
 .rentp input[type="date"].field-control{ color-scheme:light dark; }
+
+.property-picker-choice{ overflow-wrap:anywhere; }

@@ -340,6 +340,92 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async propertypicker(page){
+    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
+    const setup=async p=>p.evaluate(async()=>{
+      const m=await import('/src/state.js');
+      m.state.properties=[
+        {id:'example-property-a',kind:'IP',what:'Example property with a long descriptive name <b>North</b>',state:'QLD',purchaseDate:'2020-01-01',ownership:{Alex:100}},
+        {id:'example-property-b',kind:'IP',what:'Example property with a long descriptive name <b>North</b>',state:'NSW',purchaseDate:'2021-01-01',ownership:{Sam:100}},
+        {id:'example-property-c',kind:'IP',what:'',ownership:{Alex:50,Sam:50}}
+      ];window.__propertyPickerCalls=[];
+    });
+    const open=async p=>{
+      await p.locator('#bankImportPickBtn').focus();
+      await p.evaluate(async()=>{window.__propertyPickerCalls=[];const m=await import('/src/components/rentstatement.js');m.chooseInvestmentProperty('Choose the statement property',p=>window.__propertyPickerCalls.push({id:p.id,open:!!document.querySelector('[data-ipp]')}));});
+      await p.locator('[data-ipp]').first().waitFor();
+    };
+    const closed=async p=>waited(p,()=>!document.querySelector('[data-ipp]'),'property chooser closes');
+    await setup(page);
+    const before=await st(page,'JSON.stringify(state)'),saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    if(process.env.PROPERTY_PICKER_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.PROPERTY_PICKER_SHOTS)fs.mkdirSync(process.env.PROPERTY_PICKER_SHOTS,{recursive:true});
+    await waited(page,()=>!document.querySelector('#toastWrap .toast'),'initial notices clear');
+    let i=0;
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await open(page);
+      const dialog=page.getByRole('dialog',{name:'Choose the statement property'}),first=dialog.locator('[data-ipp]').first(),last=dialog.locator('[data-ipp-close]');
+      // On released main, Tab from the final property leaves the custom sheet for the page behind it.
+      await dialog.locator('[data-ipp]').last().focus();await page.keyboard.press('Tab');
+      check(await dialog.evaluate(el=>el.contains(document.activeElement)),'Tab escaped property chooser');
+      check(await dialog.evaluate(el=>el.matches(':modal')),'property chooser is not a native modal');
+      await first.focus();await page.keyboard.press('Shift+Tab');check(await last.evaluate(el=>el===document.activeElement),'Shift+Tab escaped property chooser');
+      await last.focus();await page.keyboard.press('Tab');check(await first.evaluate(el=>el===document.activeElement),'Tab did not wrap to first property');
+      check((await first.innerText()).includes('Alex')&&(await dialog.locator('[data-ipp]').nth(1).innerText()).includes('Sam'),'duplicate names lack ownership context');
+      check(!await dialog.locator('.qfab-action-label b').count(),'property name interpreted as markup');
+      check(await dialog.evaluate(el=>{const r=el.getBoundingClientRect();return el.scrollWidth<=el.clientWidth+1&&r.left>=-1&&r.right<=innerWidth+1&&r.top>=-1&&r.bottom<=innerHeight+1;}),'property chooser overflows viewport');
+      await page.locator('#bankImportPickBtn').evaluate(el=>el.focus());check(await dialog.evaluate(el=>el.contains(document.activeElement)),'background accepted keyboard focus through modal');
+      if(i===0){const cdp=await page.context().newCDPSession(page),ax=await cdp.send('Accessibility.getFullAXTree');const nodes=ax.nodes.filter(n=>!n.ignored);check(nodes.some(n=>n.role?.value==='dialog'&&n.name?.value==='Choose the statement property'),'native accessibility tree lacks property dialog');check(!nodes.some(n=>n.role?.value==='button'&&n.name?.value==='Choose a CSV or PDF'),'native accessibility tree exposes background control');await cdp.detach();}
+      if(process.env.PROPERTY_PICKER_A11Y){const violations=await dialog.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'property picker accessibility: '+JSON.stringify(violations));}
+      if(process.env.PROPERTY_PICKER_SHOTS)await page.screenshot({path:path.join(process.env.PROPERTY_PICKER_SHOTS,width+'-'+theme+'.png')});
+      if(i%4===0)await page.keyboard.press('Escape');
+      else if(i%4===1)await last.click();
+      else if(i%4===2)await page.evaluate(()=>history.back());
+      else {const box=await dialog.boundingBox();await page.mouse.click(2,Math.max(1,box.y-4));}
+      await closed(page);
+      check(await page.locator('#bankImportPickBtn').evaluate(el=>el===document.activeElement),'cancel did not restore chooser opener');
+      check(!await page.evaluate(()=>window.__propertyPickerCalls.length),'cancellation selected a property');i++;
+    }
+    check(await st(page,'JSON.stringify(state)')===before&&await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===saved,'property choices or cancellation changed household data');
+    await open(page);await page.evaluate(async()=>{const m=await import('/src/state.js');m.state.properties.reverse();});
+    await page.locator('[data-ipp="example-property-b"]').click();await closed(page);
+    await waited(page,()=>window.__propertyPickerCalls.length===1,'property selection callback');
+    check(await page.evaluate(()=>window.__propertyPickerCalls[0].id==='example-property-b'&&!window.__propertyPickerCalls[0].open),'reordering redirected choice or callback ran before closure');
+    for(const mode of ['deleted','replaced','household','kind']){
+      await setup(page);await open(page);
+      await page.evaluate(async mode=>{const m=await import('/src/state.js');if(mode==='household')m.setState(JSON.parse(JSON.stringify(m.state)));else if(mode==='deleted')m.state.properties=m.state.properties.filter(p=>p.id!=='example-property-a');else if(mode==='replaced')m.state.properties[0]={...m.state.properties[0]};else m.state.properties[0].kind='PPOR';},mode);
+      await page.locator('[data-ipp="example-property-a"]').click();await closed(page);
+      await page.locator('#toastWrap').getByText('That property or statement is no longer available. Choose the statement again.',{exact:true}).last().waitFor();
+      check(!await page.evaluate(()=>window.__propertyPickerCalls.length),'stale '+mode+' property was selected');
+    }
+    await setup(page);await open(page);
+    await page.locator('#bankImportPickBtn').evaluate(el=>el.replaceWith(el.cloneNode(true)));
+    await page.keyboard.press('Escape');await closed(page);check(await page.locator('#bankImportPickBtn').evaluate(el=>el===document.activeElement),'replacement opener did not receive focus');
+    await open(page);await page.locator('#bankImportPickBtn').evaluate(el=>el.hidden=true);await page.keyboard.press('Escape');await closed(page);
+    check(await page.evaluate(()=>document.activeElement!==document.body&&!!document.activeElement.getClientRects().length),'hidden opener left focus on body');
+    await page.locator('#bankImportPickBtn').evaluate(el=>el.hidden=false);
+    await page.setViewportSize({width:320,height:300});
+    await page.evaluate(async()=>{const m=await import('/src/state.js'),p=m.state.properties[0];m.state.properties=Array.from({length:30},(_,i)=>({...p,id:'example-many-'+i,what:'Example property '+i+' with a longer descriptive name'}));});
+    await open(page);const dialog=page.getByRole('dialog',{name:'Choose the statement property'});await dialog.locator('[data-ipp]').last().focus();
+    check(await dialog.evaluate(el=>{const r=el.getBoundingClientRect(),a=document.activeElement.getBoundingClientRect();return el.scrollHeight>el.clientHeight&&r.top>=0&&r.bottom<=innerHeight+1&&a.top>=r.top&&a.bottom<=r.bottom;}),'short-screen list cannot scroll focused choice into view');
+    await page.keyboard.press('Escape');await closed(page);
+    await setup(page);await page.setViewportSize({width:390,height:844});await open(page);
+    await page.evaluate(async()=>{const m=await import('/src/components/rentstatement.js');m.chooseInvestmentProperty('Second chooser',()=>window.__propertyPickerCalls.push({id:'unexpected'}));});
+    check(await page.getByRole('dialog').count()===1,'reentrant chooser opened another modal');
+    await page.locator('[data-ipp]').first().evaluate(el=>{el.click();el.click();});await closed(page);await waited(page,()=>window.__propertyPickerCalls.length>0,'one selection after double activation');
+    check(await page.evaluate(()=>window.__propertyPickerCalls.length)===1,'double activation invoked selection twice');
+    await open(page);await page.evaluate(()=>{window.__pickerBack=history.back;history.back=()=>{};});
+    try{await page.locator('[data-ipp]').first().click();await closed(page);check(!await page.evaluate(()=>window.__propertyPickerCalls.length),'unconfirmed history close selected property');}
+    finally{await page.evaluate(()=>history.back=window.__pickerBack);}
+    await setup(page);await page.evaluate(async()=>{const m=await import('/src/state.js');m.state.properties=m.state.properties.slice(0,1);const r=await import('/src/components/rentstatement.js');r.chooseInvestmentProperty('One property',p=>window.__propertyPickerCalls.push({id:p.id}));});
+    check(await page.evaluate(()=>window.__propertyPickerCalls.length)===1&&!await page.locator('[data-ipp]').count(),'one-property shortcut changed');
+    await page.evaluate(async()=>{const m=await import('/src/state.js');m.state.properties=[];window.__propertyPickerCalls=[];(await import('/src/components/rentstatement.js')).chooseInvestmentProperty('No properties',p=>window.__propertyPickerCalls.push({id:p.id}));});
+    check(!await page.evaluate(()=>window.__propertyPickerCalls.length)&&!await page.locator('[data-ipp]').count(),'empty household selected a property');
+    await page.locator('#toastWrap').getByText('Add the investment property first (Net worth → Property), then log its statements there',{exact:true}).waitFor();
+    const touch=await fresh({touch:true});
+    try{await quiet(touch.page);await go(touch.page,'expenses','data-expenses-sub','spending');await setup(touch.page);await open(touch.page);await touch.page.locator('[data-ipp="example-property-b"]').tap();await closed(touch.page);await waited(touch.page,()=>window.__propertyPickerCalls.length===1,'touch property choice');check(await touch.page.evaluate(()=>window.__propertyPickerCalls[0].id)==='example-property-b','touch selected wrong property');await open(touch.page);await touch.page.locator('[data-ipp-close]').tap();await closed(touch.page);check(!await touch.page.evaluate(()=>window.__propertyPickerCalls.length),'touch cancellation chose property');check(!touch.errors.length,'touch picker errors: '+touch.errors.join('; '));}
+    finally{await touch.ctx.close();}
+  },
   async propertystatementreview(page){
     await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
     const original=await st(page,'JSON.stringify(state)');

@@ -92,7 +92,7 @@
     import { wireModalHistory } from "./src/components/overlays.js";
     import { textDialog, confirmDialog } from "./src/lib/dialogs.js";
     import { STORAGE_KEY } from "./src/constants.js";
-    import { migrateState } from "./src/state.js";
+    import { readBackup, restoreQuestion, householdSummary, summaryIsEmpty } from "./src/calc/restore.js";
     import { decryptBackup } from "./src/lib/backup.js";
     import { showToast } from "./src/lib/toast.js";
 
@@ -143,36 +143,22 @@
     }
 
     async function finishImport(jsonStr){
-      var parsed;
-      try{
-        parsed = JSON.parse(jsonStr);
-        if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-      }catch(err){
-        setStatus("");
-        showToast("That file doesn't look like a valid backup");
-        return;
-      }
-      // Already-started-using-it check: state.js writes a fresh defaultState() back to
-      // localStorage the very first time the real app loads, before the user has touched
-      // anything — so "is there a saved entry at all" isn't precise enough once someone's
-      // opened the app even once. Parse what's there and look for actual content instead, same
-      // check app.js's own Import flow uses.
-      var hasExistingData = false;
-      try{
-        var existingRaw = localStorage.getItem(STORAGE_KEY);
-        var existing = existingRaw ? JSON.parse(existingRaw) : null;
-        hasExistingData = !!(existing && (
-          (existing.income && existing.income.length) || (existing.shared && existing.shared.length) ||
-          (existing.assets && existing.assets.length) || (existing.properties && existing.properties.length) ||
-          (existing.transactions && existing.transactions.length) || (existing.debts && existing.debts.length)
-        ));
-      }catch(e){}
-      if(hasExistingData){
-        var ok = await confirmDialog("You already have data saved on this device. Importing replaces it. Export a backup first if you need to keep it.", {title:"Restore backup",accept:"Replace household",danger:true});
+      // #265: checked before anything asks to replace a household (calc/restore.js), the same as Import in the app.
+      var read;
+      try{ read = readBackup(JSON.parse(jsonStr)); }catch(err){ read = { ok: false, reason: "That file doesn't look like a valid backup" }; }
+      if(!read.ok){ setStatus(""); showToast(read.reason); return; }
+      // What this device already holds, read from what's saved: the app writes an empty household the first
+      // time it opens, so "something is saved" isn't enough to mean someone has started using it.
+      var existing = null;
+      try{ var existingRaw = localStorage.getItem(STORAGE_KEY); existing = existingRaw ? JSON.parse(existingRaw) : null; }catch(e){}
+      if(existing && !summaryIsEmpty(householdSummary(existing))){
+        var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
+        var q = restoreQuestion(read.household, existing, null, when);
+        var ok = await confirmDialog(q.message, {title:"Restore backup",accept:q.empty ? "Replace with empty household" : "Replace household",danger:true,details:q.details.slice(0, 2)});
         if(!ok){ setStatus(""); return; }
       }
       try{
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrateState(parsed)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(read.household));
       }catch(e){
         setStatus("");
         showToast("Couldn't save that here — try again, or use Import from inside the app instead.");

@@ -12,7 +12,7 @@ Without an investment property, a person or a share holding, the relevant choice
 
 The `importchooser` journey measures every choice and the modal at 320/390/768/1280px in both themes, checks keyboard/touch navigation, focus containment/return, Back/Escape, all destinations, empty-household prerequisites and unchanged in-memory/persisted household data. `IMPORT_A11Y=1` adds eight scoped axe scans; `IMPORT_SHOTS` retains chooser screenshots separately from page defaults.
 
-Issue #265 remains open. Parser-specific Select → Recognise/map → Review → Confirm → Result contracts, malformed/unsupported/partial-file recovery, mixed-currency and duplicate reviews, and confirmation-before-write for every importer are follow-up work. This chooser does not certify those existing tools' cancellation semantics. Actual devices and screen readers remain separate #267/#299 work.
+Issue #265 is complete. Every importer has its Select → Review → Confirm → Result contract: statements (bank, loan, property, payslip), broker trades, spreadsheet rows, pasted prices and backup restore, each in its own section below. Actual devices and screen readers remain #299.
 
 ## Payslip year-to-date review
 
@@ -109,4 +109,18 @@ Each line is read the way the sheet is read. A tab or quoted CSV cell is one col
 The review lists each holding with its current and new price and the change, plus the exchange rate and benchmark rows. A change over 50% is marked to check but still applied. Every line left out is listed with its line number and reason. Update reads the box again against the household. If the reviewed holdings or their prices changed (a price read, an edit, a deleted holding, a replaced household), it shows the new review and writes nothing. Editing the box puts the review away. Success is reported only once the save is observed. A save that doesn't happen puts the prices back and keeps the review, with Try again. Undo restores the prices, the rate and the benchmark store exactly, unless something has priced them since. In that case the newer prices stay.
 
 The `pricepaste` journey covers all of this, at 320/390/768/1280px in both themes; `PRICE_PASTE_A11Y=1` adds the scoped axe scans. It includes a touch update with its Undo. `applyPrices` takes an optional market, which only the paste sets.
+
+## Backup restore
+
+Settings → Preferences → Open a backup file, the backup folder's "Open it", and welcome.html all go through `calc/restore.js`.
+
+A file is checked before anything is asked. Its `income` must be a list and its `home` an object. Its other lists (budget, transactions, assets, accounts, properties, debts, money received, transfers, goals, scenarios) must be lists. It must migrate, in a copy, the way the app would load it. A file that fails says why, and nothing is offered. A tax year file picked here still merges as it always has.
+
+When this device holds anything, the question lists what the backup holds beside what this device holds: budget lines, income rows (computed ones aren't counted), transactions, accounts, assets, properties and debts. It also gives each copy's last change and who saved the backup, and says when the backup is the older copy. An empty backup is named as one, and its button says "Replace with empty household". If the household changes while the question is open (another tab's save adopted), nothing is restored and you are asked to open the backup again.
+
+The household is replaced only once the save is seen to happen. Otherwise this device's household is put back and the message says nothing was restored. A backup's receipt files are stored only after a successful restore. Undo puts the previous household back, through the same observed save, until anything changes; after that it refuses and suggests restoring an earlier backup. welcome.html has no Undo (it opens the app straight after), so its question leaves that line out.
+
+The dialog's optional `details` are plain lines set with `textContent`, like its message.
+
+The `restorebackup` journey covers all of this, at 320/390/768/1280px in both themes; `RESTORE_A11Y=1` adds the scoped axe scans. It includes a touch restore with its Undo, and welcome.html's check.
 

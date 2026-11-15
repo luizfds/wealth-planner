@@ -18,6 +18,14 @@ function question(message, options){
     d.innerHTML = '<form novalidate><h2 id="appDialogTitle"></h2><p id="appDialogMessage"></p><div class="app-dialog-fields"></div><p id="appDialogError" class="app-dialog-error" role="alert" hidden></p><div class="app-dialog-actions"><button type="button" class="btn btn-ghost" data-dialog-cancel>Cancel</button><button type="submit" class="btn btn-primary" data-dialog-submit></button></div></form>';
     d.querySelector("h2").textContent = o.title || "Confirm action";
     d.querySelector("#appDialogMessage").textContent = message;
+    // A few plain lines under the question (a restore's "what this backup holds"), set as text like the rest.
+    if(Array.isArray(o.details) && o.details.length){
+      var list = document.createElement("ul");
+      list.id = "appDialogDetails"; list.className = "app-dialog-details";
+      o.details.forEach(function(line){ var li = document.createElement("li"); li.textContent = line; list.appendChild(li); });
+      d.querySelector("#appDialogMessage").after(list);
+      d.setAttribute("aria-describedby", "appDialogMessage appDialogDetails");
+    }
     var submit = d.querySelector("[data-dialog-submit]");
     submit.textContent = o.accept || "Continue";
     if(o.danger) submit.className = "btn btn-danger";

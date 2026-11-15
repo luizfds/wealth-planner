@@ -146,6 +146,11 @@ jobs:
           JOURNEYS: errorsummarybounds
           SPEED: 0
           ERROR_BOUNDS_SHOTS: accessibility-report/error-bounds
+      - name: Import and editor focus recovery
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: importrestorefocus,rowlabelfocus
+          SPEED: 0
       - name: Signed budget and income amounts
         run: node scripts/journeys.mjs
         env:

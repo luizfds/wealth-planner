@@ -1030,6 +1030,50 @@ const JOURNEYS = {
     await page.locator('.toast-undo-btn').last().click();
     check(await st(page,'state.income.find(i=>i.id==='+JSON.stringify(salaryBefore.id)+').amount')===salaryBefore.amount,'salary Undo failed');
   },
+  // An independent touch gesture must not be mistaken for Chromium's repeated-tap text selection.
+  async rowlabelfocus(page){
+    await quiet(page);
+    await typeLineName(page,'demo-groceries',await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"),false);
+    const row=page.locator('[data-line-id="demo-groceries"]'),amount=row.locator('.f-amount'),name=row.locator('.f-what');
+    const label=row.locator('label[for="'+await amount.getAttribute('id')+'"]');
+    const before=await stored(page,'JSON.stringify(state)');
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(let i=0;i<6;i++){
+        await name.tap();
+        check(await name.evaluate(el=>document.activeElement===el),'touch did not focus the name field');
+        await label.tap();
+        await waited(page,id=>document.activeElement===document.getElementById(id),'Amount focus after independent label tap',await amount.getAttribute('id'));
+        check(await page.evaluate(()=>window.getSelection()?.toString()===''),'independent label tap selected its text');
+      }
+    }
+    check(await stored(page,'JSON.stringify(state)')===before,'label gestures changed saved household data');
+  },
+  async importrestorefocus(page){
+    await quiet(page);
+    await go(page,'settings','data-accounts-sub','preferences');
+    const before=await stored(page,'JSON.stringify(state)');
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});
+      await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      const result=await page.evaluate(async()=>{
+        const {renderSafekeeping}=await import('/src/components/safekeeping.js');
+        const selector='[data-sk="file-open"]';
+        document.querySelector(selector).focus();
+        const completion=renderSafekeeping();
+        const synchronous=document.activeElement===document.querySelector(selector);
+        document.querySelector(selector).focus();
+        await completion;
+        const asynchronous=document.activeElement===document.querySelector(selector);
+        const other=renderSafekeeping(),avatar=document.getElementById('avatarBtn');
+        avatar.focus();await other;
+        return {synchronous,asynchronous,movedFocus:document.activeElement===avatar,focus:document.activeElement?.outerHTML.slice(0,200)};
+      });
+      check(result.synchronous&&result.asynchronous&&result.movedFocus,'backup redraw focus at '+width+'/'+theme+': '+JSON.stringify(result));
+    }
+    check(await stored(page,'JSON.stringify(state)')===before,'backup redraw changed saved household data');
+  },
   async importchooser(page){
     await quiet(page);
 
@@ -2852,12 +2896,19 @@ const JOURNEYS = {
       return page.locator('.m-row[data-section="'+section+'"][data-index="'+index+'"]');
     };
     const open=async(section,id)=>{
+      const existing=await row(section,id);
+      if(await existing.locator('.f-amount').isVisible()) return existing;
       const closeEditor=page.getByRole('button',{name:/Close editor$/});
       if(await closeEditor.isVisible()){
         await closeEditor.click();
         await closeEditor.waitFor({state:'hidden'});
       }
-      await go(page,'expenses','data-expenses-sub',section==='income'?'income':'budget');
+      await page.evaluate(async section=>{
+        const nav=await import('/src/components/nav.js');
+        await nav.showPage('expenses');
+        await nav.showExpensesSubpage(section==='income'?'income':'budget');
+      },section);
+      await settle(page);
       const r=await row(section,id);
       if(section==='shared'){
         const group=r.locator('xpath=ancestor::*[contains(@class,"m-card")][1]').locator('[data-budget-group-toggle]');
@@ -2901,14 +2952,21 @@ const JOURNEYS = {
         await page.setViewportSize({width,height:844});
         await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
         const label=r.locator('label[for="'+await amount.getAttribute('id')+'"]');
-        // Prove that the label transfers focus, rather than passing because Amount was already focused.
-        await r.locator('.f-freq').focus();
+        // A real tap elsewhere starts an independent gesture; repeated taps on this label can select its text.
+        await r.locator('.f-what').tap();
         check(!await amount.evaluate(el=>document.activeElement===el),'Amount was focused before the label gesture');
         const gesture=await label.evaluate(el=>{
-          const events=[];window.__signedGesture=events;
-          for(const type of ['pointerdown','pointerup','touchstart','touchend','click','focusin']) document.addEventListener(type,e=>events.push({type,target:e.target.id||e.target.className,focus:document.activeElement?.id}),{capture:true,once:true});
+          if(window.__stopSignedGesture) window.__stopSignedGesture();
+          const events=[],control=el.control, row=el.closest('.m-row'), snapshot=()=>({focus:document.activeElement?.id||document.activeElement?.className,connected:el.isConnected,control:el.control?.id,originalControl:el.control===control,controlConnected:control?.isConnected,inert:!!control?.closest('[inert]'),disabled:control?.disabled,selection:window.getSelection()?.toString(),ids:control?[...document.querySelectorAll('[id]')].filter(x=>x.id===control.id).length:0});
+          window.__signedGesture=events;
+          const listeners=[],listen=(type,handler,capture)=>{document.addEventListener(type,handler,capture);listeners.push([type,handler,capture]);};
+          for(const type of ['pointerdown','pointerup','touchstart','touchend','click','focusin','focusout']) listen(type,e=>{events.push({type,detail:e.detail,target:e.target.id||e.target.className,...snapshot()});if(events.length>100) events.shift();},true);
+          listen('click',e=>events.push({type:'click-default',prevented:e.defaultPrevented,target:e.target.id||e.target.className,...snapshot()}),false);
+          const observer=new MutationObserver(records=>{if(records.some(r=>[...r.removedNodes].some(n=>n===control||n.contains?.(control)||n===row))||!el.isConnected) events.push({type:'removed',...snapshot()});});
+          observer.observe(document.body,{childList:true,subtree:true});
+          window.__stopSignedGesture=()=>{observer.disconnect();listeners.forEach(([type,handler,capture])=>document.removeEventListener(type,handler,capture));};
           const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
-          return {label:el.htmlFor,rect:{x:r.x,y:r.y,width:r.width,height:r.height},hit:hit?.id||hit?.className,focus:document.activeElement?.id};
+          return {label:el.htmlFor,rect:{x:r.x,y:r.y,width:r.width,height:r.height},hit:hit?.id||hit?.className,...snapshot()};
         });
         await label.tap();
         try{
@@ -2916,6 +2974,7 @@ const JOURNEYS = {
         }catch(error){
           throw new Error(error.message+' at '+section+'/'+width+'/'+theme+': '+JSON.stringify({before:gesture,after:await page.evaluate(()=>({focus:document.activeElement?.id,events:window.__signedGesture}))}),{cause:error});
         }
+        await page.evaluate(()=>window.__stopSignedGesture());
         check(await page.evaluate(w=>document.documentElement.scrollWidth<=w+1,width),'signed editor overflows at '+width+'/'+theme);
         if(process.env.SIGNED_A11Y){
           const axe=await import('axe-core');await page.evaluate(axe.default.source);
@@ -6215,7 +6274,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

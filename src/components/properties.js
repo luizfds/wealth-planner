@@ -222,7 +222,7 @@ export function rateHistoryHtml(loan, today){
   today = today || localDateStr();
   var hist = sortedRateHistory(loan);
   var list = hist.map(function(h, i){
-    return '<span class="rh-item">' + (Math.round(Number(h.rate) * 100) / 100) + '% ' + (h.date ? 'from ' + escapeAttr(h.date) : 'at the start') +
+    return '<span class="rh-item">' + (Math.round(Number(h.rate) * 100) / 100) + '% ' + (h.date ? 'from ' + escapeAttr(fmtDate(h.date, { year: true })) : 'at the start') +
       '<button type="button" class="icon-btn btn-danger" data-rate-del="' + i + '" aria-label="Remove this rate change">✕</button></span>';
   }).join("");
   // #261: a heading over a list and two fields isn't one field's label — it names the group; each field keeps its name.
@@ -243,7 +243,7 @@ export function rateChangeNote(loan){
   var dRepay = repay(cur.rate) - repay(prev.rate);
   var dInterest = interestBal * (Number(cur.rate) - Number(prev.rate)) / 100;
   var up = dRepay >= 0;
-  return 'Last change' + (cur.date ? ' ' + escapeAttr(cur.date) : '') + ': ' + prev.rate + '% → ' + cur.rate + '% — repayment ' + fmtCurrency0.format(repay(prev.rate)) + ' → ' + fmtCurrency0.format(repay(cur.rate)) +
+  return 'Last change' + (cur.date ? ' ' + escapeAttr(fmtDate(cur.date, { year: true })) : '') + ': ' + prev.rate + '% → ' + cur.rate + '% — repayment ' + fmtCurrency0.format(repay(prev.rate)) + ' → ' + fmtCurrency0.format(repay(cur.rate)) +
     ' a month (' + (up ? '+' : '−') + fmtCurrency0.format(Math.abs(dRepay)) + '), about ' + fmtCurrency0.format(Math.abs(dInterest)) + ' ' + (dInterest >= 0 ? 'more' : 'less') + ' interest a year' +
     (loan.repaymentMode === "manual" ? '. Your repayment is typed in — update it if the lender changed it.' : '.');
 }
@@ -587,7 +587,7 @@ export function rentPanelHtml(p, today){
   var win = householdYearWindow();
   var r = rentSummary(p, { start: win.start, end: today < win.end ? today : win.end }, state.incomeLog);
   var reviews = r.reviews.slice(0, 3).map(function(rv){
-    return '<li>' + escapeAttr(rv.date) + ': ' + fmtCurrency0.format(rv.from) + ' → ' + fmtCurrency0.format(rv.to) + ' ' + escapeAttr(String(rv.freq || "").toLowerCase()) + (rv.change != null ? ' (' + (rv.change >= 0 ? "+" : "") + Math.round(rv.change * 1000) / 10 + '%)' : '') + '</li>';
+    return '<li>' + escapeAttr(fmtDate(rv.date, { year: true })) + ': ' + fmtCurrency0.format(rv.from) + ' → ' + fmtCurrency0.format(rv.to) + ' ' + escapeAttr(String(rv.freq || "").toLowerCase()) + (rv.change != null ? ' (' + (rv.change >= 0 ? "+" : "") + Math.round(rv.change * 1000) / 10 + '%)' : '') + '</li>';
   }).join("");
   var vac = (p.vacancies || []).map(function(v, i){
     return '<li>' + escapeAttr(fmtDate(v.from)) + ' – ' + escapeAttr(v.to ? fmtDate(v.to) : "now") + ' <button type="button" class="btn btn-danger btn-sm" data-vac-del="' + i + '" aria-label="Remove this vacancy">✕</button></li>';
@@ -636,7 +636,7 @@ function agentStatementHtml(p, win){
   var costLines = (p.expenses || []).filter(function(e){ return !e.computed && e.id; });
   var water = waterRatesLine(p);
   var recent = (p.agentStatements || []).slice(-4).reverse().map(function(r){
-    return '<li><span>' + escapeAttr(r.date) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
+    return '<li><span>' + escapeAttr(fmtDate(r.date, { year: true })) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
       ' <button type="button" class="btn btn-danger btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
   }).join("");
   // #261: help shows in the field, described — it was a title tooltip.

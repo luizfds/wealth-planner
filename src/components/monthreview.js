@@ -64,7 +64,7 @@ export function monthReviewHtml(ym, today){
   var head = '<div class="mr-head"><button type="button" class="icon-btn" data-mr-step="-1" aria-label="Previous month">‹</button>' +
     '<h2>' + escapeAttr(r.label) + '</h2>' +
     '<button type="button" class="icon-btn" data-mr-step="1" aria-label="Next month"' + (ym >= today.slice(0, 7) ? " disabled" : "") + '>›</button>' +
-    (r.done ? '<span class="mr-done">Reviewed ' + escapeAttr(r.done) + '</span>' : '') + '</div>';
+    (r.done ? '<span class="mr-done">Reviewed ' + escapeAttr(fmtDate(r.done, { year: true })) + '</span>' : '') + '</div>';
 
   if(!introDismissed && !anyReviewDone()){
     return head + '<div class="mr-intro"><h3>A monthly check-in, about ten minutes</h3>' +
@@ -100,7 +100,7 @@ export function monthReviewHtml(ym, today){
   } else if(key === "balances"){
     var stale = balances.filter(function(b){ return b.stale; });
     body = balances.length ? '<p class="mr-lede">' + (stale.length ? stale.length + " balance" + (stale.length === 1 ? " was" : "s were") + " last updated before the month ended. Update them from your bank app so net worth is right." : "Every balance has been updated since the month ended.") + '</p><div class="mr-rows">' + balances.map(function(b){
-      return '<div class="mr-row' + (b.stale ? " is-missing" : "") + '"><span>' + escapeAttr(b.name) + '<small>' + (b.date ? "updated " + escapeAttr(b.date) : "never updated") + '</small></span><b>' + (b.owed && b.balance > 0 ? "−" : "") + money(Math.abs(b.balance)) + '</b><small></small>' +
+      return '<div class="mr-row' + (b.stale ? " is-missing" : "") + '"><span>' + escapeAttr(b.name) + '<small>' + (b.date ? "updated " + escapeAttr(fmtDate(b.date, { year: true })) : "never updated") + '</small></span><b>' + (b.owed && b.balance > 0 ? "−" : "") + money(Math.abs(b.balance)) + '</b><small></small>' +
         (b.stale ? '<span></span>' : '<span class="mr-tick" aria-label="Current">✓</span>') + '</div>';
     }).join("") + '</div>' + (stale.length ? '<button type="button" class="btn btn-sm btn-ghost" data-mr-go="accounts">Update on Accounts</button>' : '')
       : '<p class="mr-lede">No account has a balance yet — give each one its balance on Accounts and it\'s checked here every month.</p><button type="button" class="btn btn-sm btn-ghost" data-mr-go="accounts">Open Accounts</button>';

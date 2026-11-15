@@ -281,8 +281,8 @@ export function planningReadinessHtml(s, today){
 }
 export function reportDisclosureHtml(info, expanded){
   return '<section class="ledger-note" role="note" aria-label="Report assumptions and data quality">' +
-    '<details' + (expanded ? ' open' : '') + '><summary>As of ' + escapeAttr(info.asOf) + ' · Assumptions and data quality</summary>' +
-    '<p>Profile sections entered: ' + escapeAttr(info.progress) + ' · Last saved: ' + escapeAttr(info.lastSaved) + '</p>' +
+    '<details' + (expanded ? ' open' : '') + '><summary>As of ' + escapeAttr(fmtDate(info.asOf, { year: true })) + ' · Assumptions and data quality</summary>' +
+    '<p>Profile sections entered: ' + escapeAttr(info.progress) + ' · Last saved: ' + escapeAttr(fmtDate(info.lastSaved, { year: true })) + '</p>' +
     '<ul>' + info.warnings.concat(info.assumptions).map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join('') + '</ul></details></section>';
 }
 // #255 step 3 (pages.md §4): a report with nothing to show says what it needs and where that's entered, instead of a

@@ -11,7 +11,7 @@ import { recalcComputedItems } from "../calc/engine.js";
 import { agentStatementFromLines } from "../calc/pdfstatement.js";
 import { financialYearOf, fyLabel, recordRateChange, sortedRateHistory, loanRateOn } from "../calc/property.js";
 import { recordRentReview } from "../calc/propertylife.js";
-import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { pdfLines } from "../lib/pdftext.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, genId, commit, onStateReplaced, onSaved } from "../state.js";
@@ -249,7 +249,7 @@ export function wireProperties(){
       // Rent already logged by hand for this statement would count twice.
       var net = statementTotals(vals).net, dayMs = 86400000;
       var already = (state.incomeLog || []).find(function(r){ return r.target === "rent:" + prop.id && Math.abs((Number(r.amount) || 0) - net) < 0.01 && Math.abs(Date.parse(r.date) - Date.parse(vals.date)) <= 31 * dayMs; });
-      if(already && !(await confirmDialog("Rent of " + fmtCurrency2.format(net) + " was already logged on " + already.date + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)", {title:"Possible duplicate payment",accept:"Log anyway"}))) return;
+      if(already && !(await confirmDialog("Rent of " + fmtCurrency2.format(net) + " was already logged on " + fmtDate(already.date, { year: true }) + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)", {title:"Possible duplicate payment",accept:"Log anyway"}))) return;
       if(!current()){ showToast("This statement or property changed. Read the statement again before logging."); return; }
       var rec = logAgentStatement(state, prop, vals);
       if(!rec){ showToast("Type at least the rent collected"); return; }

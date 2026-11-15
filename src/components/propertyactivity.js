@@ -51,7 +51,7 @@ function recordHtml(p, r){
         return '<option value="' + escapeAttr(x.id) + '"' + (x.id === r.lineId ? ' selected' : '') + '>' + escapeAttr(x.what || "Cost") + '</option>';
       }).join("") + '</select></label>';
   }
-  var del = '<button type="button" class="btn btn-danger btn-sm" data-pa-del="' + escapeAttr(r.ref.kind + ":" + r.ref.id + (r.ref.loanId ? ":" + r.ref.loanId : "")) + '" aria-label="Remove ' + escapeAttr(r.what) + ' of ' + escapeAttr(r.date) + '">Remove</button>';
+  var del = '<button type="button" class="btn btn-danger btn-sm" data-pa-del="' + escapeAttr(r.ref.kind + ":" + r.ref.id + (r.ref.loanId ? ":" + r.ref.loanId : "")) + '" aria-label="Remove ' + escapeAttr(r.what) + ' of ' + escapeAttr(fmtDate(r.date, { year: true })) + '">Remove</button>';
   return '<div class="pa-row" data-pa-record="' + escapeAttr(r.key) + '">' +
     '<span class="pa-date">' + escapeAttr(fmtDate(r.date)) + '</span>' +
     '<div class="pa-main"><div class="pa-what">' + escapeAttr(r.what) + '</div><div class="pa-sub">' + src + ' — ' + lines + '</div>' +

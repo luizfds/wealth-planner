@@ -991,7 +991,7 @@ test("Received: a row per target with its bar and status; the sheet offers every
     assert.match(html, /style="width:75\.0%"/);
     assert.match(html, /−\$100 short/);
     toggleReceivedRow("income:i1");
-    assert.match(receivedPanelHtml("2026-10"), /2026-10-03 · Week 1-3<\/span><b>\$300\.00<\/b>/);
+    assert.match(receivedPanelHtml("2026-10"), /3 Oct 2026 · Week 1-3<\/span><b>\$300\.00<\/b>/);
     toggleReceivedRow("income:i1");
     openReceivedSheet("income:i1");
     var sheet = receivedSheetHtml();

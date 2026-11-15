@@ -15,7 +15,7 @@ import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, 
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
 import { accountBalance, setAccountBalance, isOwedType, resolveLink, loanAccountFor } from "../calc/accounts.js";
 import { splitLoanStatement, bankRepaymentOf, loanRowKind, looksLikeLoanStatement } from "../calc/loancharges.js";
-import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { loggableBudgetLineItems, budgetLineOptgroupsHtml, sortedCategories } from "./expenses.js";
 import { incomeTargets, logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
@@ -513,7 +513,7 @@ function bankImportHeaderHtml(s){
   var count = cov.total;
   var amount = bankImport.groups.reduce(function(sum, g){ return sum + g.total; }, 0);
   var range = s.firstDate && s.lastDate
-    ? (s.firstDate === s.lastDate ? s.firstDate : s.firstDate + " → " + s.lastDate)
+    ? (s.firstDate === s.lastDate ? fmtDate(s.firstDate, { year: true }) : fmtDate(s.firstDate, { year: true }) + " → " + fmtDate(s.lastDate, { year: true }))
     : "";
   // The date order is stated and changeable rather than quietly assumed. It is the one decision in
   // this whole flow that can be wrong without looking wrong: 03/04 read the other way moves a third
@@ -529,10 +529,10 @@ function bankImportHeaderHtml(s){
     var owed = isOwedType(acct.type);
     var shown = owed ? Math.abs(cb.balance) : cb.balance;
     var now = accountBalance(acct).balance;
-    balLine = '<label class="bank-import-balance"><input type="checkbox" data-bank-setbalance' + (bankImport.setBalance ? " checked" : "") + '> Set ' + escapeAttr(acct.name) + '\'s ' + (owed ? "amount owed" : "balance") + ' to <b>' + fmtCurrency2.format(shown) + '</b>, the statement\'s closing balance on ' + escapeAttr(cb.date) +
-      (now != null ? ' <small>(now ' + fmtCurrency2.format(now) + ')</small>' : '') + '</label>';
+    balLine = '<label class="bank-import-balance"><input type="checkbox" data-bank-setbalance' + (bankImport.setBalance ? " checked" : "") + '><span>Set ' + escapeAttr(acct.name) + '\'s ' + (owed ? "amount owed" : "balance") + ' to <b>' + fmtCurrency2.format(shown) + '</b>, the statement\'s closing balance on ' + escapeAttr(fmtDate(cb.date, { year: true })) +
+      (now != null ? ' <small>(now ' + fmtCurrency2.format(now) + ')</small>' : '') + '</span></label>';
   } else if(cb){
-    balLine = '<p class="ledger-note bank-import-meta">The statement ends on a balance of ' + fmtCurrency2.format(cb.balance) + ' (' + escapeAttr(cb.date) + ') — pick its account above to record it.</p>';
+    balLine = '<p class="ledger-note bank-import-meta">The statement ends on a balance of ' + fmtCurrency2.format(cb.balance) + ' (' + escapeAttr(fmtDate(cb.date, { year: true })) + ') — pick its account above to record it.</p>';
   }
   var acctLine = '<label class="bank-import-account"><span>This statement is for</span><select class="field-control" data-bank-account aria-label="Which account this statement is for">' + acctOpts + '</select></label>';
   return '<div class="bank-import-head">' + acctLine + balLine +
@@ -560,15 +560,15 @@ function bankImportGroupsHtml(){
   // patchBankImportPanel) — so without patching the numbers, "Needs you (7)" would still say 7
   // after you'd dealt with two of them, which is worse than not showing a count at all.
   if(unplaced.length){
-    html += '<h4 class="bank-import-subhead">Needs you (<span data-bank-count="unplaced">' + unplaced.length + '</span>)</h4>' +
+    html += '<h3 class="bank-import-subhead">Needs you (<span data-bank-count="unplaced">' + unplaced.length + '</span>)</h3>' +
       '<div class="m-card"><div class="m-rows">' + unplaced.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
   if(placed.length){
-    html += '<h4 class="bank-import-subhead">Ready (<span data-bank-count="placed">' + placed.length + '</span>)</h4>' +
+    html += '<h3 class="bank-import-subhead">Ready (<span data-bank-count="placed">' + placed.length + '</span>)</h3>' +
       '<div class="m-card"><div class="m-rows">' + placed.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
   if(bankImport.creditGroups.length){
-    html += '<h4 class="bank-import-subhead">Money in (' + bankImport.creditGroups.length + ')</h4>' +
+    html += '<h3 class="bank-import-subhead">Money in (' + bankImport.creditGroups.length + ')</h3>' +
       '<p class="ledger-note" style="margin:0 0 8px">Left out unless you say otherwise — this app can\'t tell a refund from salary or a transfer. ' +
       'Put one on a budget line and it imports as a refund, reducing what you spent on that line.</p>' +
       '<div class="m-card"><div class="m-rows">' + bankImport.creditGroups.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
@@ -642,7 +642,7 @@ function bankImportAsideHtml(){
   // Above the fold, not tucked in the disclosure below: skipping rows the user actually spent is
   // as wrong as importing rows they didn't, and only they can tell which this is.
   // v3.77.0: what each one matched, so "is this the same purchase?" can be answered by looking.
-  var shortDate = function(d){ var p = String(d || "").split("-"); return p.length === 3 ? Number(p[2]) + "/" + Number(p[1]) : d; };
+  var shortDate = function(d){ return escapeAttr(fmtDate(d, { year: true })); };
   var examples = bankImport.possibleDuplicates.slice(0, 6).map(function(r){
     var m = r.matched, differs = m && m.amount != null && Math.abs(m.amount - r.amount) >= 0.005;
     return '<li><span>' + escapeAttr(r.description || "(no description)") + ' · ' + shortDate(r.date) + '</span> <b>' + fmtCurrency2.format(r.amount) + '</b> ↔ <span>' +
@@ -726,10 +726,10 @@ function loanPartHtml(){
   var sum = function(kind){ return lp.charges.filter(function(c){ return c.kind === kind; }); };
   var interest = sum("interest"), fees = sum("fee");
   var total = function(list){ return list.reduce(function(s, c){ return s + c.amount; }, 0); };
-  var span = function(list){ var d = list.map(function(c){ return c.row.date; }).sort(); return d.length > 1 ? " (" + escapeAttr(d[0]) + " → " + escapeAttr(d[d.length - 1]) + ")" : d.length ? " (" + escapeAttr(d[0]) + ")" : ""; };
+  var span = function(list){ var d = list.map(function(c){ return c.row.date; }).sort(); return d.length > 1 ? " (" + escapeAttr(fmtDate(d[0], { year: true })) + " → " + escapeAttr(fmtDate(d[d.length - 1], { year: true })) + ")" : d.length ? " (" + escapeAttr(fmtDate(d[0], { year: true })) + ")" : ""; };
   if(interest.length) items.push('<li><b>' + interest.length + ' interest charge' + (interest.length === 1 ? "" : "s") + '</b>, ' + fmtCurrency2.format(total(interest)) + span(interest) + ' — the interest the year so far and the tax return use, in place of the worked-out figure.</li>');
   if(fees.length) items.push('<li><b>' + fees.length + ' fee' + (fees.length === 1 ? "" : "s") + '</b>, ' + fmtCurrency2.format(total(fees)) + span(fees) + ' — deductible costs of the loan.</li>');
-  if(lp.drawdown && lp.drawdown.date !== lp.settledWas) items.push('<li>Drawn down on <b>' + escapeAttr(lp.drawdown.date) + '</b> — becomes the loan\'s settled-on date' + (lp.settledWas ? ' (now ' + escapeAttr(lp.settledWas) + ')' : '') + ', so no interest is counted before it.</li>');
+  if(lp.drawdown && lp.drawdown.date !== lp.settledWas) items.push('<li>Drawn down on <b>' + escapeAttr(fmtDate(lp.drawdown.date, { year: true })) + '</b> — becomes the loan\'s settled-on date' + (lp.settledWas ? ' (now ' + escapeAttr(fmtDate(lp.settledWas, { year: true })) + ')' : '') + ', so no interest is counted before it.</li>');
   if(lp.known) items.push('<li>' + lp.known + ' charge' + (lp.known === 1 ? " is" : "s are") + ' already recorded.</li>');
   if(lp.repayment) items.push('<li>The bank takes <b>' + fmtCurrency2.format(lp.repayment.amount) + ' ' + lp.repayment.freq.toLowerCase() + '</b>. Repayments below are transfers into the loan; ones already logged are matched.</li>');
   if(!items.length) items.push('<li>No interest, fees or drawdown in this statement.</li>');

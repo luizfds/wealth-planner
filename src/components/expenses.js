@@ -1661,7 +1661,7 @@ function budgetRowMerchantsHtml(pairs){
 function budgetRowTxnListHtml(pairs, item, cycle){
   var rows = pairs.map(function(pair){
     return '<div class="budget-row-txn">' +
-      '<span class="budget-row-txn-date">' + escapeAttr(pair.t.date || "") + '</span>' +
+      '<span class="budget-row-txn-date">' + escapeAttr(fmtDate(pair.t.date || "", { year: true })) + '</span>' +
       '<span class="budget-row-txn-what" title="' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '">' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '</span>' +
       '<span class="budget-row-txn-amt">' + fmtCurrency2.format(Number(pair.t.amount) || 0) + '</span>' +
       '<button type="button" class="btn btn-danger btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +

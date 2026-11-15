@@ -158,6 +158,13 @@ jobs:
         env:
           JOURNEYS: importrestorefocus,rowlabelfocus
           SPEED: 0
+      - name: Readable history and import dates
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: displaydates
+          SPEED: 0
+          DISPLAY_DATE_A11Y: 1
+          DISPLAY_DATE_SHOTS: accessibility-report/display-dates
       - name: Signed budget and income amounts
         run: node scripts/journeys.mjs
         env:
@@ -210,6 +217,30 @@ jobs:
       - name: Photograph this pull request
         run: SHOTS_DIR=../shots/head node scripts/smoke.mjs
         working-directory: head
+      - name: Check whether the polish audit changed
+        run: |
+          if [ -f head/docs/audits/visual-polish-308.md ] && ! cmp -s head/docs/audits/visual-polish-308.md base/docs/audits/visual-polish-308.md; then
+            echo "RUN_POLISH_AUDIT=true" >> "$GITHUB_ENV"
+          fi
+      - uses: actions/checkout@v4
+        if: env.RUN_POLISH_AUDIT == 'true'
+        with:
+          ref: 770b8a5a6389ad6d79b16dc91c8f91d0d6f1e3fe
+          path: polish-original
+      - name: Photograph the original polish findings
+        if: env.RUN_POLISH_AUDIT == 'true'
+        run: POLISH_ROOT=../polish-original POLISH_SHOTS=../polish-308/before node scripts/polish308-shots.mjs
+        working-directory: head
+      - name: Photograph the resolved polish findings
+        if: env.RUN_POLISH_AUDIT == 'true'
+        run: POLISH_SHOTS=../polish-308/after node scripts/polish308-shots.mjs
+        working-directory: head
+      - uses: actions/upload-artifact@v4
+        if: always() && env.RUN_POLISH_AUDIT == 'true'
+        with:
+          name: polish-308
+          path: polish-308
+          retention-days: 14
       - name: Compare
         run: node scripts/shotdiff.mjs ../shots/base ../shots/head ../shots/diff && cat ../shots/diff/summary.md >> "$GITHUB_STEP_SUMMARY"
         working-directory: head

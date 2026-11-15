@@ -2075,6 +2075,112 @@ const JOURNEYS = {
     check(await note.textContent() === wording, 'live patch changed the original surcharge wording');
   },
   // #308: display dates stay readable and today's balances do not follow the reporting period.
+  async displaydates(page){
+    await quiet(page);
+    const fixture=await page.evaluate(async()=>{
+      const s=await import('/src/state.js'),e=await import('/src/calc/engine.js'),r=await import('/src/calc/received.js');
+      const p=s.state.properties.find(p=>p.kind==='IP'),loan=p.loans[0];
+      p.sectionsCollapsed=Object.assign({},p.sectionsCollapsed,{loans:false});
+      loan.rateHistory=[{date:'2025-07-01',rate:5},{date:'2026-07-01',rate:6}];loan.rate=6;
+      p.rentReviews=[{date:'2026-10-01',from:500,to:600,freq:'Weekly',change:0.2}];
+      p.agentStatements=[{id:'example-dated-statement',date:'2026-11-01',rent:1000,fees:100,water:0,waterRates:0,others:[],net:900,txIds:[]}];
+      (await import('/src/calc/accounts.js')).loanAccountFor(loan.id);
+      const asset=s.state.assets.find(a=>a.category==='Cash');
+      asset.history=[{date:'2026-10-01',value:10000},{date:'2026-11-01',value:12000}];asset.amount=12000;
+      const share=s.state.assets.findIndex(a=>a.category==='Shares');
+      (await import('/src/components/assets.js')).recordAssetSale(share,{date:'2026-10-01',units:1,proceeds:100,costBase:50,acquired:'2025-07-01'});
+      s.state.monthReviews['2026-10']={statements:{},done:'2026-11-01'};
+      e.recalcComputedItems();
+      const target=r.incomeTargets().find(t=>t.key.startsWith('net:'))||r.incomeTargets()[0];
+      r.logIncomeReceived({target:target.key,date:'2026-11-01',amount:1000,what:'Example receipt'});
+      s.state.transactions.push({id:'example-dated-spend',date:'2026-11-01',amount:100,what:'Example purchase',linkedExpenseId:'demo-groceries',account:''});
+      s.state.accounts.push({id:'example-dated-card',name:'Example Card',type:'credit',statementStartDay:1,payDay:1});
+      s.state.transactions.push({id:'example-card-charge',date:'2026-10-15',amount:100,what:'Example card purchase',account:'Example Card'});
+      s.commit(['*']);
+      const notice=(await import('/src/lib/notifications.js')).getLocalNotifications().find(n=>n.id.startsWith('cardpay:Example Card:')&&n.title.includes('not logged'));
+      return {property:p.id,loan:loan.id,target:target.key,notice};
+    });
+    const snapshot=()=>page.evaluate(async()=>{
+      const {state}=await import('/src/state.js'),e=await import('/src/calc/engine.js');
+      const keys=['income','incomeLog','transactions','shared','assets','accounts','debts','properties','monthReviews'];
+      const saved=JSON.parse(localStorage.getItem('wealthPlanner.v1'));
+      return JSON.stringify({live:keys.map(k=>state[k]),saved:keys.map(k=>saved[k]),totals:e.scenarioTotals(state.baselineScenario),projection:e.computeNetWorthSeries(state.baselineScenario,1)});
+    });
+    const before=await snapshot(),dateErrors=[];
+    check(fixture.notice?.date==='2026-11-01','overdue card date fixture is missing');
+    if(!fixture.notice.title.includes('1 Nov 2026'))dateErrors.push('overdue notification: '+fixture.notice.title);
+    if(process.env.DISPLAY_DATE_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.DISPLAY_DATE_SHOTS)fs.mkdirSync(process.env.DISPLAY_DATE_SHOTS,{recursive:true});
+    const audit=async(name,root,expected)=>{
+      await root.waitFor({state:'visible'});
+      await root.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+      for(const width of [320,390,768,1280])for(const theme of ['light','dark']){
+        await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+        const findings=await root.evaluate(el=>{
+          const raw=[],walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+          for(let n=walker.nextNode();n;n=walker.nextNode()){
+            if(!/\b\d{4}-\d{2}-\d{2}\b/.test(n.textContent)||n.parentElement.closest('input,textarea,pre,code,.bank-import-source,[hidden]'))continue;
+            const range=document.createRange();range.selectNodeContents(n);if(range.getClientRects().length)raw.push(n.textContent.trim());
+          }
+          const names=[...el.querySelectorAll('[aria-label]')].filter(n=>n.getClientRects().length&&/\b\d{4}-\d{2}-\d{2}\b/.test(n.getAttribute('aria-label'))).map(n=>n.getAttribute('aria-label'));
+          return {raw,names,text:el.innerText,overflow:el.scrollWidth>el.clientWidth+1||document.documentElement.scrollWidth>innerWidth+1};
+        });
+        if(findings.raw.length||findings.names.length||!findings.text.includes(expected))dateErrors.push(name+'/'+width+'/'+theme+': '+JSON.stringify({raw:findings.raw,names:findings.names,missing:!findings.text.includes(expected)?expected:null}));
+        check(!findings.overflow,'readable dates overflow '+name+'/'+width+'/'+theme+': '+JSON.stringify(await root.evaluate(el=>[el,...el.querySelectorAll('*')].filter(n=>n.getClientRects().length&&(n.scrollWidth>n.clientWidth+1||n.getBoundingClientRect().right>innerWidth+1)).slice(0,15).map(n=>({tag:n.tagName,class:n.className,width:n.clientWidth,scroll:n.scrollWidth,text:n.textContent.slice(0,160)})))));
+        if(process.env.DISPLAY_DATE_A11Y){const violations=await root.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'date accessibility '+name+': '+JSON.stringify(violations));}
+        if(process.env.DISPLAY_DATE_SHOTS&&(width===390||width===1280))await root.screenshot({path:path.join(process.env.DISPLAY_DATE_SHOTS,name+'-'+width+'-'+theme+'.png')});
+      }
+    };
+    await go(page,'reports','data-report','cashflow');
+    await audit('reports',page.locator('[aria-label="Report assumptions and data quality"]'),'As of 3 Nov 2026');
+    await go(page,'dashboard','data-dashboard-sub','review');
+    await page.evaluate(async()=>{const m=await import('/src/components/monthreview.js');m.setReviewMonth('2026-10');m.renderMonthReview();});
+    if(await page.locator('[data-mr-intro-ok]').isVisible())await page.locator('[data-mr-intro-ok]').click();
+    await page.locator('[data-mr-to="2"]').click();
+    await audit('balances',page.locator('#monthReviewBody'),'Reviewed 1 Nov 2026');
+    await go(page,'expenses','data-expenses-sub','income');
+    const received=page.locator('#receivedBody [data-rcv-key="'+fixture.target+'"]');
+    await received.locator('[data-rcv-toggle]').click();
+    await audit('received',received,'1 Nov 2026');
+    await go(page,'properties');await page.locator('[data-prop-edit="'+fixture.property+'"]').click();
+    await page.locator('[data-prop-tab="'+fixture.property+'"][data-tab="income"]').click();
+    await audit('rent',page.locator('[data-rent-panel="'+fixture.property+'"]'),'1 Oct 2026');
+    check(await page.locator('[data-as-panel="'+fixture.property+'"] [data-as="date"]').inputValue()==='2026-11-03','statement date input stopped using ISO');
+    await page.locator('[data-prop-tab="'+fixture.property+'"][data-tab="loans"]').click();
+    const section=page.locator('.prop-tab-panel:not([hidden]) [data-prop-section-toggle="loans"]');
+    if(await section.getAttribute('aria-expanded')==='false')await section.click();
+    const loan=page.locator('.prop-tab-panel:not([hidden]) .m-row[data-loan-index="0"]');
+    await loan.locator('[data-row-toggle]').click();await loan.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+    await audit('rates',loan.locator('.rh-wrap'),'1 Jul 2025');
+    check(await loan.locator('.loan-rate-date').inputValue()==='2026-11-03','rate date input stopped using ISO');
+    await page.keyboard.press('Escape');await waited(page,()=>!document.querySelector('.m-row.open[role="dialog"]'),'loan editor closes');
+    await go(page,'tax','data-tax-sub','documents');
+    await audit('documents',page.locator('#taxSub-documents'),'sold 1 Oct 2026');
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.setInputFiles('#bankImportFile',{name:'Example 2026-10-01.csv',mimeType:'text/csv',buffer:Buffer.from('Date,Description,Amount,Balance\n2026-10-01,Example Market,-100,1000\n2026-10-02,Example Cafe,-20,980\n')});
+    await page.locator('#bankImportConfirmBtn').waitFor();
+    await audit('bank',page.locator('#bankImportPanel'),'1 Oct 2026');
+    check((await page.locator('.bank-import-source').innerText()).includes('Example 2026-10-01.csv'),'literal source filename was reformatted');
+    await page.locator('#bankImportCancelBtn').click();
+    await page.setInputFiles('#bankImportFile',{name:'Investment loan statement.csv',mimeType:'text/csv',buffer:Buffer.from(LOAN_STATEMENT_CSV)});
+    await page.locator('[data-bank-loan]').waitFor();
+    await audit('loan-statement',page.locator('#bankImportPanel'),'31 Jul 2026');
+    const balance=page.locator('[data-bank-setbalance]'),checked=await balance.isChecked();
+    await page.locator('.bank-import-balance > span').click();
+    check(await balance.isChecked()!==checked,'wrapping the balance label broke checkbox activation');
+    await balance.setChecked(checked);
+    await page.locator('#bankImportCancelBtn').click();
+    const after=await snapshot();
+    const a=JSON.parse(before),b=JSON.parse(after),keys=['income','incomeLog','transactions','shared','assets','accounts','debts','properties','monthReviews'];
+    const changes=['live','saved'].flatMap(kind=>keys.filter((k,i)=>JSON.stringify(a[kind][i])!==JSON.stringify(b[kind][i])).map((k)=>kind+':'+k));
+    if(JSON.stringify(a.totals)!==JSON.stringify(b.totals))changes.push('totals: '+JSON.stringify([a.totals,b.totals]));
+    if(JSON.stringify(a.projection)!==JSON.stringify(b.projection))changes.push('projection');
+    const fields=[];
+    const diff=(a,b,path)=>{if(JSON.stringify(a)===JSON.stringify(b))return;if(a&&b&&typeof a==='object'&&typeof b==='object'){for(const k of new Set([...Object.keys(a),...Object.keys(b)]))diff(a[k],b[k],path+'.'+k);}else fields.push({path,before:a,after:b});};
+    diff(a.live[7],b.live[7],'properties');
+    check(after===before,'displaying dates changed saved values or calculations: '+JSON.stringify({changes,fields}));
+    check(!dateErrors.length,'raw or missing readable dates: '+JSON.stringify(dateErrors));
+  },
   async homedates(page){
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
     const before = await stored(page, 'JSON.stringify({assets:state.assets,netWorthLog:state.netWorthLog})');

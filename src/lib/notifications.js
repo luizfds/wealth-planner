@@ -436,7 +436,7 @@ export function cardPaymentReminders(accounts, transactions, transfers, today){
       });
       else if(days < 0 && days >= -7) out.push({
         id: "cardpay:" + p.card + ":" + p.date + ":late", type: "bill", severity: "warn",
-        title: p.card + " payment not logged — due " + p.date,
+        title: p.card + " payment not logged — due " + fmtDate(p.date, { year: true }),
         detail: "About " + fmtCurrency0.format(p.amount) + ". If it's been paid, log it as a transfer to the card (or import the statement); if not, it's overdue.",
         date: p.date, page: "expenses", sub: "bills"
       });

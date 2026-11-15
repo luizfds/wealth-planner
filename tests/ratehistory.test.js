@@ -41,6 +41,6 @@ test("a year's interest follows the rates that applied, on the interest balance"
 test("the note says what the latest change did", function(){
   var l = loan();
   recordRateChange(l, "2026-08-01", 6.25, "2026-10-18");
-  assert.match(rateChangeNote(l), /Last change 2026-08-01: 6% → 6\.25% — repayment \$2,398 → \$2,463 a month \(\+\$65\), about \$750 more interest a year\./);
+  assert.match(rateChangeNote(l), /Last change 1 Aug 2026: 6% → 6\.25% — repayment \$2,398 → \$2,463 a month \(\+\$65\), about \$750 more interest a year\./);
   assert.equal(rateChangeNote(loan()), "");
 });

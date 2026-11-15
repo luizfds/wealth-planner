@@ -91,6 +91,13 @@ jobs:
           JOURNEYS: exactsearch
           SPEED: 0
           SEARCH_A11Y: 1
+      - name: Broker trade review
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: brokerreview
+          SPEED: 0
+          BROKER_A11Y: 1
+          BROKER_SHOTS: accessibility-report/broker-review
       - name: Payslip review before saving
         run: node scripts/journeys.mjs
         env:

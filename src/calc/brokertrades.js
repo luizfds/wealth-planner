@@ -54,6 +54,8 @@ var COLS = {
   gst: /^(gst|gst ?\(?\$?\)?|tax on fees)$/,
   value: /^(value|amount|consideration|total|net ?amount|trade ?value|gross ?amount|total ?value)$/,
   details: /^(details|description|narrative)$/,
+  currency: /^(currency|trade ?currency|price ?currency|settlement ?currency)$/,
+  reference: /^(reference|trade ?identifier|trade ?id|transaction ?id|order ?id)$/,
   // v3.97.0: a crypto exchange's order history (CoinSpot's): Amount is the coins, the rate before
   // its fee is the price, and the fee in dollars already includes its GST.
   rateEx: /^rate ex\.? ?fee$/, feeAud: /^fee aud/,
@@ -68,6 +70,17 @@ function headerIndex(row){
   return idx;
 }
 
+function deduplicateTrades(result){
+  var seen = new Set(), duplicate = 0;
+  result.trades = result.trades.filter(function(t){
+    var key = JSON.stringify([t.date,t.code,t.side,t.units,t.price,t.brokerage,t.currency || "",t.reference || ""]);
+    if(seen.has(key)){ duplicate++; return false; }
+    seen.add(key); return true;
+  });
+  if(duplicate) result.duplicates = (result.duplicates || 0) + duplicate;
+  return result;
+}
+
 // { trades: [{date, code, side, units, price, brokerage}], skipped: n, format }
 export function parseTrades(text){ return parseTradesGrid(parseCsvGrid(text)); }
 // Several tables at once (a spreadsheet's sheets: Stake puts ASX and US trades on separate ones).
@@ -75,13 +88,14 @@ export function parseTradeSheets(grids){
   var all = { trades: [], skipped: 0, format: null };
   (grids || []).forEach(function(g){
     var r = parseTradesGrid(g);
-    if(!r.format) return;
+    if(!r.format){ all.skipped += r.skipped; all.unrecognised = (all.unrecognised || 0) + 1; return; }
     all.trades = all.trades.concat(r.trades);
     all.skipped += r.skipped;
+    if(r.duplicates) all.duplicates = (all.duplicates || 0) + r.duplicates;
     all.format = all.format || r.format;
   });
   all.trades.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.side === "buy" ? -1 : 1; });
-  return all;
+  return deduplicateTrades(all);
 }
 export function parseTradesGrid(rawGrid){
   var grid = (rawGrid || []).map(function(r){ return (r || []).map(function(c){ return c == null ? "" : String(c); }); })
@@ -93,6 +107,18 @@ export function parseTradesGrid(rawGrid){
   }
   if(hi === -1) return { trades: [], skipped: grid.length, format: null };
   var trades = [], skipped = 0;
+  function addTrade(trade, row){
+    var date = new Date(trade.date + "T00:00:00Z");
+    if(!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== trade.date ||
+      !Number.isFinite(trade.units) || !(trade.units > 0) || !Number.isFinite(trade.price) || !(trade.price > 0) || !Number.isFinite(trade.brokerage) || !Number.isFinite(trade.units * trade.price + trade.brokerage)){
+      skipped++; return;
+    }
+    var currency = idx.currency != null ? String(row[idx.currency] || "").trim().toUpperCase() : "";
+    if(currency) trade.currency = currency;
+    var reference = idx.reference != null ? String(row[idx.reference] || "").trim() : "";
+    if(reference) trade.reference = reference;
+    trades.push(trade);
+  }
   var commsec = idx.details != null && idx.code == null;
   if(idx.rateEx != null){ idx.units = idx.value; idx.value = null; idx.price = idx.rateEx; idx.fee = idx.feeAud != null ? idx.feeAud : idx.fee; idx.gst = null; }
   grid.slice(hi + 1).forEach(function(r){
@@ -107,13 +133,13 @@ export function parseTradesGrid(rawGrid){
       var gross = units * price;
       var cash = side === "buy" ? Math.abs(num(r[idx.debit]) || 0) : Math.abs(num(r[idx.credit]) || 0);
       var fee = cash ? Math.max(0, side === "buy" ? cash - gross : gross - cash) : 0;
-      trades.push({ date: date, code: cleanCode(m[3]), side: side, units: units, price: price, brokerage: r2(fee) });
+      addTrade({ date: date, code: cleanCode(m[3]), side: side, units: units, price: price, brokerage: r2(fee) }, r);
       return;
     }
     var code = cleanCode(r[idx.code]);
     var u = num(r[idx.units]);
     var sd = idx.side != null ? sideOf(r[idx.side]) : null;
-    if(!sd && u != null) sd = u < 0 ? "sell" : "buy";
+    if(!sd && idx.side == null && u != null) sd = u < 0 ? "sell" : "buy";
     var p = idx.price != null ? num(r[idx.price]) : null;
     var val = idx.value != null ? num(r[idx.value]) : null;
     u = u == null ? null : Math.abs(u);
@@ -121,10 +147,10 @@ export function parseTradesGrid(rawGrid){
     if(!code || !sd || !(u > 0) || !(p > 0)){ skipped++; return; }
     // Brokerage is a cost base item with its GST: a separate GST column (Stake's) is added to it.
     var fe = (idx.fee != null ? Math.abs(num(r[idx.fee]) || 0) : 0) + (idx.gst != null ? Math.abs(num(r[idx.gst]) || 0) : 0);
-    trades.push({ date: date, code: code, side: sd, units: u, price: Math.round(p * 1e6) / 1e6, brokerage: r2(fe) });
+    addTrade({ date: date, code: code, side: sd, units: u, price: Math.round(p * 1e6) / 1e6, brokerage: r2(fe) }, r);
   });
   trades.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.side === "buy" ? -1 : 1; });
-  return { trades: trades, skipped: skipped, format: commsec ? "CommSec" : idx.rateEx != null ? "crypto exchange" : "columns" };
+  return deduplicateTrades({ trades: trades, skipped: skipped, format: commsec ? "CommSec" : idx.rateEx != null ? "crypto exchange" : "columns" });
 }
 
 // The holdings a code could mean: shares holdings with that symbol, in the order they're listed.

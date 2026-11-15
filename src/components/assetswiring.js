@@ -14,10 +14,10 @@ import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { readNumberField, markField, readInput as readIn } from "../lib/validate.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
-import { state, persist, genId, normalizeShareAsset } from "../state.js";
+import { state, persist, commit, genId, normalizeShareAsset } from "../state.js";
 import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, clearAssetsImportPreview, commitAssetsImport, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
 import { refreshAutoPrices, autoPricesResultText } from "./autoprices.js";
-import { tradesUi, readTradesText, useParsedTrades, currentTradePlan } from "./brokertrades.js";
+import { tradesUi, readTradesText, useParsedTrades, currentTradePlan, beginTradesRead, cancelTradesRead, failTradesRead, tradeHoldingKey, tradeReviewSignature } from "./brokertrades.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./dashboard.js";
 import { clearExpensesImportPreview, commitExpensesImport } from "./expenses.js";
 import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper, clearIncomeImportPreview, commitIncomeImport } from "./income.js";
@@ -206,9 +206,15 @@ function readAutoPricesNow(manual){
 // ---------------- Against the market, a target mix (v3.178.0, item 203) ----------------
 function redrawCard(id, html){ var el = document.getElementById(id); if(el) el.outerHTML = html; }
 // ---------------- Investments → Shares → Import trades (v3.91.0) ----------------
+function focusTrades(selector){
+  var target = selector ? document.querySelector(selector) : document.querySelector("[data-tr-review]") || document.querySelector("[data-tr-status]");
+  if(target && target.getClientRects().length){ target.scrollIntoView({block:"center"}); target.focus({preventScroll:true}); }
+}
 function afterTradesRead(parsed){
+  if(!parsed) return;
   tradesUi.open = true;
   renderAssets();
+  focusTrades();
   if(!parsed.trades.length) showToast("No trades found in that file");
 }
 
@@ -864,30 +870,49 @@ export function wireMarket(){  document.addEventListener("click", function(e){
   });
 }
 
-export function wireTrades(){  document.addEventListener("change", function(e){
+export function wireTrades(){
+  document.addEventListener("input", function(e){
+    if(!e.target.matches || !e.target.matches("[data-tr-text]")) return;
+    tradesUi.sourceText = e.target.value;
+    if(tradesUi.parsed){
+      tradesUi.dirty = true;
+      var button = document.querySelector("[data-tr-apply]"), status = document.querySelector("[data-tr-status]");
+      if(button) button.disabled = true;
+      if(status) status.textContent = "Text changed. Read trades again before importing.";
+    }
+  });
+  document.addEventListener("change", function(e){
     if(!e.target.matches) return;
     if(e.target.matches("[data-tr-file]")){
       // v3.96.0: CSV or Excel, and several at once (a broker report per financial year).
       var files = Array.prototype.slice.call(e.target.files || []);
       e.target.value = "";
       if(!files.length) return;
+      var request = beginTradesRead(""); renderAssets(); focusTrades("[data-tr-status]");
       Promise.all(files.map(function(f){
         return /\.xlsx$/i.test(f.name)
           ? f.arrayBuffer().then(readXlsx).then(function(sheets){ return sheets.map(function(x){ return x.grid; }); })
           : f.text().then(function(t){ return [parseCsvGrid(t)]; });
       })).then(function(lists){
-        afterTradesRead(useParsedTrades(parseTradeSheets([].concat.apply([], lists))));
-      }).catch(function(){ showToast("Couldn't read that file"); });
+        afterTradesRead(useParsedTrades(parseTradeSheets([].concat.apply([], lists)), request));
+      }).catch(function(){ if(failTradesRead(request)){ renderAssets(); focusTrades("[data-tr-status]"); } });
       return;
     }
-    if(e.target.matches("[data-tr-pick]")){ tradesUi.choice[e.target.getAttribute("data-tr-pick")] = e.target.value === "skip" ? "skip" : Number(e.target.value); renderAssets(); return; }
-    if(e.target.matches("[data-tr-skip]")){ if(e.target.checked) tradesUi.choice[e.target.getAttribute("data-tr-skip")] = "skip"; else delete tradesUi.choice[e.target.getAttribute("data-tr-skip")]; renderAssets(); return; }
+    if(e.target.matches("[data-tr-pick]")){
+      var code = e.target.getAttribute("data-tr-pick"); tradesUi.choice[code] = e.target.value; renderAssets();
+      var pick = Array.from(document.querySelectorAll("[data-tr-pick]")).find(function(el){return el.getAttribute("data-tr-pick")===code;});
+      if(pick) pick.focus(); return;
+    }
+
   });
   document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-tr-panel]")) tradesUi.open = e.target.open;
   }, true);
   document.addEventListener("click", function(e){
     if(!e.target.closest) return;
+    var pickFile = e.target.closest("[data-tr-pick-file]");
+    if(pickFile){ pickFile.parentElement.querySelector("[data-tr-file]").click(); return; }
+    if(e.target.closest("[data-tr-cancel]")){ cancelTradesRead(); renderAssets(); focusTrades("[data-tr-pick-file]"); return; }
     if(e.target.closest("[data-tr-read]")){
       var ta = document.querySelector("[data-tr-text]");
       if(!ta || !ta.value.trim()){ showToast("Choose a CSV or paste one first"); return; }
@@ -895,14 +920,27 @@ export function wireTrades(){  document.addEventListener("change", function(e){
       return;
     }
     if(e.target.closest("[data-tr-apply]")){
-      var before = JSON.stringify(state.assets);
-      var res = applyTrades(state.assets, currentTradePlan(), function(){ return genId("lot"); });
-      tradesUi.parsed = null; tradesUi.choice = {};
-      persist(); renderAll();
-      showUndoToast("Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + (res.sales ? " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") : "") + (res.linked ? "; " + res.linked + " recorded sale" + (res.linked === 1 ? "" : "s") + " tied to the lots" : ""), function(){
-        var restored = JSON.parse(before);
-        state.assets.splice.apply(state.assets, [0, state.assets.length].concat(restored));
-        persist(); renderAll();
+      var plan = currentTradePlan();
+      if(!tradesUi.parsed || tradesUi.dirty) return;
+      if(!tradesUi.review || tradesUi.review.signature !== tradeReviewSignature(plan)){
+        tradesUi.notice = "Holdings changed. Check the refreshed destinations and counts before adding trades."; renderAssets(); focusTrades("[data-tr-status]"); return;
+      }
+      if(plan.some(function(p){ return p.needsChoice || p.currencyProblem; }) || !plan.some(function(p){ return p.target != null && p.newBuys.length + p.newSales.length > 0; })) return;
+      var snapshots = plan.filter(function(p){ return p.target != null; }).map(function(p){ var a=state.assets[p.target];return {key:tradeHoldingKey(a),before:JSON.stringify(a)}; });
+      var res = applyTrades(state.assets, plan, function(){ return genId("lot"); });
+      snapshots.forEach(function(s){ s.after=JSON.stringify(state.assets.find(function(a){return tradeHoldingKey(a)===s.key;})); });
+      cancelTradesRead();
+      var message = "Added " + res.lots + " purchase lot" + (res.lots === 1 ? "" : "s") + " and " + res.sales + " sale" + (res.sales === 1 ? "" : "s") + (res.linked ? "; " + res.linked + " recorded sales linked" : "");
+      tradesUi.result = message;
+      commit(["assets"]);
+      focusTrades("[data-tr-status]");
+      showUndoToast(message, function(){
+        var targets = snapshots.map(function(s){return state.assets.find(function(a){return tradeHoldingKey(a)===s.key;});});
+        if(targets.some(function(a,i){return !a || JSON.stringify(a)!==snapshots[i].after;})){showToast("An imported holding changed again. Undo kept the newer edits.");return;}
+        targets.forEach(function(a,i){Object.keys(a).forEach(function(k){delete a[k];});Object.assign(a,JSON.parse(snapshots[i].before));});
+        tradesUi.result = "Import undone.";
+        commit(["assets"]);
+        focusTrades("[data-tr-status]");
       });
     }
   });

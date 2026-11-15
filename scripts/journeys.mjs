@@ -73,6 +73,9 @@
 //   rowimports  — the Budget, Income and Assets CSV imports (#265): reading with Cancel, a stale read dropped, each
 //                 row's destination named, duplicates left out unless included, a deleted property or a replaced
 //                 household reviewed again, an unsaved import taken back out, and Undo removing exactly its rows
+//   pricepaste  — Shares' pasted prices (#265): read into a review first, nothing below zero, a quoted thousands
+//                 figure read whole, conflicting or other-market lines left out, a stale review shown again,
+//                 an unsaved update put back, and Undo restoring prices only while nothing has priced them since
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -345,6 +348,110 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async pricepaste(page){
+    // Synthetic demo household: VAS and IVV held on the ASX.
+    await quiet(page);
+    const openPaste = async p => {
+      await go(p, 'assets', 'data-assets-sub', 'Shares');
+      if(await p.locator('[data-asset-tool-panel="prices"]').isHidden()){
+        await p.locator('[data-asset-list-tool="prices"]').first().evaluate(el => el.closest('.page-overflow').querySelector('[data-overflow-toggle]').click());
+        await p.locator('[data-asset-list-tool="prices"]').first().click();
+      }
+      await p.evaluate(() => { const a = document.getElementById('sharesPasteArea'); a.closest('details.ps-manual').open = true; a.closest('[data-ps-panel]').open = true; });
+      await p.locator('#sharesPasteArea').waitFor({ state: 'visible' });
+    };
+    const reviewOf = async (p, text) => { await p.locator('#sharesPasteArea').fill(text); await p.locator('#sharesPasteApply').click(); await p.locator('#sharesPasteReview [data-price-review-status]').waitFor(); };
+    const prices = p => st(p, 'JSON.stringify([state.assets.filter(a=>a.category==="Shares").map(a=>[a.symbol,a.price,a.priceUpdated,a.amount,a.history]), state.fx, state.benchmark])');
+    const held = (p, sym) => st(p, `state.assets.find(a=>a.symbol==='${sym}').price`);
+    const durable = p => p.evaluate(() => localStorage.getItem('wealthPlanner.v1'));
+    const panel = page.locator('#sharesPasteReview');
+    await openPaste(page);
+    const was = await prices(page), savedWas = await durable(page);
+    const PASTE = ['Symbol\tPrice', 'VAS\t101.50', 'IVV,"1,234.50"', 'VAS\t101.50', 'NASDAQ:VAS\t500', 'ZZZ 5', 'ABC\t0', 'XYZ\t#N/A', 'USDAUD\t1.52', 'IOZ@NOW\t33.10', 'IVV 1 234.50'].join('\n');
+    await reviewOf(page, PASTE);
+    const text = await panel.innerText();
+    check(/4 prices to update · 5 left out/.test(text), 'review counts: ' + text);
+    check(/\$1,234\.50/.test(text) && /check/.test(text), 'quoted thousands not read whole, or its big change not flagged');
+    check(/a US price, but VAS is held on the ASX/.test(text) && /no holding with this ticker/.test(text) && /more than zero/.test(text) && /hasn't worked out this price/.test(text) && /more than one number/.test(text), 'a left-out reason is missing: ' + text);
+    check(await prices(page) === was && await durable(page) === savedWas, 'reviewing changed prices');
+    check(await panel.locator('[data-price-review-status]').evaluate(el => document.activeElement === el), 'review status did not take focus');
+    if(process.env.PRICE_PASTE_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(await panel.evaluate((el, w) => document.documentElement.scrollWidth <= w + 1 && el.getBoundingClientRect().right <= w + 1 && el.scrollWidth <= el.clientWidth + 1, width), 'price review overflows at ' + width + '/' + theme);
+      if(width <= 390){ const b = await panel.locator('[data-price-review-confirm]').boundingBox(); check(b && b.height >= 43.5, 'Update under 44px at ' + width); }
+      if(process.env.PRICE_PASTE_A11Y){
+        const violations = await panel.evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.failureSummary) })));
+        check(!violations.length, 'price review accessibility ' + width + '/' + theme + ': ' + JSON.stringify(violations));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+
+    // A price read lands while the review is open: shown again, nothing written.
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.assets.find(a => a.symbol === 'IVV').price += 1; m.commit(['assets']); });
+    const staleSaved = await durable(page);
+    await panel.locator('[data-price-review-confirm]').click();
+    await panel.getByText(/changed since this review/).waitFor();
+    check(await held(page, 'VAS') !== 101.5 && (await durable(page)) === staleSaved, 'a stale review was written');
+    check(await page.locator('#sharesPasteArea').inputValue() === PASTE, 'the pasted text was lost on a redraw');
+
+    // Update, then Undo puts every price back.
+    const beforeUpdate = await prices(page);
+    await panel.locator('[data-price-review-confirm]').click();
+    await waited(page, () => document.getElementById('sharesPasteReview').hidden, 'prices updated');
+    check(/4 prices updated \(2 holdings, USD\/AUD rate, 1 benchmark\) · 5 left out/.test(await page.locator('#toastWrap').innerText()), 'update result: ' + await page.locator('#toastWrap').innerText());
+    check(await stored(page, "state.assets.find(a=>a.symbol==='VAS').price") === 101.5 && await stored(page, "state.assets.find(a=>a.symbol==='IVV').price") === 1234.5 && await stored(page, 'state.fx.usdAud') === 1.52, 'reviewed prices not saved');
+    check(await page.locator('#sharesPasteArea').inputValue() === '', 'box not cleared after an update');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await eventually(async () => await prices(page) === beforeUpdate);
+    check(await prices(page) === beforeUpdate && await stored(page, "state.assets.find(a=>a.symbol==='VAS').price") !== 101.5, 'Undo did not restore prices, rate and benchmark');
+
+    // Undo after a newer price refuses and keeps the newer one.
+    await reviewOf(page, 'VAS\t102');
+    await panel.locator('[data-price-review-confirm]').click();
+    await waited(page, () => document.getElementById('sharesPasteReview').hidden, 'second update');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); const a = m.state.assets.find(x => x.symbol === 'VAS'); a.price = 103; m.commit(['assets']); });
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await page.locator('#toastWrap').getByText(/Can't undo — 1 price has been updated again since/).waitFor();
+    check(await held(page, 'VAS') === 103, 'refused Undo changed the newer price');
+
+    // Below zero is never offered; typing puts a review away; a replaced household is reviewed again.
+    await reviewOf(page, 'VAS\t-3');
+    check(/Nothing to update/.test(await panel.innerText()) && !await panel.locator('[data-price-review-confirm]').count(), 'a negative price was offered');
+    await page.locator('#sharesPasteArea').press('End'); await page.keyboard.type('0');
+    check(await panel.isHidden(), 'editing the text kept a review of the old text');
+    await reviewOf(page, 'IVV\t60');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.setState(JSON.parse(JSON.stringify(m.state))); });
+    await panel.getByText(/reviewed again against the one open now/).waitFor();
+
+    // A save that doesn't happen: nothing claims an update, prices are put back, the review stays.
+    const failSaved = await durable(page), failWas = await prices(page), ivvBeforeFail = await held(page, 'IVV');
+    await page.evaluate(() => { document.querySelectorAll('#toastWrap > *').forEach(t => t.remove()); window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function(k, v){ if(k === 'wealthPlanner.v1') throw new Error('Synthetic price save failure'); return window.__setItem.call(this, k, v); }; });
+    await panel.locator('[data-price-review-confirm]').click();
+    await panel.getByText(/Not saved — no prices were changed/).waitFor();
+    check(await durable(page) === failSaved && await prices(page) === failWas, 'a failed save left prices changed');
+    check(!/updated/.test(await page.locator('#toastWrap').innerText()), 'a failed save claimed an update');
+    await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+    await go(page, 'dashboard'); await page.reload(); await quiet(page);
+    check(await held(page, 'IVV') === ivvBeforeFail, 'reload kept an unsaved price');
+
+    // Touch: review and update by tap, then Undo.
+    const touch = await fresh({ touch: true });
+    try{
+      const tp = touch.page; await quiet(tp); await openPaste(tp);
+      const tWas = await prices(tp);
+      await tp.locator('#sharesPasteArea').fill('VAS\t99.25');
+      await tp.locator('#sharesPasteApply').tap();
+      await tp.locator('#sharesPasteReview [data-price-review-confirm]').tap();
+      await waited(tp, () => document.getElementById('sharesPasteReview').hidden, 'touch update');
+      check(await stored(tp, "state.assets.find(a=>a.symbol==='VAS').price") === 99.25, 'touch update not saved');
+      await tp.locator('#toastWrap .toast-undo-btn').last().tap();
+      await eventually(async () => await prices(tp) === tWas);
+      check(await prices(tp) === tWas, 'touch Undo did not restore');
+      check(!touch.errors.length, 'touch price paste errors: ' + touch.errors.join('; '));
+    } finally { await touch.ctx.close(); }
+  },
+
   async rowimports(page){
     // Synthetic demo household: "Streaming" $29 Monthly is already budgeted; "1 Example St" is its investment property.
     await quiet(page);

@@ -452,12 +452,12 @@ function sharesPriceTemplateTable(){
   });
   // Only worth including once there's an actual USD-denominated holding for it to convert — a
   // pure-AUD portfolio has nothing for a USD rate to do. "USDAUD" as the Symbol is what
-  // applySharesPaste() (assets.js) looks for on the way back in — it routes straight to
+  // the paste review (calc/pricepaste.js) looks for on the way back in — it routes straight to
   // state.fx.usdAud instead of trying to match it against a holding by ticker.
   var hasUsd = shares.some(function(a){ return (MARKET_CURRENCY[a.market] || "AUD") !== "AUD"; });
   if(hasUsd) rows.push(["USD → AUD exchange rate", "", "USDAUD", '=GOOGLEFINANCE("CURRENCY:USDAUD")']);
   // v3.35.0: the benchmark index (Dashboard → Benchmarks) on each date you bought or sold, and
-  // today — "IOZ@2024-03-01" rows that applySharesPaste() routes to state.benchmark.
+  // today — "IOZ@2024-03-01" rows the paste review routes to state.benchmark.
   rows = rows.concat(benchmarkTemplateRows());
   return { headers: headers, rows: rows };
 }

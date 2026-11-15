@@ -15,13 +15,14 @@ import { readNumberField, markField, readInput as readIn } from "../lib/validate
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, commit, genId, normalizeShareAsset } from "../state.js";
-import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
+import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
 import { refreshAutoPrices, autoPricesResultText } from "./autoprices.js";
 import { tradesUi, readTradesText, useParsedTrades, currentTradePlan, beginTradesRead, cancelTradesRead, failTradesRead, tradeHoldingKey, tradeReviewSignature } from "./brokertrades.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./dashboard.js";
 import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper } from "./income.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./investreturn.js";
 import { showPage } from "./nav.js";
+import { wirePricePaste } from "./pricepaste.js";
 import { refreshPriceSheet, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./pricesheet.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { patchPropertyCardComputed } from "./properties.js";
@@ -604,7 +605,6 @@ export function wireAssets(){
     }
     var logBtn = e.target.closest("[data-asset-log]");
     if(logBtn){ logAssetSnapshot(Number(logBtn.getAttribute("data-asset-log"))); return; }
-    if(e.target.id === "sharesPasteApply") applySharesPaste();
     // v3.75.0: prices from a Google Sheet.
     if(e.target.closest("[data-ps-copy]")){
       var fromEl = document.querySelector("[data-ps-from]");
@@ -756,7 +756,8 @@ export function wireFxRate(){  // v3.32.1: the exchange rate typed into the Shar
   });
 }
 
-export function wirePrices(){  document.addEventListener("toggle", function(e){
+export function wirePrices(){  wirePricePaste(); // #265: the paste box's review (pricepaste.js)
+  document.addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-ps-panel]")) priceSheetUi.open = e.target.open;
   }, true);
   document.addEventListener("change", function(e){

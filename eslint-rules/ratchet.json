@@ -8,7 +8,7 @@
   "stateWrites": 6
  },
  "src/components/assets.js": {
-  "persist": 4,
+  "persist": 3,
   "stateWrites": 2
  },
  "src/components/assetswiring.js": {

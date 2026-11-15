@@ -2702,3 +2702,25 @@ test("a spreadsheet row import's panel: every state, destinations named, duplica
   assert.ok(!/data-rowimport-confirm/.test(dupOnly), "nothing to import offers no Import");
   assert.match(dupOnly, /Investments → Cash/);
 });
+
+test("the pasted-price review: holdings, the rate, left-out reasons, a big change flagged, text escaped (#265)", async () => {
+  const { pricePastePanelHtml } = await import("../src/components/pricepaste.js");
+  const asset = { what: "Fund <x>", person: "Sam" };
+  const data = { household: {}, fx: { price: 1.55, was: 1.5 }, benchmarks: [{ symbol: "IDX", date: "now", price: 40 }],
+    updates: [{ symbol: "EXA", price: 80, big: true, holdings: [{ asset, what: "Fund <x>", person: "Sam", market: "ASX", was: 50, change: 0.6 }] }],
+    leftOut: [{ line: 3, symbol: "<B>", reason: 'no holding with this "ticker"' }] };
+  const html = pricePastePanelHtml({ data, status: "review", note: "" });
+  assert.match(html, /3 prices to update<\/b> · 1 left out/);
+  assert.match(html, /Update 3 prices/);
+  assert.match(html, /Fund &lt;x> · Sam \(ASX\)/);
+  assert.match(html, /\+60% · check/);
+  assert.match(html, /USD → AUD exchange rate/);
+  assert.match(html, /Benchmark, today/);
+  assert.match(html, /Line 3 \(&lt;B>\): no holding with this &quot;ticker&quot;/);
+  assert.ok(!/<x>|<B>/.test(html));
+  assert.match(pricePastePanelHtml({ data, status: "unsaved", note: "" }), /Not saved — no prices were changed[\s\S]*>Try again</);
+  const none = pricePastePanelHtml({ data: { household: {}, fx: null, benchmarks: [], updates: [], leftOut: data.leftOut }, status: "review", note: "" });
+  assert.match(none, /Nothing to update/);
+  assert.ok(!/data-price-review-confirm/.test(none));
+  assert.equal(pricePastePanelHtml(null), "");
+});

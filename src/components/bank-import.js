@@ -25,6 +25,9 @@ import { INBOX_DIR, inboxMessage } from "../calc/inbox.js";
 // Session-only. Nothing here is persisted until commitBankImport() — a half-reviewed import that
 // survived a reload would be a pile of decisions the user has no memory of making.
 export var bankImport = null;
+var bankRead = null;
+export function setBankRead(read){ bankRead = read; }
+
 
 function genId(prefix){ return prefix + "_" + Math.random().toString(36).slice(2, 10); }
 
@@ -64,6 +67,7 @@ function groupRows(rows){
 
 // ---------------- Entry ----------------
 export function startBankImport(text, fileName){
+  bankRead = null;
   // v3.169.0: an OFX, QFX or QIF statement is read into the CSV the rest of this already understands.
   var asCsv = statementTextToCsv(text, fileName);
   var rows = parseCsv(asCsv != null ? asCsv : text);
@@ -225,6 +229,7 @@ export function setIncludePossibleDuplicates(include){
   return rebuilt;
 }
 export function clearBankImport(){
+  bankRead = null;
   bankImport = null;
   var panel = document.getElementById("bankImportPanel");
   if(panel){ panel.hidden = true; panel.innerHTML = ""; }
@@ -344,20 +349,30 @@ function receivedOptgroupHtml(g){
 export function renderBankImportPanel(){
   var panel = document.getElementById("bankImportPanel");
   if(!panel) return;
+  if(bankRead){
+    panel.hidden = false;
+    panel.innerHTML = '<p class="ledger-note bank-import-source" role="status" tabindex="-1" data-bank-read-status>' +
+      (bankRead.error ? escapeAttr(bankRead.error) : 'Reading ' + escapeAttr(bankRead.name) + '…') + '</p>' +
+      '<p class="ledger-note bank-import-source">' + (bankRead.note ? escapeAttr(bankRead.note) : bankRead.error ? escapeAttr(bankRead.name) + ' is kept in this tab for Retry. You can also choose another file.' : 'Nothing is saved until you confirm a review. You can cancel while the file is being read.') + '</p>' +
+      '<div class="bank-import-actions">' + (bankRead.error ? '<button type="button" class="btn btn-sm" data-bank-read-retry>Retry</button>' : '') +
+      '<button type="button" class="btn btn-sm btn-ghost" id="bankImportCancelBtn">Cancel</button></div>';
+    return;
+  }
   if(!bankImport){ panel.hidden = true; panel.innerHTML = ""; return; }
   panel.hidden = false;
   var s = bankImport.summary;
+  var source = '<p class="ledger-note bank-import-source">Review ' + escapeAttr(bankImport.fileName || 'statement') + '</p>';
   if(!bankImport.parsed.headerOk){
-    panel.innerHTML = bankImportFailureHtml() + bankImportActionsHtml(false);
+    panel.innerHTML = source + bankImportFailureHtml() + bankImportActionsHtml(false);
     return;
   }
   if(!bankImport.groups.length && !bankImport.duplicates.length && !bankImport.credits.length && !bankImport.possibleDuplicates.length && !loanRowCount()){
-    panel.innerHTML = '<p class="ledger-note bank-import-problem">Nothing importable in that file' +
+    panel.innerHTML = source + '<p class="ledger-note bank-import-problem">Nothing importable in that file' +
       (s.skipped ? " — " + s.skipped + " row" + (s.skipped === 1 ? "" : "s") + " couldn't be read." : ".") + '</p>' +
       bankImportActionsHtml(false);
     return;
   }
-  panel.innerHTML =
+  panel.innerHTML = source +
     bankImportHeaderHtml(s) +
     loanPartHtml() +
     bankImportGroupsHtml() +

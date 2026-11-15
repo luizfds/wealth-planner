@@ -303,14 +303,19 @@ const progressCounts = page => page.evaluate(() => {
   }
   return seen;
 });
-async function openSetup(page){
+// `which` names the click in the journey (#282 asked which of onboardingaudit's two it was), and the failure says
+// how many overlays the app holds open: its sheet-or-panel slot, an app question, and dialogs on screen.
+async function openSetup(page, which){
   await page.locator('#dashboardSetup [data-firstrun-open]').click().catch(async e => {
-    const seen = await page.evaluate(() => { const d = document.querySelector('#firstRunRoot [role="dialog"]');
+    const seen = await page.evaluate(async () => { const d = document.querySelector('#firstRunRoot [role="dialog"]');
+      const o = await import('/src/lib/overlaystack.js'), q = await import('/src/lib/dialogs.js');
       return "setup dialog " + (d ? "open (" + ((d.innerText.match(/Step \d of \d/) || ["no step shown"])[0]) + ")" : "not open") +
         "; backdrop " + (document.querySelector("#firstRunRoot .review-backdrop") ? "present" : "gone") +
+        "; overlays: active " + o.overlayOpen() + ", app question " + q.dialogOpen() + ", on screen " +
+          [...document.querySelectorAll('dialog[open], [role="dialog"]:not([hidden])')].filter(el => el.getClientRects().length).length +
         "; history.state " + JSON.stringify(history.state) + "; page " + document.body.getAttribute("data-current-page") +
         "; focus " + (document.activeElement ? document.activeElement.tagName + (document.activeElement.id ? "#" + document.activeElement.id : "") : "none"); }).catch(() => "page not readable");
-    throw new Error("Guided setup could not be clicked — " + seen + " — " + String(e.message).split("\n")[0]);
+    throw new Error("Guided setup could not be clicked" + (which ? " (" + which + ")" : "") + " — " + seen + " — " + String(e.message).split("\n")[0]);
   });
 }
 // Clicks the first match, once there is one (up to 10s) — a step's target can arrive after a redraw.
@@ -6051,7 +6056,7 @@ const JOURNEYS = {
       const r = await import('/src/components/redraw.js'); r.renderAll();
     });
     await go(page, 'dashboard');
-    await openSetup(page);
+    await openSetup(page, 'first click, on arriving at Home');
     const dialog = page.getByRole('dialog', { name: 'Set up Wealth Planner' });
     check((await dialog.innerText()).includes('Step 1 of 5'), 'setup has no readable progress');
     // #309: one progress count on screen at a time — the sheet's, while it's open.
@@ -6065,7 +6070,7 @@ const JOURNEYS = {
     await until(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'));
     counts = await progressCounts(page);
     check(counts.length === 1, 'after skipping setup, ' + counts.length + ' progress counts show: ' + counts.join(' · '));
-    await openSetup(page);
+    await openSetup(page, 'second click, after Skip');
     await dialog.locator('[data-fr="people.0.name"]').fill('Alex');
     await dialog.locator('[data-fr-next]').click();
     await dialog.locator('[data-fr-next]').click();

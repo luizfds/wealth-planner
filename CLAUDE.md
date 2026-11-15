@@ -96,8 +96,8 @@ npm run stamp                 # after adding a module or an inline script
 
 Three layers, each blind to something ([0013](docs/decisions/0013-testing-in-three-layers.md)): the `calc/` tests (no
 DOM), the render smoke test (builders return markup, nothing wired), and driving the app with Playwright — the only
-one that sees wiring, the cascade and layout. CI runs the tests, `scripts/smoke.mjs` (every view at 390/1280px, light
-and dark, and an empty household), `scripts/journeys.mjs` (real flows and a speed budget) and the `screens` diff
+one that sees wiring, the cascade and layout. CI runs the tests, `scripts/smoke.mjs` (every view at 390/1280px light
+and dark, 320/768px light, and an empty household; a region that scrolls sideways fails unless it's listed), `scripts/journeys.mjs` (real flows and a speed budget) and the `screens` diff
 (informational). **A green run is not evidence the app renders** — drive any change to a component, template or
 stylesheet before calling it done, and measure (`getComputedStyle`, `getBoundingClientRect`) rather than eyeball.
 Locally, match CI's browser: `npm i --no-save playwright@1.56.0 && npx playwright install chromium && node scripts/smoke.mjs`.

@@ -136,6 +136,15 @@
   /* The period menu's control fills its row (moved from shell.css, item 238). */
   .period-menu .seg-control{ width:100%; }
   .period-menu .seg-option{ flex:1; }
+  /* #267: two controls whose last options sat past a 320px phone's edge, on a track with no scrollbar to say so.
+     Settings' year basis stays one row: its two buttons share the width and wrap their words. Income's Show as
+     has six choices, more than 44px buttons fit in one row there, so below 360px they sit in two rows of three
+     on the same track (the owner's choice) — every option visible, wider screens unchanged. */
+  #yearBasisControl{ display:flex; width:100%; }
+  #yearBasisControl .seg-option{ flex:1 1 0; white-space:normal; line-height:1.25; }
+  @media (max-width: 359px){
+    .income-showas .seg-control{ display:grid; grid-template-columns:repeat(3, 1fr); overflow-x:visible; }
+  }
   #sharesSortSelect{
     font-size:var(--fs-xs); padding:6px 10px; border-radius:100px; border:1px solid var(--border);
     background: var(--paper); color: var(--ink); font-family:inherit; cursor:pointer; flex:none;

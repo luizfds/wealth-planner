@@ -18,24 +18,23 @@ import { pdfLines } from "../lib/pdftext.js";
 import { savedFolder } from "../lib/safekeeping.js";
 import { showToast, showUndoToast, showPersistentToast } from "../lib/toast.js";
 import { state, persist, commit, onStateReplaced } from "../state.js";
-import { parseAssetsImportCsv, renderAssetsImportPreview } from "./assets.js";
 import { useLoanForStatement, setBankRead, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
 import { currentHistoryBudget, renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
-import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderYearSpending, parseExpensesImportCsv, renderExpensesImportPreview, renderSpendCategoryChart, renderSpendingTrends } from "./expenses.js";
+import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderYearSpending, renderSpendCategoryChart, renderSpendingTrends } from "./expenses.js";
 import { renderHomeSummary } from "./home.js";
-import { withholdingCheckHtml, payslipRead, salaryRowFor, parseIncomeImportCsv, renderIncomeImportPreview } from "./income.js";
+import { withholdingCheckHtml, payslipRead, salaryRowFor } from "./income.js";
 import { showPage, showExpensesSubpage, showTaxSubpage, appAssetUrl } from "./nav.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderReceived } from "./received.js";
 import { renderTotals, renderAll } from "./redraw.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
+import { wireRowImports } from "./rowimport.js";
 import { chooseInvestmentProperty, openStatementForm, investmentProperties } from "./rentstatement.js";
 import { agentStatementFromLines, isAgentStatement, propertyNamedIn } from "../calc/pdfstatement.js";
 
 // Rows read from a spreadsheet, waiting for Import — nothing touches state.shared, state.income or state.assets
 // until its confirm button (handled in assetswiring.js's click delegate).
-export var pendingImport = { expenses: [], income: [], assets: [] };
 
 var inbox;
 
@@ -309,21 +308,8 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
 export function wireImports(){
   onStateReplaced(cancelBankRead);
   document.getElementById("expenseDownloadTemplateBtn").addEventListener("click", exportExpensesImportTemplateCsv);
-  document.getElementById("expenseImportBtn").addEventListener("click", function(){
-    document.getElementById("expenseImportFile").click();
-  });
-  document.getElementById("expenseImportFile").addEventListener("change", function(e){
-    var file = e.target.files[0];
-    e.target.value = "";
-    if(!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){
-      var parsed = parseExpensesImportCsv(String(reader.result));
-      pendingImport.expenses = renderExpensesImportPreview(parsed);
-    };
-    reader.onerror = function(){ showToast("Couldn't read that file"); };
-    reader.readAsText(file);
-  });
+  // The Budget, Income and Assets CSV imports: rowimport.js.
+  wireRowImports();
   // ---------------- Spending: import a bank CSV ----------------
   // Nothing here writes to state until bankImportConfirmBtn — the review panel is built entirely
   // from the module's own session-only `bankImport`, so cancelling or navigating away leaves the
@@ -462,37 +448,7 @@ export function wireImports(){
     if(e.target.closest("[data-inbox-next]")) openNextInbox();
   });
   document.getElementById("incomeDownloadTemplateBtn").addEventListener("click", exportIncomeImportTemplateCsv);
-  document.getElementById("incomeImportBtn").addEventListener("click", function(){
-    document.getElementById("incomeImportFile").click();
-  });
-  document.getElementById("incomeImportFile").addEventListener("change", function(e){
-    var file = e.target.files[0];
-    e.target.value = "";
-    if(!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){
-      var parsed = parseIncomeImportCsv(String(reader.result));
-      pendingImport.income = renderIncomeImportPreview(parsed);
-    };
-    reader.onerror = function(){ showToast("Couldn't read that file"); };
-    reader.readAsText(file);
-  });
   document.getElementById("assetsDownloadTemplateBtn").addEventListener("click", exportAssetsImportTemplateCsv);
-  document.getElementById("assetsImportBtn").addEventListener("click", function(){
-    document.getElementById("assetsImportFile").click();
-  });
-  document.getElementById("assetsImportFile").addEventListener("change", function(e){
-    var file = e.target.files[0];
-    e.target.value = "";
-    if(!file) return;
-    var reader = new FileReader();
-    reader.onload = function(){
-      var parsed = parseAssetsImportCsv(String(reader.result));
-      pendingImport.assets = renderAssetsImportPreview(parsed);
-    };
-    reader.onerror = function(){ showToast("Couldn't read that file"); };
-    reader.readAsText(file);
-  });
 }
 
 export { checkInbox };

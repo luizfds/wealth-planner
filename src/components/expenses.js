@@ -172,7 +172,7 @@ function matchExpensesImportHeader(headerRow){
   return colOf;
 }
 // Pure parse+validate — doesn't touch state. The caller renders this as a preview and only calls
-// commitExpensesImport() once the user confirms (see app.js's expenseImportFile/Confirm wiring).
+// the person confirms the review (components/rowimport.js, calc/rowimport.js).
 // What/Amount are required to make sense of a row at all; Classification/Frequency fall back to
 // the same default "+Add expense" uses rather than rejecting the row, so a spreadsheet that left
 // them blank still imports cleanly. headerOk is false when the file doesn't even have recognizable
@@ -214,85 +214,6 @@ export function parseExpensesImportCsv(text){
   });
   return { valid: valid, errors: errors, headerOk: true };
 }
-// Renders the parsed result into the inline preview panel (below the shared-expenses ledger note)
-// and returns the pending valid rows for app.js to hold onto — nothing is added to state until
-// the user clicks the confirm button this renders, per commitExpensesImport() below.
-export function renderExpensesImportPreview(parsed){
-  var container = document.getElementById("expenseImportPreview");
-  if(!container) return parsed.valid;
-  container.hidden = false;
-  if(!parsed.headerOk){
-    container.innerHTML = '<p class="ledger-note" style="margin:0;color:var(--brass-strong)">Couldn\'t find "What" and "Amount" columns in that file — download the import template below, or check your header row matches it.</p>' +
-      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Dismiss</button></div>';
-    return parsed.valid;
-  }
-  if(!parsed.valid.length && !parsed.errors.length){
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No rows found in that file.</p>' +
-      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Dismiss</button></div>';
-    return parsed.valid;
-  }
-  var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
-    (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
-  var errorsHtml = parsed.errors.length
-    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:var(--fs-xs);color:var(--ink-soft)">' +
-        parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
-        (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
-      "</ul>"
-    : "";
-  var previewRows = parsed.valid.slice(0, 8).map(function(item){
-    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.classification) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td><td>" + escapeAttr(item.account) + "</td><td>" + escapeAttr(item.source) + "</td></tr>";
-  }).join("");
-  var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
-  container.innerHTML =
-    '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
-    errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Classification</th><th class="num">Amount</th><th>Frequency</th><th>Account</th><th>Goes to</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
-    '<div style="margin-top:10px;display:flex;gap:8px">' +
-      (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="expenseImportConfirmBtn">Import ' + parsed.valid.length + " expense" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
-      '<button type="button" class="btn btn-sm btn-ghost" id="expenseImportCancelBtn">Cancel</button>' +
-    "</div>";
-  return parsed.valid;
-}
-export function clearExpensesImportPreview(){
-  var container = document.getElementById("expenseImportPreview");
-  if(container){ container.hidden = true; container.innerHTML = ""; }
-}
-// Same minimal shape "+Add expense" pushes onto state.shared today — no id, no factory, so this
-// stays a plain mutation the caller wraps with its own render/persist/undo (see app.js).
-export function commitExpensesImport(items){
-  items.forEach(function(item){
-    var row = { what: item.what, classification: item.classification, category: item.category || "", account: item.account, amount: item.amount, freq: item.freq };
-    // Housing rows land in the active scenario's block, where the Budget tab reads them from —
-    // pushing them onto state.shared would duplicate rent into a second, scenario-blind copy.
-    // They need an id for the same reason every other budget line does (transactions link by it).
-    var targetProperty = item.propertyId && state.properties.find(function(p){ return p.id === item.propertyId; });
-    if(item.source === "Housing"){
-      // v3.172.0 (item 207): today's housing is an ordinary budget line, marked as the home.
-      row.id = genId("exp");
-      row.irregular = false;
-      row.dueMonth = null;
-      row.homeCost = true;
-      row.category = row.category || "Housing";
-      state.shared.push(row);
-    } else if(targetProperty){
-      // Named an investment property, so it's that property's cost — the same row the Properties
-      // tab edits. Resolved by id captured at parse time rather than re-matching the name here,
-      // so a property renamed between preview and confirm can't silently retarget the import.
-      row.id = genId("exp");
-      row.irregular = false;
-      row.dueMonth = null;
-      targetProperty.expenses.push(row);
-    } else {
-      state.shared.push(row);
-    }
-    // Register any category the file brought in that the manager doesn't know yet, so an import
-    // can't leave a row pointing at a category missing from Accounts → Categories. Same contract
-    // as migrateState's seed-from-usage pass, applied at the moment the rows actually land.
-    var importedCat = (item.category || "").trim();
-    if(importedCat && state.categories.indexOf(importedCat) === -1) state.categories.push(importedCat);
-  });
-}
-
 // Needs/Wants/Savings already carry fixed colors everywhere else in the app (the Dashboard's
 // 50/30/20 bar) — reusing them here instead of the Income page's rotating series-color palette
 // ties an expense card back to the same visual language a user already knows, and sidesteps the

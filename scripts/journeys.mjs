@@ -70,6 +70,9 @@
 //                 range or blank is said beside the field and nothing changes; a comma is explained
 //   twotabs     — two tabs (#269): a second tab never stops the first saving; an idle tab takes another's save;
 //                 work in progress survives; refreshes in either tab; near-simultaneous saves never pass silently
+//   rowimports  — the Budget, Income and Assets CSV imports (#265): reading with Cancel, a stale read dropped, each
+//                 row's destination named, duplicates left out unless included, a deleted property or a replaced
+//                 household reviewed again, an unsaved import taken back out, and Undo removing exactly its rows
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -342,6 +345,157 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async rowimports(page){
+    // Synthetic demo household: "Streaming" $29 Monthly is already budgeted; "1 Example St" is its investment property.
+    await quiet(page);
+    const csvFile = (name, text) => ({ name, mimeType: 'text/csv', buffer: Buffer.from(text) });
+    const panel = kind => page.locator('#' + ({ expenses: 'expenseImportPreview', income: 'incomeImportPreview', assets: 'assetsImportPreview' })[kind]);
+    const choose = (kind, name, text) => page.setInputFiles('#' + ({ expenses: 'expenseImportFile', income: 'incomeImportFile', assets: 'assetsImportFile' })[kind], csvFile(name, text));
+    const reviewed = kind => waited(page, id => !!document.querySelector('#' + id + ' [data-rowimport-confirm]'), kind + ' review', ({ expenses: 'expenseImportPreview', income: 'incomeImportPreview', assets: 'assetsImportPreview' })[kind]);
+    const budget = () => st(page, 'JSON.stringify([state.shared, state.properties.map(p=>p.expenses), state.categories])');
+    const durable = () => page.evaluate(() => localStorage.getItem('wealthPlanner.v1'));
+    const undoLast = () => page.locator('#toastWrap .toast-undo-btn').last().click();
+    const toastText = () => page.locator('#toastWrap').innerText();
+    const BUDGET_CSV = 'What,Classification,Category,Amount,Frequency,Account,Source\n' +
+      'Example gym,Wants,Example <b>new</b> category,40,Monthly,Everyday Account,\n' +
+      'Example strata,Needs,,300,Quarterly,,1 Example St\n' +
+      'Example water,Needs,,90,Quarterly,,Housing\n' +
+      'Streaming,Wants,Subscriptions,29,Monthly,Credit Card,\n' +
+      'Example gym,Wants,,40,Monthly,,\n' +
+      ',Needs,,10,Monthly,,\n';
+
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    const budgetWas = await budget(), durableWas = await durable();
+    await choose('expenses', 'Example <budget>.csv', BUDGET_CSV);
+    await reviewed('expenses');
+    const text = await panel('expenses').innerText();
+    check(/3 expenses ready to import/.test(text) && /1 skipped/.test(text) && /2 left out/.test(text), 'budget review counts: ' + text);
+    check(/1 Example St/.test(text) && /Home costs/.test(text) && /Budget/.test(text), 'budget review did not name each destination');
+    check(/1 already in the household, 1 repeating an earlier row in this file/.test(text), 'budget review did not say why rows were left out');
+    check(await panel('expenses').locator('[data-rowimport-status]').evaluate(el => document.activeElement === el), 'review status did not take focus');
+    check(await panel('expenses').evaluate(el => !el.innerHTML.includes('<budget>') && !el.innerHTML.includes('<b>new')), 'file name or category reached the page unescaped');
+    check(await budget() === budgetWas && await durable() === durableWas, 'reviewing changed the household');
+    // Include them, by keyboard: the count follows, then back out.
+    await panel('expenses').locator('[data-rowimport-dups]').focus(); await page.keyboard.press('Space');
+    await waited(page, () => /Import 5 expenses/.test(document.querySelector('#expenseImportPreview [data-rowimport-confirm]')?.textContent || ''), 'duplicates included');
+    check(await panel('expenses').locator('[data-rowimport-dups]').evaluate(el => document.activeElement === el && el.checked), 'Include lost focus or state');
+    await page.keyboard.press('Space');
+    await waited(page, () => /Import 3 expenses/.test(document.querySelector('#expenseImportPreview [data-rowimport-confirm]')?.textContent || ''), 'duplicates left out again');
+
+    // Four widths, both themes: nothing wider than the page.
+    if(process.env.ROW_IMPORT_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(await panel('expenses').evaluate((el, w) => document.documentElement.scrollWidth <= w + 1 && el.getBoundingClientRect().right <= w + 1 && el.scrollWidth <= el.clientWidth + 1, width), 'budget review overflows at ' + width + '/' + theme);
+      const btn = await panel('expenses').locator('[data-rowimport-confirm]').boundingBox();
+      if(width <= 390) check(btn && btn.height >= 43.5, 'Import button under 44px at ' + width);
+      if(process.env.ROW_IMPORT_A11Y){
+        const violations = await panel('expenses').evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.failureSummary) })));
+        check(!violations.length, 'row import review accessibility ' + width + '/' + theme + ': ' + JSON.stringify(violations));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+
+    await panel('expenses').locator('[data-rowimport-confirm]').click();
+    await waited(page, () => document.getElementById('expenseImportPreview').hidden, 'budget review closed');
+    check(/3 expenses imported · 1 to a property · 2 left out/.test(await toastText()), 'budget result: ' + await toastText());
+    const saved = await stored(page, `({ gym: state.shared.filter(r=>r.what==='Example gym'), water: state.shared.find(r=>r.what==='Example water'),
+      strata: state.properties.find(p=>p.what==='1 Example St').expenses.find(r=>r.what==='Example strata'), streaming: state.shared.filter(r=>r.what==='Streaming').length,
+      cat: state.categories.includes('Example <b>new</b> category'), acct: (state.accounts||[]).find(a=>a.name==='Everyday Account') })`);
+    check(saved.gym.length === 1 && saved.gym[0].account === 'Everyday Account' && saved.gym[0].accountId === saved.acct.id, 'imported row not linked to its account by id');
+    check(saved.water && saved.water.homeCost && saved.strata && saved.streaming === 1 && saved.cat, 'imported rows not saved where the review said');
+    // Undo takes out exactly those rows — the property's and the new category included.
+    await undoLast();
+    await eventually(async () => await budget() === budgetWas);
+    check(await budget() === budgetWas, 'Undo left imported rows or a category behind');
+    check(await stored(page, 'JSON.stringify([state.shared, state.properties.map(p=>p.expenses), state.categories])') === budgetWas, 'Undo was not saved');
+
+    // Undo after other edits removes only the imported row; after the imported row is edited it refuses.
+    await choose('expenses', 'one.csv', 'What,Amount,Frequency\nExample import,10,Monthly\n'); await reviewed('expenses');
+    await panel('expenses').locator('[data-rowimport-confirm]').click();
+    await waited(page, () => document.getElementById('expenseImportPreview').hidden, 'single import saved');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared.splice(0, 1); m.state.shared.push({ what: 'Example later', amount: 5, freq: 'Monthly', classification: 'Needs' }); m.commit(['shared']); });
+    const firstGone = await st(page, 'state.shared.length');
+    await undoLast();
+    await eventually(async () => !await st(page, "state.shared.some(r=>r.what==='Example import')"));
+    check(!await st(page, "state.shared.some(r=>r.what==='Example import')") && await st(page, "state.shared.some(r=>r.what==='Example later')") && await st(page, 'state.shared.length') === firstGone - 1, 'Undo removed the wrong rows');
+    await choose('expenses', 'two.csv', 'What,Amount,Frequency\nExample edited,10,Monthly\n'); await reviewed('expenses');
+    await panel('expenses').locator('[data-rowimport-confirm]').click();
+    await waited(page, () => document.getElementById('expenseImportPreview').hidden, 'second import saved');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared.find(r => r.what === 'Example edited').amount = 12; m.commit(['shared']); });
+    await undoLast();
+    await page.locator('#toastWrap').getByText(/Can't undo — 1 imported row was changed or removed since/).waitFor();
+    check(await st(page, "state.shared.find(r=>r.what==='Example edited').amount") === 12, 'refused Undo still changed the edited row');
+
+    // A property deleted between review and confirm: reviewed again, saying so; nothing sent elsewhere unseen.
+    await choose('expenses', 'land.csv', 'What,Amount,Frequency,Source\nExample land fee,50,Monthly,1 Example St\n'); await reviewed('expenses');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.properties = m.state.properties.filter(p => p.what !== '1 Example St'); m.commit(['properties']); });
+    const beforeLost = await durable();
+    await panel('expenses').locator('[data-rowimport-confirm]').click();
+    await panel('expenses').getByText(/1 Example St is no longer one of your investment properties/).waitFor();
+    check(await durable() === beforeLost && !await st(page, "state.shared.some(r=>r.what==='Example land fee')"), 'deleted property silently retargeted its row');
+    check(/Budget/.test(await panel('expenses').innerText()), 'the re-review did not show the new destination');
+    await panel('expenses').locator('[data-rowimport-cancel]').click();
+
+    // A household replaced while a review is open is reviewed again against the new one.
+    await go(page, 'expenses', 'data-expenses-sub', 'income');
+    await choose('income', 'income.csv', 'What,Person,Type,Amount,Frequency\nExample side work,Alex,Net,100,Monthly\n'); await reviewed('income');
+    check(/Income · Alex/.test(await panel('income').innerText()), 'income review did not name the person');
+    const replacedWas = await durable();
+    await page.evaluate(async () => { const m = await import('/src/state.js'); const s = JSON.parse(JSON.stringify(m.state)); s.income = s.income.slice(0, 1); m.setState(s); });
+    await panel('income').getByText(/reviewed again against the one open now/).waitFor();
+    check(await durable() === replacedWas && !await st(page, "state.income.some(r=>r.what==='Example side work')"), 'household replacement imported rows');
+    await panel('income').locator('[data-rowimport-confirm]').click();
+    await waited(page, () => document.getElementById('incomeImportPreview').hidden, 'income saved');
+    check(await stored(page, "state.income.filter(r=>r.what==='Example side work').length") === 1, 'income not saved into the open household');
+    // The same file again: left out as a duplicate.
+    await choose('income', 'income.csv', 'What,Person,Type,Amount,Frequency\nExample side work,Alex,Net,100,Monthly\n');
+    await panel('income').getByText(/1 row looks like one you already have/).waitFor();
+    check(!await panel('income').locator('[data-rowimport-confirm]').count(), 'a file of only duplicates still offered to import');
+    await panel('income').locator('[data-rowimport-cancel]').click();
+
+    // Reading: says so with Cancel; a read finishing after Cancel, or after a newer file, is dropped.
+    await go(page, 'assets');
+    await page.evaluate(() => { const R = FileReader.prototype.readAsText; window.__reads = []; FileReader.prototype.readAsText = function(f){ const self = this; window.__reads.push(() => R.call(self, f)); }; });
+    await choose('assets', 'slow.csv', 'What,Category,Amount\nExample slow,Cash,1000\n');
+    await panel('assets').getByText(/Reading slow\.csv/).waitFor();
+    await panel('assets').locator('[data-rowimport-cancel]').click();
+    await page.evaluate(() => window.__reads[0]()); await settle(page);
+    check(await panel('assets').isHidden(), 'a read finishing after Cancel brought its review back');
+    await choose('assets', 'older.csv', 'What,Category,Amount\nExample older,Cash,1000\n');
+    await choose('assets', 'newer.csv', 'What,Category,Amount\nExample newer,Cash,2000\n');
+    await page.evaluate(() => { window.__reads[2](); window.__reads[1](); }); await reviewed('assets'); await settle(page);
+    check(/newer\.csv/.test(await panel('assets').innerText()) && !/older/.test(await panel('assets').innerText()), 'an older read replaced the newer review');
+    await page.evaluate(() => { window.__reads.length = 0; });
+
+    // A save that doesn't happen: nothing claims to be imported, the rows come back out, the review stays.
+    const assetsWas = await st(page, 'state.assets.length'), assetsDurable = await durable();
+    await page.evaluate(() => { window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function(k, v){ if(k === 'wealthPlanner.v1') throw new Error('Synthetic import save failure'); return window.__setItem.call(this, k, v); }; });
+    await page.evaluate(() => document.querySelectorAll('#toastWrap > *').forEach(t => t.remove()));
+    await panel('assets').locator('[data-rowimport-confirm]').click();
+    await panel('assets').getByText(/Not saved — nothing was imported from newer\.csv/).waitFor();
+    check(await durable() === assetsDurable && await st(page, 'state.assets.length') === assetsWas, 'failed save left rows in the tab or storage');
+    check(!/imported/.test((await toastText()).replace(/nothing was imported/, '')), 'failed save claimed an import: ' + await toastText());
+    check(await panel('assets').locator('[data-rowimport-status]').evaluate(el => document.activeElement === el), 'save failure not announced by focus');
+    await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+    await go(page, 'dashboard'); await page.reload(); await quiet(page);
+    check(await st(page, 'state.assets.length') === assetsWas, 'reload kept an unsaved asset');
+
+    // Touch, at a phone's width: a review confirmed by tap, and its Undo.
+    const touch = await fresh({ touch: true });
+    try{
+      const tp = touch.page; await quiet(tp); await go(tp, 'assets');
+      const before = await tp.evaluate(() => localStorage.getItem('wealthPlanner.v1'));
+      await tp.setInputFiles('#assetsImportFile', csvFile('touch.csv', 'What,Category,Amount\nExample touch,Cash,500\n'));
+      await tp.locator('#assetsImportPreview [data-rowimport-confirm]').tap();
+      await waited(tp, () => document.getElementById('assetsImportPreview').hidden, 'touch import saved');
+      check(await stored(tp, "state.assets.some(a=>a.what==='Example touch')"), 'touch import not saved');
+      await tp.locator('#toastWrap .toast-undo-btn').last().tap();
+      await eventually(async () => !await stored(tp, "state.assets.some(a=>a.what==='Example touch')"));
+      check(!await stored(tp, "state.assets.some(a=>a.what==='Example touch')") && JSON.parse(await tp.evaluate(() => localStorage.getItem('wealthPlanner.v1'))).assets.length === JSON.parse(before).assets.length, 'touch Undo did not remove the asset');
+      check(!touch.errors.length, 'touch row import errors: ' + touch.errors.join('; '));
+    } finally { await touch.ctx.close(); }
+  },
   async shareupdate(page){
     await quiet(page);
     const before=await st(page,'JSON.stringify(state)'),saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
@@ -3518,10 +3672,10 @@ const JOURNEYS = {
     const chooser = page.waitForEvent('filechooser'); await page.locator('#incomeImportBtn').click();
     const file = {name:'example-income.csv',mimeType:'text/csv',buffer:Buffer.from(importCsv)};
     await (await chooser).setFiles(file);
-    await page.locator('#incomeImportCancelBtn').click();
+    await page.locator('#incomeImportPreview [data-rowimport-cancel]').click();
     check(await stored(page,'JSON.stringify(state.income)') === importWas, 'cancelled income import saved rows');
     await page.locator('#incomeImportFile').setInputFiles(file);
-    await page.locator('#incomeImportConfirmBtn').click();
+    await page.locator('#incomeImportPreview [data-rowimport-confirm]').click();
     check(await stored(page,'state.income.some(i=>i.what==="Imported income" && i.amount===500)'),'income import did not save its reviewed row');
   },
   async propertyremaininghelp(page){

@@ -15,26 +15,24 @@ import { readNumberField, markField, readInput as readIn } from "../lib/validate
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, commit, genId, normalizeShareAsset } from "../state.js";
-import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, clearAssetsImportPreview, commitAssetsImport, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
+import { purchaseDisplay, patchHoldingRow, patchVehicleRow, patchAssetCategoryTotals, renderNetWorthPanel, renderAssets, renderBenchmark, logAssetSnapshot, applySharesPaste, logDebtSnapshot, setUsdAudRate, patchSharesGlance, setAssetPersonFilter, renderAssetPersonFilter, renderAssetPersonSheet, assetPersonSheetOpen, setAssetPersonSheetOpen, setSharesGainFilter, setSharesSortMode, setSharesChangeWindow, setAllocationRange, setPortfolioRange, dividendNoteText, recordAssetSale, deleteAssetSale, renderAssetsSummary, patchOffsetsRow, addAssetLot, syncAvgCostFromLots, lotsSectionHtml, lotsNoteText, addAssetStatement, statementsSectionHtml, payoutsSectionHtml, payoutsNoteText, addAssetPayout } from "./assets.js";
 import { refreshAutoPrices, autoPricesResultText } from "./autoprices.js";
 import { tradesUi, readTradesText, useParsedTrades, currentTradePlan, beginTradesRead, cancelTradesRead, failTradesRead, tradeHoldingKey, tradeReviewSignature } from "./brokertrades.js";
 import { renderCards, renderDashboardStats, renderDetail, setProjectionReference, logNetWorthSnapshot } from "./dashboard.js";
-import { clearExpensesImportPreview, commitExpensesImport } from "./expenses.js";
-import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper, clearIncomeImportPreview, commitIncomeImport } from "./income.js";
+import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper } from "./income.js";
 import { bench, benchmarkCardHtml, targetMixCardHtml } from "./investreturn.js";
 import { showPage } from "./nav.js";
 import { refreshPriceSheet, priceSheetResultText, defaultBackfillFrom, priceSheetUi } from "./pricesheet.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { patchPropertyCardComputed } from "./properties.js";
 import { renderTotals, withUndo, renderAll, updatePersonSuggestions } from "./redraw.js";
-import { findProperty, refreshAfterLedgerChange, defineSavedValue } from "./rows.js";
+import { findProperty, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { openNewRowModal } from "./rows.js";
 import { modernAssetRowOpen } from "./assets.js";
 import { assetListUi, clearAssetListFilters } from "./assets.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
-import { pendingImport } from "./importwiring.js";
 
 
 // ---------------- Investments' lists, registered (v3.206.2, item 237b) ----------------
@@ -628,69 +626,6 @@ export function wireAssets(){
     }
     if(e.target.id === "sharesExportPriceTemplateBtn") exportSharesPriceTemplateCsv();
     if(e.target.id === "sharesCopyPriceTemplateBtn") copySharesPriceTemplateToClipboard();
-    if(e.target.id === "expenseImportCancelBtn"){
-      pendingImport.expenses = [];
-      clearExpensesImportPreview();
-      return;
-    }
-    if(e.target.id === "expenseImportConfirmBtn"){
-      if(!pendingImport.expenses.length) return;
-      var importCount = pendingImport.expenses.length;
-      var startingSharedLength = state.shared.length;
-      commitExpensesImport(pendingImport.expenses);
-      pendingImport.expenses = [];
-      clearExpensesImportPreview();
-      refreshAfterLedgerChange("shared");
-      showUndoToast(importCount + " expense" + (importCount === 1 ? "" : "s") + " imported", function(){
-        state.shared.length = startingSharedLength;
-        refreshAfterLedgerChange("shared");
-      });
-      return;
-    }
-    if(e.target.id === "incomeImportCancelBtn"){
-      pendingImport.income = [];
-      clearIncomeImportPreview();
-      return;
-    }
-    if(e.target.id === "incomeImportConfirmBtn"){
-      if(!pendingImport.income.length) return;
-      var incomeImportCount = pendingImport.income.length;
-      var startingIncomeLength = state.income.length;
-      commitIncomeImport(pendingImport.income);
-      pendingImport.income = [];
-      clearIncomeImportPreview();
-      refreshAfterLedgerChange("income");
-      updatePersonSuggestions();
-      showUndoToast(incomeImportCount + " income row" + (incomeImportCount === 1 ? "" : "s") + " imported", function(){
-        state.income.length = startingIncomeLength;
-        refreshAfterLedgerChange("income");
-        updatePersonSuggestions();
-      });
-      return;
-    }
-    if(e.target.id === "assetsImportCancelBtn"){
-      pendingImport.assets = [];
-      clearAssetsImportPreview();
-      return;
-    }
-    if(e.target.id === "assetsImportConfirmBtn"){
-      if(!pendingImport.assets.length) return;
-      var assetsImportCount = pendingImport.assets.length;
-      var startingAssetsLength = state.assets.length;
-      commitAssetsImport(pendingImport.assets);
-      pendingImport.assets = [];
-      clearAssetsImportPreview();
-      recalcComputedItems();
-      renderAssets();
-      persist();
-      showUndoToast(assetsImportCount + " asset" + (assetsImportCount === 1 ? "" : "s") + " imported", function(){
-        state.assets.length = startingAssetsLength;
-        recalcComputedItems();
-        renderAssets();
-        persist();
-      });
-      return;
-    }
     if(e.target.closest("[data-asset-person-open]")){ openAssetPersonSheet(); return; }
     var personFilterBtn = e.target.closest("[data-asset-person-filter]");
     if(personFilterBtn){

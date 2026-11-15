@@ -2853,7 +2853,10 @@ const JOURNEYS = {
     };
     const open=async(section,id)=>{
       const closeEditor=page.getByRole('button',{name:/Close editor$/});
-      if(await closeEditor.isVisible()) await closeEditor.click();
+      if(await closeEditor.isVisible()){
+        await closeEditor.click();
+        await closeEditor.waitFor({state:'hidden'});
+      }
       await go(page,'expenses','data-expenses-sub',section==='income'?'income':'budget');
       const r=await row(section,id);
       if(section==='shared'){
@@ -2863,6 +2866,7 @@ const JOURNEYS = {
       if(!await r.locator('.f-amount').isVisible()){
         await r.locator('[data-row-toggle]').first().focus();await page.keyboard.press('Enter');
       }
+      await r.locator('.f-amount').waitFor({state:'visible'});
       return r;
     };
     let r=await open('shared','example-cost-offset');
@@ -2897,7 +2901,21 @@ const JOURNEYS = {
         await page.setViewportSize({width,height:844});
         await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
         const label=r.locator('label[for="'+await amount.getAttribute('id')+'"]');
-        await label.tap();check(await amount.evaluate(el=>document.activeElement===el),'touching Amount label did not focus input');
+        // Prove that the label transfers focus, rather than passing because Amount was already focused.
+        await r.locator('.f-freq').focus();
+        check(!await amount.evaluate(el=>document.activeElement===el),'Amount was focused before the label gesture');
+        const gesture=await label.evaluate(el=>{
+          const events=[];window.__signedGesture=events;
+          for(const type of ['pointerdown','pointerup','touchstart','touchend','click','focusin']) document.addEventListener(type,e=>events.push({type,target:e.target.id||e.target.className,focus:document.activeElement?.id}),{capture:true,once:true});
+          const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+          return {label:el.htmlFor,rect:{x:r.x,y:r.y,width:r.width,height:r.height},hit:hit?.id||hit?.className,focus:document.activeElement?.id};
+        });
+        await label.tap();
+        try{
+          await waited(page,id=>document.activeElement===document.getElementById(id),'Amount focus after one label tap',await amount.getAttribute('id'));
+        }catch(error){
+          throw new Error(error.message+' at '+section+'/'+width+'/'+theme+': '+JSON.stringify({before:gesture,after:await page.evaluate(()=>({focus:document.activeElement?.id,events:window.__signedGesture}))}),{cause:error});
+        }
         check(await page.evaluate(w=>document.documentElement.scrollWidth<=w+1,width),'signed editor overflows at '+width+'/'+theme);
         if(process.env.SIGNED_A11Y){
           const axe=await import('axe-core');await page.evaluate(axe.default.source);

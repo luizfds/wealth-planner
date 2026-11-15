@@ -10,7 +10,7 @@ import { payslipCheck } from "../calc/payslipcheck.js";
 import { statementFromLines, statementCsv } from "../calc/pdfstatement.js";
 import { logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
 import { getTaxPeople, personTaxSettings } from "../calc/tax.js";
-import { exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv } from "../lib/backup.js";
+import { downloadBackupCopy, exportExpensesImportTemplateCsv, exportIncomeImportTemplateCsv, exportAssetsImportTemplateCsv } from "../lib/backup.js";
 import { dropboxConnected } from "../lib/dropbox.js";
 import { fmtDate } from "../lib/format.js";
 import { listInbox, readInboxFile, markInboxFileImported } from "../lib/inbox.js";
@@ -96,7 +96,7 @@ function cancelBankRead(){
 function focusBankRead(){
   var card = document.getElementById("bankImportCard");
   if(card) card.open = true;
-  var status = document.querySelector("[data-bank-read-status]") || document.getElementById("bankImportPanel");
+  var status = document.querySelector("[data-bank-read-status], [data-bank-save-status]") || document.getElementById("bankImportPanel");
   if(status && !status.hidden && status.getClientRects().length){
     status.setAttribute("tabindex", "-1"); status.scrollIntoView({ block: "center" }); status.focus({ preventScroll: true }); }
 }
@@ -407,9 +407,15 @@ export function wireImports(){
       renderBankImportPanel();
       return;
     }
-    if(e.target.closest("#bankImportCancelBtn")){ cancelBankRead(); document.getElementById("bankImportPickBtn").focus(); return; }
+    if(e.target.closest("[data-bank-save-export]")){ downloadBackupCopy().catch(function(){ showToast("Couldn’t download the unsaved copy. Keep this tab open and try again."); }); return; }
+    if(e.target.closest("#bankImportCancelBtn, [data-bank-save-close]")){ cancelBankRead(); document.getElementById("bankImportPickBtn").focus(); return; }
     if(!e.target.closest("#bankImportConfirmBtn")) return;
-    var result = commitBankImport();
+    var result = commitBankImport(!!inbox.current);
+    if(!result.saved){
+      refreshAfterBankImport();
+      renderBankImportPanel(); focusBankRead();
+      return;
+    }
     bankRequest = null; clearBankImport();
     if(inbox.current) inboxFileDone(inbox.current);
     refreshAfterBankImport();

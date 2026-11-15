@@ -110,7 +110,7 @@ function check(ok, what){ if(!ok) throw new Error(what); }
 // A fresh phone-sized page on the sample household (or `stored`, a state to start from), the clock fixed.
 async function fresh(opts){
   opts = opts || {};
-  const ctx = await browser.newContext({ viewport: { width: opts.width || 390, height: 844 }, hasTouch: !!opts.touch, isMobile: !!opts.touch });
+  const ctx = await browser.newContext({ viewport: { width: opts.width || 390, height: 844 }, hasTouch: !!opts.touch, isMobile: !!opts.touch, serviceWorkers: opts.blockWorker ? "block" : "allow" });
   await ctx.addInitScript(([stored]) => {
     if(sessionStorage.getItem("journeyLoaded")) return;
     localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
@@ -601,6 +601,136 @@ const JOURNEYS = {
     const touch=await fresh({touch:true,propertyReview:true});
     try{await quiet(touch.page);await read(touch.page);await touch.page.locator('[data-as-discard]').tap();check(!await touch.page.evaluate(()=>window.__bankInboxMarked),'touch Discard moved source');check(!touch.errors.length,'touch property review errors: '+touch.errors.join('; '));}
     finally{await touch.ctx.close();}
+  },
+  async bankconfirmfailure(page){
+    const csv='Date,Description,Amount\n01/10/2026,Example Market,-100\n02/10/2026,Example Cafe,-20\n';
+    const setup=async(p,text=csv,loan=false)=>{
+      await quiet(p);await go(p,'expenses','data-expenses-sub','spending');
+      await p.evaluate(async csv=>{
+        window.__bankInboxCsv=csv;
+        await (await import('/src/components/importwiring.js')).checkInbox(false);
+        document.getElementById('bankImportCard').open=true;
+      },text);
+      await p.locator('[data-inbox-next]').click();
+      await waited(p,()=>!!window.__finishBankInbox,'statement inbox read');
+      await p.evaluate(()=>window.__finishBankInbox(false));
+      await p.locator('#bankImportConfirmBtn').waitFor();
+      if(loan){await p.locator('[data-bank-loanpick]').click();await p.locator('[data-bank-loan]').waitFor();}
+    };
+    const failStorage=p=>p.evaluate(()=>{
+      window.__bankOriginalSetItem=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){
+        if(key==='wealthPlanner.v1') throw new Error('Synthetic import save failure');
+        return window.__bankOriginalSetItem.call(this,key,value);
+      };
+    });
+    const saved=p=>p.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    const financial=p=>st(p,'JSON.stringify([state.transactions,state.incomeLog,state.transfers,state.importRules,state.shared,state.accounts,state.assets,state.debts,state.properties])');
+    await setup(page);
+    const durable=await saved(page),count=await st(page,'state.transactions.length');
+    await failStorage(page);
+    await page.locator('#bankImportConfirmBtn').click();
+    check(await saved(page)===durable,'failed save changed durable household data');
+    check(!await page.evaluate(()=>window.__bankInboxMarked),'failed save marked the statement imported');
+    const status=page.locator('[data-bank-save-status]');await status.waitFor();
+    check(await status.evaluate(el=>document.activeElement===el),'save failure status did not receive focus');
+    check(await st(page,'state.transactions.length')===count+2,'failure did not retain the unsaved records described by recovery');
+    check(!await page.locator('#bankImportConfirmBtn').count()&&!/Imported 2 transactions/.test(await page.locator('#toastWrap').innerText()),'failed save still offered confirmation or claimed success');
+    const unsaved=await financial(page);
+    const result=await page.evaluate(async()=> (await import('/src/components/bank-import.js')).commitBankImport());
+    check(result.saved===false&&result.ids.length===0&&await financial(page)===unsaved,'repeated failed confirmation duplicated or changed financial records');
+    if(process.env.BANK_SAVE_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.BANK_SAVE_SHOTS)fs.mkdirSync(process.env.BANK_SAVE_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      const panel=page.locator('#bankImportPanel');
+      check(await panel.evaluate((el,w)=>document.documentElement.scrollWidth<=w+1&&el.scrollWidth<=el.clientWidth+1,width),'save recovery overflow '+width+'/'+theme);
+      if(process.env.BANK_SAVE_A11Y){const violations=await panel.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'bank save recovery accessibility: '+JSON.stringify(violations));}
+      if(process.env.BANK_SAVE_SHOTS)await panel.screenshot({path:path.join(process.env.BANK_SAVE_SHOTS,width+'-'+theme+'.png')});
+    }
+    await page.evaluate(()=>{window.__bankObjectURL=URL.createObjectURL;URL.createObjectURL=()=>{throw new Error('Synthetic recovery download failure');};});
+    await page.locator('[data-bank-save-export]').click();
+    await page.locator('#toastWrap').getByText("Couldn't download the file. Try again from a full browser tab.",{exact:true}).waitFor();
+    check(await saved(page)===durable&&await financial(page)===unsaved&&!await page.evaluate(()=>window.__bankInboxMarked),'failed recovery download changed data or completed source');
+    await page.evaluate(()=>URL.createObjectURL=window.__bankObjectURL);
+    await status.focus();await page.keyboard.press('Tab');
+    check(await page.locator('[data-bank-save-export]').evaluate(el=>document.activeElement===el),'unsaved copy unreachable by keyboard');
+    const pending=page.waitForEvent('download');await page.keyboard.press('Enter');
+    const download=await pending,stream=await download.createReadStream();let text='';for await(const chunk of stream)text+=chunk.toString();
+    check(JSON.parse(text).transactions.length===count+2&&download.suggestedFilename().startsWith('wealth-planner-unsaved-'),'recovery copy omitted unsaved records or claimed to be a saved backup');
+    check(await saved(page)===durable&&await financial(page)===unsaved&&!await page.evaluate(()=>window.__bankInboxMarked),'recovery export changed durable data, records or source completion');
+    await page.locator('[data-bank-save-close]').click();
+    check(await page.locator('#bankImportPanel').isHidden()&&await page.locator('#bankImportPickBtn').evaluate(el=>document.activeElement===el),'closing recovery did not return to file selection');
+    check(await financial(page)===unsaved,'closing recovery silently discarded unsaved records');
+    await page.evaluate(async()=> (await import('/src/components/importwiring.js')).checkInbox(false));
+    check(await page.locator('[data-inbox-next]').isVisible(),'failed source is unavailable for a later review');
+    await page.evaluate(()=>Storage.prototype.setItem=window.__bankOriginalSetItem);
+    await go(page,'dashboard');await page.reload();await quiet(page);
+    check(await st(page,'state.transactions.length')===count,'reload kept records that never reached storage');
+    await setup(page);await page.locator('#bankImportConfirmBtn').click();
+    check(await page.evaluate(()=>window.__bankInboxMarked)===1&&await stored(page,'state.transactions.length')===count+2,'successful confirmation did not save and complete the source once');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    check(await stored(page,'state.transactions.length')===count,'successful confirmation lost its existing Undo');
+    // A stale household revision rejects persistence without throwing or disabling Storage itself.
+    const conflict=await fresh({bankRead:true});
+    try{
+      await setup(conflict.page);
+      const theirs=await conflict.page.evaluate(()=>{
+        const other=JSON.parse(localStorage.getItem('wealthPlanner.v1'));
+        other.budgetGroupBy=other.budgetGroupBy==='category'?'type':'category';
+        const text=JSON.stringify(other);localStorage.setItem('wealthPlanner.v1',text);return text;
+      });
+      await conflict.page.locator('#bankImportConfirmBtn').click();
+      await conflict.page.locator('[data-bank-save-status]').waitFor();
+      check(await saved(conflict.page)===theirs&&!await conflict.page.evaluate(()=>window.__bankInboxMarked),'save conflict overwrote the newer household or completed the source');
+      await conflict.page.locator('[data-storage-keep]').click();await answerDialog(conflict.page,true);
+      await waited(conflict.page,()=>document.querySelector('[data-bank-save-status]')?.textContent.startsWith('Save warning resolved'),'recovery after explicitly keeping this tab’s version');
+      check(await stored(conflict.page,'state.transactions.length')===count+2&&!await conflict.page.evaluate(()=>window.__bankInboxMarked),'later save did not persist the chosen household or prematurely completed source');
+      if(process.env.BANK_SAVE_A11Y){
+        const axe=await import('axe-core');await conflict.page.evaluate(axe.default.source);
+        for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+          await conflict.page.setViewportSize({width,height:844});await conflict.page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+          const panel=conflict.page.locator('#bankImportPanel');
+          check(await panel.evaluate((el,w)=>document.documentElement.scrollWidth<=w+1&&el.scrollWidth<=el.clientWidth+1,width),'resolved save recovery overflow');
+          const violations=await panel.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));
+          check(!violations.length,'resolved bank save accessibility: '+JSON.stringify(violations));
+          if(process.env.BANK_SAVE_SHOTS)await panel.screenshot({path:path.join(process.env.BANK_SAVE_SHOTS,width+'-'+theme+'-resolved.png')});
+        }
+      }
+      await conflict.page.evaluate(async()=>{const m=await import('/src/state.js');m.setState(JSON.parse(JSON.stringify(m.state)));});
+      check(await conflict.page.locator('#bankImportPanel').isHidden()&&!await conflict.page.evaluate(()=>window.__bankInboxMarked),'household replacement kept failed confirmation or completed source');
+      check(!conflict.errors.length,'conflict recovery errors: '+conflict.errors.join('; '));
+    }finally{await conflict.ctx.close();}
+    const loan=await fresh({bankRead:true,touch:true});
+    try{
+      await setup(loan.page,LOAN_STATEMENT_CSV,true);
+      const before=await saved(loan.page),charges=await st(loan.page,'state.properties.reduce((n,p)=>n+(p.loans||[]).reduce((m,l)=>m+(l.charges||[]).length,0),0)'),spending=await st(loan.page,'state.transactions.length');
+      await failStorage(loan.page);await loan.page.locator('#bankImportConfirmBtn').tap();
+      await loan.page.locator('[data-bank-save-status]').waitFor();
+      check(await saved(loan.page)===before&&!await loan.page.evaluate(()=>window.__bankInboxMarked),'failed loan save changed durable data or completed source');
+      check(await st(loan.page,'state.properties.reduce((n,p)=>n+(p.loans||[]).reduce((m,l)=>m+(l.charges||[]).length,0),0)')===charges+5&&await st(loan.page,'state.transactions.length')===spending,'loan attempt did not retain its charges separately from spending');
+      const attempt=await financial(loan.page);
+      await loan.page.evaluate(async()=> (await import('/src/components/bank-import.js')).commitBankImport());
+      check(await financial(loan.page)===attempt,'failed loan confirmation duplicated charges or account changes');
+      await loan.page.locator('[data-bank-save-close]').tap();
+      check(await loan.page.locator('#bankImportPanel').isHidden()&&!await loan.page.evaluate(()=>window.__bankInboxMarked),'touch close completed failed loan source');
+      check(!loan.errors.length,'loan recovery errors: '+loan.errors.join('; '));
+    }finally{await loan.ctx.close();}
+    const chosen=await fresh({touch:true});
+    try{
+      await quiet(chosen.page);await go(chosen.page,'expenses','data-expenses-sub','spending');
+      await chosen.page.locator('#bankImportCard').evaluate(el=>el.open=true);
+      await chosen.page.setInputFiles('#bankImportFile',{name:'Example <b>statement</b> with a long source name.csv',mimeType:'text/csv',buffer:Buffer.from(csv)});
+      await chosen.page.locator('#bankImportConfirmBtn').waitFor();
+      await failStorage(chosen.page);await chosen.page.locator('#bankImportConfirmBtn').tap();
+      const status=chosen.page.locator('[data-bank-save-status]');await status.waitFor();
+      check((await status.innerText()).includes('<b>statement</b>')&&!await status.locator('b').count(),'failed source name was interpreted as markup');
+      const panel=chosen.page.locator('#bankImportPanel');
+      check((await panel.innerText()).includes('Keep the original statement')&&!(await panel.innerText()).includes('inbox statement'),'chosen-file recovery falsely promised an inbox copy');
+      await chosen.page.setViewportSize({width:320,height:844});
+      check(await panel.evaluate(el=>document.documentElement.scrollWidth<=320&&el.scrollWidth<=el.clientWidth+1),'long failed filename overflows on mobile');
+      check(!chosen.errors.length,'chosen statement recovery errors: '+chosen.errors.join('; '));
+    }finally{await chosen.ctx.close();}
   },
   async bankreadrecovery(page){
     await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
@@ -6274,7 +6404,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({propertyReview:name === "propertystatementreview", bankRead:name === "bankreadrecovery", taxFailure:name === "taximporterrors", touch:["rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

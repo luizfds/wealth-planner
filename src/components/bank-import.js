@@ -5,7 +5,8 @@
 // (startBankImport), one exit (commitBankImport), and session-only state that nothing else reads —
 // so it splits cleanly, unlike the page-level render functions that genuinely belong together.
 // DOM event *registration* still lives in app.js, same as every other component here.
-import { state, commit } from "../state.js";
+import { keepUi } from "../lib/keepui.js";
+import { state, commit, onSaved } from "../state.js";
 import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis, statementTextToCsv } from "../calc/bank-import.js";
 import { cleanMerchantName } from "../calc/merchantbook.js";
@@ -26,6 +27,7 @@ import { INBOX_DIR, inboxMessage } from "../calc/inbox.js";
 // survived a reload would be a pile of decisions the user has no memory of making.
 export var bankImport = null;
 var bankRead = null;
+var bankSaveRevision = 0, watchingBankSaves = false;
 export function setBankRead(read){ bankRead = read; }
 
 
@@ -360,6 +362,16 @@ export function renderBankImportPanel(){
   }
   if(!bankImport){ panel.hidden = true; panel.innerHTML = ""; return; }
   panel.hidden = false;
+  if(bankImport.saveFailed){
+    var savedLater = bankSaveRevision > bankImport.saveFailed.revision;
+    panel.innerHTML = '<p class="ledger-note bank-import-source" role="status" tabindex="-1" data-bank-save-status>' + (savedLater ? 'Save warning resolved — ' : 'Not saved — ') + escapeAttr(bankImport.fileName || 'statement') + '</p>' +
+      (savedLater ? '<p class="ledger-note">Your household has since been saved. This attempt cannot be confirmed again. Check your records before reviewing this statement again.</p>' :
+        '<p class="ledger-note">The imported records are only in this tab. Download an unsaved copy to keep them, or reload the saved household to discard them. Closing this review keeps the unsaved records in this tab.</p>') +
+      (bankImport.saveFailed.inboxSource ? '<p class="ledger-note">Your inbox statement is still pending.</p>' : '<p class="ledger-note">Keep the original statement so you can choose it again after reloading.</p>') +
+      '<div class="bank-import-actions"><button type="button" class="btn btn-sm" data-bank-save-export>' + (savedLater ? 'Download this tab’s copy' : 'Download unsaved copy') + '</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-bank-save-close>Close review</button></div>';
+    return;
+  }
   var s = bankImport.summary;
   var source = '<p class="ledger-note bank-import-source">Review ' + escapeAttr(bankImport.fileName || 'statement') + '</p>';
   if(!bankImport.parsed.headerOk){
@@ -817,10 +829,18 @@ function cssEscape(s){
 }
 
 // ---------------- Commit ----------------
-// Returns the ids created, so app.js can offer an undo that removes exactly these and nothing else
-// — the same shape the other bulk actions on this page use.
-export function commitBankImport(){
-  if(!bankImport) return { ids: [], learned: 0, lineIds: [], linesCreated: 0 };
+// Returns observed save success and the created ids. Only a saved result completes the source
+// and offers Undo; a rejected save stays available for recovery without another confirmation.
+export function commitBankImport(inboxSource){
+  if(!bankImport || bankImport.saveFailed) return { saved: false, ids: [], learned: 0, lineIds: [], linesCreated: 0 };
+  // commit() reports touched keys; only onSaved certifies that persistence succeeded.
+  if(!watchingBankSaves){
+    onSaved(function(){
+      bankSaveRevision++;
+      if(bankImport && bankImport.saveFailed) keepUi(renderBankImportPanel);
+    });
+    watchingBankSaves = true;
+  }
   var created = [];
   var createdLineIds = [];
   var learned = 0;
@@ -945,8 +965,11 @@ export function commitBankImport(){
     if(lp.drawdown) loan.settlementDate = lp.drawdown.date;
     if(lp.repayment) loan.bankRepayment = lp.repayment;
   }
+  var saveRevision = bankSaveRevision;
   commit(["transactions", "incomeLog", "transfers", "importRules", "shared", "accounts", "assets", "debts", "properties"]);
-  return { loanSet: loanSet, loanCharges: loanSet ? loanSet.ids.length : 0, ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
+  var saved = bankSaveRevision !== saveRevision;
+  bankImport.saveFailed = saved ? null : { inboxSource: !!inboxSource, revision: saveRevision };
+  return { saved: saved, loanSet: loanSet, loanCharges: loanSet ? loanSet.ids.length : 0, ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
            lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }

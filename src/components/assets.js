@@ -28,8 +28,8 @@ import { financialYearOf, fyLabel } from "../calc/property.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { parseCsv } from "../lib/backup.js";
-import { applyPrices } from "../calc/pricesheet.js";
 import { priceSheetCardHtml, priceSheetUi } from "./pricesheet.js";
+import { pricePastePanelHtml, pricePasteText, pricePasteOpen } from "./pricepaste.js";
 import { autoPricesCardHtml } from "./autoprices.js";
 import { tradesCardHtml } from "./brokertrades.js";
 import { isSoldOut } from "../calc/networthlist.js";
@@ -381,7 +381,7 @@ function stalePriceDotHtml(item){
 
 // Session-only (not persisted, mirrors sharesGainFilter's own convention) — which lookback
 // window the "change" badge on every holding uses. Only Log and the price-paste feature ever
-// write a .price onto a history entry (see logAssetSnapshot/applySharesPaste), so a holding with
+// write a .price onto a history entry (see logAssetSnapshot/applyPrices), so a holding with
 // no price history at all — or none old enough to reach the selected window — simply has
 // nothing to show; there's no synthetic/interpolated fallback here, unlike valueAtDate's
 // portfolio-chart use of history, since a made-up price would be actively misleading.
@@ -1032,19 +1032,21 @@ function drawSharesSubpage(){
   var psLine = apr && apr.at ? (apr.ok ? "updated " : "tried ") + new Date(apr.at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) +
     (apr.missing && apr.missing.length ? (psOk ? " · your sheet covers " + apr.missing.length : " · " + apr.missing.length + " not covered") : "") : "";
   var pasteTool = allData.items.length
-    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (apSettled && !priceSheetUi.open ? '' : ' open') + ' data-ps-panel><summary>Prices' + (psLine ? ' <span class="ps-summary-line">' + escapeAttr(psLine) + '</span>' : '') + '</summary>' +
+    ? '<details class="tax-advanced" style="margin:0 0 14px"' + (apSettled && !priceSheetUi.open && !pricePasteOpen() ? '' : ' open') + ' data-ps-panel><summary>Prices' + (psLine ? ' <span class="ps-summary-line">' + escapeAttr(psLine) + '</span>' : '') + '</summary>' +
         autoPricesCardHtml() + fxNote +
         '<details class="ps-manual"' + (state.priceSheet && state.priceSheet.url ? ' open' : '') + '><summary>Your own Google Sheet — for anything the above doesn\'t cover</summary>' + priceSheetCardHtml() + '</details>' +
-        '<details class="ps-manual"><summary>Or paste prices by hand</summary>' +
-        '<p class="ledger-note" id="sharesPasteHelp" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker; a USDAUD row updates the exchange rate.</p>' +
+        '<details class="ps-manual"' + (pricePasteOpen() ? ' open' : '') + '><summary>Or paste prices by hand</summary>' +
+        '<p class="ledger-note" id="sharesPasteHelp" style="margin:8px 0">Copy the Symbol and Price columns from any sheet and paste the two-column range below. Matches holdings by ticker (add ASX: or NASDAQ: when you hold one ticker on two markets); a USDAUD row updates the exchange rate. You see every change before anything is updated.</p>' +
         '<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesCopyPriceTemplateBtn" title="Just the Symbol and Price list, with a GOOGLEFINANCE formula for each holding">⧉ Copy price list</button>' +
           '<button type="button" class="btn btn-sm btn-ghost" id="sharesExportPriceTemplateBtn">⇩ Download price list</button>' +
         '</div>' +
         // #261: a label the box keeps once something's pasted — it had a placeholder only.
         '<label class="field-label" for="sharesPasteArea">Prices to paste (Symbol and Price)</label>' +
-        '<textarea class="field-control" id="sharesPasteArea" aria-describedby="sharesPasteHelp" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical"></textarea>' +
-        '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Update prices</button></div>' +
+        '<textarea class="field-control" id="sharesPasteArea" aria-describedby="sharesPasteHelp" rows="4" placeholder="CBA&#9;105.32&#10;BHP&#9;43.10" style="width:100%;box-sizing:border-box;font-family:var(--font-num);font-size:var(--fs-sm);padding:8px;background:var(--paper-sunken);border:1px solid var(--border);border-radius:8px;color:var(--ink);resize:vertical">' + escapeAttr(pricePasteText()) + '</textarea>' +
+        // #265: read into a review first; nothing is written until Update in that review.
+        '<div style="margin-top:8px"><button type="button" class="btn btn-sm" id="sharesPasteApply">Review prices</button></div>' +
+        '<div id="sharesPasteReview" class="price-review"' + (pricePasteOpen() ? '' : ' hidden') + '>' + pricePastePanelHtml() + '</div>' +
         '</details>' +
       '</details>'
     : "";
@@ -1164,19 +1166,6 @@ function coverageWaitText(late){
 }
 function fmtShortDate(d){
   return new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
-}
-
-export function parseSharesPasteLine(line){
-  var trimmed = line.trim();
-  if(!trimmed) return null;
-  var parts = trimmed.split(/\t+/);
-  if(parts.length < 2) parts = trimmed.split(/,+/);
-  if(parts.length < 2) parts = trimmed.split(/\s+/);
-  if(parts.length < 2) return null;
-  var symbol = parts[0].trim().replace(/^["']|["']$/g, "").replace(/^[A-Za-z]+:/, "").toUpperCase();
-  var price = parseFloat(parts[parts.length - 1].replace(/[^0-9.-]/g, ""));
-  if(!symbol || isNaN(price)) return null;
-  return { symbol: symbol, price: price };
 }
 
 var ASSET_ALLOC_SEGMENTS = [
@@ -1829,34 +1818,6 @@ export function logDebtSnapshot(idx){
   renderDashboardStats();
   persist();
   showToast("Logged " + fmtCurrency0.format(num) + " for " + debt.what + " (" + dateStr + ")");
-}
-
-export function applySharesPaste(){
-  var area = document.getElementById("sharesPasteArea");
-  if(!area) return;
-  var lines = area.value.split(/\r?\n/);
-  var unparseable = [], prices = [];
-  lines.forEach(function(line){
-    var trimmed = line.trim();
-    if(!trimmed) return;
-    var parsed = parseSharesPasteLine(line);
-    // A #N/A/blank price cell (a GOOGLEFINANCE formula that hasn't resolved) — named in the toast
-    // rather than dropped silently.
-    if(!parsed){ var first = trimmed.split(/\t+|,+|\s+/)[0]; if(first) unparseable.push(first.toUpperCase()); return; }
-    prices.push(parsed);
-  });
-  // v3.75.0: the same routine the Google Sheet read uses (calc/pricesheet.js applyPrices).
-  var res = applyPrices(state, prices, localDateStr());
-  var updatedCount = res.updated, notFound = res.notFound, fxUpdated = res.fxUpdated, benchCount = res.benchmarks;
-  renderAssets();
-  renderNetWorthPanel();
-  persist();
-  var msg = updatedCount + " price" + (updatedCount === 1 ? "" : "s") + " updated" +
-    (fxUpdated ? " — USD/AUD rate refreshed" : "") +
-    (benchCount ? " — " + benchCount + " benchmark price" + (benchCount === 1 ? "" : "s") : "") +
-    (notFound.length ? " — no holding found for " + notFound.join(", ") : "") +
-    (unparseable.length ? " — couldn't read a price for " + unparseable.join(", ") + " (check for #N/A or a blank cell in your sheet)" : "");
-  showToast(msg);
 }
 
 // Typed straight into the Shares warning (v3.32.1) — the same two fields the price-sheet paste's

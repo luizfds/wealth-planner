@@ -99,3 +99,14 @@ Confirm rechecks before writing anything. A property deleted, or no longer an in
 Undo removes exactly the imported rows, wherever they are now, and any categories the file added that nothing else uses. It refuses, changing nothing, when an imported row was edited or removed since or the household was replaced. Changes the app makes on its own (a share price read, a vehicle's written-down value) don't count as edits.
 
 The `rowimports` journey covers all of this. It runs at 320/390/768/1280px in both themes; `ROW_IMPORT_A11Y=1` adds the scoped axe scans. It also checks keyboard toggling of Include, focus on each status, escaping of file names and rows, a touch import with its Undo, and that storage is unchanged until confirmation. Real devices and screen readers remain #299.
+
+## Pasted share prices
+
+Investments → Shares → Prices → "Or paste prices by hand". Review prices reads the box into a review and writes nothing (`calc/pricepaste.js`, panel in `components/pricepaste.js`). The Google Sheet read and the app's own daily prices still apply directly. They are syncs the person set up, not imports, and the sheet already refused a price at or below zero.
+
+Each line is read the way the sheet is read. A tab or quoted CSV cell is one column. A thousands separator is read whole (`"1,234.50"` is 1,234.50, not 234.50). A price at or below zero, `#N/A`, a decimal comma and a line with more than one number after its ticker are left out with the reason. A "Symbol / Price" header is skipped. An exchange prefix (`ASX:`, `NASDAQ:`, `NYSE:`…) says which market's holding it prices. A prefix naming a market the ticker isn't held on is left out, because prices aren't converted. A ticker held on two markets needs a prefix. A ticker given two different prices is left out both times; the same price twice counts once.
+
+The review lists each holding with its current and new price and the change, plus the exchange rate and benchmark rows. A change over 50% is marked to check but still applied. Every line left out is listed with its line number and reason. Update reads the box again against the household. If the reviewed holdings or their prices changed (a price read, an edit, a deleted holding, a replaced household), it shows the new review and writes nothing. Editing the box puts the review away. Success is reported only once the save is observed. A save that doesn't happen puts the prices back and keeps the review, with Try again. Undo restores the prices, the rate and the benchmark store exactly, unless something has priced them since. In that case the newer prices stay.
+
+The `pricepaste` journey covers all of this, at 320/390/768/1280px in both themes; `PRICE_PASTE_A11Y=1` adds the scoped axe scans. It includes a touch update with its Undo. `applyPrices` takes an optional market, which only the paste sets.
+

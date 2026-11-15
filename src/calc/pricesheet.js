@@ -113,7 +113,8 @@ export function applyPrices(st, prices, today){
     var bm = parseBenchmarkSymbol(p.symbol);
     if(bm){ if(!st.benchmark.prices) st.benchmark.prices = {}; setBenchmarkPrice(st.benchmark, bm.symbol, bm.date, p.price, today); bench++; return; }
     if(p.symbol === "USDAUD"){ st.fx.usdAud = p.price; st.fx.usdAudUpdated = today; fxUpdated = true; return; }
-    var matches = (st.assets || []).filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === p.symbol; });
+    // A market (a pasted "ASX:" or "NASDAQ:" prefix, #265) prices only the holdings on it; the sheet sends none.
+    var matches = (st.assets || []).filter(function(a){ return a.category === "Shares" && (a.symbol || "").toUpperCase() === p.symbol && (!p.market || (a.market || "ASX") === p.market); });
     if(!matches.length){ notFound.push(p.symbol); return; }
     matches.forEach(function(item){
       item.price = p.price;

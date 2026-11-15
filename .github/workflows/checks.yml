@@ -91,6 +91,13 @@ jobs:
           JOURNEYS: exactsearch
           SPEED: 0
           SEARCH_A11Y: 1
+      - name: Payslip review before saving
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: payslipreview
+          SPEED: 0
+          PAYSLIP_A11Y: 1
+          PAYSLIP_SHOTS: accessibility-report/payslip-review
       - name: Shared import chooser
         run: node scripts/journeys.mjs
         env:

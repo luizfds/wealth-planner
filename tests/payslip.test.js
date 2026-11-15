@@ -1,7 +1,7 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePayslip, payFrequency, datesIn, amountsIn } from "../src/calc/payslip.js";
+import { parsePayslip, payFrequency, datesIn, amountsIn, payslipYtdReview } from "../src/calc/payslip.js";
 
 // v3.116.0: reading a payslip. An invented payslip from an invented employer.
 const SLIP = [
@@ -66,4 +66,22 @@ test("'before tax' and 'after tax' aren't the tax; a summary column beside other
   assert.deepEqual([p.gross, p.tax, p.net, p.super], [6400, 1310, 5115, 768]);
   assert.deepEqual(p.ytd, { gross: 19200, tax: 3930, super: 2304 });
   assert.equal(payFrequency(p), "Monthly");
+});
+
+
+test("YTD review is read-only and distinguishes ready, duplicate, older and incomplete figures", () => {
+  const slip={periodEnd:'2026-10-01',ytd:{gross:20000,tax:4000}}, saved={asOf:'2026-09-01',gross:10000,withheld:2000};
+  const before=JSON.stringify({slip,saved});
+  assert.equal(payslipYtdReview(slip,saved).status,'ready');
+  assert.equal(payslipYtdReview(slip,{asOf:'2026-10-01',gross:20000,withheld:4000}).status,'same');
+  assert.equal(payslipYtdReview(slip,{asOf:'2026-11-01',gross:30000,withheld:6000}).status,'older');
+  assert.equal(payslipYtdReview({periodEnd:'2026-10-01',ytd:{gross:20000}},saved).status,'missing');
+  assert.equal(JSON.stringify({slip,saved}),before);
+});
+
+test("invalid YTD dates and figures cannot be applied", () => {
+  for(const slip of [{periodEnd:'2026-02-31',ytd:{gross:10000,tax:2000}}, {periodEnd:'2026-10-01',ytd:{gross:-100,tax:0}},
+    {periodEnd:'2026-10-01',ytd:{gross:Infinity,tax:0}}, {periodEnd:'2026-10-01',ytd:{gross:10000,tax:NaN}}]){
+    assert.deepEqual(payslipYtdReview(slip,null),{status:'invalid',value:null});
+  }
 });

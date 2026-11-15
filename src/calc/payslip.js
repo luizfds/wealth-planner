@@ -97,3 +97,16 @@ export function payFrequency(p){
   if(days >= 27 && days <= 32) return "Monthly";
   return null;
 }
+
+
+// A staged YTD replacement, assessed without changing household state.
+export function payslipYtdReview(slip, current){
+  var p = slip || {}, y = p.ytd || {};
+  if(y.gross == null || y.tax == null || !p.periodEnd) return { status: "missing", value: null };
+  var date = /^\d{4}-\d{2}-\d{2}$/.test(p.periodEnd) ? new Date(p.periodEnd + "T00:00:00Z") : null;
+  if(!date || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== p.periodEnd ||
+    !Number.isFinite(y.gross) || !Number.isFinite(y.tax) || y.gross < 0 || y.tax < 0) return { status: "invalid", value: null };
+  var value = { asOf: p.periodEnd, gross: y.gross, withheld: y.tax }, saved = current || {};
+  var same = saved.asOf === value.asOf && saved.gross === value.gross && saved.withheld === value.withheld;
+  return { status: same ? "same" : saved.asOf && saved.asOf > value.asOf ? "older" : "ready", value: value };
+}

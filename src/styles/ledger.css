@@ -1770,3 +1770,5 @@
 .import-choice-description{ font-size:var(--fs-xs); color:var(--ink-soft); }
 .import-choice[data-import-choice="restore"]{ border-color:var(--warn-ink); }
 @media(max-width:640px){ .import-chooser{ width:100%; } }
+
+.slip-review{ margin:0; font-size:var(--fs-sm); color:var(--ink); overflow-wrap:anywhere; }

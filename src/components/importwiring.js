@@ -5,7 +5,7 @@
 // added, so they're added in the same order.
 import { inboxMessage } from "../calc/inbox.js";
 import { periodsOf } from "../calc/ledger.js";
-import { parsePayslip, payFrequency } from "../calc/payslip.js";
+import { parsePayslip, payFrequency, payslipYtdReview } from "../calc/payslip.js";
 import { payslipCheck } from "../calc/payslipcheck.js";
 import { statementFromLines, statementCsv } from "../calc/pdfstatement.js";
 import { logIncomeReceived, deleteIncomeReceived } from "../calc/received.js";
@@ -17,7 +17,7 @@ import { listInbox, readInboxFile, markInboxFileImported } from "../lib/inbox.js
 import { pdfLines } from "../lib/pdftext.js";
 import { savedFolder } from "../lib/safekeeping.js";
 import { showToast, showUndoToast, showPersistentToast } from "../lib/toast.js";
-import { state, persist } from "../state.js";
+import { state, persist, commit } from "../state.js";
 import { parseAssetsImportCsv, renderAssetsImportPreview } from "./assets.js";
 import { useLoanForStatement, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
 import { currentHistoryBudget, renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
@@ -45,24 +45,43 @@ function redrawPayslipPanel(person){
   var d = host && host.querySelector(".tax-ytd");
   if(d){ d.outerHTML = withholdingCheckHtml(person); var again = host.querySelector(".tax-ytd"); if(again) again.open = true; }
 }
-function readPayslipLines(person, lines){
-  var r = parsePayslip(lines);
-  payslipRead[person] = r.found.length ? r : { error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
-  if(r.found.length) applyPayslipYtd(person, r);
-  redrawPayslipPanel(person);
+function focusPayslipReview(person, selector){
+  var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
+  var target = host && (selector ? host.querySelector(selector) : host.querySelector("[data-slip-result]") || host.querySelector("[data-slip-review]") || host.querySelector("[data-slip-pick]"));
+  if(target && target.getClientRects().length){ target.scrollIntoView({ block: "center" }); target.focus({ preventScroll: true }); }
 }
-// v3.149.0: a payslip with a year-to-date column sets the refund-or-bill check straight away —
-// unless what's there is from a later payslip. Undo puts the old figures back.
-function applyPayslipYtd(person, r){
-  if(r.ytd.gross == null || r.ytd.tax == null || !r.periodEnd) return false;
-  var st = personTaxSettings(person), was = st.ytd ? Object.assign({}, st.ytd) : null;
-  if(was && was.asOf && was.asOf > r.periodEnd) return false;
-  if(was && was.asOf === r.periodEnd && was.gross === r.ytd.gross && was.withheld === r.ytd.tax) return false;
-  st.ytd = { asOf: r.periodEnd, gross: r.ytd.gross, withheld: r.ytd.tax };
-  persist();
-  showUndoToast("Refund-or-bill check updated from the payslip (to " + fmtDate(r.periodEnd) + ")", function(){
-    if(was) st.ytd = was; else delete st.ytd;
-    persist(); redrawPayslipPanel(person);
+var payslipRequests = Object.create(null);
+function nextPayslipRequest(person){ return payslipRequests[person] = (payslipRequests[person] || 0) + 1; }
+function livePayslipPerson(person){ return getTaxPeople().indexOf(person) !== -1; }
+function readPayslipLines(person, lines, request){
+  if(request != null && payslipRequests[person] !== request || !livePayslipPerson(person)) return;
+  if(request == null) nextPayslipRequest(person);
+  var r = parsePayslip(lines);
+  r.sourceText = lines.join("\n"); r.pasted = request == null;
+  payslipRead[person] = r.found.length ? r : { sourceText: r.sourceText, pasted: r.pasted, error: "Nothing in that reads like a payslip — no Gross, Tax or Net lines with amounts." };
+  redrawPayslipPanel(person);
+  focusPayslipReview(person);
+}
+function finishPayslipInbox(read){
+  if(read && read.fromInbox){ var file = read.fromInbox; delete read.fromInbox; inboxFileDone(file); }
+}
+function applyPayslipYtd(person, read, expected){
+  if(!livePayslipPerson(person)){ showToast("That person is no longer available. Read the payslip for the right person again."); return false; }
+  var settings = personTaxSettings(person), was = settings.ytd ? Object.assign({}, settings.ytd) : null;
+  if(JSON.stringify(was) !== expected){ redrawPayslipPanel(person); showToast("Saved figures changed. Review them again before applying."); return false; }
+  var review = payslipYtdReview(read, was);
+  if(!review.value || review.status === "same") return false;
+  var applied = review.value;
+  settings.ytd = applied;
+  commit(["tax"]);
+  focusPayslipReview(person, "[data-slip-result]");
+  showUndoToast("Year-to-date figures applied for " + person + " (to " + fmtDate(applied.asOf) + ")", function(){
+    if(!livePayslipPerson(person) || JSON.stringify(personTaxSettings(person).ytd) !== JSON.stringify(applied)){
+      showToast("Year-to-date figures changed again; Undo kept the newer edit."); return;
+    }
+    if(was) personTaxSettings(person).ytd = was; else delete personTaxSettings(person).ytd;
+    commit(["tax"]);
+    focusPayslipReview(person, "[data-slip-use]");
   });
   return true;
 }
@@ -119,20 +138,19 @@ function openAsPayslip(lines, st, fromInbox){
   var freq = payFrequency(slip);
   var near = function(p){ var row = salaryRowFor(p); return row && freq ? Math.abs(periodsOf(Number(row.amount) || 0, row.freq).yearly - periodsOf(slip.gross, freq).yearly) : Infinity; };
   var person = named.length === 1 ? named[0] : (named.length ? named : people).slice().sort(function(a, b){ return near(a) - near(b); })[0];
+  nextPayslipRequest(person);
+  slip.sourceText = text.join("\n");
   payslipRead[person] = slip;
-  applyPayslipYtd(person, slip);
-  if(fromInbox) inboxFileDone(fromInbox);
+  if(fromInbox) slip.fromInbox = fromInbox;
   inbox.current = null; renderInbox();
   // The person's tax card, where the payslip panel lives: Tax → This year.
-  showPage("tax");
-  showTaxSubpage("year", { replace: true });
-  setTimeout(function(){
+  Promise.resolve(showPage("tax")).then(function(shown){
+    if(shown === false) return;
+    showTaxSubpage("year", { replace: true });
     redrawPayslipPanel(person);
-    var host = [].find.call(document.querySelectorAll("[data-tax-person]"), function(el){ return el.getAttribute("data-tax-person") === person; });
-    var d = host && host.querySelector(".tax-ytd");
-    if(d) d.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, 300);
-  showToast("A payslip — checked against " + person + "'s plan");
+    focusPayslipReview(person);
+  });
+  showToast("A payslip for " + person + " — review before saving");
   return true;
 }
 function openAsAgentStatement(lines, fromInbox){
@@ -176,7 +194,7 @@ function openNextInbox(){
   readInboxFile(f).then(function(file){ importBankFile(file, f); }).catch(function(){ showToast("Couldn't open " + f.name + " — try again in a moment"); });
 }
 function inboxFileDone(f){
-  inbox.current = null;
+  if(inbox.current === f) inbox.current = null;
   inbox.files = inbox.files.filter(function(x){ return x !== f; });
   renderInbox();
   markInboxFileImported(f).catch(function(){ showToast("Imported, but " + f.name + " couldn't be moved to Imported — move it yourself so it isn't offered again"); });
@@ -207,12 +225,16 @@ function refreshAfterBankImport(){
 export function wirePayslip(){  document.addEventListener("change", function(e){
     var person = e.target.getAttribute && e.target.getAttribute("data-slip-file");
     if(person == null || !e.target.files || !e.target.files[0]) return;
-    var file = e.target.files[0];
+    var file = e.target.files[0], request = nextPayslipRequest(person);
+    e.target.value = "";
+    payslipRead[person] = { loading: true }; redrawPayslipPanel(person); focusPayslipReview(person);
     file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
-      readPayslipLines(person, lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); }));
-    }).catch(function(){ payslipRead[person] = { error: "That PDF couldn't be read. Paste its text instead." }; redrawPayslipPanel(person); });
+      readPayslipLines(person, lines.map(function(l){ return l.cells.map(function(c){ return c.s; }).join("   "); }), request);
+    }).catch(function(){ if(payslipRequests[person] !== request || !livePayslipPerson(person)) return; payslipRead[person] = { error: "That PDF couldn't be read. Paste its text instead." }; redrawPayslipPanel(person); focusPayslipReview(person); });
   });
   document.addEventListener("click", function(e){
+    var pick = e.target.closest("[data-slip-pick]");
+    if(pick){ pick.closest(".slip-read").querySelector("[data-slip-file]").click(); return; }
     var read = e.target.closest("[data-slip-read]");
     if(read){
       var p0 = read.getAttribute("data-slip-read");
@@ -220,21 +242,22 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
       readPayslipLines(p0, String(ta.value || "").split(/\r?\n/));
       return;
     }
+    var dismiss = e.target.closest("[data-slip-cancel]");
+    if(dismiss){ var person = dismiss.getAttribute("data-slip-cancel"); nextPayslipRequest(person); delete payslipRead[person]; redrawPayslipPanel(person); focusPayslipReview(person, "[data-slip-pick]"); return; }
+    var done = e.target.closest("[data-slip-done]");
+    if(done){ var personDone = done.getAttribute("data-slip-done"); finishPayslipInbox(payslipRead[personDone]); delete payslipRead[personDone]; redrawPayslipPanel(personDone); return; }
     var use = e.target.closest("[data-slip-use]");
     if(use){
       var p1 = use.getAttribute("data-slip-use"), r1 = payslipRead[p1];
       if(!r1 || r1.error) return;
-      var st1 = personTaxSettings(p1);
-      st1.ytd = { asOf: r1.periodEnd, gross: r1.ytd.gross, withheld: r1.ytd.tax };
-      persist(); redrawPayslipPanel(p1);
-      showToast("Year-to-date figures set from the payslip");
+      applyPayslipYtd(p1, r1, use.getAttribute("data-slip-before"));
       return;
     }
     // v3.148.0: the pay itself, logged as take-home received.
     var lg = e.target.closest("[data-slip-log]");
     if(lg){
       var p3 = lg.getAttribute("data-slip-log"), r3 = payslipRead[p3], chk = r3 && payslipCheck(p3, r3);
-      if(!chk || !chk.loggable) return;
+      if(!chk || !chk.loggable || !livePayslipPerson(p3)) return;
       var srow = salaryRowFor(p3);
       var rec = logIncomeReceived({ target: "net:" + p3, amount: chk.loggable.amount, date: chk.loggable.date, what: "Pay (from payslip)", account: srow ? srow.account || "" : "" });
       persist(); renderAll(); redrawPayslipPanel(p3);
@@ -244,7 +267,7 @@ export function wirePayslip(){  document.addEventListener("change", function(e){
     var sal = e.target.closest("[data-slip-salary]");
     if(sal){
       var p2 = sal.getAttribute("data-slip-salary"), r2 = payslipRead[p2], row = salaryRowFor(p2), freq = payFrequency(r2 || {});
-      if(!r2 || !row || !freq) return;
+      if(!r2 || !row || !freq || !livePayslipPerson(p2)) return;
       var was = { amount: row.amount, freq: row.freq };
       row.amount = r2.gross; row.freq = freq;
       persist(); renderAll();

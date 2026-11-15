@@ -8,7 +8,7 @@ import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
 import { superTopUp } from "../calc/supertopup.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
-import { payFrequency } from "../calc/payslip.js";
+import { payFrequency, payslipYtdReview } from "../calc/payslip.js";
 import { payslipCheck } from "../calc/payslipcheck.js";
 import { figureAttrs, escapeAttr } from "../lib/html.js";
 import { historyTrendHtml, ledgerFields, timingFieldsHtml, endDateNoteHtml, hasEnded, rowEditSlot } from "../lib/ledger-table.js";
@@ -759,13 +759,15 @@ function personIdKey(person){
 function payslipReadHtml(person){
   var pid = escapeAttr(person), k = personIdKey(person);
   var p = payslipRead[person];
-  var out = '<div class="slip-read"><label class="btn btn-sm btn-ghost slip-pick">Read a payslip (PDF)<input type="file" accept=".pdf,application/pdf" data-slip-file="' + pid + '" hidden></label>' +
+  var out = '<div class="slip-read"><button type="button" class="btn btn-sm btn-ghost slip-pick" data-slip-pick="' + pid + '">Choose payslip PDF</button><input type="file" accept=".pdf,application/pdf" data-slip-file="' + pid + '" hidden>' +
     // #261: a label the box keeps once something's typed — it had a placeholder only.
-    '<details class="slip-paste"><summary>or paste its text</summary><label class="field-label" for="slip-text-' + k + '">Payslip text<span class="visually-hidden"> for ' + pid + '</span></label>' +
-      '<textarea rows="5" class="field-control" id="slip-text-' + k + '" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here"></textarea>' +
+    '<details class="slip-paste"' + (p && p.pasted ? ' open' : '') + '><summary>or paste its text</summary><label class="field-label" for="slip-text-' + k + '">Payslip text<span class="visually-hidden"> for ' + pid + '</span></label>' +
+      '<textarea rows="5" class="field-control" id="slip-text-' + k + '" data-slip-text="' + pid + '" placeholder="Copy everything on the payslip and paste it here">' + escapeAttr(p && p.sourceText || "") + '</textarea>' +
     '<button type="button" class="btn btn-sm" data-slip-read="' + pid + '">Read it</button></details>';
   if(!p) return out + '</div>';
-  if(p.error) return out + '<p class="slip-out warn">' + escapeAttr(p.error) + '</p></div>';
+  var dismiss = '<button type="button" class="btn btn-sm btn-ghost" data-slip-cancel="' + pid + '">Dismiss review</button>';
+  if(p.loading) return out + '<p class="slip-out" role="status" data-slip-result tabindex="-1">Reading the payslip. Nothing has been saved.</p>' + dismiss + '</div>';
+  if(p.error) return out + '<p class="slip-out warn" role="status" data-slip-result tabindex="-1">' + escapeAttr(p.error) + '</p>' + dismiss + '</div>';
   var money = function(v){ return v == null ? "—" : fmtCurrency2.format(v); };
   var freq = payFrequency(p);
   out += '<div class="slip-out"><b>Read from the payslip' + (p.periodEnd ? ' for the period to ' + escapeAttr(fmtDate(p.periodEnd, { year: true })) : '') + ':</b>' +
@@ -775,12 +777,17 @@ function payslipReadHtml(person){
     (p.sacrifice != null ? '<span>Salary sacrifice ' + money(p.sacrifice) + '</span>' : '') +
     (p.net != null ? '<span>Net ' + money(p.net) + '</span>' : '') + '</div>';
   var actions = [];
-  // v3.149.0: the year-to-date figures are used as soon as they're read (app.js applyPayslipYtd);
-  // the button is only for when they weren't — the stored ones came from a later payslip.
-  var stY = personTaxSettings(person).ytd || {};
-  var inUse = stY.asOf === p.periodEnd && stY.gross === p.ytd.gross && stY.withheld === p.ytd.tax;
-  if(p.ytd.gross != null && p.ytd.tax != null && p.periodEnd){ if(!inUse) actions.push('<button type="button" class="btn btn-sm" data-slip-use="' + pid + '">Use the year-to-date figures</button>'); }
-  else out += '<p class="slip-out">' + (p.periodEnd ? "No year-to-date column found" : "No period dates found") + ' — type the figures above.</p>';
+  var savedYtd = (state.tax.settings[person] || {}).ytd || null;
+  var review = payslipYtdReview(p, savedYtd);
+  out += '<p class="slip-review" data-slip-review tabindex="-1">Review for <b>' + pid + '</b>. Choose which figures to save; each action saves separately.</p>';
+  if(savedYtd) out += '<p class="slip-out">Saved year to date: ' + escapeAttr(fmtDate(savedYtd.asOf, { year: true })) + ' · Gross ' + money(savedYtd.gross) + ' · Tax ' + money(savedYtd.withheld) + '.</p>';
+  if(review.status === "same") out += '<p class="slip-out" data-slip-result tabindex="-1" role="status">These year-to-date figures are already saved.</p>';
+  else if(review.status === "missing") out += '<p class="slip-out">No complete year-to-date gross, tax and period date found. Check the source, retry, or type the figures above.</p>';
+  else if(review.status === "invalid") out += '<p class="slip-out warn">The year-to-date date or figures are invalid. Check the source and retry; nothing has been saved.</p>';
+  else {
+    if(review.status === "older") out += '<p class="slip-out warn">This payslip is older than the saved year-to-date figures. Replacing them will move the check back to ' + escapeAttr(fmtDate(p.periodEnd, { year: true })) + '.</p>';
+    actions.push('<button type="button" class="btn btn-sm" data-slip-use="' + pid + '" data-slip-before="' + escapeAttr(JSON.stringify(savedYtd)) + '">' + (review.status === "older" ? 'Replace newer year-to-date figures' : 'Save year-to-date figures') + '</button>');
+  }
   var row = salaryRowFor(person);
   if(row && freq && p.gross > 0){
     var planned = periodsOf(Number(row.amount) || 0, row.freq).yearly, read = periodsOf(p.gross, freq).yearly;
@@ -792,6 +799,8 @@ function payslipReadHtml(person){
     out += '<ul class="slip-check">' + chk.lines.map(function(l){ return '<li class="' + l.tone + '">' + escapeAttr(l.text) + '</li>'; }).join("") + '</ul>';
     if(chk.loggable) actions.unshift('<button type="button" class="btn btn-sm" data-slip-log="' + pid + '">Log ' + fmtCurrency2.format(chk.loggable.amount) + ' as received ' + escapeAttr(fmtDate(chk.loggable.date)) + '</button>');
   }
+  actions.push('<button type="button" class="btn btn-sm btn-ghost" data-slip-cancel="' + pid + '">Dismiss review</button>');
+  if(p.fromInbox) actions.push('<button type="button" class="btn btn-sm btn-ghost" data-slip-done="' + pid + '">Finish review</button>');
   return out + (actions.length ? '<div class="slip-actions">' + actions.join("") + '</div>' : '') + '</div>';
 }
 export function withholdingCheckHtml(person){

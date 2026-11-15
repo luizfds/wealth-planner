@@ -306,6 +306,113 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async payslipreview(page){
+    await quiet(page);
+    await go(page,'tax','data-tax-sub','year');
+    const root='[data-tax-person="Alex"] .tax-ytd';
+    const panel=page.locator(root);
+    await panel.evaluate(el=>el.open=true);
+    const initial=await st(page,'JSON.stringify(state.tax.settings.Alex.ytd||null)');
+    const paste=async text=>{
+      await panel.evaluate(el=>{el.open=true;el.querySelector('.slip-paste').open=true;});
+      await panel.locator('[data-slip-text]').fill(text);
+      await panel.locator('[data-slip-read]').click();
+    };
+    const text=(end='2026-10-31',gross='20,000.00')=>'Employer A\nAlex\nPeriod: 01/10/2026 to '+end+'\nGross pay 6,000.00 '+gross+'\nTax 1,000.00 4,000.00\nNet pay 5,000.00\nSuper 600.00';
+    // Earlier explicit Save/Undo actions append activity entries after a quiet spell.
+    // Compare every other household field; the first read also checks raw browser storage.
+    const snapshot=()=>st(page,'JSON.stringify(Object.fromEntries(Object.entries(state).filter(([key])=>key!=="activity")))');
+    const before=await snapshot(), persisted=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
+    await paste(text());
+    check(await snapshot()===before,'reading payslip changed household data');
+    check(await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'))===persisted,'reading payslip wrote storage');
+    check((await panel.innerText()).includes('Review for Alex'),'destination person missing');
+    if(process.env.PAYSLIP_A11Y){const axe=await import('axe-core');await page.evaluate(axe.default.source);}
+    if(process.env.PAYSLIP_SHOTS) fs.mkdirSync(process.env.PAYSLIP_SHOTS,{recursive:true});
+    for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
+      await page.setViewportSize({width,height:844});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      check(await panel.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&el.scrollWidth<=el.clientWidth+1&&Array.from(el.querySelectorAll('.slip-actions button')).every(b=>b.scrollWidth<=b.clientWidth+1);}), 'payslip preview overflow '+width+'/'+theme);
+      await panel.locator('[data-slip-review]').evaluate(el=>{el.scrollIntoView({block:'center'});el.focus({preventScroll:true});});
+      check(await panel.locator('[data-slip-review]').evaluate(el=>{const r=el.getBoundingClientRect(),bar=document.querySelector('.app-topbar').getBoundingClientRect();return r.top>=bar.bottom&&r.bottom<=innerHeight-80;}),'review focus is obscured '+width+'/'+theme);
+      if(process.env.PAYSLIP_SHOTS) await page.screenshot({path:path.join(process.env.PAYSLIP_SHOTS,width+'-'+theme+'.png')});
+      if(process.env.PAYSLIP_A11Y){const violations=await panel.evaluate(async el=>(await window.axe.run(el,{preload:false})).violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.failureSummary)})));check(!violations.length,'payslip review accessibility: '+JSON.stringify(violations));}
+    }
+    await panel.locator('[data-slip-cancel]').click();
+    check(await snapshot()===before,'dismissing payslip changed data');
+    await paste('Example unreadable text');
+    check(await panel.locator('[data-slip-text]').inputValue()==='Example unreadable text','failed parse discarded the source text');
+    check(!await panel.locator('[data-slip-use]').count(),'malformed payslip offered an apply');
+    check(await snapshot()===before,'malformed payslip changed data');
+    await paste('Gross pay 6,000.00\nPeriod ending 31/10/2026');
+    check(!await panel.locator('[data-slip-use]').count(),'partial payslip offered YTD apply');
+    await paste(text('2026-02-31'));
+    check(!await panel.locator('[data-slip-use]').count(),'invalid period date offered apply');
+    await paste(text());
+    await panel.locator('[data-slip-use]').click();
+    await waited(page,async()=>{const {state}=await import('/src/state.js');return state.tax.settings.Alex.ytd?.gross===20000;},'explicit YTD save');
+    check(await st(page,'JSON.stringify(state.tax.settings.Alex.ytd)')===JSON.stringify({asOf:'2026-10-31',gross:20000,withheld:4000}),'wrong YTD saved');
+    check(!await panel.locator('[data-slip-use]').count(),'duplicate YTD still offered save');
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'JSON.stringify(state.tax.settings.Alex.ytd||null)')===initial,'Undo failed to restore original YTD');
+    // A later edit while this preview is open must be reviewed before replacement.
+    await paste(text());
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');state.tax.settings.Alex.ytd={asOf:'2026-11-01',gross:30000,withheld:6000};});
+    await panel.locator('[data-slip-use]').click();
+    check(await st(page,'state.tax.settings.Alex.ytd.gross')===30000,'stale preview overwrote an intervening edit');
+    check((await panel.locator('[data-slip-use]').innerText()).includes('Replace newer'),'older replacement not explicit');
+    await panel.locator('[data-slip-use]').click();
+    check(await st(page,'state.tax.settings.Alex.ytd.gross')===20000,'explicit older replacement did not save');
+    // An Undo must also respect a newer edit.
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');state.tax.settings.Alex.ytd={asOf:'2026-11-02',gross:40000,withheld:8000};});
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'state.tax.settings.Alex.ytd.gross')===40000,'Undo clobbered a newer edit');
+    await panel.locator('[data-slip-cancel]').click();
+    const pdf=statementPdf(text().split('\n').map(line=>[line]));
+    const beforePdf=await snapshot();
+    await page.setInputFiles(root+' [data-slip-file]',{name:'example-payslip.pdf',mimeType:'application/pdf',buffer:pdf});
+    await waited(page,()=>!!document.querySelector('[data-tax-person="Alex"] [data-slip-review]'),'direct PDF preview');
+    check(await snapshot()===beforePdf,'direct PDF auto-saved YTD');
+    await panel.locator('[data-slip-cancel]').click();
+    await page.evaluate(()=>{
+      const read=File.prototype.arrayBuffer;
+      File.prototype.arrayBuffer=function(){
+        if(this.name!=='delayed-payslip.pdf') return read.call(this);
+        window.__pendingPayslipRead=new Promise((resolve,reject)=>{window.__failPayslipRead=()=>reject(new Error('Synthetic read failure'));});
+        return window.__pendingPayslipRead;
+      };
+    });
+    await page.setInputFiles(root+' [data-slip-file]',{name:'delayed-payslip.pdf',mimeType:'application/pdf',buffer:pdf});
+    await waited(page,()=>!!document.querySelector('[data-tax-person="Alex"] [data-slip-cancel]'),'pending PDF can be dismissed');
+    await panel.locator('[data-slip-cancel]').click();
+    await page.evaluate(async()=>{window.__failPayslipRead();await window.__pendingPayslipRead.catch(()=>{});});
+    check(!await panel.locator('[data-slip-cancel]').count(),'dismissed PDF failure resurrected the review');
+    check(await snapshot()===beforePdf,'cancelled PDF read changed data');
+    await paste(text());
+    await page.evaluate(async()=>{const {state}=await import('/src/state.js');window.__keptPayslipIncome=state.income;state.income=state.income.filter(i=>i.person!=='Alex');});
+    const removed=await snapshot();
+    await panel.locator('[data-slip-use]').click();
+    check(await snapshot()===removed,'deleted person received a stale payslip update');
+    await page.evaluate(async()=>{(await import('/src/state.js')).state.income=window.__keptPayslipIncome;});
+    await panel.locator('[data-slip-cancel]').click();
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.setInputFiles('#bankImportFile',{name:'example-payslip.pdf',mimeType:'application/pdf',buffer:pdf});
+    await waited(page,()=>document.body.dataset.currentPage==='tax'&&!!document.querySelector('[data-tax-person="Alex"] [data-slip-review]'),'recognised PDF preview');
+    {const after=await snapshot();check(after===beforePdf,'recognised PDF changed keys: '+Object.keys(JSON.parse(after)).filter(k=>JSON.stringify(JSON.parse(after)[k])!==JSON.stringify(JSON.parse(beforePdf)[k])).join(','));}
+    await panel.locator('[data-slip-cancel]').click();
+    await paste(text());
+    const logBefore=await st(page,'state.incomeLog.length'), ytdBefore=await st(page,'JSON.stringify(state.tax.settings.Alex.ytd)');
+    await panel.locator('[data-slip-log]').click();
+    check(await st(page,'state.incomeLog.length')===logBefore+1,'explicit pay logging no longer works');
+    check(await st(page,'JSON.stringify(state.tax.settings.Alex.ytd)')===ytdBefore,'logging pay applied YTD too');
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'state.incomeLog.length')===logBefore,'pay logging Undo failed');
+    const salaryBefore=await page.evaluate(async()=>{const row=(await import('/src/components/income.js')).salaryRowFor('Alex');return {id:row.id,amount:row.amount};});
+    await panel.locator('[data-slip-salary]').click();
+    check(await st(page,'state.income.find(i=>i.id==='+JSON.stringify(salaryBefore.id)+').amount')===6000,'explicit salary update no longer works');
+    check(await st(page,'JSON.stringify(state.tax.settings.Alex.ytd)')===ytdBefore,'salary action applied YTD too');
+    await page.locator('.toast-undo-btn').last().click();
+    check(await st(page,'state.income.find(i=>i.id==='+JSON.stringify(salaryBefore.id)+').amount')===salaryBefore.amount,'salary Undo failed');
+  },
   async importchooser(page){
     await quiet(page);
 

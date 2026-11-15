@@ -385,7 +385,7 @@ export function wirePullToRefresh(){
     document.addEventListener("touchstart", function(e){
       pull = null;
       if(!phone.matches || busy || e.touches.length !== 1 || window.scrollY > 0) return;
-      if(e.target.closest(".review-backdrop, .m-row.open, input, select, textarea, .table-scroll, .subnav, .m-row.tx-row") || overlayOpen()) return;
+      if(e.target.closest(".review-backdrop, .m-row.open, .page-overflow-menu, input, select, textarea, .table-scroll, .subnav, .m-row.tx-row") || overlayOpen()) return;
       pull = { y0: e.touches[0].clientY, dy: 0 };
     }, { passive: true });
     document.addEventListener("touchmove", function(e){

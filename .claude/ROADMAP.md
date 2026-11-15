@@ -5243,4 +5243,6 @@ Verified brokerreview at 320/390/768/1280px in both themes with eight scoped axe
 
 ## Mobile user menu viewport bounds
 
-`[~]` Keep the avatar menu inside the usable visual viewport, above mobile navigation and safe-area insets. Scroll the menu itself when needed, including short/landscape screens and larger text. Keep its first/last controls reachable by keyboard and touch, restore focus on Escape and update bounds on viewport/header changes. Reproduce the current crop with synthetic data; verify 320/390/768/1280px, both themes, expanded/compact headers, height changes, all menu entries and axe. Keep bank-read recovery separate.
+`[x]` Keep the avatar menu inside the usable visual viewport, above mobile navigation and safe-area insets. Scroll the menu itself when needed, including short/landscape screens and larger text. Keep its first/last controls reachable by keyboard and touch, restore focus on Escape and update bounds on viewport/header changes. Reproduce the current crop with synthetic data; verify 320/390/768/1280px, both themes, expanded/compact headers, height changes, all menu entries and axe. Keep bank-read recovery separate.
+
+Verified the released menu fails the viewport regression; the fix passes four widths in both themes with eight axe scans, compact headers, landscape/short screens, larger text, simulated safe-area navigation, visual viewport zoom, native keyboard focus and touch scrolling/tapping. Internal scrolling does not trigger pull-to-refresh; Escape restores avatar focus and household data is unchanged.

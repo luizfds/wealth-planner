@@ -75,7 +75,46 @@ export function wirePhoneSheets(){  // v3.167.0 (item 197): an open section's he
   })();
 }
 
-export function wireOverflowMenus(){  document.addEventListener("click", function(e){
+// The avatar list can outgrow a short screen. Its actual anchor and visual viewport,
+// rather than the document's height, define the space above the phone navigation.
+function fitAvatarMenu(){
+  var menu = document.querySelector(".avatar-menu:not([hidden])"), button = document.getElementById("avatarBtn");
+  if(!menu || !button) return;
+  var viewport = window.visualViewport, gap = 8;
+  var left = viewport ? viewport.offsetLeft : 0, top = viewport ? viewport.offsetTop : 0;
+  var width = viewport ? viewport.width : window.innerWidth, bottom = top + (viewport ? viewport.height : window.innerHeight);
+  var nav = document.querySelector(".mobile-tabbar"), navBox = nav && nav.getBoundingClientRect();
+  if(navBox && nav.getClientRects().length && navBox.top > top && navBox.top < bottom) bottom = navBox.top;
+  var anchor = button.getBoundingClientRect();
+  var menuTop = Math.max(top + gap, Math.min(anchor.bottom + 4, bottom - gap - 44));
+  menu.style.maxWidth = Math.max(0, width - gap * 2) + "px";
+  menu.style.maxHeight = Math.max(0, bottom - menuTop - gap) + "px";
+  menu.style.top = menuTop + "px";
+  menu.style.left = Math.max(left + gap, Math.min(anchor.right - menu.offsetWidth, left + width - menu.offsetWidth - gap)) + "px";
+}
+
+export function wireOverflowMenus(){
+  var pending = false;
+  function scheduleFit(){
+    if(pending || !document.querySelector(".avatar-menu:not([hidden])")) return;
+    pending = true;
+    requestAnimationFrame(function(){ pending = false; fitAvatarMenu(); });
+  }
+  window.addEventListener("resize", scheduleFit, {passive:true});
+  window.addEventListener("scroll", function(e){
+    var menu = document.querySelector(".avatar-menu:not([hidden])");
+    if(menu && e.target instanceof Node && menu.contains(e.target)) return;
+    scheduleFit();
+  }, {passive:true,capture:true});
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize", scheduleFit, {passive:true});
+    window.visualViewport.addEventListener("scroll", scheduleFit, {passive:true});
+  }
+  if(typeof ResizeObserver !== "undefined"){
+    var observer = new ResizeObserver(scheduleFit);
+    document.querySelectorAll(".app-topbar, .mobile-tabbar").forEach(function(el){observer.observe(el);});
+  }
+  document.addEventListener("click", function(e){
     var toggle = e.target.closest("[data-overflow-toggle]");
     if(toggle){
       var wrap = toggle.closest(".page-overflow");
@@ -84,6 +123,7 @@ export function wireOverflowMenus(){  document.addEventListener("click", functio
       closeAllOverflowMenus(wrap);
       menu.hidden = !willOpen;
       toggle.setAttribute("aria-expanded", String(willOpen));
+      if(willOpen && menu.classList.contains("avatar-menu")){ menu.scrollTop = 0; fitAvatarMenu(); }
       return;
     }
     // A click on an item inside the menu (Export CSV, Import…) closes it too — those handlers run

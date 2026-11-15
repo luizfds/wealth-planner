@@ -230,7 +230,7 @@ an inaccessible summary to its inert background property card.
 
 Each form reserves a polite, atomic live region before its first error; the visible summary count is announced there, not as an alert. Each link names its field (and repeated row where available)
 and repeats the existing inline error. It opens the required property tab, section or native disclosure, then
-focuses and centers the field below sticky chrome. Displaying or updating the summary never moves focus itself.
+focuses the field in the usable area between the sticky header and visible phone navigation, using the visual viewport when available. While that field stays focused, one positioning watch follows its DOM identity through a redraw and keeps it visible as the header, navigation or form changes size. It does not restore focus. Moving focus, scrolling with a wheel/touch gesture or using page-navigation keys releases the watch. Displaying or updating a summary alone never moves focus.
 Correcting an error removes its link; correcting all errors hides the summary. Removing a repeated row removes
 its error, without transferring a draft to the next row.
 
@@ -243,6 +243,12 @@ Generated validation ids and repeated-field keys are not written to financial st
 links, actual focus/occlusion and local/page overflow measurements, redraws, row deletion and correction. The
 accessibility job scans summaries and their invalid fields and saves separate error-state screenshots. This is
 Chromium emulation; #267's wider state catalogue and #299's real device/screen-reader checks remain open.
+
+### Viewport and redraw regression coverage
+
+`errorsummarybounds` covers four widths, both themes and heights of 190/240/390/844px, keyboard/touch activation, focused invalid drafts through redraws, visual-viewport zoom and release after native wheel scrolling. Released main reproduces both a field partly hidden under the desktop header and a focused field moved off-screen after its summary is rebuilt. The fix uses actual layout observations and focus/user-input events, without a fixed settling delay or financial writes.
+
+The earlier standard-height `errorsummaries` timeout did not have enough diagnostics to establish its cause. It remains distinct from these confirmed defects. A subsequent traced run caught a missed source-link activation during header reflow, with an unchanged destination node. The gesture driver now waits for actual header transitions before activating, without retrying a failed click. Every activation records form, width/theme, target/node identity, source bounds and pointer/click events, focus, header/navigation/viewport bounds, hit testing, scroll and redraw events. A timeout includes the recent trace; `ERROR_TRACE_DIR` keeps complete failure traces and settled samples as accessibility artifacts. Existing atomic focus/occlusion checks and timeouts remain. The test focuses the source link before activation, representing keyboard/assistive navigation away from the previously selected field, then verifies the actual destination with keyboard or touch.
 
 ## Open questions
 

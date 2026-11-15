@@ -44,6 +44,62 @@ function errorMessage(input){
     .filter(function(el){ return el && el.classList.contains('field-error'); }).map(function(el){ return el.textContent.trim(); }).filter(Boolean).join(' ');
 }
 
+// Keep the selected error in the usable page area as its summary/header reflows.
+// One watch follows the focused field's DOM identity through a redraw; it never restores focus.
+var stopPositionWatch = null;
+function positionErrorTarget(input){
+  if(stopPositionWatch) stopPositionWatch();
+  input.scrollIntoView({block:'center', behavior:'instant'});
+  if(input.closest('dialog, [role="dialog"]')) return;
+  var id = input.id, key = input.getAttribute('data-error-key'), scope = null, active = true, queued = false;
+  var viewport = window.visualViewport, observer = typeof ResizeObserver === 'function' ? new ResizeObserver(changed) : null;
+  function stop(){
+    active = false;
+    if(observer) observer.disconnect();
+    document.removeEventListener('focusin', focusChanged, true);
+    document.removeEventListener('focusout', focusChanged, true);
+    window.removeEventListener('wheel', stop, true); window.removeEventListener('touchstart', stop, true);
+    window.removeEventListener('pointerdown', stop, true); window.removeEventListener('keydown', keys);
+    window.removeEventListener('resize', changed);
+    if(viewport){ viewport.removeEventListener('resize', changed); viewport.removeEventListener('scroll', changed); }
+    if(stopPositionWatch === stop) stopPositionWatch = null;
+  }
+  function fit(center){
+    if(!active) return;
+    var live = document.getElementById(id);
+    if(!live || live !== document.activeElement || !live.getClientRects().length || live.disabled || live.closest('[inert]') || live.getAttribute('data-error-key') !== key){ stop(); return; }
+    input = live;
+    var nextScope = longFormScope(input);
+    if(!nextScope){ stop(); return; }
+    if(observer && nextScope !== scope){
+      if(scope) observer.unobserve(scope);
+      scope = nextScope; if(scope) observer.observe(scope, {box:'border-box'});
+    }
+    var top = viewport ? viewport.offsetTop : 0, bottom = top + (viewport ? viewport.height : window.innerHeight);
+    var header = document.querySelector('.app-topbar'), h = header && header.getBoundingClientRect();
+    if(h && header.getClientRects().length && h.top <= top && h.bottom > top && h.bottom < bottom) top = h.bottom;
+    var nav = document.querySelector('.mobile-tabbar'), n = nav && nav.getBoundingClientRect();
+    if(n && nav.getClientRects().length && n.top > top && n.top < bottom) bottom = n.top;
+    var r = input.getBoundingClientRect(), gap = Math.min(8, Math.max(0, (bottom - top - r.height) / 2));
+    var delta = center ? r.top + r.height / 2 - (top + bottom) / 2 : r.top < top + gap ? r.top - top - gap : r.bottom > bottom - gap ? r.bottom - bottom + gap : 0;
+    if(Math.abs(delta) > 0.5) window.scrollBy({top:delta, behavior:'instant'});
+  }
+  function changed(){ fit(false); }
+  function focusChanged(){
+    if(queued) return;
+    queued = true; queueMicrotask(function(){ queued = false; changed(); });
+  }
+  function keys(e){ if(['Tab', 'Escape', 'PageUp', 'PageDown'].indexOf(e.key) !== -1) stop(); }
+  stopPositionWatch = stop;
+  document.addEventListener('focusin', focusChanged, true); document.addEventListener('focusout', focusChanged, true);
+  window.addEventListener('wheel', stop, {passive:true,capture:true}); window.addEventListener('touchstart', stop, {passive:true,capture:true});
+  window.addEventListener('pointerdown', stop, {passive:true,capture:true}); window.addEventListener('keydown', keys);
+  window.addEventListener('resize', changed, {passive:true});
+  if(viewport){ viewport.addEventListener('resize', changed, {passive:true}); viewport.addEventListener('scroll', changed, {passive:true}); }
+  if(observer) document.querySelectorAll('.app-topbar, .mobile-tabbar').forEach(function(el){ observer.observe(el, {box:'border-box'}); });
+  fit(true); requestAnimationFrame(changed);
+}
+
 function controller(scope){
   var summary = document.createElement('section');
   summary.className = 'error-summary';
@@ -94,7 +150,7 @@ function controller(scope){
     input.dispatchEvent(new CustomEvent('reveal-field-error', {bubbles:true}));
     for(var n = input.parentElement; n; n = n.parentElement) if(n.tagName === 'DETAILS') n.open = true;
     input.focus({preventScroll:true});
-    input.scrollIntoView({block:'center', behavior:'instant'});
+    positionErrorTarget(input);
   });
   if(typeof MutationObserver === 'function'){
     new MutationObserver(function(changes){

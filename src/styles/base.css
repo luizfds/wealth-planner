@@ -504,6 +504,8 @@ body.help-hidden :is(h2, h3, h4):has(> .help-btn-heading.help-open) ~ .help{ dis
 .app-dialog::backdrop{ background:rgba(0,0,0,.45); }
 .app-dialog h2{ margin:0 0 10px; font-size:var(--fs-lg); }
 .app-dialog p{ white-space:pre-wrap; overflow-wrap:anywhere; margin:0 0 14px; }
+.app-dialog-details{ margin:-6px 0 14px; padding-left:18px; font-size:var(--fs-sm); color:var(--ink-soft); overflow-wrap:anywhere; }
+.app-dialog-details li + li{ margin-top:4px; }
 .app-dialog-fields{ display:flex; flex-direction:column; gap:12px; min-width:0; }
 .app-dialog-field{ display:flex; flex-direction:column; gap:5px; font-size:var(--fs-md); }
 /* #254: a dialog's fields are on the shared skin (.field-control, set in lib/dialogs.js). */

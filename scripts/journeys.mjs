@@ -76,6 +76,8 @@
 //   pricepaste  — Shares' pasted prices (#265): read into a review first, nothing below zero, a quoted thousands
 //                 figure read whole, conflicting or other-market lines left out, a stale review shown again,
 //                 an unsaved update put back, and Undo restoring prices only while nothing has priced them since
+//   restorebackup — restoring a backup (#265): checked before anything asks, the question says what the backup
+//                 and this device hold, an empty backup named as one, an unsaved restore put back, and Undo
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -348,6 +350,104 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async restorebackup(page){
+    // Synthetic demo household; backups are made from it here, in the test.
+    await quiet(page);
+    const saved = () => page.evaluate(() => localStorage.getItem('wealthPlanner.v1'));
+    const current = async () => JSON.parse(await page.evaluate(async () => JSON.stringify((await import('/src/state.js')).state)));
+    const pick = (p, obj) => p.setInputFiles('#importFile', { name: 'example-backup.json', mimeType: 'application/json', buffer: Buffer.from(typeof obj === 'string' ? obj : JSON.stringify(obj)) });
+    const clearToasts = p => p.evaluate(() => document.querySelectorAll('#toastWrap > *').forEach(t => t.remove()));
+    const original = await current(), linesWas = original.shared.length;
+    const backup = JSON.parse(JSON.stringify(original));
+    backup.shared = backup.shared.slice(0, 2); backup.savedAt = '2026-11-02T09:00:00.000Z'; backup.savedByName = 'Sam <i>';
+
+    // Not a backup: said straight away, nothing asked.
+    for(const [bad, said] of [[{ income: 'x', home: 'y' }, /doesn't look like a valid backup/], [{ income: [], home: {}, transactions: {} }, /its transactions isn't a list/], ['not json', /doesn't look like a valid backup/]]){
+      await clearToasts(page); const before = await saved();
+      await pick(page, bad);
+      await page.locator('#toastWrap').getByText(said).waitFor();
+      check(!await page.locator('.app-dialog').count() && await saved() === before, 'a malformed file was offered as a replacement: ' + JSON.stringify(bad));
+    }
+
+    // The question names what each holds; Cancel changes nothing.
+    await pick(page, backup);
+    const dialog = page.locator('.app-dialog');
+    await dialog.waitFor();
+    const text = await dialog.innerText();
+    check(/This backup is OLDER than what's on this device/.test(text), 'older backup not said: ' + text);
+    check(/This backup, last changed .* by Sam <i>: 2 budget lines/.test(text) && new RegExp('This device, last changed .*: ' + linesWas + ' budget lines').test(text), 'the comparison is missing: ' + text);
+    check(await dialog.evaluate(d => !d.querySelector('#appDialogDetails i') && d.getAttribute('aria-describedby') === 'appDialogMessage appDialogDetails'), 'details not plain text, or not described');
+    if(process.env.RESTORE_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 700 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(await dialog.evaluate((d, w) => d.getBoundingClientRect().right <= w + 1 && d.scrollWidth <= d.clientWidth + 1, width), 'restore dialog overflows at ' + width + '/' + theme);
+      if(process.env.RESTORE_A11Y){
+        const violations = await dialog.evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => n.failureSummary) })));
+        check(!violations.length, 'restore dialog accessibility ' + width + '/' + theme + ': ' + JSON.stringify(violations));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+    const beforeCancel = await saved();
+    await answerDialog(page, false);
+    check(await saved() === beforeCancel && (await current()).shared.length === linesWas, 'cancel changed the household');
+
+    // Restore, then Undo puts the previous household back.
+    await clearToasts(page);
+    await pick(page, backup); await answerDialog(page, true);
+    await page.locator('#toastWrap').getByText('Backup restored').waitFor();
+    check(await stored(page, 'state.shared.length') === 2 && (await current()).shared.length === 2, 'restore not saved');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await page.locator('#toastWrap').getByText('Restore undone').waitFor();
+    check(await stored(page, 'JSON.stringify(state.shared)') === JSON.stringify(original.shared) && (await current()).shared.length === linesWas, 'Undo did not bring the previous household back');
+
+    // Undo after an edit refuses and keeps the edit.
+    await clearToasts(page);
+    await pick(page, backup); await answerDialog(page, true);
+    await page.locator('#toastWrap').getByText('Backup restored').waitFor();
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.shared[0].amount = 123; m.commit(['shared']); });
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await page.locator('#toastWrap').getByText(/Can't undo — the household has changed since the restore/).waitFor();
+    check(await stored(page, 'state.shared[0].amount') === 123 && await stored(page, 'state.shared.length') === 2, 'refused Undo changed the household');
+
+    // An empty backup is named as one.
+    await pick(page, { income: [], home: {} });
+    await dialog.waitFor();
+    check(/This backup is empty/.test(await dialog.innerText()) && await dialog.locator('[data-dialog-submit]').innerText() === 'Replace with empty household', 'an empty backup was not named as one');
+    await answerDialog(page, false);
+
+    // A save that doesn't happen: this device's household stays, and nothing says it was restored.
+    await clearToasts(page);
+    const durable = await saved(), shown = JSON.stringify((await current()).shared);
+    await page.evaluate(() => { window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function(k, v){ if(k === 'wealthPlanner.v1') throw new Error('Synthetic restore save failure'); return window.__setItem.call(this, k, v); }; });
+    await pick(page, original); await answerDialog(page, true);
+    await page.locator('#toastWrap').getByText(/Not restored — this browser couldn't save the backup/).waitFor();
+    check(await saved() === durable && JSON.stringify((await current()).shared) === shown, 'a failed restore changed the household');
+    check(!/Backup restored/.test(await page.locator('#toastWrap').innerText()), 'a failed restore claimed success');
+    await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+
+    // Touch: restore by tap, Undo by tap.
+    const touch = await fresh({ touch: true });
+    try{
+      const tp = touch.page; await quiet(tp);
+      const was = await tp.evaluate(() => localStorage.getItem('wealthPlanner.v1'));
+      const b = JSON.parse(was); b.shared = b.shared.slice(0, 1);
+      await pick(tp, b);
+      await tp.locator('.app-dialog [data-dialog-submit]').tap();
+      await tp.locator('#toastWrap').getByText('Backup restored').waitFor();
+      check(await stored(tp, 'state.shared.length') === 1, 'touch restore not saved');
+      await tp.locator('#toastWrap .toast-undo-btn').last().tap();
+      await tp.locator('#toastWrap').getByText('Restore undone').waitFor();
+      check(await stored(tp, 'state.shared.length') === JSON.parse(was).shared.length, 'touch Undo did not bring the household back');
+      check(!touch.errors.length, 'touch restore errors: ' + touch.errors.join('; '));
+    } finally { await touch.ctx.close(); }
+
+    // welcome.html checks a file the same way before asking.
+    await page.goto(base + '/welcome.html');
+    await page.locator('#welcomeImportFile').setInputFiles({ name: 'example-backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ income: [], home: {}, assets: 'x' })) });
+    await page.locator('#toastWrap').getByText(/its assets isn't a list/).waitFor();
+    check(!await page.locator('.app-dialog').count(), 'welcome offered a malformed backup');
+  },
+
   async pricepaste(page){
     // Synthetic demo household: VAS and IVV held on the ASX.
     await quiet(page);

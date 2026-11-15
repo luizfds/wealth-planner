@@ -18,7 +18,8 @@ import { downloadBackupCopy, decryptBackup, doExport, doShare, canShareFiles } f
 import { localDateStr } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { compareCopies } from "../lib/safekeeping.js";
-import { showToast, showPersistentToast } from "../lib/toast.js";
+import { readBackup, restoreQuestion } from "../calc/restore.js";
+import { showToast, showPersistentToast, showUndoToast } from "../lib/toast.js";
 import { state, setState, persist, defaultState, migrateState, genId, onStorageConflict, onPendingWork, onAdopted, onSaved, onCommit, takeOtherTabsSave, adoptStoredCopy, keepThisTabsCopy, hasPendingWork, setStatus } from "../state.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { firstRun, startFirstRun } from "./firstrun.js";
@@ -82,33 +83,51 @@ async function applyTaxYearFile(parsed){
     renderTaxYear();
   });
 }
+// The whole household replaced — only if the save is seen to happen. Otherwise `back` is put back (this tab
+// then shows what storage holds) and it returns false.
+function replaceHousehold(next, back){
+  setState(next);
+  if(!persist()){ setState(back); renderAll(); return false; }
+  renderAll();
+  return true;
+}
+// #265: a backup is checked before anything asks to replace the household (calc/restore.js); the question
+// says what the backup holds beside what this device holds; the household is replaced only once the save
+// is seen to happen; and Undo puts the previous one back while nothing has changed since.
 async function applyImportedBackupJson(jsonStr){
-  try{
-    var parsed = JSON.parse(jsonStr);
-    // A tax year file picked from the main Import merges instead of replacing everything.
-    if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){ return await applyTaxYearFile(parsed); }
-    if(!parsed || !parsed.income || !parsed.home) throw new Error("bad shape");
-    // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an
-    // older copy over a newer one.
-    var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
-    var cmp = compareCopies(parsed.savedAt);
-    if(hasRealUserData()){
-      var msg = cmp === "here"
-        ? "This backup is OLDER than what's on this device — it was last changed " + when(parsed.savedAt) + ", this device's copy " + when(state.savedAt) + ". Replace this device's newer copy with it?"
-        : cmp === "incoming"
-        ? "Replace this device's copy (last changed " + when(state.savedAt) + ") with this backup (last changed " + when(parsed.savedAt) + ")?"
-        : "You already have data in Wealth Planner on this device. Importing will replace it — this can't be undone unless you've exported a backup first. Continue?";
-      if(!(await confirmDialog(msg, {"title":"Restore backup","accept":"Replace household","danger":true}))) return;
-    }
-    // v3.170.0: the receipts' files the backup carries go back into this device's store.
-    unpackReceipts(takeReceiptFiles(parsed)).catch(function(){ showToast("The backup's receipts couldn't be stored on this device"); });
-    setState(migrateState(parsed));
-    renderAll();
-    persist();
-    showToast("Backup imported");
-  }catch(err){
-    showToast("That file doesn't look like a valid backup");
+  var parsed;
+  try{ parsed = JSON.parse(jsonStr); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
+  // A tax year file picked from the main Import merges instead of replacing everything.
+  if(parsed && parsed.kind === TAX_YEAR_FILE_KIND){
+    try{ return await applyTaxYearFile(parsed); }catch(err){ showToast("That file doesn't look like a valid backup"); return; }
   }
+  var files = takeReceiptFiles(parsed);
+  var read = readBackup(parsed);
+  if(!read.ok){ showToast(read.reason); return; }
+  var before = state;
+  if(hasRealUserData()){
+    // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an older copy
+    // over a newer one.
+    var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
+    var q = restoreQuestion(read.household, state, compareCopies(read.household.savedAt), when);
+    if(!(await confirmDialog(q.message, {"title":"Restore backup","accept":q.empty ? "Replace with empty household" : "Replace household","danger":true,"details":q.details}))) return;
+    // The household changed while the question was open (another tab's save adopted, say): the comparison
+    // it showed is out of date.
+    if(state !== before){ showToast("This device's household changed while that was open — open the backup again to compare"); return; }
+  }
+  if(!replaceHousehold(read.household, before)){
+    showToast("Not restored — this browser couldn't save the backup, so this device's household is unchanged");
+    return;
+  }
+  var restored = state;
+  // v3.170.0: the receipts' files the backup carries go back into this device's store, once it's restored.
+  unpackReceipts(files).catch(function(){ showToast("The backup's receipts couldn't be stored on this device"); });
+  var after = JSON.stringify(state);
+  showUndoToast("Backup restored", function(){
+    if(state !== restored || JSON.stringify(state) !== after){ showToast("Can't undo — the household has changed since the restore. Restore an earlier backup instead."); return; }
+    if(!replaceHousehold(before, restored)){ showToast("Can't undo — this browser couldn't save the previous household"); return; }
+    showToast("Restore undone");
+  });
 }
 // A backup's text, plain or encrypted — from a picked file or the backup folder (v3.71.0).
 async function importBackupText(raw){

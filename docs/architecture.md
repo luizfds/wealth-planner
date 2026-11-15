@@ -31,7 +31,7 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   `engine.js` (the projection series, net worth, derived rows), `cashflow.js`, `fire.js`, `history.js`, `trends.js`,
   `bank-import.js` / `import-rules.js` / `pdfstatement.js` / `payslip.js` / `brokertrades.js` / `rowimport.js` / `pricepaste.js` (bringing data in; `rowimport.js` is the Budget, Income and
   Assets CSV imports' duplicates, apply and guarded Undo, drawn by `components/rowimport.js`; `pricepaste.js` reviews pasted share prices, drawn by
-  `components/pricepaste.js`),
+  `components/pricepaste.js`; `restore.js` checks and summarises a backup before it replaces the household),
   `claims.js`, `people.js`, `received.js`, `closeyear.js`, `health.js` (Checks), `withholding.js`, `junemoves.js`,
   `actuals.js`, `monthreview.js`, `accounts.js` / `accountlinks.js` (decision 0006), `cashflowlist.js`, `bills.js`,
   `investments.js` / `investreturn.js` / `performance.js`, `reports.js` / `reportframe.js` and the report modules,

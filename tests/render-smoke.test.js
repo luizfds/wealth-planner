@@ -2669,3 +2669,36 @@ test("broker review requires ambiguous destinations and keeps a selected holding
     assert.equal(b.failTradesRead(request),false);
   }finally{state.assets=old;b.cancelTradesRead();}
 });
+
+test("a spreadsheet row import's panel: every state, destinations named, duplicates left out, text escaped (#265)", async () => {
+  const { rowImportPanelHtml } = await import("../src/components/rowimport.js");
+  const name = 'Example <b>"file"</b>.csv';
+  assert.match(rowImportPanelHtml("assets", { status: "reading", name }), /Reading <b>Example &lt;b>&quot;file&quot;&lt;\/b>\.csv<\/b>…/);
+  assert.match(rowImportPanelHtml("assets", { status: "reading", name }), /data-rowimport-cancel/);
+  assert.match(rowImportPanelHtml("income", { status: "error", name }), /data-rowimport-retry/);
+  assert.match(rowImportPanelHtml("assets", { status: "review", name, parsed: { headerOk: false, valid: [], errors: [] } }), /"What" and "Category"/);
+  assert.match(rowImportPanelHtml("expenses", { status: "review", name, parsed: { headerOk: true, valid: [], errors: [] } }), /No rows found/);
+  const valid = [
+    { what: "Gym <x>", amount: 40, freq: "Monthly", source: "Shared", propertyId: null, account: "Bank One", duplicate: null },
+    { what: "Strata", amount: 300, freq: "Quarterly", source: "1 Example St", propertyId: "p1", account: "", duplicate: null },
+    { what: "Water", amount: 90, freq: "Quarterly", source: "Housing", propertyId: null, account: "", duplicate: "existing" },
+    { what: "Gym <x>", amount: 40, freq: "Monthly", source: "Shared", propertyId: null, account: "", duplicate: "file" }
+  ];
+  const r = { status: "review", name, includeDups: false, note: "Note <i>", parsed: { headerOk: true, valid, errors: [{ row: 7, reason: 'Missing "What"' }] } };
+  const html = rowImportPanelHtml("expenses", r);
+  assert.match(html, /2 expenses ready to import<\/b> from .* · 1 skipped · 2 left out/);
+  assert.match(html, /Import 2 expenses/);
+  assert.match(html, /<td>Budget<\/td>/);
+  assert.match(html, /<td>1 Example St<\/td>/);
+  assert.match(html, /1 already in the household, 1 repeating an earlier row in this file/);
+  assert.match(html, /Water · Home costs/);
+  assert.ok(!/<x>|<i>/.test(html), "row text and notes are escaped");
+  assert.match(rowImportPanelHtml("expenses", Object.assign({}, r, { includeDups: true })), /Import 4 expenses/);
+  const unsaved = rowImportPanelHtml("expenses", Object.assign({}, r, { status: "unsaved" }));
+  assert.match(unsaved, /Not saved — nothing was imported/);
+  assert.match(unsaved, />Try again</);
+  assert.match(rowImportPanelHtml("income", { status: "review", name, parsed: { headerOk: true, errors: [], valid: [{ what: "Pay", person: "Sam", incomeType: "Net", amount: 1, freq: "Monthly", duplicate: null }] } }), /Income · Sam/);
+  const dupOnly = rowImportPanelHtml("assets", { status: "review", name, parsed: { headerOk: true, errors: [], valid: [{ what: "Savings", category: "Cash", amount: 5, duplicate: "existing" }] } });
+  assert.ok(!/data-rowimport-confirm/.test(dupOnly), "nothing to import offers no Import");
+  assert.match(dupOnly, /Investments → Cash/);
+});

@@ -211,57 +211,6 @@ export function parseIncomeImportCsv(text){
   });
   return { valid: valid, errors: errors, headerOk: true };
 }
-export function renderIncomeImportPreview(parsed){
-  var container = document.getElementById("incomeImportPreview");
-  if(!container) return parsed.valid;
-  container.hidden = false;
-  if(!parsed.headerOk){
-    container.innerHTML = '<p class="ledger-note" style="margin:0;color:var(--brass-strong)">Couldn\'t find "What" and "Amount" columns in that file — download the import template below, or check your header row matches it.</p>' +
-      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Dismiss</button></div>';
-    return parsed.valid;
-  }
-  if(!parsed.valid.length && !parsed.errors.length){
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No rows found in that file.</p>' +
-      '<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Dismiss</button></div>';
-    return parsed.valid;
-  }
-  var summary = parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + " ready to import" +
-    (parsed.errors.length ? ", " + parsed.errors.length + " skipped" : "");
-  var errorsHtml = parsed.errors.length
-    ? '<ul style="margin:6px 0 0;padding-left:18px;font-size:var(--fs-xs);color:var(--ink-soft)">' +
-        parsed.errors.slice(0, 10).map(function(e){ return "<li>Row " + e.row + ": " + escapeAttr(e.reason) + "</li>"; }).join("") +
-        (parsed.errors.length > 10 ? "<li>and " + (parsed.errors.length - 10) + " more</li>" : "") +
-      "</ul>"
-    : "";
-  var previewRows = parsed.valid.slice(0, 8).map(function(item){
-    return "<tr><td>" + escapeAttr(item.what) + "</td><td>" + escapeAttr(item.person) + "</td><td>" + escapeAttr(item.incomeType) + '</td><td class="num">' + fmtCurrency2.format(item.amount) + "</td><td>" + escapeAttr(item.freq) + "</td></tr>";
-  }).join("");
-  var moreNote = parsed.valid.length > 8 ? '<p class="ledger-note" style="margin:6px 0 0">and ' + (parsed.valid.length - 8) + " more…</p>" : "";
-  container.innerHTML =
-    '<p class="ledger-note" style="margin:0"><b>' + summary + "</b></p>" +
-    errorsHtml +
-    (parsed.valid.length ? '<div class="table-scroll" style="margin-top:8px"><table class="import-preview-table"><thead><tr><th>What</th><th>Person</th><th>Type</th><th class="num">Amount</th><th>Frequency</th></tr></thead><tbody>' + previewRows + "</tbody></table></div>" + moreNote : "") +
-    '<div style="margin-top:10px;display:flex;gap:8px">' +
-      (parsed.valid.length ? '<button type="button" class="btn btn-sm" id="incomeImportConfirmBtn">Import ' + parsed.valid.length + " row" + (parsed.valid.length === 1 ? "" : "s") + "</button>" : "") +
-      '<button type="button" class="btn btn-sm btn-ghost" id="incomeImportCancelBtn">Cancel</button>' +
-    "</div>";
-  return parsed.valid;
-}
-export function clearIncomeImportPreview(){
-  var container = document.getElementById("incomeImportPreview");
-  if(container){ container.hidden = true; container.innerHTML = ""; }
-}
-// Same minimal shape "+Add income" pushes onto state.income today.
-export function commitIncomeImport(items){
-  items.forEach(function(item){
-    state.income.push({
-      what: item.what, person: item.person, classification: "", account: item.account,
-      incomeType: item.incomeType, amount: item.amount, freq: item.freq,
-      superMode: item.superMode, sacrificeMode: item.sacrificeMode, sacrificeValue: item.sacrificeValue
-    });
-  });
-}
-
 // Session-only UI state (not persisted app data) — which modern income rows are expanded,
 // keyed by their state.income index. A structural edit (Type, sacrifice mode, Person) forces a
 // full re-render of #incomeGroups, and without this the row the user is mid-edit on would

@@ -167,6 +167,17 @@
   .import-preview-table td{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:var(--fs-sm); white-space:nowrap; }
   .import-preview-table tr:last-child td{ border-bottom:none; }
   .import-preview-table td.num, .import-preview-table th.num{ text-align:right; font-family:var(--font-num); font-variant-numeric: tabular-nums; }
+  /* A spreadsheet row import's read and review (components/rowimport.js, #265) */
+  .row-import-status{ margin:0; overflow-wrap:anywhere; }
+  .row-import-status.is-warn{ color: var(--warn-ink); }
+  .row-import-note{ margin:6px 0 0; color: var(--warn-ink); overflow-wrap:anywhere; }
+  .row-import-errors{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-xs); color: var(--ink-soft); overflow-wrap:anywhere; }
+  .row-import-table{ margin-top:8px; }
+  .row-import-more{ margin:6px 0 0; }
+  .row-import-dups{ margin-top:10px; }
+  .row-import-dups > .ledger-note{ margin:0; overflow-wrap:anywhere; }
+  .row-import-dups .bank-import-balance{ margin:8px 0 0; min-height:44px; align-items:center; }
+  .row-import-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .row-del{ padding:8px 11px; }
   .computed-note{ font-size: var(--fs-xs); color: var(--ink-soft); display:block; margin-top:1px; }
   .due-note{ font-size:var(--fs-xs); color: var(--ink-soft); display:block; margin-top:2px; }

@@ -14,19 +14,19 @@ import { recordRentReview } from "../calc/propertylife.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { pdfLines } from "../lib/pdftext.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId, commit } from "../state.js";
+import { state, persist, genId, commit, onStateReplaced, onSaved } from "../state.js";
 import { renderAssetsSummary, patchOffsetsRow } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper } from "./income.js";
 import { renderProjectionOutputs } from "./projections.js";
-import { modernPropRowOpen, renderProperties, patchPropertyCardComputed, logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing, fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues } from "./properties.js";
+import { modernPropRowOpen, renderProperties, patchPropertyCardComputed, logPropertySnapshot, PROPERTY_SECTION_KEYS, borrowingNoteText, moveAcquisitionCostToLoan, setSaleWhatIfField, patchSaleWhatIf, setLoanStrategyField, patchLoanStrategy, propertyTabs, propertyEditing, fixedExpiryHtml, rentPanelHtml, fixedWhatIf, agentStatementUi, agentStatementFormValues, rememberAgentStatementForm } from "./properties.js";
 import { renderTotals, withUndo, renderAll } from "./redraw.js";
 import { findProperty, rerenderTableFor, openNewRowModal, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { renderPropListModern } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
-import { fillAgentStatementForm, openStatementForm } from "./rentstatement.js";
+import { openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
 import { recordCashRateMove, setCashRateMoveAside } from "../calc/cashrate.js";
 import { requestCloseActiveOverlay } from "../lib/overlaystack.js";
@@ -126,7 +126,18 @@ function refreshAfterDepreciationChange(){
   persist();
 }
 
+function offerStatementUndo(prop, rec, household){
+  showUndoToast("Statement logged — " + fmtCurrency2.format(rec.net) + " to you" + (rec.txIds.length ? ", " + rec.txIds.length + " bill" + (rec.txIds.length === 1 ? "" : "s") + " paid from the rent" : ""), function(){
+    if(state !== household || findProperty(prop.id) !== prop){ showToast("The household or property changed; Undo kept the newer data."); return; }
+    removeAgentStatement(state, prop, rec.id); commit(["properties", "incomeLog", "transactions"]);
+  });
+}
+
+var propertyStatementReads = new WeakMap(), statementSaveRevision = 0;
 export function wireProperties(){
+  onSaved(function(){ statementSaveRevision++; });
+  onStateReplaced(function(){ agentStatementUi.reviews = {}; });
+
   // Item 249: the RBA moved the cash rate — record it on the loans ticked, or let it be. #305: in a dialog
   // (components/cashrate.js openCashRateDialog), opened from the To do; closing it without answering leaves the To do.
   // Escape closes it, and Tab stays inside it while it is open.
@@ -216,21 +227,42 @@ export function wireProperties(){
     }
     var vd = e.target.closest("[data-vac-del]");
     if(vd){ prop.vacancies.splice(Number(vd.getAttribute("data-vac-del")), 1); persist(); rentPanel(); return; }
+    if(e.target.closest("[data-as-pick]")){ c.querySelector("[data-as-pdf]").click(); return; }
+    if(e.target.closest("[data-as-discard]")){
+      propertyStatementReads.delete(prop);
+      var read = agentStatementUi.reviews[prop.id];
+      if(read && read.logged){ removeAgentStatement(state, prop, read.logged.id); recalcComputedItems(); }
+      delete agentStatementUi.reviews[prop.id];
+      if(read && read.logged) renderAll(); else renderProperties();
+      var panel = document.querySelector('[data-as-panel="' + CSS.escape(prop.id) + '"]');
+      var picker = panel && panel.querySelector("[data-as-pdf]"); if(picker) panel.querySelector("[data-as-pick]").focus();
+      return;
+    }
     // v3.79.0: a property manager's statement in one step.
     if(e.target.closest("[data-as-log]")){
       var asPanel = e.target.closest("[data-as-panel]");
+      var review = agentStatementUi.reviews[prop.id], household = state;
+      var current = function(){ return state === household && findProperty(prop.id) === prop && (!review || agentStatementUi.reviews[prop.id] === review && review.isCurrent()); };
+      if(!current()){ showToast("This statement or property changed. Read the statement again before logging."); return; }
+      if(review && review.logged) return;
       var vals = agentStatementFormValues(asPanel);
       // Rent already logged by hand for this statement would count twice.
       var net = statementTotals(vals).net, dayMs = 86400000;
       var already = (state.incomeLog || []).find(function(r){ return r.target === "rent:" + prop.id && Math.abs((Number(r.amount) || 0) - net) < 0.01 && Math.abs(Date.parse(r.date) - Date.parse(vals.date)) <= 31 * dayMs; });
       if(already && !(await confirmDialog("Rent of " + fmtCurrency2.format(net) + " was already logged on " + already.date + ". Log this statement anyway? (Remove the earlier one on Cash flow → Income if it's the same payment.)", {title:"Possible duplicate payment",accept:"Log anyway"}))) return;
+      if(!current()){ showToast("This statement or property changed. Read the statement again before logging."); return; }
       var rec = logAgentStatement(state, prop, vals);
       if(!rec){ showToast("Type at least the rent collected"); return; }
+      var saveRevision = statementSaveRevision;
+      if(review) review.logged = rec;
       agentStatementUi.open[prop.id] = true;
-      recalcComputedItems(); persist(); renderAll();
-      showUndoToast("Statement logged — " + fmtCurrency2.format(rec.net) + " to you" + (rec.txIds.length ? ", " + rec.txIds.length + " bill" + (rec.txIds.length === 1 ? "" : "s") + " paid from the rent" : ""), function(){
-        removeAgentStatement(state, prop, rec.id); recalcComputedItems(); persist(); renderAll();
-      });
+      commit(["properties", "incomeLog", "transactions"]);
+      if(review && statementSaveRevision !== saveRevision){
+        delete agentStatementUi.reviews[prop.id]; renderProperties();
+        if(review.onLogged) review.onLogged();
+      }
+      if(review && statementSaveRevision === saveRevision){ showToast("The statement could not be saved. Export a backup before closing, or discard the unsaved statement. The inbox file remains pending."); return; }
+      offerStatementUndo(prop, rec, household);
       return;
     }
     var asDel = e.target.closest("[data-as-del]");
@@ -248,17 +280,29 @@ export function wireProperties(){
     var asPanel = e.target.closest("[data-as-panel]");
     e.target.value = "";
     if(!file || !asPanel) return;
+    var prop = findProperty(asPanel.getAttribute("data-as-panel")), household = state, request = {};
+    if(!prop) return;
+    propertyStatementReads.set(prop, request);
+    delete agentStatementUi.reviews[prop.id]; renderProperties();
+    var current = function(){ return state === household && findProperty(prop.id) === prop && propertyStatementReads.get(prop) === request; };
     showToast("Reading the statement…");
-    file.arrayBuffer().then(function(buf){ return pdfLines(new Uint8Array(buf)); }).then(function(lines){
+    Promise.resolve().then(function(){ return file.arrayBuffer(); }).then(function(buf){
+      if(!current()) return null;
+      return pdfLines(new Uint8Array(buf));
+    }).then(function(lines){
+      if(!current()) return;
       var r = agentStatementFromLines(lines);
       if(!(r.rent > 0)){ showToast("Couldn't find the rent in that PDF — type it in"); return; }
-      fillAgentStatementForm(asPanel, r);
-    }).catch(function(){ showToast("Couldn't read that PDF"); });
+      openStatementForm(prop, r, { name: file.name, isCurrent: current });
+    }).catch(function(){ if(current()) showToast("Couldn't read that PDF"); });
   });
   document.getElementById("propertiesBody").addEventListener("input", function(e){
     if(!e.target.matches || !e.target.matches("[data-as]")) return;
     var asPanel = e.target.closest("[data-as-panel]"), out = asPanel && asPanel.querySelector("[data-as-net]");
-    if(out) out.textContent = fmtCurrency2.format(statementTotals(agentStatementFormValues(asPanel)).net);
+    if(out){ rememberAgentStatementForm(asPanel); out.textContent = fmtCurrency2.format(statementTotals(agentStatementFormValues(asPanel)).net); }
+  });
+  document.getElementById("propertiesBody").addEventListener("change", function(e){
+    if(e.target.matches && e.target.matches("[data-as]")) rememberAgentStatementForm(e.target.closest("[data-as-panel]"));
   });
   document.getElementById("propertiesBody").addEventListener("toggle", function(e){
     if(e.target.matches && e.target.matches("[data-as-panel]")) agentStatementUi.open[e.target.getAttribute("data-as-panel")] = e.target.open;

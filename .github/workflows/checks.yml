@@ -105,6 +105,13 @@ jobs:
           SPEED: 0
           BANK_READ_A11Y: 1
           BANK_READ_SHOTS: accessibility-report/bank-read
+      - name: Property statement review and completion
+        run: node scripts/journeys.mjs
+        env:
+          JOURNEYS: propertystatementreview
+          SPEED: 0
+          PROPERTY_READ_A11Y: 1
+          PROPERTY_READ_SHOTS: accessibility-report/property-statement
       - name: Broker trade review
         run: node scripts/journeys.mjs
         env:

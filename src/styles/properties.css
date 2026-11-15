@@ -392,6 +392,7 @@
 .ps-statement b{ color: var(--ink); font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
 .agent-stmt{ margin-top:14px; border-top:1px dashed var(--border); padding-top:10px; }
 .agent-stmt > summary{ cursor:pointer; font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
+.agent-read-source{ overflow-wrap:anywhere; }
 .agent-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:8px 10px; margin-top:8px; }
 .agent-grid input, .agent-grid select{ width:100%; min-width:0; }
 .agent-grid input[type="date"]{ color-scheme:light dark; }

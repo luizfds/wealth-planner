@@ -49,9 +49,10 @@ test("the rules read the household: a purchase under strain, borrowed deposit mo
     delete state.tax.settings.Alex.withholdingVariation;
     var off = a.find(function(x){ return x.id === "offset-move"; });
     assert.ok(off.impactYearly > 0, "a home loan's offset is worth more than a deductible loan's");
+    assert.equal(off.scenario, "Buy Example Town", "it's about that scenario's purchase (#392)");
     var html = adviceHomeHtml(a);
     assert.match(html, /What the app notices/);
-    assert.match(html, /data-adv-go="plan"/);
+    assert.doesNotMatch(html, /data-adv-go="plan"/, "Home's Insights hold the household's observations only (#392)");
   });
 });
 
@@ -191,4 +192,35 @@ test("cancel AI sharing revokes approval and removes the exact payload preview",
   } finally {
     Object.assign(askUi, original);
   }
+});
+
+// #392: scenarios are sandboxes (decision 0005). What a scenario would do is said in Plan → Scenarios; the
+// household's own observations — Home → Insights, the bell, every other page's line — are the same with or without it.
+test("a scenario's purchase never changes, replaces or joins the household's observations", async function(){
+  const { knowItems, viewItems, attentionItems } = await import("../src/lib/attention.js");
+  withHousehold(function(){
+    var household = function(){ return adviceFor({ today: "2026-10-20" }).filter(function(a){ return !a.scenario; }).map(function(a){ return [a.id, a.title, a.detail, a.kind]; }); };
+    var withBuy = household();
+    var all = adviceFor({ today: "2026-10-20" });
+    var scenarioItems = all.filter(function(a){ return a.scenario; });
+    assert.ok(scenarioItems.length >= 2, "the purchase still has its observations: " + all.map(function(a){ return a.id; }).join(", "));
+    scenarioItems.forEach(function(a){
+      assert.equal(a.scenario, "Buy Example Town");
+      assert.deepEqual(a.go, { page: "plan", sub: "scenarios" }, a.id + " points at its scenario");
+    });
+    var ids = withBuy.map(function(x){ return x[0]; });
+    assert.ok(ids.some(function(id){ return /^ef-(ok|low)$/.test(id); }), "the household's emergency fund is always reported: " + ids.join(", "));
+    assert.ok(ids.indexOf("offset-rate") !== -1, "the household's offset rate is always reported");
+    assert.ok(!withBuy.some(function(x){ return /deposit|purchase|buying/i.test(x[2]) && /^super-room/.test(x[0]); }), "super room says nothing about a deposit");
+    // The same household, nothing bought in any scenario.
+    state.purchase["Buy Example Town"].enabled = false;
+    var without = household();
+    state.purchase["Buy Example Town"].enabled = true;
+    assert.deepEqual(withBuy, without);
+    // Home → Insights and the bell leave them out; Plan → Scenarios' own line has them.
+    assert.ok(!knowItems("2026-10-20").some(function(a){ return a.scenario; }), "the bell's Worth knowing");
+    assert.ok(!attentionItems("2026-10-20").know.some(function(a){ return a.scenario; }));
+    assert.ok(viewItems({ page: "plan", sub: "scenarios" }, "2026-10-20").know.some(function(a){ return a.scenario === "Buy Example Town"; }), "Plan → Scenarios shows them");
+    assert.ok(!adviceHomeHtml(adviceFor({ today: "2026-10-20" })).includes("Buy Example Town"), "Home → Insights names no scenario");
+  });
 });

@@ -20,7 +20,10 @@ import { trimReport } from "./trim.js";
 // They're observations from the data, not advice: each says what it's based on and points at the
 // page where the figures live. Pure apart from reading state; `today` is passed in.
 //
-// { id, area, kind: "risk"|"opportunity"|"good"|"info", title, detail, impactYearly|null, go: {page, sub} }
+// { id, area, kind: "risk"|"opportunity"|"good"|"info", title, detail, impactYearly|null, go: {page, sub}, scenario? }
+// #392: an observation about what a scenario would do carries its `scenario`. Scenarios are sandboxes (decision
+// 0005): those are said only in Plan → Scenarios (lib/attention.js), and nothing a scenario holds may change,
+// replace or join the household's own observations — Home → Insights, the bell, every other page.
 // area: "plan" | "cashflow" | "income" | "tax" | "investments" | "accounts"
 function r0(n){ return Math.round(n); }
 function money(n){ return "$" + Math.round(Math.abs(n)).toLocaleString("en-AU"); }
@@ -62,23 +65,23 @@ export function adviceFor(opts){
     var real = c.regularNetMonthly + driftMonthly;
     var stressed = real - shockExtra;
     if(c.short > 0){
-      add({ id: "buy-short:" + c.scenario, area: "plan", kind: "risk", title: c.scenario + ": " + money(c.short) + " short of the cash at settlement",
+      add({ id: "buy-short:" + c.scenario, scenario: c.scenario, area: "plan", kind: "risk", title: c.scenario + ": " + money(c.short) + " short of the cash at settlement",
         detail: "It needs " + money(c.upfront) + " up front and cash and offsets hold " + money(c.available) + ".", impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     }
     if(stressed < 500){
-      add({ id: "buy-stress:" + c.scenario, area: "plan", kind: "risk", title: c.scenario + " leaves little room",
+      add({ id: "buy-stress:" + c.scenario, scenario: c.scenario, area: "plan", kind: "risk", title: c.scenario + " leaves little room",
         detail: "A normal month would leave " + leaves(c.regularNetMonthly) + "." +
           (driftMonthly < -50 ? " With pay as it actually lands (" + money(driftMonthly) + "/mo below the plan) it's " + leaves(real) + "." : "") +
           " If rates rose 2 points, repayments would be " + money(shockExtra) + "/mo higher" + (stressed < 0 ? ", leaving " + money(stressed) + " short every month." : ", leaving " + money(stressed) + ".") +
           " Trips, eating out and other wants would have to carry the difference.",
         impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     } else {
-      add({ id: "buy-ok:" + c.scenario, area: "plan", kind: "good", title: c.scenario + " holds up under a rate rise",
+      add({ id: "buy-ok:" + c.scenario, scenario: c.scenario, area: "plan", kind: "good", title: c.scenario + " holds up under a rate rise",
         detail: "A normal month leaves " + leaves(c.regularNetMonthly) + "; with rates 2 points higher, still " + leaves(stressed) + ".", impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     }
     // Borrowed money in the deposit: its interest stops being deductible.
     if(c.nonDeductibleExtra > 0){
-      add({ id: "buy-borrowed:" + c.scenario, area: "plan", kind: "risk", title: c.scenario + ": the deposit would use borrowed money",
+      add({ id: "buy-borrowed:" + c.scenario, scenario: c.scenario, area: "plan", kind: "risk", title: c.scenario + ": the deposit would use borrowed money",
         detail: money(c.draws.filter(function(d){ return d.kind === "borrowed"; }).reduce(function(s, d){ return s + d.take; }, 0)) + " comes from an offset holding money borrowed against the investment. Spent on your own home, that loan's interest (about " + money(c.nonDeductibleExtra) + "/yr) stops being deductible. Paying that loan down and borrowing the amount on the home loan instead may be cleaner — a question for your accountant before settlement.",
         impactYearly: c.nonDeductibleExtra, go: { page: "plan", sub: "scenarios" } });
     }
@@ -98,22 +101,23 @@ export function adviceFor(opts){
   if(ipCash > 10000){
     var afterTax = ipOffsets.reduce(function(s, x){ return s + x.off * x.rate / 100 * (1 - ownersRate(x.p, people, rates)); }, 0);
     var effRate = afterTax / ipCash * 100;
-    var buy = buys[0];
-    if(buy){
+    // The household's, always — whatever a scenario would buy (#392).
+    add({ id: "offset-rate", area: "accounts", kind: "info", title: "Your offset cash earns about " + effRate.toFixed(1) + "% after tax",
+      detail: money(ipCash) + " sits against the investment loan, saving interest that would otherwise be deducted. That's a safe return, but a home loan's offset would be worth the full rate — worth knowing if you buy.",
+      impactYearly: null, go: { page: "accounts" } });
+    // And for each scenario that buys a home: what's left in the investment offsets after its deposit, if moved
+    // to the new loan's offset. Said in Plan → Scenarios only. The id stays "offset-move" for the first such
+    // scenario, as it was, so a dismissal made before #392 still holds.
+    buys.forEach(function(buy, bi){
       var cfgB = state.purchase[buy.scenario] || {};
       var homeRate = Number(cfgB.rate) || 0;
-      // What's left in the investment offsets after the deposit, if moved to the home loan's.
       var left = Math.max(0, buy.left);
       var stay = Math.min(left, ipCash);
       var gain = stay * homeRate / 100 - stay * effRate / 100;
-      if(gain > 200) add({ id: "offset-move", area: "plan", kind: "opportunity", title: "After buying, move the cash to the home loan's offset",
+      if(gain > 200) add({ id: bi ? "offset-move:" + buy.scenario : "offset-move", scenario: buy.scenario, area: "plan", kind: "opportunity", title: buy.scenario + ": after buying, move the cash to the home loan's offset",
         detail: "Cash in the investment loan's offset saves interest you'd otherwise claim back — worth about " + effRate.toFixed(1) + "% a year after tax. In the new home loan's offset it saves interest that isn't deductible, the full " + homeRate.toFixed(2) + "%. On the " + money(stay) + " left after " + buy.scenario + "'s settlement, that's about " + money(gain) + " a year.",
         impactYearly: r0(gain), go: { page: "plan", sub: "scenarios" } });
-    } else {
-      add({ id: "offset-rate", area: "accounts", kind: "info", title: "Your offset cash earns about " + effRate.toFixed(1) + "% after tax",
-        detail: money(ipCash) + " sits against the investment loan, saving interest that would otherwise be deducted. That's a safe return, but a home loan's offset would be worth the full rate — worth knowing if you buy.",
-        impactYearly: null, go: { page: "accounts" } });
-    }
+    });
   }
 
   // ---- Tax that could come in the pay: a PAYG withholding variation ----
@@ -140,7 +144,7 @@ export function adviceFor(opts){
     var save = room * Math.max(0, rates[n] - contribRate);
     if(save < 500) return;
     add({ id: "super-room:" + n, area: "tax", kind: "opportunity", title: n + " has " + money(room) + " of concessional super room",
-      detail: "Contributions inside the cap are taxed at " + Math.round(contribRate * 100) + "% instead of " + Math.round(rates[n] * 100) + "% — using all of it would save about " + money(save) + " in tax. It's locked away until preservation age" + (buys.length ? ", so it competes with the deposit: worth weighing after the purchase" : "") + ". Unused carry-forward room expires after five years.",
+      detail: "Contributions inside the cap are taxed at " + Math.round(contribRate * 100) + "% instead of " + Math.round(rates[n] * 100) + "% — using all of it would save about " + money(save) + " in tax. It's locked away until preservation age. Unused carry-forward room expires after five years.",
       impactYearly: r0(save), go: { page: "tax" } });
   });
 
@@ -201,12 +205,13 @@ export function adviceFor(opts){
   if(ef && ef.monthly > 0 && ef.coveredMonths != null){
     if(ef.coveredMonths < 3) add({ id: "ef-low", area: "accounts", kind: "risk", title: "Cash covers " + ef.coveredMonths.toFixed(1) + " months of essentials",
       detail: "Essentials run about " + money(ef.monthly) + " a month; three months is " + money(ef.monthly * 3) + ". Building that before anything else protects every other plan.", impactYearly: null, go: { page: "accounts" } });
-    else if(buys.some(function(c){ return c.left < ef.monthly * 6; })){
-      var tight = buys.filter(function(c){ return c.left < ef.monthly * 6; }).map(function(c){ return c.scenario; });
-      add({ id: "ef-after-buy", area: "plan", kind: "risk", title: "After buying, less than six months of essentials left",
-        detail: tight.join(", ") + " would leave less than " + money(ef.monthly * 6) + " in cash and offsets. Six months of essentials is a common floor with a mortgage.", impactYearly: null, go: { page: "plan", sub: "scenarios" } });
-    } else add({ id: "ef-ok", area: "accounts", kind: "good", title: "Emergency fund: about " + (ef.coveredMonths >= 24 ? Math.round(ef.coveredMonths / 12) + " years" : Math.round(ef.coveredMonths) + " months") + " of essentials",
+    else add({ id: "ef-ok", area: "accounts", kind: "good", title: "Emergency fund: about " + (ef.coveredMonths >= 24 ? Math.round(ef.coveredMonths / 12) + " years" : Math.round(ef.coveredMonths) + " months") + " of essentials",
       detail: money(ef.available) + " in cash and offsets against " + money(ef.monthly) + " a month of essentials.", impactYearly: null, go: { page: "accounts" } });
+    // #392: what a scenario's purchase would leave is the scenario's to say, one per scenario, in Plan → Scenarios.
+    buys.filter(function(c){ return c.left < ef.monthly * 6; }).forEach(function(c){
+      add({ id: "ef-after-buy:" + c.scenario, scenario: c.scenario, area: "plan", kind: "risk", title: c.scenario + ": after buying, less than six months of essentials left",
+        detail: "It would leave " + leaves(c.left) + " in cash and offsets, under the " + money(ef.monthly * 6) + " that six months of essentials need. Six months of essentials is a common floor with a mortgage.", impactYearly: null, go: { page: "plan", sub: "scenarios" } });
+    });
   }
 
   // ---- Pay landing off the plan ----
@@ -230,9 +235,9 @@ export function adviceFor(opts){
     buys.forEach(function(c){
       if(!out.some(function(x){ return x.id === "buy-stress:" + c.scenario; })) return;
       var half = trim.flexibleYearly / 24;
-      add({ id: "buy-lean:" + c.scenario, area: "plan", kind: "info", title: c.scenario + " run lean: about " + money(half) + "/mo more",
+      add({ id: "buy-lean:" + c.scenario, scenario: c.scenario, area: "plan", kind: "info", title: c.scenario + " run lean: about " + money(half) + "/mo more",
         detail: "Halving the flexible lines (" + trim.flexible.slice(0, 3).map(function(f){ return f.what; }).join(", ") + (trim.flexible.length > 3 ? "…" : "") + ") in this scenario would leave about " + leaves(c.regularNetMonthly + half) + " in a normal month. Cash flow → Budget → Trim runs it lean without touching your budget.",
-        impactYearly: null, go: { page: "expenses", sub: "budget" } });
+        impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     });
   }
 

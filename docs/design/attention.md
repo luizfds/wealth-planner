@@ -122,3 +122,10 @@ Each step is its own PR, with the smoke run, journeys and accessibility scan at 
 2. **The bell counts To dos only.**
 3. **Advice can be dismissed, except Watch.**
 4. **The cash-rate prompt is a To do with a dialog**, not a banner that expands in place.
+
+## Scenario observations stay in Plan → Scenarios (#392)
+
+Scenarios are sandboxes ([0005](../decisions/0005-scenarios-are-sandboxes.md)). An observation about what a scenario would do carries its `scenario` (`calc/advice.js`). Examples: a purchase short of cash at settlement, a scenario that leaves little room or holds up under a rate rise, a borrowed deposit, running lean, the emergency fund after buying, and moving offset cash after buying. These are said only on Plan → Scenarios: its line, and the bell opened from that line, which `viewItems` gives them. Home → Insights, the bell opened anywhere else, and every other page's line get the household's own observations (`knowItems` without scenarios, `adviceHomeHtml`, `dismissedItems`).
+
+Nothing a scenario holds may change, replace or join a household observation. The emergency fund (`ef-ok`/`ef-low`) and the offset's after-tax rate (`offset-rate`) always describe the household. Their after-buying versions are each scenario's own (`ef-after-buy:<scenario>`; `offset-move` for the first scenario that buys, so an earlier dismissal still holds, then `offset-move:<scenario>`). Super room no longer mentions a deposit. The `scenariosandbox` journey checks that Home → Insights and the bell read the same, word for word, with every scenario's purchase on or off. `dismissnotice` shows a Watch can't be dismissed on Plan → Scenarios, where the demo household's Watches now are.
+

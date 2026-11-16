@@ -43,10 +43,13 @@ export function todoItems(){
     return (Number(a.read) - Number(b.read)) || (SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]) || (a.i - b.i);
   });
 }
-export function knowItems(today){
+// #392: what a scenario would do (an observation with a `scenario`) is said only in Plan → Scenarios — scenarios are
+// sandboxes (decision 0005). The bell, Home and every other page get the household's own observations.
+function inScenarios(view){ return !!view && view.page === "plan" && view.sub === "scenarios"; }
+export function knowItems(today, withScenarios){
   var items = adviceNow(today);
   var order = { risk: 0, opportunity: 1, info: 2 };
-  return items.filter(function(a){ return a.kind !== "good" && partAllows(a.id, state) && !isDismissed(a); })
+  return items.filter(function(a){ return a.kind !== "good" && (withScenarios || !a.scenario) && partAllows(a.id, state) && !isDismissed(a); })
     .map(function(a, i){ return Object.assign({}, a, { group: "know", tone: a.kind, label: ATTENTION_LABEL[a.kind], i: i }); })
     .sort(function(a, b){ return (order[a.kind] - order[b.kind]) || (a.i - b.i); });
 }
@@ -61,7 +64,7 @@ export function isDismissed(a, st){
 // What is put away right now, for Insights' "put away" fold.
 export function dismissedItems(today){
   var items = adviceNow(today);
-  return items.filter(function(a){ return partAllows(a.id, state) && isDismissed(a); });
+  return items.filter(function(a){ return !a.scenario && partAllows(a.id, state) && isDismissed(a); });
 }
 // The edit itself: the caller saves it with commit(["noticesDismissed"]). Entries for notices no longer raised,
 // or whose title has moved on, are dropped as it goes.
@@ -109,8 +112,8 @@ export function belongsToView(n, view){
   return v.sub ? v.sub === view.sub : (!first || !view.sub || view.sub === first);
 }
 export function viewItems(view, today){
-  var all = attentionItems(today), here = function(n){ return belongsToView(n, view); };
-  return { todo: all.todo.filter(here), know: all.know.filter(here) };
+  var here = function(n){ return belongsToView(n, view); };
+  return { todo: todoItems().filter(here), know: knowItems(today, inScenarios(view)).filter(here) };
 }
 // The line itself: how many, and the first of them. components/attentionline.js places it on the page.
 export function attentionLineHtml(items){

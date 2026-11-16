@@ -43,6 +43,8 @@ function card(a, withGo, away){
 }
 // v3.154.0: what's on track is worth knowing, not acting on — one fold under the rest, not a card each.
 export function adviceHomeHtml(items){
+  // #392: Home → Insights is the household's; what a scenario would do is said in Plan → Scenarios.
+  items = items.filter(function(a){ return !a.scenario; });
   var away = items.filter(function(a){ return isDismissed(a); });
   var act = items.filter(function(a){ return a.kind !== "good" && !isDismissed(a); });
   var good = items.filter(function(a){ return a.kind === "good"; });

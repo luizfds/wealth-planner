@@ -89,6 +89,8 @@
 //   nextyearplan — #399: Year in review's next year's plan — goals in priority order share one monthly surplus (the
 //                 lower of the budget's and last year's kept); reordering moves the money; saving adds savings goals
 //                 with their monthly amount, cancelling adds nothing
+//   planprogress — #400: next year's plan each month — off by default (no review step, no bell item); turned on in
+//                 Preferences, the review's plan step shows a goal behind with its catch-up, and the bell opens it there
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -563,6 +565,69 @@ const JOURNEYS = {
     check(await page.evaluate(async () => (await import('/src/state.js')).state.savingsGoals.length) === goalsBefore + 1, 'saving did not add one goal');
     await go(page, 'plan', 'data-plan-sub', 'goals');
     check(/Trip A/.test(await page.locator('#page-plan').innerText()), 'the saved goal is not on Goals');
+  },
+
+  async planprogress(page){
+    // Synthetic demo household, the journeys' fixed date (3 November 2026). A goal saved from the plan on 1 August,
+    // $1,000 a month on an account whose balance hasn't moved since: three months in, it's $3,000 behind.
+    await quiet(page);
+    const acct = await page.evaluate(async () => {
+      const m = await import('/src/state.js'), a = await import('/src/calc/accounts.js');
+      const pick = m.state.accounts.find(x => x.type === 'savings' && a.accountBalance(x).balance != null) || m.state.accounts.find(x => x.type !== 'credit' && x.type !== 'loan' && x.type !== 'agent' && a.accountBalance(x).balance != null);
+      const b = a.accountBalance(pick).balance;
+      m.state.savingsGoals.push({ id: 'sgplan', name: 'Trip A', target: b + 12000, by: '2027-08-01', accounts: [pick.name], plannedMonthly: 1000, planYear: 'FY26/27', planFrom: '2026-08-01', planStart: b });
+      m.commit(['savingsGoals']);
+      return { name: pick.name, off: m.state.planCheckIn };
+    });
+    check(acct.off === false, 'the plan check-in is not off by default');
+    const reviewSteps = async () => {
+      await go(page, 'dashboard', 'data-dashboard-sub', 'review');
+      if(await page.locator('[data-mr-intro-ok]').isVisible()) await page.locator('[data-mr-intro-ok]').click();
+      return page.locator('#monthReviewBody .mr-step-dot').evaluateAll(els => els.map(e => e.getAttribute('aria-label')));
+    };
+    const planNotes = () => page.evaluate(async () => (await import('/src/lib/notifications.js')).getNotifications().filter(n => n.type === 'planprogress').length);
+    // Off: nothing shows.
+    check(!(await reviewSteps()).some(l => /plan on track/.test(l)), 'the review has a plan step with the check-in off');
+    check(await planNotes() === 0, 'the bell has a plan item with the check-in off');
+    // On, in Preferences.
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    const box = page.locator('#planCheckInPref [data-plan-checkin]');
+    check(!await box.isChecked(), 'the setting shows on before it was turned on');
+    await box.check();
+    check(await page.evaluate(async () => (await import('/src/state.js')).state.planCheckIn) === true, 'turning it on did not save');
+    const steps = await reviewSteps();
+    check(steps.length === 6 && /Step 5: Is the plan on track\?/.test(steps[4]), 'no plan step before the summary: ' + JSON.stringify(steps));
+    await page.locator('#monthReviewBody [data-mr-to="4"]').first().click();
+    const body = page.locator('#monthReviewBody .mr-stepcard');
+    await waited(page, () => /Is the plan on track/.test(document.querySelector('#monthReviewBody .mr-stepcard h3').textContent), 'the plan step');
+    const t = await body.textContent();
+    check(/Trip A/.test(t) && /Behind/.test(t) && /\$3,0\d\d short/.test(t), 'the goal is not shown about $3,000 behind: ' + t.slice(0, 300));
+    check(/To catch up: put \$[\d,]+ a month toward it from now/.test(t) && /at the pace so far it doesn't get there/.test(t), 'no catch-up suggestion: ' + t.slice(0, 400));
+    check(/As of today, 3 Nov 2026/.test(t), 'not as of today');
+    check(!/NaN|Infinity|undefined|\d{4}-\d{2}-\d{2}/.test(t), 'the plan step shows NaN or a raw date');
+    // The bell: one item, which opens the review at the plan step.
+    check(await planNotes() === 1, 'the bell has no plan item for a goal behind');
+    await go(page, 'plan', 'data-plan-sub', 'goals');
+    await page.locator('.notif-bell-btn:visible').first().click();
+    const panel = page.locator('#notifPanel'); await panel.waitFor();
+    await panel.locator('[data-notif-id^="planprogress:"]').click();
+    await waited(page, () => document.body.dataset.currentPage === 'dashboard' && /Is the plan on track/.test((document.querySelector('#monthReviewBody .mr-stepcard h3') || {}).textContent || ''), 'the bell opened the plan step');
+    // Four widths, both themes.
+    if(process.env.YEAR_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(!await body.evaluate((e, w) => e.getBoundingClientRect().right > w + 1 || document.documentElement.scrollWidth > w + 1, width), 'the plan step overflows at ' + width + '/' + theme);
+      if(process.env.YEAR_A11Y){
+        const v = await body.evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(x => ({ id: x.id, nodes: x.nodes.map(n => n.failureSummary) })));
+        check(!v.length, 'the plan step accessibility ' + width + '/' + theme + ': ' + JSON.stringify(v));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+    // Off again: gone from both.
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await page.locator('#planCheckInPref [data-plan-checkin]').uncheck();
+    check(!(await reviewSteps()).some(l => /plan on track/.test(l)), 'the plan step stayed after turning it off');
+    check(await planNotes() === 0, 'the bell kept its plan item after turning it off');
   },
 
   async needstarget(page){

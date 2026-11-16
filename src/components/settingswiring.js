@@ -17,6 +17,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, genId, onSaved, commit } from "../state.js";
 import { readInput } from "../lib/validate.js";
 import { setNeedsTarget } from "../calc/needstarget.js";
+import { setPlanCheckIn } from "../calc/planprogress.js";
 import { renderActivity, activityUi } from "./activity.js";
 import { renderAssets } from "./assets.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderCategories, addCategory, deleteCategory, renameCategoryEverywhere, setCategoryLook, categoryLookUi, renderBudgetGroupByToggle, budgetLineItems, renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory } from "./expenses.js";
@@ -142,6 +143,11 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     if(!e.target.matches || !e.target.matches("[data-needs-target]")) return;
     var r = readInput(e.target, { empty: "Enter a share from 1 to 100.", min: 1, max: 100, range: "Enter a share from 1 to 100." });
     if(r && setNeedsTarget(state, r.value)) commit(["needsTarget"]);
+  });
+  // #400: the monthly check-in on next year's plan, off by default.
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-plan-checkin]")) return;
+    if(setPlanCheckIn(state, e.target.checked)) commit(["planCheckIn"]);
   });
   document.getElementById("yearBasisControl").addEventListener("click", function(e){
     var btn = e.target.closest("[data-year-basis]");

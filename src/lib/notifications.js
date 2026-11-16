@@ -18,6 +18,7 @@ import { dueAutoPays } from "../calc/autopay.js";
 import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
 import { cashRateMove } from "../calc/cashrate.js";
 import { reviewYear, yearHasData } from "../calc/yearreview.js";
+import { planProgress } from "../calc/planprogress.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -380,6 +381,24 @@ function yearReviewNotification(){
     detail: "Where the money went, net worth, money leaks, the emergency fund and goals — Reports → Year in review.", date: today, page: "reports", sub: "review" }];
 }
 
+// ---------------- Next year's plan, each month (#400) ----------------
+// Only with the household's plan check-in on (off by default), and only when a planned goal is behind or its balance
+// is missing or out of date — on track stays quiet. One item a month, opening the month review's plan step.
+function planProgressNotification(){
+  if(state.planCheckIn !== true) return [];
+  var today = todayStr();
+  var p;
+  try { p = planProgress(today); } catch(e){ return []; }
+  if(!p.attention) return [];
+  var bits = [];
+  if(p.behind) bits.push(p.behind + " behind");
+  if(p.noData) bits.push(p.noData + " that can't be measured yet");
+  if(p.stale) bits.push(p.stale + " with a balance out of date");
+  return [{ id: "planprogress:" + today.slice(0, 7), type: "planprogress", severity: p.behind ? "warn" : "info",
+    title: p.behind ? (p.behind === 1 ? "A planned goal is behind" : p.behind + " planned goals are behind") : "Next year's plan needs a look",
+    detail: "Of next year's plan: " + bits.join(", ") + " — Home → Review shows each goal and what would catch it up.", date: today, page: "dashboard", sub: "review", action: "planstep" }];
+}
+
 // ---------------- Your week (v3.166.0, item 196) ----------------
 // From Monday, until the week's card is dismissed (on any device — state.weekRecaps syncs).
 function weekRecapNotification(){
@@ -660,6 +679,7 @@ export function getLocalNotifications(){
     propertyDateNotifications(),
     monthReviewNotification(),
     yearReviewNotification(),
+    planProgressNotification(),
     weekRecapNotification(),
     dataHealthNotification(),
     storageNotification()

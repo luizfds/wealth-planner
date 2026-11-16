@@ -5,6 +5,8 @@ import { periodSelection, isPeriodToday, selectedMonth } from "../calc/ledger.js
 import { transactionAccount, transactionCategory } from "./expenses.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { planProgress } from "../calc/planprogress.js";
+import { planStepWanted, planProgressHtml } from "./planprogress.js";
 
 // ---------------- Home → Review (v3.54.0) ----------------
 // calc/monthreview.js gathers the month; this lays it out as four numbered parts, each saying
@@ -30,15 +32,21 @@ var STEPS = [
   { key: "checks", title: "Anything to fix?" },
   { key: "summary", title: "How did the month go?" }
 ];
+// #400: with the plan check-in on and a planned goal, a step before the summary: next year's plan, as of today.
+var PLAN_STEP = { key: "plan", title: "Is the plan on track?" };
+function steps(){ return planStepWanted() ? STEPS.slice(0, 4).concat([PLAN_STEP], STEPS.slice(4)) : STEPS; }
 var stepShown = 0;
 var stepMonth = null;
 var introDismissed = false;
 export function reviewStep(){ return stepShown; }
-export function setReviewStep(n){ stepShown = Math.max(0, Math.min(STEPS.length - 1, Number(n) || 0)); }
+export function setReviewStep(n){ stepShown = Math.max(0, Math.min(steps().length - 1, Number(n) || 0)); }
+// #400: the bell's plan item opens the review at its plan step.
+export function showPlanStep(){ var i = steps().findIndex(function(st){ return st.key === "plan"; }); if(i !== -1){ stepMonth = reviewMonthShown(); stepShown = i; introDismissed = true; } }
 export function dismissReviewIntro(){ introDismissed = true; }
 function anyReviewDone(){ return Object.keys(state.monthReviews || {}).some(function(k){ return state.monthReviews[k] && state.monthReviews[k].done; }); }
 
-function stepStatus(key, r, balances){
+function stepStatus(key, r, balances, plan){
+  if(key === "plan") return plan && plan.attention ? "todo" : "ok";
   if(key === "income") return !r.income.length ? "skip" : r.missingIncome ? "todo" : "ok";
   if(key === "cards") return !r.statements.length ? "skip" : r.statements.some(function(s){ return s.gap == null || Math.abs(s.gap) >= 1; }) ? "todo" : "ok";
   if(key === "balances") return !balances.length ? "skip" : balances.some(function(b){ return b.stale; }) ? "todo" : "ok";
@@ -68,20 +76,24 @@ export function monthReviewHtml(ym, today){
 
   if(!introDismissed && !anyReviewDone()){
     return head + '<div class="mr-intro"><h3>A monthly check-in, about ten minutes</h3>' +
-      '<p class="help">Once a month, go through last month in five short steps: the pay and rent that arrived, your card statements, account balances, anything the app thinks is off, and then how the month went against the plan.</p>' +
+      '<p class="help">Once a month, go through last month in a few short steps: the pay and rent that arrived, your card statements, account balances, anything the app thinks is off, and then how the month went against the plan.</p>' +
       '<p>Each step says what\'s missing and takes you to where it\'s fixed. Nothing is required — skip a step whenever it doesn\'t apply. The figures on Home, the budget and your tax estimate are only as good as what\'s logged, and this is the habit that keeps them right.</p>' +
       '<button type="button" class="btn' + ((state.income || []).length ? " btn-primary" : "") + '" data-mr-intro-ok>Start the review</button></div>';
   }
 
-  var statuses = STEPS.map(function(st){ return stepStatus(st.key, r, balances); });
-  var progress = '<ol class="mr-steps" aria-label="Review steps">' + STEPS.map(function(st, i){
+  var STEPS_NOW = steps();
+  if(stepShown > STEPS_NOW.length - 1) stepShown = STEPS_NOW.length - 1;
+  // "As of today": progress is about now, whichever month is being reviewed.
+  var plan = STEPS_NOW.some(function(st){ return st.key === "plan"; }) ? planProgress(today) : null;
+  var statuses = STEPS_NOW.map(function(st){ return stepStatus(st.key, r, balances, plan); });
+  var progress = '<ol class="mr-steps" aria-label="Review steps">' + STEPS_NOW.map(function(st, i){
     var cls = (i === stepShown ? " is-current" : "") + " is-" + statuses[i];
     return '<li><button type="button" class="mr-step-dot' + cls + '" data-mr-to="' + i + '" aria-current="' + (i === stepShown ? "step" : "false") + '" aria-label="Step ' + (i + 1) + ': ' + escapeAttr(st.title) + (statuses[i] === "ok" ? " (done)" : statuses[i] === "skip" ? " (nothing to do)" : "") + '">' +
       '<span>' + (statuses[i] === "ok" ? "✓" : (i + 1)) + '</span></button></li>';
   }).join("") + '</ol>' +
-    '<div class="mr-bar"><div style="width:' + Math.round((stepShown + 1) / STEPS.length * 100) + '%"></div></div>';
+    '<div class="mr-bar"><div style="width:' + Math.round((stepShown + 1) / STEPS_NOW.length * 100) + '%"></div></div>';
 
-  var key = STEPS[stepShown].key, body = "";
+  var key = STEPS_NOW[stepShown].key, body = "";
   if(key === "income"){
     body = r.income.length ? '<p class="mr-lede">' + (r.missingIncome ? r.missingIncome + " of " + r.income.length + " regular income lines have nothing logged for " + escapeAttr(r.label) + ". Log what arrived — the amount on the payslip or statement." : "Everything regular arrived and is logged.") + '</p><div class="mr-rows">' + r.income.map(function(x){
       var missing = !x.rows.length;
@@ -104,6 +116,8 @@ export function monthReviewHtml(ym, today){
         (b.stale ? '<span></span>' : '<span class="mr-tick" aria-label="Current">✓</span>') + '</div>';
     }).join("") + '</div>' + (stale.length ? '<button type="button" class="btn btn-sm btn-ghost" data-mr-go="accounts">Update on Accounts</button>' : '')
       : '<p class="mr-lede">No account has a balance yet — give each one its balance on Accounts and it\'s checked here every month.</p><button type="button" class="btn btn-sm btn-ghost" data-mr-go="accounts">Open Accounts</button>';
+  } else if(key === "plan"){
+    body = '<p class="ledger-note pp-asof">As of today, ' + escapeAttr(fmtDate(today, { year: true })) + '.</p>' + planProgressHtml(plan);
   } else if(key === "checks"){
     body = r.checks.length ? '<p class="mr-lede">' + r.checks.length + " thing" + (r.checks.length === 1 ? " looks" : "s look") + ' off in your data:</p><ul class="mr-checks">' + r.checks.slice(0, 6).map(function(c){ return '<li>' + escapeAttr(c.title) + '</li>'; }).join("") + '</ul>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-mr-go="checks">Open Checks</button>' : '<p class="mr-lede">Nothing to fix.</p>';
@@ -122,13 +136,13 @@ export function monthReviewHtml(ym, today){
       '<p class="ledger-note" style="margin:6px 0 0">From ' + r.transactions + ' transaction' + (r.transactions === 1 ? '' : 's') + ' logged in the month.' +
         (r.reserveSpent ? ' Another ' + money(r.reserveSpent) + ' went on reserve lines (travel, gifts and the like), judged over their year rather than one month.' : '') + '</p>';
   }
-  var last = stepShown === STEPS.length - 1;
+  var last = stepShown === STEPS_NOW.length - 1;
   var foot = '<div class="mr-foot">' +
     (stepShown > 0 ? '<button type="button" class="btn btn-ghost" data-mr-to="' + (stepShown - 1) + '">Back</button>' : '<span></span>') +
     (last
       ? '<button type="button" class="btn ' + (r.done ? "btn-ghost" : "btn-primary") + '" data-mr-done="' + escapeAttr(ym) + '">' + (r.done ? "Reviewed ✓ — undo" : "Mark " + escapeAttr(r.label) + " reviewed") + '</button>'
       : '<button type="button" class="btn btn-primary" data-mr-to="' + (stepShown + 1) + '">' + (statuses[stepShown] === "todo" ? "Skip for now" : "Next") + '</button>') + '</div>';
-  return head + progress + '<section class="mr-stepcard"><div class="mr-step-k">Step ' + (stepShown + 1) + ' of ' + STEPS.length + '</div><h3>' + STEPS[stepShown].title + '</h3>' + body + '</section>' + foot;
+  return head + progress + '<section class="mr-stepcard"><div class="mr-step-k">Step ' + (stepShown + 1) + ' of ' + STEPS_NOW.length + '</div><h3>' + STEPS_NOW[stepShown].title + '</h3>' + body + '</section>' + foot;
 }
 export function renderMonthReview(){
   var el = typeof document !== "undefined" && document.getElementById("monthReviewBody");

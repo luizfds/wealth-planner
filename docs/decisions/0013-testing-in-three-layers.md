@@ -11,7 +11,7 @@ wrong module, a variable out of scope. Both passed `node --check` and every test
    through `document`. In CI: `scripts/smoke.mjs` opens every page and subtab at 390/1280px, light and dark, and an
    empty household, failing on errors, empty pages, sideways scroll, NaN, a 0-width bar or a tap target under 44px;
    `scripts/journeys.mjs` does what people do (bills, a transfer with Undo, an automatic payment, a scenario, CSV and
-   PDF imports) and times startup and edits against a full redraw; the `screens` job lists what changed visually.
+   PDF imports) and times startup and edits against a full redraw; the `screens` job lists what changed visually, each view as it opens and with every disclosure open, reported apart (#267).
 
 **Consequences.** A change to a component, a template or a stylesheet is driven before it's called done. Prefer
 measuring (`getComputedStyle`, `getBoundingClientRect`) to eyeballing. A new page, subtab or report goes in the smoke

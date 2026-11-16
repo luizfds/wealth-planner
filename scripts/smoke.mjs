@@ -23,7 +23,8 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 // v3.130.0: SMOKE_ROOT serves another checkout (the PR's base, for screenshot comparison), and
-// SHOTS_DIR saves a full-page screenshot of every view in light mode, at a fixed date and time so
+// SHOTS_DIR saves two full-page screenshots of every view in light mode — as it opens (<view>.png) and with every
+// disclosure open (<view>.expanded.png), #267 — at a fixed date and time so
 // two runs of the same code take the same pictures. In that mode a view the checkout doesn't have
 // is skipped rather than failed, and failures don't fail the run — scripts/shotdiff.mjs reports.
 const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -116,6 +117,13 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
           return !!(title && result && title.getBoundingClientRect().top >= 0 && result.getBoundingClientRect().bottom <= limit);
         });
         if(!visibleResult) failures.push(scheme + ' ' + width + 'px Reports: current title and meaningful result are not visible in the initial viewport');
+      }
+      // #267: the view as it opens, photographed before the expanded-state checks open every disclosure — a change to
+      // a page's default state was otherwise only ever compared inside its expanded one.
+      const shotName = width + "-" + pg + (sub ? "-" + sub : "");
+      if(SHOTS){
+        await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));
+        await page.screenshot({ path: path.join(SHOTS, shotName + ".png"), fullPage: true, animations: "disabled" });
       }
       await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));
       await page.waitForTimeout(250);
@@ -251,7 +259,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){
         await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));
-        await page.screenshot({ path: path.join(SHOTS, width + "-" + pg + (sub ? "-" + sub : "") + ".png"), fullPage: true, animations: "disabled" });
+        await page.screenshot({ path: path.join(SHOTS, shotName + ".expanded.png"), fullPage: true, animations: "disabled" });
       }
     }
   }

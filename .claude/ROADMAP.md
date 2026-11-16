@@ -5349,3 +5349,10 @@ On released v3.280.1 the demo household's Home → Insights and bell named both 
 
 Built as planned: `calc/needstarget.js` (`needsTargetFor`, `needsTargetPct`, `setNeedsTarget`), the block under the comparison and the Preferences field (`components/needstarget.js`), one delegated listener in `settingswiring.js` saving through `commit(["needsTarget"])`, and two views redrawing on it (Preferences, and just the scenario editor's figures so its name and note fields aren't redrawn). On the demo household's "Buy a house": Needs 73.3% of take-home, $7,371/mo more to reach 50%. Tests: `tests/needstarget.test.js`, migration step 28, render-smoke; journey `needstarget` with 8 scoped axe scans.
 
+
+## Default and expanded screenshots apart; close #267 and the #253 tracker
+
+`[x]` #267's last code criterion: the `screens` comparison photographed each view only after the smoke run had opened every disclosure, so a change to a page's default state was compared only inside its expanded one. Do: photograph each view twice in SHOTS mode — as it opens, and expanded (`<view>.expanded.png`) — and have `scripts/shotdiff.mjs` report and show the two states separately. Then close #267: its real-device and screen-reader criterion moves to #299, which is that work. #253 (the UX assessment tracker) closes with it: every child is done except #282 and #299, which continue on their own. `release: none` — nothing ships.
+
+SHOTS mode now saves `<view>.png` before the disclosures open and `<view>.expanded.png` after; `shotdiff.mjs` reports "As the page opens" and "Every disclosure open" as separate tables and sections. Checked end to end: main against this branch, 102 views in each state, nothing changed in either; then one default and one expanded picture swapped, each reported in its own table. #267's criteria at close: the 320px and 768px passes and the sideways-scroll check (#268, #391); the flaky journeys' four causes found and fixed ("Journeys that fail now and then" above); journeys investigated under load, not retried; screenshots apart (here); real devices and screen readers moved to #299.
+

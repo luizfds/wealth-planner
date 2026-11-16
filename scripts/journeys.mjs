@@ -78,6 +78,8 @@
 //                 an unsaved update put back, and Undo restoring prices only while nothing has priced them since
 //   restorebackup — restoring a backup (#265): checked before anything asks, the question says what the backup
 //                 and this device hold, an empty backup named as one, an unsaved restore put back, and Undo
+//   scenariosandbox — #392: a scenario's purchase says its piece on Plan → Scenarios only; Home → Insights, the bell
+//                 and the household's emergency fund read the same with every scenario's purchase on or off
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -355,6 +357,43 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async scenariosandbox(page){
+    // The demo household: two scenarios that buy a home, both short of cash at settlement.
+    await quiet(page);
+    const homeInsights = async () => { await go(page, 'dashboard', 'data-dashboard-sub', 'insights'); return page.locator('#adviceHome').evaluate(el => el.textContent); };
+    const bell = async () => {
+      await go(page, 'dashboard');
+      await page.locator('.notif-bell-btn:visible').first().click();
+      const panel = page.locator('#notifPanel'); await panel.waitFor();
+      const text = await panel.innerText();
+      await page.keyboard.press('Escape'); await waited(page, () => !document.getElementById('notifPanel'), 'the bell closed');
+      return text;
+    };
+    const scenarios = await st(page, 'state.scenarios.filter(n => state.purchase[n] && state.purchase[n].enabled)');
+    check(scenarios.length >= 1, 'the demo household has no scenario that buys');
+    const withBuy = { insights: await homeInsights(), bell: await bell() };
+    for(const name of scenarios){
+      check(!withBuy.insights.includes(name) && !withBuy.bell.includes(name), name + ' is named outside Plan → Scenarios');
+    }
+    check(/Emergency fund: about/.test(withBuy.insights), "the household's emergency fund isn't reported on Insights");
+    check(!/competes with the deposit/.test(withBuy.insights), 'super room still talks about a deposit');
+    // Plan → Scenarios' line carries them, and the bell opened from it shows them against their scenario.
+    await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    const line = page.locator('#attentionLine [data-attn-line]');
+    await line.waitFor();
+    await line.click();
+    const panel = page.locator('#notifPanel'); await panel.waitFor();
+    const there = await panel.innerText();
+    check(scenarios.some(name => there.includes(name + ':')), 'Plan → Scenarios does not show its scenarios\' observations: ' + there.slice(0, 200));
+    await page.keyboard.press('Escape'); await waited(page, () => !document.getElementById('notifPanel'), 'the bell closed');
+    // The same household with no purchase in any scenario: the household's observations are the same, word for word.
+    await page.evaluate(async names => { const m = await import('/src/state.js'); names.forEach(n => { m.state.purchase[n].enabled = false; }); m.commit(['purchase']); }, scenarios);
+    await settle(page);
+    const without = { insights: await homeInsights(), bell: await bell() };
+    check(without.insights === withBuy.insights, 'Insights changed with the scenarios\' purchases:\n' + withBuy.insights.slice(0, 300) + '\n---\n' + without.insights.slice(0, 300));
+    check(without.bell === withBuy.bell, 'the bell changed with the scenarios\' purchases');
+  },
+
   async restorebackup(page){
     // Synthetic demo household; backups are made from it here, in the test.
     await quiet(page);
@@ -2652,11 +2691,19 @@ const JOURNEYS = {
   // sits in Insights' "Put away" fold; a Watch can't be put away; it comes back when brought back, and by itself
   // once its title is no longer the one that was dismissed (its figures moved).
   async dismissnotice(page){
+    // The demo household's Watches are its scenarios' (a purchase short of cash); since #392 they are said on Plan →
+    // Scenarios, so that's where a Watch is shown not to be dismissable — through the line, which opens the bell there.
+    await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    await page.locator('#attentionLine [data-attn-line]').click();
+    const panel = page.locator('#notifPanel');
+    await panel.waitFor();
+    check(await panel.locator('.notif-label.risk').count() > 0 && await panel.locator('.notif-row:has(.notif-label.risk)').count() === 0, 'a Watch can be dismissed from the bell');
+    await page.keyboard.press('Escape');
+    await waited(page, () => !document.getElementById('notifPanel'), 'the bell closed');
     await go(page, 'dashboard');
     await page.locator('.notif-bell-btn:visible').first().click();
-    const panel = page.locator('#notifPanel');
+    await panel.waitFor();
     const title = await panel.locator('.notif-row:has([data-notice-dismiss="wants"]) .notif-item-title').innerText();
-    check(await panel.locator('.notif-label.risk').count() > 0 && await panel.locator('.notif-row:has(.notif-label.risk)').count() === 0, 'a Watch can be dismissed from the bell');
     check(await panel.locator('[data-notice-dismiss="wants"]').getAttribute('aria-label') === 'Dismiss: ' + title, 'the dismiss button does not name its notice');
     await panel.locator('[data-notice-dismiss="wants"]').click();
     await until(page, () => !document.querySelector('#notifPanel [data-notice-dismiss="wants"]'));

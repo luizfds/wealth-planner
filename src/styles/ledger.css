@@ -1767,7 +1767,17 @@
 .budget-chart dd small{ display:block; color:var(--ink-soft); font-family:inherit; }
 .budget-deltas{ margin-top:12px; }
 .budget-comparison summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; }
-@media(max-width:640px){ .budget-charts{ grid-template-columns:1fr; } }
+/* #389: the take-home it would take for Needs to be the household's target share — under the comparison. */
+.needs-target{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); }
+.needs-target h4{ margin:0 0 10px; font-size:var(--fs-md); }
+.needs-target h5{ margin:0 0 4px; font-size:var(--fs-sm); font-weight:600; }
+.needs-target .field{ max-width:16rem; }
+.needs-target-pair{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin-top:10px; }
+.needs-target-pair > div{ min-width:0; }
+.needs-target-line{ margin:0 0 6px; font-size:var(--fs-sm); line-height:1.5; overflow-wrap:anywhere; }
+.needs-target-note{ margin:8px 0 0; }
+#needsTargetPref .field{ max-width:16rem; }
+@media(max-width:640px){ .budget-charts, .needs-target-pair{ grid-template-columns:1fr; } }
 
 /* Native modal supplies focus containment and an inert background to global search. */
 .search-dialog{ width:100vw; height:100dvh; max-width:none; max-height:none; padding:0; border:0; margin:0; background:transparent; color:var(--ink); }

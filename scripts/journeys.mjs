@@ -80,6 +80,8 @@
 //                 and this device hold, an empty backup named as one, an unsaved restore put back, and Undo
 //   scenariosandbox — #392: a scenario's purchase says its piece on Plan → Scenarios only; Home → Insights, the bell
 //                 and the household's emergency fund read the same with every scenario's purchase on or off
+//   needstarget — #389: under a scenario's comparison, the take-home it would take for Needs to be the household's
+//                 target share; the target is one setting, changed there or in Preferences, saved only when 1–100
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -357,6 +359,60 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async needstarget(page){
+    // Synthetic demo household; a scenario that buys a home.
+    await quiet(page);
+    const openBuy = async () => {
+      await go(page, 'plan', 'data-plan-sub', 'scenarios');
+      const name = await page.locator('#cards .card').filter({ hasText: /buy/i }).first().locator('.card-edit-link[data-edit-scenario]').getAttribute('data-edit-scenario');
+      await click(page, '#cards .card-edit-link[data-edit-scenario="' + name + '"]');
+      await waited(page, () => document.body.dataset.currentPage === 'scenario', 'the scenario editor');
+      await page.locator('.needs-target').waitFor();
+      return name;
+    };
+    const name = await openBuy();
+    const block = page.locator('.needs-target');
+    const text = await block.innerText();
+    check(/Take-home for Needs at 50%/.test(text), 'the default target is not 50%: ' + text.slice(0, 120));
+    check(text.includes(name) && /Current \/ baseline/.test(text), 'baseline and scenario are not both shown');
+    check(/Needs are \$[\d,]+\/mo, [\d.]+% of \$[\d,]+\/mo take-home/.test(text), 'Needs and their share of take-home are not said');
+    check(!/NaN|Infinity|undefined/.test(text), 'the block shows NaN/Infinity');
+    // Its figures are the comparison's own: Needs and take-home match the rings above.
+    const figures = await page.evaluate(async n => { const e = await import('/src/calc/engine.js'); const c = e.scenarioBudgetComposition(n); return { needs: Math.round(c.needs), income: Math.round(c.income) }; }, name);
+    const money = v => '$' + v.toLocaleString('en-AU');
+    check(text.includes(money(figures.needs) + '/mo') && text.includes(money(figures.income) + '/mo take-home'), 'the figures are not the comparison\'s: ' + JSON.stringify(figures));
+    // Change the target here: saved, the block says the new target, and Preferences shows it.
+    const field = block.locator('[data-needs-target]');
+    await field.fill('60'); await field.press('Enter'); await field.dispatchEvent('change');
+    await waited(page, () => /Take-home for Needs at 60%/.test(document.querySelector('.needs-target')?.innerText || ''), 'the block at 60%');
+    check(await stored(page, 'state.needsTarget') === 60, 'the target was not saved');
+    // Out of range: said beside the field, nothing saved.
+    const again = page.locator('.needs-target [data-needs-target]');
+    await again.fill('0'); await again.dispatchEvent('change');
+    await waited(page, () => document.querySelector('.needs-target [data-needs-target]')?.getAttribute('aria-invalid') === 'true', 'the out-of-range message');
+    check(/from 1 to 100/.test(await page.locator('.needs-target .field-error').innerText()) && await stored(page, 'state.needsTarget') === 60, 'an out-of-range target was saved or not explained');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    const pref = page.locator('#needsTargetPref [data-needs-target]');
+    await pref.waitFor();
+    check(await pref.inputValue() === '60', 'Preferences does not show the saved target');
+    check(await page.locator('label[for="needsTargetPrefInput"]').innerText() === 'Needs at most', 'Preferences\' field is not labelled');
+    await pref.fill('50'); await pref.dispatchEvent('change');
+    await eventually(async () => await stored(page, 'state.needsTarget') === 50);
+    check(await stored(page, 'state.needsTarget') === 50, 'Preferences did not save the target');
+    await openBuy();
+    check(/Take-home for Needs at 50%/.test(await page.locator('.needs-target').innerText()), 'the scenario does not follow Preferences');
+    // Four widths, both themes: nothing wider than the page.
+    if(process.env.NEEDS_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(!await page.locator('.needs-target').evaluate((e, w) => e.getBoundingClientRect().right > w + 1 || e.scrollWidth > e.clientWidth + 1 || document.documentElement.scrollWidth > w + 1, width), 'needs target overflows at ' + width + '/' + theme);
+      if(process.env.NEEDS_A11Y){
+        const v = await page.locator('.needs-target').evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(x => ({ id: x.id, nodes: x.nodes.map(n => n.failureSummary) })));
+        check(!v.length, 'needs target accessibility ' + width + '/' + theme + ': ' + JSON.stringify(v));
+      }
+    }
+  },
+
   async scenariosandbox(page){
     // The demo household: two scenarios that buy a home, both short of cash at settlement.
     await quiet(page);

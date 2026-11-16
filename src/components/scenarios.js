@@ -185,6 +185,13 @@ export function renderScenarioEditor(){
   var sum = document.getElementById("scenarioEditSummary");
   if(sum){ sum.innerHTML = scenarioEditorSummaryHtml(); renderScenarioEditorChart(); if(editing.key) renderScenarioAccountChart(editing.key); }
 }
+// #389: just the figures under the editor — the needs target is changed there, and redrawing the editor's own fields
+// (its name, its note) for it would take a half-typed word with it.
+export function renderScenarioEditorSummary(){
+  var sum = typeof document !== "undefined" && document.getElementById("scenarioEditSummary");
+  if(!sum) return;
+  keepUi(function(){ sum.innerHTML = scenarioEditorSummaryHtml(); renderScenarioEditorChart(); if(editing.key) renderScenarioAccountChart(editing.key); });
+}
 export function refreshScenarioDependentViews(){
   if(editing.key && editing.key !== editing.name){ renderHomeBody(); renderScenarioEditor(); return; }
   renderCards();

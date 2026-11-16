@@ -2724,3 +2724,26 @@ test("the pasted-price review: holdings, the rate, left-out reasons, a big chang
   assert.ok(!/data-price-review-confirm/.test(none));
   assert.equal(pricePastePanelHtml(null), "");
 });
+
+test("the take-home for a Needs target: every state in words, the scenario's name escaped, no NaN (#389)", async () => {
+  const { needsTargetCompareHtml, needsTargetLinesHtml, needsTargetFieldHtml } = await import("../src/components/needstarget.js");
+  const { needsTargetFor } = await import("../src/calc/needstarget.js");
+  const was = state.needsTarget; state.needsTarget = 50;
+  try {
+    const html = needsTargetCompareHtml({ needs: 3000, income: 7000 }, { needs: 4200, income: 7000 }, 'Buy <b>"home"</b>');
+    assert.match(html, /Take-home for Needs at 50%/);
+    assert.match(html, /Within 50% — no more take-home needed/);
+    assert.match(html, /\$8,400\/mo take-home — \$1,400\/mo more, 20% above today’s|\$8,400\/mo take-home — \$1,400\/mo more, 20% above today's/);
+    assert.match(html, /needs \$1,400\/mo more take-home than today to keep Needs at 50%/);
+    assert.ok(!html.includes('<b>"home"</b>') && html.includes("Buy &lt;b>&quot;home&quot;&lt;/b>"), "the scenario's name is escaped");
+    assert.match(html, /a pay rise before tax would have to be larger/);
+    assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 9000, income: 6000 }, 50)), /\$3,000\/mo more than the whole take-home/);
+    assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 3000, income: 0 }, 50)), /No take-home in a normal month/);
+    assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 0, income: 5000 }, 50)), /Nothing is classed as Needs/);
+    const field = needsTargetFieldHtml("needsTargetX");
+    assert.match(field, /<label class="field-label" for="needsTargetX">Needs at most/);
+    assert.match(field, /data-needs-target/);
+    assert.match(field, /value="50"/);
+    for(const h of [html, needsTargetLinesHtml(needsTargetFor({}, 50))]) assert.ok(!/NaN|Infinity|undefined/.test(h), h);
+  } finally { state.needsTarget = was; }
+});

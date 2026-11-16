@@ -3,7 +3,7 @@
 **Decided:** v3.202 (item 233).
 
 **Decision.** `index.html` carries a Content-Security-Policy: scripts from this site and inline scripts only by hash
-(`npm run stamp` keeps them current), network only to this site and the services the app names. Text a person typed or
+(`npm run stamp` keeps them current; in a PR, `npm run stamp -- --hashes`), network only to this site and the services the app names. Text a person typed or
 a file brought in goes into HTML through `escapeAttr()`. Uncaught errors are kept on the device (`lib/errorlog.js`,
 imported first) and listed in Settings → Keeping your data safe.
 

@@ -20,3 +20,4 @@ that says which one it replaces; the old one stays.
 | [0012](0012-sync-without-a-server.md) | Sync, receipts and the activity log without a server |
 | [0013](0013-testing-in-three-layers.md) | Testing in three layers, and what each can't see |
 | [0014](0014-security-baseline.md) | A Content-Security-Policy, escaped text and a local error log |
+| [0015](0015-the-release-stamps.md) | The release stamps the import map; a pull request doesn't |

@@ -27,8 +27,9 @@ A single-page Australian personal finance and property-investment planner. No ba
 **Every shipped change is a release — never bump the version by hand** ([0002](docs/decisions/0002-every-change-is-a-release.md)).
 The Release workflow versions, stamps, tests and tags after a merge. You: commit the change, open a PR, and label it
 `release: minor` (feature or behaviour change), `release: patch` (fix, or a refactor nobody can see) or
-`release: none` (nothing ships). A PR that adds a module or an inline `<script>` runs `npm run stamp` (import map and
-CSP hashes; `tests/stamp.test.js` fails otherwise).
+`release: none` (nothing ships). **A PR never runs `npm run stamp`** — the release stamps the import map, and a PR that
+writes it conflicts with every release ([0015](docs/decisions/0015-the-release-stamps.md)). A new module loads unversioned
+until then. A new or changed inline `<script>` runs `npm run stamp -- --hashes` (the CSP only).
 
 **Always open a pull request for finished work**, without being asked: one PR per coherent piece of work.
 
@@ -91,7 +92,7 @@ and report without figures. Before every push, grep the diff for names, places a
 python3 -m http.server 8934   # then http://localhost:8934/index.html — modules don't load from file://
 npm test                      # node --test over tests/*.test.js — no framework, no dependencies
 npm run check                 # ESLint (+ local rules: escaping, the commit ratchet), tsc over calc/, stylelint
-npm run stamp                 # after adding a module or an inline script
+npm run stamp -- --hashes     # after adding or changing an inline <script>; never a full stamp in a PR
 ```
 
 Three layers, each blind to something ([0013](docs/decisions/0013-testing-in-three-layers.md)): the `calc/` tests (no

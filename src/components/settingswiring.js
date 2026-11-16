@@ -14,7 +14,9 @@ import { startActivityLog, setDevicePerson } from "../lib/activity.js";
 import { exportYearTransactionsCsv } from "../lib/backup.js";
 import { errorLog, clearErrorLog } from "../lib/errorlog.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId, onSaved } from "../state.js";
+import { state, persist, genId, onSaved, commit } from "../state.js";
+import { readInput } from "../lib/validate.js";
+import { setNeedsTarget } from "../calc/needstarget.js";
 import { renderActivity, activityUi } from "./activity.js";
 import { renderAssets } from "./assets.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderCategories, addCategory, deleteCategory, renameCategoryEverywhere, setCategoryLook, categoryLookUi, renderBudgetGroupByToggle, budgetLineItems, renderYearSpending, renderYearBasisPreference, setYearBasis, transactionCategory } from "./expenses.js";
@@ -133,6 +135,13 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     // derived from today's date ("FY26/27 so far", "20% through it"), so they go stale on their
     // own without anything having changed.
     if(accountsSubId === "preferences") renderYearBasisPreference();
+  });
+  // #389: the Needs target — Preferences' field and the one beside a scenario's comparison are the same setting.
+  // Saved only as a number from 1 to 100; anything else is said beside the field and not saved (#263).
+  document.addEventListener("change", function(e){
+    if(!e.target.matches || !e.target.matches("[data-needs-target]")) return;
+    var r = readInput(e.target, { empty: "Enter a share from 1 to 100.", min: 1, max: 100, range: "Enter a share from 1 to 100." });
+    if(r && setNeedsTarget(state, r.value)) commit(["needsTarget"]);
   });
   document.getElementById("yearBasisControl").addEventListener("click", function(e){
     var btn = e.target.closest("[data-year-basis]");

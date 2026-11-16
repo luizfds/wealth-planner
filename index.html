@@ -4,7 +4,7 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-S5ddxGjS365um2RN4ht2AxyXTAGnuVS7OYvzPHXxl1U='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-pzfachb3FSDzBRW4R5XwmY79qNpQY5bZf5khpZlZUSw='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
      the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
@@ -735,6 +735,16 @@
               <p class="ledger-note" style="margin-left:0;margin-top:12px" id="yearBasisNote"></p>
             </div>
           </details>
+          <!-- #389: one household setting, also changed beside a scenario's comparison on Plan → Scenarios. -->
+          <details class="ledger" open>
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Needs and take-home</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">The share of a normal month's take-home your Needs should be at most. A scenario's comparison on Plan → Scenarios works out the take-home that would take, before and after the change. 50% is the Needs part of Home's 50/30/20.</p>
+              <div id="needsTargetPref"></div>
+            </div>
+          </details>
           <!-- v3.161.0 (item 191): what this household has — a part it doesn't have keeps out of the way. -->
           <details class="ledger" open>
             <summary>
@@ -1179,6 +1189,7 @@
   "./src/calc/milestones.js": "./src/calc/milestones.js?v=3.280.2",
   "./src/calc/monthdetail.js": "./src/calc/monthdetail.js?v=3.280.2",
   "./src/calc/monthreview.js": "./src/calc/monthreview.js?v=3.280.2",
+  "./src/calc/needstarget.js": "./src/calc/needstarget.js?v=3.280.2",
   "./src/calc/networthlist.js": "./src/calc/networthlist.js?v=3.280.2",
   "./src/calc/nwauto.js": "./src/calc/nwauto.js?v=3.280.2",
   "./src/calc/nwcheck.js": "./src/calc/nwcheck.js?v=3.280.2",
@@ -1281,6 +1292,7 @@
   "./src/components/monthdetail.js": "./src/components/monthdetail.js?v=3.280.2",
   "./src/components/monthreview.js": "./src/components/monthreview.js?v=3.280.2",
   "./src/components/nav.js": "./src/components/nav.js?v=3.280.2",
+  "./src/components/needstarget.js": "./src/components/needstarget.js?v=3.280.2",
   "./src/components/networth.js": "./src/components/networth.js?v=3.280.2",
   "./src/components/notifpanel.js": "./src/components/notifpanel.js?v=3.280.2",
   "./src/components/overlays.js": "./src/components/overlays.js?v=3.280.2",
@@ -1434,6 +1446,7 @@
 <link rel="modulepreload" href="./src/calc/milestones.js?v=3.280.2">
 <link rel="modulepreload" href="./src/calc/monthdetail.js?v=3.280.2">
 <link rel="modulepreload" href="./src/calc/monthreview.js?v=3.280.2">
+<link rel="modulepreload" href="./src/calc/needstarget.js?v=3.280.2">
 <link rel="modulepreload" href="./src/calc/networthlist.js?v=3.280.2">
 <link rel="modulepreload" href="./src/calc/nwauto.js?v=3.280.2">
 <link rel="modulepreload" href="./src/calc/nwcheck.js?v=3.280.2">
@@ -1536,6 +1549,7 @@
 <link rel="modulepreload" href="./src/components/monthdetail.js?v=3.280.2">
 <link rel="modulepreload" href="./src/components/monthreview.js?v=3.280.2">
 <link rel="modulepreload" href="./src/components/nav.js?v=3.280.2">
+<link rel="modulepreload" href="./src/components/needstarget.js?v=3.280.2">
 <link rel="modulepreload" href="./src/components/networth.js?v=3.280.2">
 <link rel="modulepreload" href="./src/components/notifpanel.js?v=3.280.2">
 <link rel="modulepreload" href="./src/components/overlays.js?v=3.280.2">

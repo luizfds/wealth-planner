@@ -38,7 +38,8 @@ import { renderReceived } from "./received.js";
 import { renderReports } from "./reports.js";
 import { goalsFireHtml } from "./retirement.js";
 import { renderSafekeeping } from "./safekeeping.js";
-import { selectScenario, renderHomeBody } from "./scenarios.js";
+import { selectScenario, renderHomeBody, renderScenarioEditorSummary } from "./scenarios.js";
+import { renderNeedsTargetPref } from "./needstarget.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -141,6 +142,9 @@ function defineViews(){
   defineView("categories", ["settings"], renderCategories, ["categories", "categoryLooks", "shared", "transactions", "home", "properties"]);
   defineView("budgetGroupBy", ["expenses"], renderBudgetGroupByToggle, ["budgetGroupBy"]);
   defineView("yearBasis", ["settings"], renderYearBasisPreference, ["yearBasis"]);
+  // #389: the Needs target, in Preferences and under a scenario being edited.
+  defineView("needsTarget", ["settings"], renderNeedsTargetPref, ["needsTarget"]);
+  defineView("scenarioSummary", ["scenario"], renderScenarioEditorSummary, ["needsTarget"]);
   defineView("transactions", ["expenses"], renderTransactions, ["transactions", "transfers", "incomeLog", "shared", "home", "properties", "accounts", "txViews", "trips", "categories", "categoryLooks", "income"]);
   defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel, ["transactions", "shared", "home", "properties", "accounts", "income", "incomeLog", "categories"]);
   // The bills calendar is drawn by the panel above too; a transfer or an automatic payment touches only it.

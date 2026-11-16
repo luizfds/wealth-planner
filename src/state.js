@@ -156,6 +156,9 @@ export function defaultState(){
     // anyone else recognises, and "what did we spend last year" has to mean something you could
     // put in front of an accountant.
     yearBasis: "financial",
+    // #389: the share of regular monthly take-home Needs should be at most — the scenario comparison works out the
+    // take-home that would take. 50 is Home's 50/30/20; the household can set its own (1–100).
+    needsTarget: 50,
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -802,6 +805,12 @@ export var MIGRATION_STEPS = [
     var d = s.noticesDismissed;
     if(!d || typeof d !== "object" || Array.isArray(d)){ s.noticesDismissed = {}; return; }
     Object.keys(d).forEach(function(id){ if(typeof d[id] !== "string" || !d[id]) delete d[id]; });
+  } },
+  // #389: the target share of take-home for Needs. A household saved before it has none; anything that isn't a
+  // percentage above 0 and at most 100 becomes the default, 50.
+  { n: 28, name: "a target share of take-home for Needs", run: function(s){
+    var t = Number(s.needsTarget);
+    s.needsTarget = t > 0 && t <= 100 ? t : 50;
   } }
 ];
 

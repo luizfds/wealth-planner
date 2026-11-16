@@ -283,3 +283,10 @@ test("step 27: a place for the observations put away; a kept one stays, anything
   const s = run(27, { noticesDismissed: { wants: "Wants were 18% of spending", "payg:Alex": "", broken: 3 } });
   assert.deepEqual(s.noticesDismissed, { wants: "Wants were 18% of spending" });
 });
+
+test("step 28: a target share of take-home for Needs — 50 when there's none or it isn't 1–100; a set one stays", function(){
+  assert.equal(run(28, {}).needsTarget, 50);
+  assert.equal(run(28, { needsTarget: 60 }).needsTarget, 60);
+  assert.equal(run(28, { needsTarget: "45" }).needsTarget, 45);
+  [0, -5, 101, "x", null].forEach(function(bad){ assert.equal(run(28, { needsTarget: bad }).needsTarget, 50, String(bad)); });
+});

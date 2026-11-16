@@ -296,3 +296,9 @@ test("step 29: a cash account's interest rate — a rate from 0 to 25 stays, any
   assert.deepEqual(s.assets.map(a => a.interestRate), [4.5, undefined, undefined, undefined, undefined, 0]);
   assert.ok(!("interestRate" in s.assets[1]) && !("interestRate" in s.assets[4]));
 });
+
+test("step 30: a planned goal's monthly amount and year — kept when they read, dropped when they don't", function(){
+  const s = run(30, { savingsGoals: [{ id: "a", plannedMonthly: "250", planYear: "FY26/27" }, { id: "b", plannedMonthly: -5, planYear: 2026 }, { id: "c" }, { id: "d", plannedMonthly: null, planYear: "" }] });
+  assert.deepEqual(s.savingsGoals.map(g => [g.plannedMonthly, g.planYear]), [[250, "FY26/27"], [undefined, undefined], [undefined, undefined], [undefined, undefined]]);
+  assert.ok(!("plannedMonthly" in s.savingsGoals[1]) && !("planYear" in s.savingsGoals[3]));
+});

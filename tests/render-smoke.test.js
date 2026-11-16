@@ -2798,3 +2798,28 @@ test("savings account vs offset: the best offset's worth, each account against i
   assert.ok(!/<button/.test(offsetCompareHtml(c, true)));
   assert.equal(offsetCompareHtml(null), "");
 });
+
+test("next year's plan: closed, then drafts with their fields, status, the shared surplus and save (#399)", async () => {
+  const { nextYearPlanSectionHtml } = await import("../src/components/nextyearplan.js");
+  const today = "2026-08-15";
+  const closed = nextYearPlanSectionHtml({ open: false, drafts: [] }, null, null, today);
+  assert.match(closed, /data-yr-section="plan"/);
+  assert.match(closed, /<button type="button" class="btn btn-sm" data-plan-start>Make a plan for FY26\/27<\/button>/);
+  const ui = { open: true, drafts: [
+    { id: "p1", kind: "save", name: 'Trip <b>"x"</b>', amount: 3000, account: "Saver", by: "2027-06-30" },
+    { id: "p2", kind: "debt", account: "", by: "2027-06-30" }
+  ] };
+  const plan = { rows: [
+    { id: "p1", status: "partial", needed: 300, given: 120, current: 0, target: 3000, by: "2027-06-30", reach: "2028-11" },
+    { id: "p2", status: "problem", problem: "Choose the card or loan." }
+  ], surplus: 120, used: 120, left: 0 };
+  const html = nextYearPlanSectionHtml(ui, { monthly: 120, planned: 400, actual: 120, basis: "actual" }, plan, today);
+  assert.ok(html.includes('value="Trip &lt;b>&quot;x&quot;&lt;/b>"'), "a typed name is escaped");
+  assert.match(html, /what was actually kept last year, which is less than the budget's \$400 a month/);
+  assert.match(html, /Part fits<\/span> Needs \$300 a month to get there by 30 Jun 2027 — \$120 a month fits, which gets there around November 2028\./);
+  assert.match(html, /Incomplete<\/span> Choose the card or loan\./);
+  assert.match(html, /data-plan-move="-1" data-plan-id="p1" disabled/);
+  assert.match(html, /class="btn btn-sm btn-danger" data-plan-remove="p2"/);
+  assert.match(html, /<button type="button" class="btn btn-sm" data-plan-save>Save this goal<\/button>/);
+  assert.ok(!/\d{4}-\d{2}-\d{2}</.test(html.replace(/value="[^"]*"/g, "")), "no raw dates in text");
+});

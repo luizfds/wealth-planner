@@ -11,7 +11,8 @@ import { persist, commit } from "../state.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./monthdetail.js";
 import { renderMonthReview } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showTaxSubpage } from "./nav.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay } from "./reports.js";
+import { startPlan, addDraft, cancelPlan, moveDraft, removeDraft, setDraftField, savePlanGoals } from "./nextyearplan.js";
+import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay, reportOpts } from "./reports.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { printStatic } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -70,11 +71,19 @@ export function openReportChooser(){
   draw(); dialog.showModal(); search.focus();
 }
 
+// After a redraw that removed the control used, focus goes where the next step is.
+function focusPlan(sel){
+  var el = document.querySelector('#reportsBody [data-yr-section="plan"] ' + sel) || document.querySelector('#reportsBody [data-yr-section="plan"] h3');
+  if(el){ if(el.tagName === "H3") el.setAttribute("tabindex", "-1"); el.focus(); }
+}
 
 export function wireReports(){
   // ---------------- Reports (v3.62.0) ----------------
   // v3.118.0: the frame — period, comparison, grouping.
   document.getElementById("reportsBody").addEventListener("change", function(e){
+    // #399: next year's plan — a draft's field.
+    var pf = e.target.getAttribute && e.target.getAttribute("data-plan-field");
+    if(pf){ setDraftField(e.target.getAttribute("data-plan-id"), pf, e.target.value); renderReports(); return; }
     if(e.target.matches('[data-report-full-table]')){
       reportDisplay.fullTable = e.target.checked;
       e.target.closest('.rp-presentation').setAttribute('data-full-table', String(e.target.checked));
@@ -93,6 +102,26 @@ export function wireReports(){
   });
   document.getElementById("reportsBody").addEventListener("click", function(e){
     if(e.target.closest('[data-report-choose]')){ openReportChooser(); return; }
+    // #399: next year's plan. Drafts are the page's own until saved; saving adds savings goals.
+    if(e.target.closest("[data-plan-start]")){ startPlan(localDateStr()); renderReports(); focusPlan('[data-plan-field="kind"]'); return; }
+    if(e.target.closest("[data-plan-add]")){ addDraft("save", localDateStr()); renderReports(); focusPlan('.nyp-goal:last-child [data-plan-field="kind"]'); return; }
+    var pm = e.target.closest("[data-plan-move]");
+    if(pm){
+      var mid = pm.getAttribute("data-plan-id"), step = pm.getAttribute("data-plan-move");
+      moveDraft(mid, Number(step)); renderReports();
+      // At the top or bottom its button is disabled: focus the other way instead.
+      var same = '[data-plan-move="' + step + '"][data-plan-id="' + mid + '"]';
+      focusPlan(document.querySelector('#reportsBody ' + same + ':not([disabled])') ? same : '[data-plan-move="' + (-Number(step)) + '"][data-plan-id="' + mid + '"]');
+      return;
+    }
+    var pr = e.target.closest("[data-plan-remove]");
+    if(pr){ removeDraft(pr.getAttribute("data-plan-remove")); renderReports(); focusPlan("[data-plan-add]"); return; }
+    if(e.target.closest("[data-plan-cancel]")){ cancelPlan(); renderReports(); focusPlan("[data-plan-start]"); return; }
+    if(e.target.closest("[data-plan-save]")){
+      var n = savePlanGoals(localDateStr(), reportOpts());
+      if(n){ commit(["savingsGoals"]); showToast(n === 1 ? "Added 1 savings goal to Goals" : "Added " + n + " savings goals to Goals"); focusPlan("[data-plan-start]"); }
+      return;
+    }
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); rememberReport(reportShown.key); renderReports(); return; }
     // v3.124.0: pinned reports.

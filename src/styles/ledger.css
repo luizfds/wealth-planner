@@ -1319,6 +1319,18 @@
   .yr-offset{ margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
   .yr-offset .empty-state{ margin:6px 0 0; }
   .yr-missing ul{ margin:4px 0 0; padding-left:18px; font-size:var(--fs-xs); color:var(--ink-soft); line-height:1.5; overflow-wrap:anywhere; }
+  /* #399: next year's plan. */
+  .nyp-goals{ list-style:none; margin:10px 0 0; padding:0; display:grid; gap:10px; }
+  .nyp-goal{ border-top:1px solid var(--border); padding-top:10px; min-width:0; }
+  .nyp-fields{ display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap:8px 12px; }
+  .nyp-fields .field{ min-width:0; }
+  .nyp-status{ margin:6px 0 0; font-size:var(--fs-sm); line-height:1.5; overflow-wrap:anywhere; }
+  .nyp-badge{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); margin-right:4px; }
+  .nyp-funded .nyp-badge, .nyp-done .nyp-badge{ color:var(--good-ink); }
+  .nyp-partial .nyp-badge, .nyp-unfunded .nyp-badge, .nyp-problem .nyp-badge{ color:var(--warn-ink); }
+  .nyp-actions, .nyp-foot{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .nyp-add{ margin-top:10px; }
+  .nyp-sum{ margin-top:10px; }
   /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
   .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }
   .rp-group{ display:grid; grid-template-columns:170px 1fr; gap:6px; align-items:start; }

@@ -159,6 +159,9 @@ export function defaultState(){
     // #389: the share of regular monthly take-home Needs should be at most — the scenario comparison works out the
     // take-home that would take. 50 is Home's 50/30/20; the household can set its own (1–100).
     needsTarget: 50,
+    // #400: the monthly check-in on next year's plan — the month review's "Your plan" and a bell item when a goal is
+    // behind. Opt-in: off until the household turns it on.
+    planCheckIn: false,
     home: { "Current situation": defaultHomeBlock() },
     purchase: { "Current situation": defaultPurchaseConfig(0, 20, 6.0, 30, "NSW", false) },
     invest: { "Current situation": defaultInvestConfig() },
@@ -829,6 +832,16 @@ export var MIGRATION_STEPS = [
       if("plannedMonthly" in g){ var m = Number(g.plannedMonthly); if(g.plannedMonthly === null || g.plannedMonthly === "" || !(m >= 0)) delete g.plannedMonthly; else g.plannedMonthly = m; }
       if("planYear" in g && (typeof g.planYear !== "string" || !g.planYear)) delete g.planYear;
     });
+  } },
+  // #400: progress against next year's plan. A planned goal keeps the day it was saved and its balance that day
+  // (planFrom, planStart) to measure from; the check-in is a household setting, off by default.
+  { n: 31, name: "where a planned goal started, and the plan check-in", run: function(s){
+    (s.savingsGoals || []).forEach(function(g){
+      if(!g) return;
+      if("planFrom" in g && !(typeof g.planFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(g.planFrom))) delete g.planFrom;
+      if("planStart" in g){ var b = Number(g.planStart); if(g.planStart === null || g.planStart === "" || !isFinite(b)) delete g.planStart; else g.planStart = b; }
+    });
+    s.planCheckIn = s.planCheckIn === true;
   } }
 ];
 

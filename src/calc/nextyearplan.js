@@ -130,6 +130,9 @@ export function savePlan(plan, today){
     var g = addSavingsGoal({ name: r.name, target: r.target, by: r.by, accounts: r.accounts });
     g.plannedMonthly = r.given;
     g.planYear = year;
+    // #400 measures progress from here: the day it was saved and the balance its accounts held.
+    g.planFrom = today;
+    g.planStart = r.current;
     return g;
   });
 }

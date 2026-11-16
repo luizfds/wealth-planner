@@ -10,12 +10,12 @@ import { accountBalance } from "./accounts.js";
 //
 // state.savingsGoals = [{ id, name, target, by: "YYYY-MM-DD" | "", accounts: [accountName], startAmount? }]
 function round(n){ return Math.round(n * 100) / 100; }
-function monthsBetween(a, b){
+export function monthsBetween(a, b){
   var y = Number(b.slice(0, 4)) - Number(a.slice(0, 4)), m = Number(b.slice(5, 7)) - Number(a.slice(5, 7));
   var d = Number(b.slice(8, 10)) - Number(a.slice(8, 10));
   return Math.max(0, y * 12 + m + d / 30);
 }
-function addMonths(iso, n){
+export function addMonths(iso, n){
   var d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1 + Math.ceil(n), 1);
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 }

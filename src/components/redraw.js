@@ -40,6 +40,7 @@ import { goalsFireHtml } from "./retirement.js";
 import { renderSafekeeping } from "./safekeeping.js";
 import { selectScenario, renderHomeBody, renderScenarioEditorSummary } from "./scenarios.js";
 import { renderNeedsTargetPref } from "./needstarget.js";
+import { renderPlanCheckInPref } from "./planprogress.js";
 import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -144,6 +145,7 @@ function defineViews(){
   defineView("yearBasis", ["settings"], renderYearBasisPreference, ["yearBasis"]);
   // #389: the Needs target, in Preferences and under a scenario being edited.
   defineView("needsTarget", ["settings"], renderNeedsTargetPref, ["needsTarget"]);
+  defineView("planCheckIn", ["settings"], renderPlanCheckInPref, ["planCheckIn"]);
   defineView("scenarioSummary", ["scenario"], renderScenarioEditorSummary, ["needsTarget"]);
   defineView("transactions", ["expenses"], renderTransactions, ["transactions", "transfers", "incomeLog", "shared", "home", "properties", "accounts", "txViews", "trips", "categories", "categoryLooks", "income"]);
   defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel, ["transactions", "shared", "home", "properties", "accounts", "income", "incomeLog", "categories"]);

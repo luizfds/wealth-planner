@@ -302,3 +302,12 @@ test("step 30: a planned goal's monthly amount and year — kept when they read,
   assert.deepEqual(s.savingsGoals.map(g => [g.plannedMonthly, g.planYear]), [[250, "FY26/27"], [undefined, undefined], [undefined, undefined], [undefined, undefined]]);
   assert.ok(!("plannedMonthly" in s.savingsGoals[1]) && !("planYear" in s.savingsGoals[3]));
 });
+
+test("step 31: where a planned goal started, and the plan check-in off unless it was turned on", function(){
+  const s = run(31, { savingsGoals: [{ id: "a", planFrom: "2026-08-15", planStart: "-1200" }, { id: "b", planFrom: "15/08/2026", planStart: "x" }, { id: "c" }] });
+  assert.deepEqual(s.savingsGoals.map(g => [g.planFrom, g.planStart]), [["2026-08-15", -1200], [undefined, undefined], [undefined, undefined]]);
+  assert.ok(!("planFrom" in s.savingsGoals[1]) && !("planStart" in s.savingsGoals[1]));
+  assert.equal(s.planCheckIn, false);
+  assert.equal(run(31, { savingsGoals: [], planCheckIn: true }).planCheckIn, true);
+  assert.equal(run(31, { savingsGoals: [], planCheckIn: "yes" }).planCheckIn, false);
+});

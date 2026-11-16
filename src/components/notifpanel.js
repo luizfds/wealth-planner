@@ -6,7 +6,7 @@ import { escapeAttr } from "../lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "../lib/notifications.js";
 import { attentionItems, viewItems, canDismiss } from "../lib/attention.js";
 import { renderHealth } from "./health.js";
-import { renderMonthReview } from "./monthreview.js";
+import { renderMonthReview, showPlanStep } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
 import { openTxReview } from "./spendingwiring.js";
 import { openCashRateDialog } from "./cashrate.js";
@@ -110,6 +110,8 @@ function followItem(n){
   if(action === "txreview"){ openTxReview(); return; }
   // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
   if(action === "cashrate"){ openCashRateDialog(); return; }
+  // #400: next year's plan — the month review, at its plan step.
+  if(action === "planstep"){ showPage("dashboard"); showDashboardSubpage("review"); showPlanStep(); renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   if(page === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "year", { replace: true }); renderTaxYear(); return; }
   // #396: a report by its key — the year in review once a year has finished.
   if(page === "reports" && sub){ reportShown.key = sub; rememberReport(sub); showPage("reports"); renderReports(); return; }

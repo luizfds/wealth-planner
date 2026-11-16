@@ -419,6 +419,18 @@
 .mr-stepcard h3{ margin:2px 0 8px; font-size:var(--fs-lg); outline:none; }
 .mr-step-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); }
 .mr-lede{ margin:0 0 10px; font-size:var(--fs-md); line-height:1.5; }
+/* #400: next year's plan in the month review. */
+.pp-asof{ margin:0 0 6px; }
+.pp-goals{ list-style:none; margin:0 0 10px; padding:0; display:grid; gap:10px; }
+.pp-goal{ border-top:1px solid var(--border); padding-top:8px; min-width:0; }
+.pp-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+.pp-head b{ font-weight:600; overflow-wrap:anywhere; }
+.pp-badge{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
+.pp-badge.pp-good{ color:var(--good-ink); }
+.pp-badge.pp-warn{ color:var(--warn-ink); }
+.pp-line{ margin:4px 0 0; font-size:var(--fs-sm); line-height:1.5; overflow-wrap:anywhere; }
+.pp-note{ margin:8px 0 0; }
+.pp-pref-help{ margin:6px 0 0; }
 @media (max-width:520px){
   .mr-summary{ grid-template-columns:1fr; }
   .mr-statement{ grid-template-columns:minmax(0,1fr) auto; }

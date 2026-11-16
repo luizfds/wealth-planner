@@ -2823,3 +2823,26 @@ test("next year's plan: closed, then drafts with their fields, status, the share
   assert.match(html, /<button type="button" class="btn btn-sm" data-plan-save>Save this goal<\/button>/);
   assert.ok(!/\d{4}-\d{2}-\d{2}</.test(html.replace(/value="[^"]*"/g, "")), "no raw dates in text");
 });
+
+test("next year's plan in the month review: each goal against the plan, its forecast and how to catch up (#400)", async () => {
+  const { planProgressHtml, planCheckInPrefHtml } = await import("../src/components/planprogress.js");
+  const behind = { id: "g1", name: 'Trip <b>"x"</b>', status: "behind", target: 12000, by: "2027-08-01", planned: 1000, planYear: "FY26/27", yearEnd: "2027-06-30",
+    from: "2026-08-01", fromYearStart: false, start: 0, actual: 1500, expected: 3000, gap: -1500, pace: 500, forecast: 5483, planAtYearEnd: 10967,
+    adjust: { monthly: 1166.67, extra: 166.67, reach: "2028-08" }, stale: ["Saver"], problem: "" };
+  const card = { id: "g2", name: "Pay off Card A", status: "on-track", target: 0, by: "2027-02-01", planned: 300, planYear: "FY26/27", yearEnd: "2027-06-30",
+    from: "2026-07-01", fromYearStart: true, start: -1800, actual: -900, expected: -900, gap: 0, pace: 300, forecast: 0, planAtYearEnd: 0, adjust: null, stale: [], problem: "" };
+  const none = { id: "g3", name: "Car", status: "no-data", stale: [], problem: "No balance for Old account." };
+  const html = planProgressHtml({ goals: [behind, card, none], behind: 1, noData: 1, stale: 1, attention: true });
+  assert.ok(html.includes("Trip &lt;b>&quot;x&quot;&lt;/b>"), "a goal's name is text");
+  assert.match(html, /1 of 3 planned goals is behind\./);
+  assert.match(html, /should be \$3,000 by now — it's \$1,500, \$1,500 short\. Measured from when the plan was saved, 1 Aug 2026, at \$1,000 a month\./);
+  assert.match(html, /To catch up: put \$1,167 a month toward it from now \(\$167 more than planned\) to land on 1 Aug 2027 — or at the pace so far it gets there around August 2028\./);
+  assert.match(html, /The balance of Saver hasn't been updated in over six weeks/);
+  assert.match(html, /should be \$900 owed by now — it's \$900 owed\. Measured from the plan year's start, 1 Jul 2026/);
+  assert.match(html, /Can't tell yet<\/span><\/div><p class="pp-line">No balance for Old account\./);
+  assert.match(html, /data-mr-go="accounts"/);
+  assert.ok(!/\d{4}-\d{2}-\d{2}/.test(html), "no raw dates");
+  const empty = planProgressHtml({ goals: [], behind: 0, noData: 0, stale: 0, attention: false });
+  assert.match(empty, /empty-state/); assert.match(empty, /data-go="plan\/goals"/);
+  assert.match(planCheckInPrefHtml(), /<input type="checkbox" data-plan-checkin> Check next year's plan each month/);
+});

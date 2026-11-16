@@ -68,4 +68,5 @@ test("saving adds ordinary savings goals with their monthly amount and year; pro
   const added = savePlan(plan, TODAY);
   assert.equal(added.length, 1);
   assert.deepEqual(state.savingsGoals.map(g => [g.name, g.target, g.by, g.accounts.join(), g.plannedMonthly, g.planYear]), [["Pay off Card A", 0, "2027-02-15", "Card A", 200, "FY26/27"]]);
+  assert.deepEqual([state.savingsGoals[0].planFrom, state.savingsGoals[0].planStart], [TODAY, -1200], "#400 measures from the day it was saved and the balance then");
 }));

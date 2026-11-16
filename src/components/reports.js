@@ -15,6 +15,7 @@ import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { keepUi } from "../lib/keepui.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { nextYearPlanHtml } from "./nextyearplan.js";
 
 // ---------------- Reports (v3.62.0) ----------------
 // One page, five statements (calc/reports.js), each following the header's period, printable
@@ -161,7 +162,8 @@ export function reportTableHtml(rep){
 // #396: the guided Year in review — one section per question, its verdict and where it's acted on (calc/yearreview.js).
 // A section without enough data is an empty state that says what fills it. In print, no buttons.
 var TONE = { good: "On track", warn: "Worth acting on", info: "Worth a look" };
-export function yearReviewSectionsHtml(sections, print){
+// extra: markup after the last section (#399's next year's plan, on screen only).
+export function yearReviewSectionsHtml(sections, print, extra){
   return '<div class="yr-sections">' + sections.map(function(x){
     var body;
     if(x.tone === "empty") body = print ? '<p>' + escapeAttr(x.empty) + '</p>' : emptyStateHtml(x.empty, { go: x.go, label: x.label, className: "yr-empty" });
@@ -172,7 +174,7 @@ export function yearReviewSectionsHtml(sections, print){
       (!print && x.go ? '<button type="button" class="link-btn yr-go" data-go="' + escapeAttr(x.go) + '">' + escapeAttr(x.label) + '</button>' : '');
     return '<section class="yr-section yr-' + escapeAttr(x.tone) + '" data-yr-section="' + escapeAttr(x.key) + '" aria-labelledby="yr-' + escapeAttr(x.key) + '">' +
       '<h3 id="yr-' + escapeAttr(x.key) + '">' + escapeAttr(x.title) + (TONE[x.tone] ? ' <span class="yr-tone">' + TONE[x.tone] + '</span>' : '') + '</h3>' + body + '</section>';
-  }).join("") + '</div>';
+  }).join("") + (extra || "") + '</div>';
 }
 // #397: how the year adds up — money in, spending, kept, and where the kept money went (calc/reconcile.js). Folded in
 // the money section on screen; open in print.
@@ -392,7 +394,7 @@ export function reportsPageHtml(opts){
   return picker + frameControlsHtml(rep, opts) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(reportSubtitle(rep, opts)) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
-      (rep.sections ? yearReviewSectionsHtml(rep.sections) + (reportIsEmpty(rep) ? '' : '<details class="yr-figures"><summary>The year in figures</summary>' + storyHtml(rep) + reportPresentationHtml(rep) + '</details>')
+      (rep.sections ? yearReviewSectionsHtml(rep.sections, false, nextYearPlanHtml(opts)) + (reportIsEmpty(rep) ? '' : '<details class="yr-figures"><summary>The year in figures</summary>' + storyHtml(rep) + reportPresentationHtml(rep) + '</details>')
         : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){

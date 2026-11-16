@@ -820,6 +820,15 @@ export var MIGRATION_STEPS = [
       var r = Number(a.interestRate);
       if(a.interestRate === null || a.interestRate === "" || !(r >= 0 && r <= 25)) delete a.interestRate; else a.interestRate = r;
     });
+  } },
+  // #399: a savings goal saved from next year's plan keeps what the plan gave it a month and the year it's for
+  // (#400 measures progress against them). Optional: other goals have neither. Anything malformed is dropped.
+  { n: 30, name: "a planned goal's monthly amount and year", run: function(s){
+    (s.savingsGoals || []).forEach(function(g){
+      if(!g) return;
+      if("plannedMonthly" in g){ var m = Number(g.plannedMonthly); if(g.plannedMonthly === null || g.plannedMonthly === "" || !(m >= 0)) delete g.plannedMonthly; else g.plannedMonthly = m; }
+      if("planYear" in g && (typeof g.planYear !== "string" || !g.planYear)) delete g.planYear;
+    });
   } }
 ];
 

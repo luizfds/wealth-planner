@@ -86,6 +86,9 @@
 //                 year (calendar too); a Home card once a year has finished, opened or put away; an empty household
 //   savingsoffset — #398: Year in review's savings account vs offset — asks for a cash account's rate, which is entered
 //                 on Investments → Cash (0–25%, blank allowed), then compares it with the loan's offset after tax
+//   nextyearplan — #399: Year in review's next year's plan — goals in priority order share one monthly surplus (the
+//                 lower of the budget's and last year's kept); reordering moves the money; saving adds savings goals
+//                 with their monthly amount, cancelling adds nothing
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -410,8 +413,8 @@ const JOURNEYS = {
     await go(page, 'reports', 'data-report', 'review');
     const sheet = page.locator('#reportSheet');
     const sections = sheet.locator('[data-yr-section]');
-    check(await sections.count() === 6, 'not six sections: ' + await sections.count());
-    check(JSON.stringify(await sections.evaluateAll(els => els.map(e => e.getAttribute('data-yr-section')))) === JSON.stringify(['money', 'networth', 'leaks', 'emergency', 'goals', 'checking']), 'sections out of order');
+    check(await sections.count() === 7, 'not seven sections: ' + await sections.count());
+    check(JSON.stringify(await sections.evaluateAll(els => els.map(e => e.getAttribute('data-yr-section')))) === JSON.stringify(['money', 'networth', 'leaks', 'emergency', 'goals', 'checking', 'plan']), 'sections out of order');
     const text = await sheet.innerText();
     check(/1 July 2025 to 30 June 2026/.test(text), 'not the financial year: ' + text.slice(0, 120));
     check(!/NaN|Infinity|undefined/.test(text), 'the review shows NaN');
@@ -485,6 +488,81 @@ const JOURNEYS = {
       check(await sec.locator('.empty-state').count() === 1 && await sec.locator('.empty-state [data-go]').count() === 1, key + ' in an empty household does not say what fills it');
       check(!/\$0\b/.test(await sec.innerText()), key + ' shows $0 in an empty household');
     }
+  },
+
+  async nextyearplan(page){
+    // Synthetic demo household, the journeys' fixed date.
+    await quiet(page);
+    await go(page, 'reports', 'data-report', 'review');
+    const sec = page.locator('[data-yr-section="plan"]');
+    const goalsBefore = await page.evaluate(async () => (await import('/src/state.js')).state.savingsGoals.length);
+    await sec.locator('[data-plan-start]').click();
+    await sec.locator('[data-plan-goal]').first().waitFor();
+    check(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-plan-field')) === 'kind', 'starting the plan did not put focus on its first goal');
+    const surplusText = await sec.locator('.nyp-surplus').textContent();
+    check(/a month to share/.test(surplusText) && /(budget's regular surplus|actually kept last year)/.test(surplusText), 'the surplus does not say where it comes from: ' + surplusText);
+    const surplus = await page.evaluate(async () => (await import('/src/calc/nextyearplan.js')).planSurplus((await import('/src/lib/format.js')).localDateStr(), {}).monthly);
+    check(surplus > 0, 'the demo household has no surplus to share');
+    // Two save goals, each bigger than the surplus on its own, so only the first can be funded.
+    const fill = async (n, name, amount) => {
+      const g = sec.locator('[data-plan-goal]').nth(n);
+      await g.locator('[data-plan-field="kind"]').selectOption('save');
+      await sec.locator('[data-plan-goal]').nth(n).locator('[data-plan-field="name"]').fill(name);
+      await sec.locator('[data-plan-goal]').nth(n).locator('[data-plan-field="name"]').press('Tab');
+      await sec.locator('[data-plan-goal]').nth(n).locator('[data-plan-field="amount"]').fill(String(amount));
+      await sec.locator('[data-plan-goal]').nth(n).locator('[data-plan-field="amount"]').press('Tab');
+      const acct = sec.locator('[data-plan-goal]').nth(n).locator('[data-plan-field="account"]');
+      const first = await acct.locator('option').nth(1).getAttribute('value');
+      await acct.selectOption(first);
+    };
+    const big = Math.ceil(surplus * 8 / 100) * 100;  // about 8 months' surplus by the end of a year: more than it all
+    await fill(0, 'Trip A', big);
+    await sec.locator('[data-plan-add]').click();
+    await fill(1, 'Car B', big);
+    const statuses = async () => sec.locator('[data-plan-goal]').evaluateAll(els => els.map(e => [e.querySelector('[data-plan-field="name"]').value, e.className.match(/nyp-(\w+)$/)[1]]));
+    let st = await statuses();
+    check(JSON.stringify(st.map(x => x[0])) === '["Trip A","Car B"]', 'goals not in the order added: ' + JSON.stringify(st));
+    check(['funded', 'partial'].includes(st[0][1]) && ['partial', 'unfunded'].includes(st[1][1]), 'the first goal is not funded first: ' + JSON.stringify(st));
+    const t1 = await sec.locator('[data-plan-goal]').nth(1).locator('.nyp-status').textContent();
+    check(/Needs \$[\d,]+ a month to get there by \d+ \w+ \d{4}/.test(t1), 'a goal does not say what it needs: ' + t1);
+    check(!/NaN|Infinity|undefined|\d{4}-\d{2}-\d{2}/.test(await sec.textContent()), 'the plan shows NaN or a raw date');
+    // Moving the second up moves the money with it.
+    await sec.locator('[data-plan-goal]').nth(1).locator('[data-plan-move="-1"]').click();
+    st = await statuses();
+    check(st[0][0] === 'Car B' && ['funded', 'partial'].includes(st[0][1]) && st[1][0] === 'Trip A' && st[1][1] !== 'funded', 'moving a goal up did not move the money: ' + JSON.stringify(st));
+    check(await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('data-plan-move')) !== null, 'focus left the move button');
+    const left = await sec.locator('.nyp-sum .yr-recon-total dd').textContent();
+    check(left.trim() === '$0', 'all of the surplus is not shared out: ' + left);
+    // An incomplete goal is said, and not saved.
+    await sec.locator('[data-plan-add]').click();
+    await sec.locator('[data-plan-goal]').nth(2).locator('[data-plan-field="kind"]').selectOption('debt');
+    check(/Choose the card or loan/.test(await sec.locator('[data-plan-goal]').nth(2).locator('.nyp-status').textContent()), 'an incomplete goal does not say what it needs');
+    // Four widths, both themes.
+    if(process.env.YEAR_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(!await sec.evaluate((e, w) => e.getBoundingClientRect().right > w + 1 || document.documentElement.scrollWidth > w + 1, width), 'the plan overflows at ' + width + '/' + theme);
+      if(process.env.YEAR_A11Y){
+        const v = await sec.evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(x => ({ id: x.id, nodes: x.nodes.map(n => n.failureSummary) })));
+        check(!v.length, 'the plan accessibility ' + width + '/' + theme + ': ' + JSON.stringify(v));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+    // Cancel adds nothing; the plan starts afresh.
+    await sec.locator('[data-plan-cancel]').click();
+    await sec.locator('[data-plan-start]').waitFor();
+    check(await page.evaluate(async () => (await import('/src/state.js')).state.savingsGoals.length) === goalsBefore, 'cancelling added goals');
+    // Save: the complete goals become savings goals, with what the plan gave each a month and the year.
+    await sec.locator('[data-plan-start]').click();
+    await fill(0, 'Trip A', big);
+    const given = await page.evaluate(async () => { const c = await import('/src/components/nextyearplan.js'); const r = c.currentPlan((await import('/src/lib/format.js')).localDateStr(), {}).plan.rows[0]; return r.given; });
+    await sec.locator('[data-plan-save]').click();
+    await sec.locator('[data-plan-start]').waitFor();
+    const saved = await page.evaluate(async () => (await import('/src/state.js')).state.savingsGoals.slice(-1)[0]);
+    check(saved.name === 'Trip A' && saved.target === big && saved.plannedMonthly === given && /^FY\d{2}\/\d{2}$/.test(saved.planYear), 'the saved goal is wrong: ' + JSON.stringify(saved));
+    check(await page.evaluate(async () => (await import('/src/state.js')).state.savingsGoals.length) === goalsBefore + 1, 'saving did not add one goal');
+    await go(page, 'plan', 'data-plan-sub', 'goals');
+    check(/Trip A/.test(await page.locator('#page-plan').innerText()), 'the saved goal is not on Goals');
   },
 
   async needstarget(page){

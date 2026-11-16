@@ -1,5 +1,5 @@
 // Page smoke check (v3.43.0) — opens every page and subtab in a headless browser, at a phone and a
-// desktop width, light and dark (and 320px light), and fails on anything a unit test can't see:
+// desktop width, light and dark (and 320px and 768px light), and fails on anything a unit test can't see:
 //   - an uncaught page error or console error (a function imported from the wrong module, a
 //     variable out of scope — both have shipped past a green `npm test` in this repo)
 //   - a page that renders nothing
@@ -11,6 +11,8 @@
 //   - more than one primary button in a view, or a view with no About this page (#255)
 //   - an add button not worded "+ Add thing", or a delete that isn't .btn-danger (#255)
 //   - more than one line of notices above a page's content (#305)
+//   - a region inside a page that scrolls sideways, unless LOCAL_SCROLL lists it — and then it must be reachable by
+//     keyboard and named (#267); 768px joins the widths for the same issue
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/smoke.mjs
 // Not part of `npm test` on purpose — the suite stays dependency-free; CI runs this beside it.
@@ -53,14 +55,24 @@ const VIEWS = [
     "propreturns", "property", "debts", "super", "tax", "taxpack", "review", "lender", "yearend"]],
   ["settings", "accounts-sub", ["categories", "preferences", "rules"]]
 ];
+// #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
+const LOCAL_SCROLL = [
+  ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
+  ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
+  ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
+  ".scenario-tradeoffs [role=region]",     // Home's scenario comparison table, every column a figure (#266)
+  ".table-scroll"                          // an import's review table (#265)
+];
 const failures = [];
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
 // #257: 320px too (light only — the colour scheme doesn't change layout). The narrowest phone is where a
 // grid track's content floor shows: at 390px there is room to hide it, and two such overflows shipped.
-for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
+// #267: 768px too, light only — a tablet, and the width where the phone layout gives way.
+for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 768], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
   const ctx = await browser.newContext({ viewport: { width, height: width >= 1280 ? 800 : 844 }, colorScheme: scheme });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await ctx.addInitScript(list => { window.__LOCAL_SCROLL = list; }, LOCAL_SCROLL);
   const page = await ctx.newPage();
   if(SHOTS) await page.clock.setFixedTime(new Date("2026-10-27T10:00:00"));
   const errors = [];
@@ -194,10 +206,26 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         let notices = pageEl.querySelectorAll(".adv-strip").length ? "a strip of notice cards is back" : lineH > 62 ? "the notices line is " + lineH + "px tall (one line expected)" : "";
         if(!notices && line && !line.hidden && !pageEl.contains(line)) notices = "the notices line is on another page";
         const helpBtn = document.getElementById("pageHelpBtn"), about = !!helpBtn && !helpBtn.hidden;
-        return { overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, rawDates: [...new Set(rawDates)], bad, zeroBars, small, navigationOverflow, fab, primaries, about, tooltipHelp, wording: [...new Set(wording)], notices };
+        // #267: a region inside the page that scrolls sideways. Document overflow misses it, and a person on a phone
+        // meets it as a panel that slides. Only the regions in LOCAL_SCROLL are meant to (a two-dimensional table,
+        // a range strip); each must be reachable by keyboard and say what it holds.
+        const localScroll = [];
+        pageEl.querySelectorAll("*").forEach(el => {
+          if(el.scrollWidth <= el.clientWidth + 1 || !el.getClientRects().length || el.closest("[hidden]")) return;
+          const cs = getComputedStyle(el);
+          if(!/auto|scroll/.test(cs.overflowX) || cs.visibility === "hidden") return;
+          const name = el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(/\s+/).join(".") : "");
+          const allowed = window.__LOCAL_SCROLL.some(sel => el.matches(sel));
+          const reachable = el.tabIndex >= 0 || !!el.querySelector('button, a[href], input, select, textarea, [tabindex="0"]');
+          const named = !!(el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") || el.querySelector("caption"));
+          if(!allowed) localScroll.push(name + " (" + el.scrollWidth + " in " + el.clientWidth + "px)");
+          else if(!reachable || !named) localScroll.push(name + " scrolls but is " + [!reachable && "not reachable by keyboard", !named && "not named"].filter(Boolean).join(" and "));
+        });
+        return { localScroll, overflow: document.documentElement.scrollWidth > w ? document.documentElement.scrollWidth : 0, textLen: text.trim().length, rawDates: [...new Set(rawDates)], bad, zeroBars, small, navigationOverflow, fab, primaries, about, tooltipHelp, wording: [...new Set(wording)], notices };
       }, width);
       if(r.textLen < 40) failures.push(where + ": page rendered almost nothing (" + r.textLen + " chars)");
       if(r.overflow) failures.push(where + ": scrolls sideways (" + r.overflow + "px wide)");
+      if(r.localScroll.length) failures.push(where + ": a region scrolls sideways: " + [...new Set(r.localScroll)].join("; "));
       if(r.navigationOverflow.length) failures.push(where + ": sideways navigation: " + r.navigationOverflow.join(', '));
       if(r.rawDates.length) failures.push(where + ": raw display dates: " + r.rawDates.join("; "));
       if(r.bad.length) failures.push(where + ": text shows " + r.bad.join(", "));
@@ -412,4 +440,4 @@ if(failures.length){
   console.error("Smoke check failed:\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log("Smoke check passed: every page and subtab, 320px (light), 390px and 1280px (light and dark).");
+console.log("Smoke check passed: every page and subtab, 320px and 768px (light), 390px and 1280px (light and dark).");

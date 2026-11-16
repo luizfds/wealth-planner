@@ -2747,3 +2747,20 @@ test("the take-home for a Needs target: every state in words, the scenario's nam
     for(const h of [html, needsTargetLinesHtml(needsTargetFor({}, 50))]) assert.ok(!/NaN|Infinity|undefined/.test(h), h);
   } finally { state.needsTarget = was; }
 });
+
+test("the guided Year in review: a verdict and a way there per section, empty ones say what fills them, links stay plain (#396)", async () => {
+  const { yearReviewSectionsHtml } = await import("../src/components/reports.js");
+  const sections = [
+    { key: "money", title: "Where the money went", tone: "good", verdict: 'Kept <b>"all"</b>', detail: "d", go: "expenses/spending", label: "Go to Spending →" },
+    { key: "goals", title: "Goals", tone: "empty", empty: "No savings goals yet.", go: "plan/goals", label: "Set a goal →" },
+    { key: "checking", title: "Worth checking", tone: "info", verdict: "Official places.", links: [{ label: "Unclaimed <x>", detail: "d", url: "https://moneysmart.gov.au/find-unclaimed-money" }] }
+  ];
+  const html = yearReviewSectionsHtml(sections);
+  assert.match(html, /<h3 id="yr-money">Where the money went <span class="yr-tone">On track<\/span><\/h3>/);
+  assert.ok(html.includes('Kept &lt;b>&quot;all&quot;&lt;/b>'), "a verdict is text");
+  assert.match(html, /data-go="expenses\/spending">Go to Spending →/);
+  assert.match(html, /class="ledger-note empty-state yr-empty"[^>]*>No savings goals yet\. <button type="button" class="link-btn empty-state-go" data-go="plan\/goals">Set a goal →/);
+  assert.match(html, /<a href="https:\/\/moneysmart\.gov\.au\/find-unclaimed-money" target="_blank" rel="noopener noreferrer">Unclaimed &lt;x><\/a>/);
+  const print = yearReviewSectionsHtml(sections, true);
+  assert.ok(!/<button/.test(print), "no buttons in print");
+});

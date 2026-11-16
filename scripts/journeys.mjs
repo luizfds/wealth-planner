@@ -82,6 +82,8 @@
 //                 and the household's emergency fund read the same with every scenario's purchase on or off
 //   needstarget — #389: under a scenario's comparison, the take-home it would take for Needs to be the household's
 //                 target share; the target is one setting, changed there or in Preferences, saved only when 1–100
+//   yearreview  — #396: Reports → Year in review as guided sections with a verdict and a way there each; the household's
+//                 year (calendar too); a Home card once a year has finished, opened or put away; an empty household
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -359,6 +361,80 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async yearreview(page){
+    // Synthetic demo household, the journeys' fixed date (3 November 2026): the year looked back on is FY25/26.
+    await quiet(page);
+    await go(page, 'reports', 'data-report', 'review');
+    const sheet = page.locator('#reportSheet');
+    const sections = sheet.locator('[data-yr-section]');
+    check(await sections.count() === 6, 'not six sections: ' + await sections.count());
+    check(JSON.stringify(await sections.evaluateAll(els => els.map(e => e.getAttribute('data-yr-section')))) === JSON.stringify(['money', 'networth', 'leaks', 'emergency', 'goals', 'checking']), 'sections out of order');
+    const text = await sheet.innerText();
+    check(/1 July 2025 to 30 June 2026/.test(text), 'not the financial year: ' + text.slice(0, 120));
+    check(!/NaN|Infinity|undefined/.test(text), 'the review shows NaN');
+    check(/came in and .* was spent/.test(await sheet.locator('[data-yr-section="money"]').innerText()), 'where the money went has no verdict');
+    // Every section either has its verdict and a way there, or says what fills it — with a control.
+    for(const key of ['money', 'networth', 'leaks', 'emergency', 'goals']){
+      const sec = sheet.locator('[data-yr-section="' + key + '"]');
+      check(await sec.locator('[data-go]').count() === 1, key + ' has no way to where it is acted on');
+    }
+    const links = sheet.locator('[data-yr-section="checking"] a');
+    check(await links.count() === 3, 'worth checking links missing');
+    check(await links.evaluateAll(as => as.every(a => a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/(moneysmart|www\.ato|www\.servicesaustralia)\.gov\.au\//.test(a.href))), 'a worth-checking link is not an official site opened safely');
+    check(await sheet.locator('details.yr-figures summary').count() === 1, 'the figures fold is missing');
+    // A section's way there goes there.
+    await sheet.locator('[data-yr-section="leaks"] [data-go]').click();
+    await waited(page, () => document.body.dataset.currentPage === 'expenses' && !!document.querySelector('[data-expenses-sub="budget"].active, [data-expenses-sub="budget"][aria-current]'), 'Budget, where Trim is');
+    // A calendar-year household looks back on a calendar year.
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.yearBasis = 'calendar'; m.commit(['yearBasis']); });
+    await go(page, 'reports', 'data-report', 'review');
+    check(/1 January to 31 December 2025/.test(await page.locator('#reportSheet').innerText()), 'a calendar-year household still sees a financial year');
+    await page.evaluate(async () => { const m = await import('/src/state.js'); m.state.yearBasis = 'financial'; m.commit(['yearBasis']); });
+    // Four widths, both themes.
+    await go(page, 'reports', 'data-report', 'review');
+    if(process.env.YEAR_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
+    for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(t => document.documentElement.dataset.theme = t, theme); await settle(page);
+      check(!await page.locator('.yr-sections').evaluate((e, w) => e.getBoundingClientRect().right > w + 1 || document.documentElement.scrollWidth > w + 1, width), 'year in review overflows at ' + width + '/' + theme);
+      if(process.env.YEAR_A11Y){
+        const v = await page.locator('.yr-sections').evaluate(async el => (await window.axe.run(el, { preload: false })).violations.map(x => ({ id: x.id, nodes: x.nodes.map(n => n.failureSummary) })));
+        check(!v.length, 'year in review accessibility ' + width + '/' + theme + ': ' + JSON.stringify(v));
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
+    // Mid-August: the year has just finished. Home has the card, not a To do; the bell has it too.
+    const august = async () => { const c = await fresh(); await c.page.clock.setFixedTime(new Date('2026-08-15T10:00:00')); await c.page.reload(); await ready(c.page, 'the app in August'); await settle(c.page); return c; };
+    const a = await august();
+    try{
+      const p = a.page; await go(p, 'dashboard');
+      const card = p.locator('[data-home-card="yearreview"]');
+      await card.waitFor();
+      check(/Your FY25\/26 in review is ready/.test(await card.textContent()), 'the card does not name the year: ' + await card.textContent());
+      check(!/in review is ready/.test(await p.locator('[data-home-card="todo"]').innerText()), 'the year in review is in Home\'s To do as well as its card');
+      await card.locator('[data-yr-open]').click();
+      await waited(p, () => document.body.dataset.currentPage === 'reports' && !!document.querySelector('[data-current-report="review"]'), 'the review opened from Home');
+      await go(p, 'dashboard');
+      check(await p.locator('[data-home-card="yearreview"]').count() === 0, 'the card stayed after the review was opened');
+      check(!a.errors.length, 'August errors: ' + a.errors.join('; '));
+    } finally { await a.ctx.close(); }
+    const b = await august();
+    try{
+      const p = b.page; await go(p, 'dashboard');
+      await p.locator('[data-home-card="yearreview"] [data-yr-dismiss]').click();
+      await waited(p, () => !document.querySelector('[data-home-card="yearreview"]'), 'the card put away');
+      check(await p.evaluate(async () => (await import('/src/lib/notifications.js')).getNotifications().find(n => n.type === 'yearreview').read === true), 'putting the card away did not mark the bell\'s item read');
+    } finally { await b.ctx.close(); }
+    // An empty household: every section says what fills it, with a way there.
+    await emptyHousehold(page);
+    await page.locator('#firstRunRoot [data-fr-close]').click().catch(() => {});
+    await go(page, 'reports', 'data-report', 'review');
+    for(const key of ['money', 'networth', 'leaks', 'emergency', 'goals']){
+      const sec = page.locator('[data-yr-section="' + key + '"]');
+      check(await sec.locator('.empty-state').count() === 1 && await sec.locator('.empty-state [data-go]').count() === 1, key + ' in an empty household does not say what fills it');
+      check(!/\$0\b/.test(await sec.innerText()), key + ' shows $0 in an empty household');
+    }
+  },
+
   async needstarget(page){
     // Synthetic demo household; a scenario that buys a home.
     await quiet(page);
@@ -6559,6 +6635,8 @@ const JOURNEYS = {
       await go(page, 'reports', 'data-report', key);
       const summary = page.locator('.rp-mobile-summary');
       if(!await summary.count()) continue; // empty report has no table or summary
+      // #396: Year in review leads with its guided sections; its figures are a fold under them.
+      if(key === 'review') await page.evaluate(() => { const f = document.querySelector('details.yr-figures'); if(f) f.open = true; });
       check(await summary.isVisible(), key+' does not default to a phone summary');
       await summary.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
       const entities = summary.locator('[data-report-entity]');

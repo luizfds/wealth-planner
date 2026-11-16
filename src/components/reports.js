@@ -167,6 +167,7 @@ export function yearReviewSectionsHtml(sections, print){
     if(x.tone === "empty") body = print ? '<p>' + escapeAttr(x.empty) + '</p>' : emptyStateHtml(x.empty, { go: x.go, label: x.label, className: "yr-empty" });
     else body = '<p class="yr-verdict">' + escapeAttr(x.verdict) + '</p>' + (x.detail ? '<p class="yr-detail">' + escapeAttr(x.detail) + '</p>' : '') +
       reconcileHtml(x.reconcile, print) +
+      offsetCompareHtml(x.offsetCompare, print) +
       (x.links ? '<ul class="yr-links">' + x.links.map(function(l){ return '<li><a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener noreferrer">' + escapeAttr(l.label) + '</a> — ' + escapeAttr(l.detail) + '</li>'; }).join("") + '</ul>' : '') +
       (!print && x.go ? '<button type="button" class="link-btn yr-go" data-go="' + escapeAttr(x.go) + '">' + escapeAttr(x.label) + '</button>' : '');
     return '<section class="yr-section yr-' + escapeAttr(x.tone) + '" data-yr-section="' + escapeAttr(x.key) + '" aria-labelledby="yr-' + escapeAttr(x.key) + '">' +
@@ -201,6 +202,25 @@ export function reconcileHtml(r, print){
         "</ul></div>");
   return print ? '<div class="yr-recon"><p class="yr-recon-sub"><b>How it adds up</b></p>' + body + '</div>'
     : '<details class="yr-recon"><summary>How it adds up</summary>' + body + '</details>';
+}
+// #398: savings account vs offset, under the emergency fund (calc/savingsoffset.js).
+function pct(n){ return (Math.round(n * 100) / 100) + "%"; }
+export function offsetCompareHtml(c, print){
+  if(!c || !c.best) return "";
+  var b = c.best, out = '<div class="yr-offset"><p class="yr-recon-sub"><b>Savings account or offset?</b></p>';
+  out += '<p class="yr-detail">' + escapeAttr("Cash in " + b.name + "'s offset saves " + pct(b.effective) + " a year" +
+    (b.deductible ? " after tax — " + b.name + " is an investment loan, so its interest would have been claimed back (" + pct(b.rate) + " before tax)." : " — the loan's full rate, since home loan interest isn't deductible.")) + '</p>';
+  if(c.lines.length) out += '<ul class="yr-links">' + c.lines.map(function(l){
+    var acc = c.accounts.find(function(a){ return a.name === l.name; }) || {};
+    return '<li>' + escapeAttr(l.name + " (" + fmtCurrency0.format(l.balance) + ") earns " + pct(acc.rate) + ", " + pct(acc.afterTax) + " after " + (acc.holder ? acc.holder + "'s" : "the household's") + " tax: about " +
+      fmtCurrency0.format(l.savingsYearly) + " a year. In the offset it would save about " + fmtCurrency0.format(l.offsetYearly) + " — " +
+      (Math.abs(l.gain) < 1 ? "about the same." : fmtCurrency0.format(Math.abs(l.gain)) + " a year " + (l.gain > 0 ? "more" : "less") + ".")) + '</li>';
+  }).join("") + '</ul>';
+  if(c.missing.length){
+    var text = "No interest rate on " + c.missing.join(", ") + ", so " + (c.missing.length === 1 ? "it isn't" : "they aren't") + " compared. Add it on Investments → Cash.";
+    out += print ? '<p class="yr-detail">' + escapeAttr(text) + '</p>' : emptyStateHtml(text, { go: "assets/Cash", label: "Go to Cash →", className: "yr-empty" });
+  }
+  return out + '<p class="yr-detail">Estimates. Access, bonus-rate conditions and fees differ by account, and money in an offset is only as reachable as the account allows. Redraw isn\'t counted as cash. Nothing here is looked up — the rates are the ones you entered.</p></div>';
 }
 // v3.123.0: a report told in sentences (Year in review) leads with them.
 function storyHtml(rep){ return rep.narrative && rep.narrative.length ? '<ul class="rp-story">' + rep.narrative.map(function(s){ return '<li>' + escapeAttr(s) + '</li>'; }).join("") + '</ul>' : ""; }

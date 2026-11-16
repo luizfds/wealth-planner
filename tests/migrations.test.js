@@ -290,3 +290,9 @@ test("step 28: a target share of take-home for Needs — 50 when there's none or
   assert.equal(run(28, { needsTarget: "45" }).needsTarget, 45);
   [0, -5, 101, "x", null].forEach(function(bad){ assert.equal(run(28, { needsTarget: bad }).needsTarget, 50, String(bad)); });
 });
+
+test("step 29: a cash account's interest rate — a rate from 0 to 25 stays, anything else is dropped", function(){
+  const s = run(29, { assets: [{ what: "A", category: "Cash", interestRate: "4.5" }, { what: "B", category: "Cash", interestRate: 40 }, { what: "C", category: "Cash", interestRate: "" }, { what: "D", category: "Cash", interestRate: null }, { what: "E", category: "Cash" }, { what: "F", category: "Cash", interestRate: 0 }] });
+  assert.deepEqual(s.assets.map(a => a.interestRate), [4.5, undefined, undefined, undefined, undefined, 0]);
+  assert.ok(!("interestRate" in s.assets[1]) && !("interestRate" in s.assets[4]));
+});

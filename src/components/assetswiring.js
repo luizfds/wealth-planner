@@ -223,6 +223,7 @@ function afterTradesRead(parsed){
 var NOT_NEGATIVE = { min: 0 };
 var FIELD_RULES = {
   "a-amount": { empty: "Enter the value — 0 if there's none." },
+  "a-rate": { min: 0, max: 25, range: "Enter a rate from 0 to 25% a year, or leave it blank." },
   "h-qty": Object.assign({ empty: "Enter how many units — 0 if none are held.", range: "Units can't be negative." }, NOT_NEGATIVE),
   "h-price": Object.assign({ empty: "Enter the price per unit.", range: "A price can't be negative." }, NOT_NEGATIVE),
   "h-avgcost": Object.assign({ range: "An average cost can't be negative." }, NOT_NEGATIVE),
@@ -245,6 +246,7 @@ function lotUnitsRule(lot){
 function listEntry(list, input, attr){ return (list || [])[Number(input.getAttribute(attr))] || {}; }
 // Closing a row cancels a draft: each field shows its saved value again (rows.js restoreInvalidFields).
 defineSavedValue("a-amount", function(it){ return it.amount; });
+defineSavedValue("a-rate", function(it){ return it.interestRate == null ? "" : it.interestRate; });
 defineSavedValue("h-qty", function(it){ return it.quantity; });
 defineSavedValue("h-price", function(it){ return it.price; });
 defineSavedValue("h-avgcost", function(it){ return it.avgCost; });
@@ -317,6 +319,11 @@ export function wireAssets(){
         item.amount = amt.value;
       }
       else if(e.target.classList.contains("a-person")) item.person = e.target.value;
+      else if(e.target.classList.contains("a-rate")){
+        var ir = readAs(e.target, "a-rate");
+        if(!ir) return;
+        if(ir.value == null) delete item.interestRate; else item.interestRate = ir.value;
+      }
       else if(e.target.classList.contains("h-what")) item.what = e.target.value;
       else if(e.target.classList.contains("h-symbol")) item.symbol = e.target.value;
       else if(e.target.classList.contains("h-qty")){

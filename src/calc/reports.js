@@ -15,6 +15,7 @@ import { superContributions } from "./investments.js";
 import { valueOn } from "./history.js";
 import { taxPackReport } from "./taxpack.js";
 import { reviewYear, reviewYearSpan, taxYearNote, yearReviewSections } from "./yearreview.js";
+import { reconcileYear } from "./reconcile.js";
 import { fyWindow, financialYearOf, loanRepaymentMonthly, loanBalance } from "./property.js";
 
 // ---------------- Reports (v3.62.0) ----------------
@@ -696,7 +697,9 @@ export function yearInReviewReport(opts){
     });
   });
   if(!story.length) story.push("Nothing was logged in " + w.label + " to look back on yet.");
-  var sections = yearReviewSections(yr, { tin: tin, tout: tout, pin: pin, pout: pout, start: a, end: b }, today);
+  // #397: the year reconciled — kept, and where it went — read from balances.
+  var recon = reconcileYear(w, { today: today, classOf: opts.classOf, budgetLines: opts.budgetLines });
+  var sections = yearReviewSections(yr, { tin: tin, tout: tout, pin: pin, pout: pout, start: a, end: b, reconcile: recon }, today);
   return { key: "review", title: "Year in review", subtitle: w.label + " · " + reviewYearSpan(yr), narrative: story, sections: sections,
     columns: [{ key: "item", label: "" }, { key: "v", label: w.label, num: true }, { key: "prev", label: pw.label, num: true }, { key: "chg", label: "Change", num: true }], rows: rows,
     note: "From what's been logged. The year before shows only where it was logged too. Pick a finished year in the header to look back on that one." };

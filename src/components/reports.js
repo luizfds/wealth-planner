@@ -166,11 +166,41 @@ export function yearReviewSectionsHtml(sections, print){
     var body;
     if(x.tone === "empty") body = print ? '<p>' + escapeAttr(x.empty) + '</p>' : emptyStateHtml(x.empty, { go: x.go, label: x.label, className: "yr-empty" });
     else body = '<p class="yr-verdict">' + escapeAttr(x.verdict) + '</p>' + (x.detail ? '<p class="yr-detail">' + escapeAttr(x.detail) + '</p>' : '') +
+      reconcileHtml(x.reconcile, print) +
       (x.links ? '<ul class="yr-links">' + x.links.map(function(l){ return '<li><a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener noreferrer">' + escapeAttr(l.label) + '</a> — ' + escapeAttr(l.detail) + '</li>'; }).join("") + '</ul>' : '') +
       (!print && x.go ? '<button type="button" class="link-btn yr-go" data-go="' + escapeAttr(x.go) + '">' + escapeAttr(x.label) + '</button>' : '');
     return '<section class="yr-section yr-' + escapeAttr(x.tone) + '" data-yr-section="' + escapeAttr(x.key) + '" aria-labelledby="yr-' + escapeAttr(x.key) + '">' +
       '<h3 id="yr-' + escapeAttr(x.key) + '">' + escapeAttr(x.title) + (TONE[x.tone] ? ' <span class="yr-tone">' + TONE[x.tone] + '</span>' : '') + '</h3>' + body + '</section>';
   }).join("") + '</div>';
+}
+// #397: how the year adds up — money in, spending, kept, and where the kept money went (calc/reconcile.js). Folded in
+// the money section on screen; open in print.
+function signed(v){ return (v < 0 ? "−" : v > 0 ? "+" : "") + fmtCurrency0.format(Math.abs(v)); }
+export function reconcileHtml(r, print){
+  if(!r) return "";
+  var line = function(label, v, cls){ return '<div' + (cls ? ' class="' + cls + '"' : '') + '><dt>' + escapeAttr(label) + '</dt><dd>' + escapeAttr(v) + '</dd></div>'; };
+  var spendBits = [["Needs", r.spending.needs], ["Wants", r.spending.wants], ["Other", r.spending.other]].filter(function(x){ return x[1]; })
+    .map(function(x){ return x[0] + " " + fmtCurrency0.format(x[1]); }).join(" · ");
+  var gap = r.unaccounted, big = Math.abs(gap) >= Math.max(500, Math.abs(r.kept) * 0.05);
+  var body = '<dl class="yr-recon-lines">' +
+      line("Money in", fmtCurrency0.format(r.moneyIn)) +
+      line("Spending" + (spendBits ? " (" + spendBits + ")" : ""), "−" + fmtCurrency0.format(r.spending.total)) +
+      (r.interest && r.interest.total ? line("Loan interest and fees" + (r.interest.charged && r.interest.modelled ? " (charged, and worked out where no statement was imported)" : r.interest.charged ? " (as the bank charged)" : " (worked out from the loans)"), "−" + fmtCurrency0.format(r.interest.total)) : "") +
+      line("Kept", signed(r.kept), "yr-recon-total") +
+    '</dl><p class="yr-recon-sub">Where the kept money went, from balances at each end of the year:</p><dl class="yr-recon-lines">' +
+      r.moves.map(function(m){ return line(m.label, signed(m.amount)); }).join("") +
+      line("Unaccounted", signed(gap), "yr-recon-total" + (big ? " yr-recon-gap" : "")) +
+    '</dl>' +
+    '<p class="yr-detail">' + (big ? "Unaccounted is money the recorded balances don't show — usually a balance not recorded near the start or end of the year, a car or property bought, or spending that wasn't logged." : "The recorded balances account for what was kept, within rounding.") +
+      (r.interest && r.interest.repaymentsAsSpending ? " Loan repayments are logged as spending here, so their interest is already in Spending and isn't taken off again." : "") +
+      " Moving money between your own accounts changes none of these totals, so nothing is counted twice. Super (paid before tax), a car's or property's value, and share prices moving aren't money in or out, and are left out.</p>" +
+    (r.complete ? '<p class="yr-detail">Every month has something logged, and every balance was recorded near both ends of the year.</p>'
+      : '<div class="yr-missing"><p class="yr-recon-sub">Missing, so the figures above are incomplete:</p><ul>' +
+          r.missing.balances.map(function(t){ return "<li>" + escapeAttr(t) + "</li>"; }).join("") +
+          (r.missing.months.length ? "<li>Nothing logged in " + escapeAttr(r.missing.months.map(function(m){ return m.label; }).join(", ")) + "</li>" : "") +
+        "</ul></div>");
+  return print ? '<div class="yr-recon"><p class="yr-recon-sub"><b>How it adds up</b></p>' + body + '</div>'
+    : '<details class="yr-recon"><summary>How it adds up</summary>' + body + '</details>';
 }
 // v3.123.0: a report told in sentences (Year in review) leads with them.
 function storyHtml(rep){ return rep.narrative && rep.narrative.length ? '<ul class="rp-story">' + rep.narrative.map(function(s){ return '<li>' + escapeAttr(s) + '</li>'; }).join("") + '</ul>' : ""; }

@@ -2764,3 +2764,23 @@ test("the guided Year in review: a verdict and a way there per section, empty on
   const print = yearReviewSectionsHtml(sections, true);
   assert.ok(!/<button/.test(print), "no buttons in print");
 });
+
+test("how the year adds up: in, spending, interest, kept, where it went, unaccounted and what's missing (#397)", async () => {
+  const { reconcileHtml } = await import("../src/components/reports.js");
+  const r = { moneyIn: 96000, spending: { needs: 18000, wants: 12000, other: 0, total: 30000 }, interest: { total: 12000, charged: 12000, modelled: 0, fees: 0, repaymentsAsSpending: false },
+    kept: 54000, moves: [{ key: "cash", label: "Cash and savings", amount: 15000 }, { key: "loans", label: "Loans paid down", amount: -2000 }], accounted: 13000, unaccounted: 41000,
+    missing: { balances: ['Card <b>"A"</b> — no balances recorded, so its change isn\'t known'], months: [{ ym: "2025-10", label: "October 2025" }] }, complete: false };
+  const html = reconcileHtml(r);
+  assert.match(html, /<details class="yr-recon"><summary>How it adds up<\/summary>/);
+  assert.match(html, /Spending \(Needs \$18,000 · Wants \$12,000\)<\/dt><dd>−\$30,000/);
+  assert.match(html, /Loan interest and fees \(as the bank charged\)<\/dt><dd>−\$12,000/);
+  assert.match(html, /Kept<\/dt><dd>\+\$54,000/);
+  assert.match(html, /Loans paid down<\/dt><dd>−\$2,000/);
+  assert.match(html, /yr-recon-gap"><dt>Unaccounted<\/dt><dd>\+\$41,000/);
+  assert.match(html, /Card &lt;b>&quot;A&quot;&lt;\/b>/);
+  assert.match(html, /Nothing logged in October 2025/);
+  assert.ok(!/<details/.test(reconcileHtml(r, true)), "open in print");
+  assert.match(reconcileHtml(Object.assign({}, r, { unaccounted: 100, complete: true, missing: { balances: [], months: [] } })), /account for what was kept, within rounding[\s\S]*Every month has something logged/);
+  assert.match(reconcileHtml(Object.assign({}, r, { interest: { total: 0, repaymentsAsSpending: true } })), /logged as spending here, so their interest is already in Spending/);
+  assert.equal(reconcileHtml(null), "");
+});

@@ -31,7 +31,7 @@ function leaves(n){ return n < 0 ? money(n) + " short" : money(n); }
 function ym(iso){ return iso.slice(0, 7); }
 
 // Each owner's tax rate on a dollar of this property's result (top rate + Medicare), by ownership.
-function ownersRate(p, people, rates){
+export function ownersRate(p, people, rates){
   var map = p.ownership || {};
   var keys = Object.keys(map);
   if(!keys.length) return people.length ? people.reduce(function(s, n){ return s + (rates[n] || 0); }, 0) / people.length : 0;

@@ -589,6 +589,8 @@ export function modernAssetRowHtml(item, idx, colorIdx){
       field("a-category", "Category", {type:"select",value:item.category,options:ASSET_CATEGORIES.map(function(c){return {value:c,label:c};}),help:"Choose where this asset is grouped."}) +
       field("a-amount", "Value", {type:"number",value:item.amount,attrs:{step:100,min:0},help:valueHelp}, {className:"span2"}) +
       field("a-person", "Person", {value:item.person || "",attrs:{list:"personSuggestions"},placeholder:"Household",help:item.category === "Super" ? "Use the matching person's name to include their employer contributions in the super estimate. Leave blank for the household." : "Leave blank for a household asset."}, {className:"span3"}) +
+      // #398: what a cash account pays — Year in review compares it with an offset. Entered, never fetched.
+      (item.category === "Cash" ? field("a-rate", "Interest rate", {type:"number",value:item.interestRate == null ? "" : item.interestRate,unit:"% a year",attrs:{step:"0.01",min:"0",max:"25",inputmode:"decimal"},help:"What this account pays a year, before tax. Year in review compares it with an offset. Leave blank if you don't know it."}, {className:"span2"}) : "") +
     '</div>' +
     '<div class="m-edit-actions">' + (item.id ? detailLinkHtml("asset", item.id, "View details", "btn btn-ghost btn-sm") : "") + '<button type="button" class="btn btn-ghost btn-sm" data-asset-log="' + idx + '" aria-describedby="' + escapeAttr(ledgerFieldId(item, "assets", idx, "asset", "a-amount") + "-help") + '">Record value</button><button type="button" class="btn btn-danger btn-sm row-del" data-asset-del="' + idx + '" aria-label="Delete asset">Delete</button></div>' +
   '</div></div></div>';

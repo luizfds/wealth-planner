@@ -1316,6 +1316,8 @@
   .yr-recon-total{ font-weight:600; }
   .yr-recon-gap dd{ color:var(--warn-ink); }
   .yr-recon-sub{ margin:10px 0 0; font-size:var(--fs-sm); }
+  .yr-offset{ margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
+  .yr-offset .empty-state{ margin:6px 0 0; }
   .yr-missing ul{ margin:4px 0 0; padding-left:18px; font-size:var(--fs-xs); color:var(--ink-soft); line-height:1.5; overflow-wrap:anywhere; }
   /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
   .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }

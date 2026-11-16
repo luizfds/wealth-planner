@@ -19,6 +19,7 @@ import { trimReport } from "./trim.js";
 import { subscriptionList, subscriptionsYearly, homeLineIds } from "./subscriptions.js";
 import { emergencyFund } from "./emergency.js";
 import { goalsOverview } from "./savegoals.js";
+import { savingsVsOffset, savingsOffsetLines } from "./savingsoffset.js";
 import { financialYearOf, fyWindow, fyLabel } from "./property.js";
 
 // The finished year to look back on: the last one before today, or the one the header's period picks when that has
@@ -101,6 +102,13 @@ export function yearReviewSections(y, f, today){
         (enough ? "at or above the " + ef.months + "-month target." : money(ef.target - ef.available) + " short of " + ef.months + " months (" + money(ef.target) + ")."),
       detail: "3, 6 and 12 months of essentials: " + ef.targets.map(function(t){ return money(t.target); }).join(", ") + ".", go: "plan/goals", label: "Go to the emergency fund →" });
   } else out.push({ key: "emergency", title: "Emergency fund", tone: "empty", empty: "Mark the budget lines you couldn't stop paying as Needs, and record cash balances, to see how many months they'd cover.", go: "expenses/budget", label: "Go to Budget →" });
+  // #398: savings account vs offset, under the emergency fund — only where there's a loan to offset.
+  var so = null;
+  try { so = savingsVsOffset(today); } catch(err){ so = null; }
+  if(so && so.offsets.length){
+    var emSec = out[out.length - 1];
+    emSec.offsetCompare = { best: so.best, offsets: so.offsets, accounts: so.accounts, lines: savingsOffsetLines(so), missing: so.missing };
+  }
   // 5. Goals — today.
   var go = null;
   try { go = goalsOverview(today, null); } catch(err){ go = null; }

@@ -811,6 +811,15 @@ export var MIGRATION_STEPS = [
   { n: 28, name: "a target share of take-home for Needs", run: function(s){
     var t = Number(s.needsTarget);
     s.needsTarget = t > 0 && t <= 100 ? t : 50;
+  } },
+  // #398: a cash account's interest rate (% a year, before tax), entered on Investments → Cash. Optional: an account
+  // without one is listed, not guessed. Anything that isn't a rate from 0 to 25 is dropped.
+  { n: 29, name: "a cash account's interest rate", run: function(s){
+    (s.assets || []).forEach(function(a){
+      if(!a || !("interestRate" in a)) return;
+      var r = Number(a.interestRate);
+      if(a.interestRate === null || a.interestRate === "" || !(r >= 0 && r <= 25)) delete a.interestRate; else a.interestRate = r;
+    });
   } }
 ];
 

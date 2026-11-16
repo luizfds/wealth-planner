@@ -2784,3 +2784,17 @@ test("how the year adds up: in, spending, interest, kept, where it went, unaccou
   assert.match(reconcileHtml(Object.assign({}, r, { interest: { total: 0, repaymentsAsSpending: true } })), /logged as spending here, so their interest is already in Spending/);
   assert.equal(reconcileHtml(null), "");
 });
+
+test("savings account vs offset: the best offset's worth, each account against it, a missing rate with a way there (#398)", async () => {
+  const { offsetCompareHtml } = await import("../src/components/reports.js");
+  const c = { best: { name: "Home <b>loan</b>", rate: 6, effective: 6, deductible: false }, accounts: [{ name: "Joint saver", balance: 20000, rate: 5, afterTax: 3.3, holder: "", yearly: 660 }],
+    lines: [{ name: "Joint saver", balance: 20000, savingsYearly: 660, offsetYearly: 1200, gain: 540 }], missing: ["Everyday"] };
+  const html = offsetCompareHtml(c);
+  assert.match(html, /Home &lt;b>loan&lt;\/b>'s offset saves 6% a year — the loan's full rate/);
+  assert.match(html, /Joint saver \(\$20,000\) earns 5%, 3\.3% after the household's tax: about \$660 a year\. In the offset it would save about \$1,200 — \$540 a year more\./);
+  assert.match(html, /No interest rate on Everyday[\s\S]*data-go="assets\/Cash">Go to Cash →/);
+  assert.match(html, /Redraw isn't counted as cash/);
+  assert.match(offsetCompareHtml(Object.assign({}, c, { best: { name: "Investment loan", rate: 6.5, effective: 3.9, deductible: true } })), /after tax — Investment loan is an investment loan/);
+  assert.ok(!/<button/.test(offsetCompareHtml(c, true)));
+  assert.equal(offsetCompareHtml(null), "");
+});

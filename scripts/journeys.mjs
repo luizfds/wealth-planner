@@ -84,6 +84,8 @@
 //                 target share; the target is one setting, changed there or in Preferences, saved only when 1–100
 //   yearreview  — #396: Reports → Year in review as guided sections with a verdict and a way there each; the household's
 //                 year (calendar too); a Home card once a year has finished, opened or put away; an empty household
+//   savingsoffset — #398: Year in review's savings account vs offset — asks for a cash account's rate, which is entered
+//                 on Investments → Cash (0–25%, blank allowed), then compares it with the loan's offset after tax
 //   savings     — Home's net savings opens how it's worked out: the lines end at the tile's figure, an
 //                 investment property's loan repayments among them, and the Budget's total counts them too
 //
@@ -361,6 +363,47 @@ async function runBackup(page, action, value){
 }
 
 const JOURNEYS = {
+  async savingsoffset(page){
+    // Synthetic demo household: cash accounts with no rate yet, and an investment loan with an offset.
+    await quiet(page);
+    await go(page, 'reports', 'data-report', 'review');
+    const em = page.locator('[data-yr-section="emergency"]');
+    await em.locator('.yr-offset').waitFor();
+    let t = await em.innerText();
+    check(/Savings account or offset\?/.test(t) && /offset saves [\d.]+% a year after tax/.test(t), 'the offset comparison is missing: ' + t.slice(0, 200));
+    check(/No interest rate on .*Everyday Account/.test(t), 'accounts without a rate are not listed');
+    const link = em.locator('.yr-offset [data-go="assets/Cash"]');
+    check(await link.count() === 1, 'no way to where a rate is entered');
+    await link.click();
+    await waited(page, () => document.body.dataset.currentPage === 'assets', 'Investments → Cash');
+    // Enter a rate on the first cash account — out of range first, then a real one.
+    const row = page.locator('#assetsSub-Cash .m-row').filter({ hasText: 'Everyday Account' }).first();
+    await row.locator('[data-row-toggle]').first().click();
+    const rate = row.locator('input.a-rate');
+    await rate.waitFor({ state: 'visible' });
+    check(await page.locator('label[for="' + await rate.getAttribute('id') + '"]').innerText() === 'Interest rate', 'the rate field is not labelled');
+    await rate.fill('30');
+    await waited(page, () => document.querySelector('#assetsSub-Cash input.a-rate[aria-invalid="true"]'), 'the out-of-range message');
+    check(await stored(page, "state.assets.find(a => a.what === 'Everyday Account').interestRate") == null, 'a 30% rate was saved');
+    await rate.fill('4.5');
+    await eventually(async () => await stored(page, "state.assets.find(a => a.what === 'Everyday Account').interestRate") === 4.5);
+    check(await stored(page, "state.assets.find(a => a.what === 'Everyday Account').interestRate") === 4.5, 'the rate was not saved');
+    await rate.fill('');
+    await eventually(async () => await stored(page, "'interestRate' in state.assets.find(a => a.what === 'Everyday Account')") === false);
+    check(await stored(page, "'interestRate' in state.assets.find(a => a.what === 'Everyday Account')") === false, 'clearing the rate did not remove it');
+    await rate.fill('4.5');
+    await eventually(async () => await stored(page, "state.assets.find(a => a.what === 'Everyday Account').interestRate") === 4.5);
+    // The review now compares it.
+    await go(page, 'reports', 'data-report', 'review');
+    t = await page.locator('[data-yr-section="emergency"]').innerText();
+    check(/Everyday Account \(\$[\d,]+\) earns 4\.5%, [\d.]+% after the household's tax: about \$[\d,]+ a year\. In the offset it would save about \$[\d,]+ — (\$[\d,]+ a year (more|less)|about the same)\./.test(t), 'the account is not compared: ' + t.slice(0, 400));
+    check(!/NaN|Infinity|undefined/.test(t), 'the comparison shows NaN');
+    for(const width of [320, 390, 768, 1280]){
+      await page.setViewportSize({ width, height: 844 }); await settle(page);
+      check(!await page.locator('.yr-offset').evaluate((e, w) => e.getBoundingClientRect().right > w + 1 || document.documentElement.scrollWidth > w + 1, width), 'the comparison overflows at ' + width);
+    }
+  },
+
   async yearreview(page){
     // Synthetic demo household, the journeys' fixed date (3 November 2026): the year looked back on is FY25/26.
     await quiet(page);
@@ -376,7 +419,7 @@ const JOURNEYS = {
     // Every section either has its verdict and a way there, or says what fills it — with a control.
     for(const key of ['money', 'networth', 'leaks', 'emergency', 'goals']){
       const sec = sheet.locator('[data-yr-section="' + key + '"]');
-      check(await sec.locator('[data-go]').count() === 1, key + ' has no way to where it is acted on');
+      check(await sec.locator('[data-go]').count() >= 1, key + ' has no way to where it is acted on');
     }
     const links = sheet.locator('[data-yr-section="checking"] a');
     check(await links.count() === 3, 'worth checking links missing');

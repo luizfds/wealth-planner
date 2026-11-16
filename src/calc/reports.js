@@ -14,6 +14,7 @@ import { propertyReturns, debtSchedule } from "./assetreports.js";
 import { superContributions } from "./investments.js";
 import { valueOn } from "./history.js";
 import { taxPackReport } from "./taxpack.js";
+import { reviewYear, reviewYearSpan, taxYearNote, yearReviewSections } from "./yearreview.js";
 import { fyWindow, financialYearOf, loanRepaymentMonthly, loanBalance } from "./property.js";
 
 // ---------------- Reports (v3.62.0) ----------------
@@ -651,18 +652,17 @@ export function lenderPackReport(opts){
 export function yearInReviewReport(opts){
   opts = opts || {};
   var today = opts.today || localDateStr();
-  var fy = financialYearOf(today) - 1;
-  var hw = opts.yearWin;
-  if(hw && hw.end < today) fy = financialYearOf(hw.start);
-  var w = fyWindow(fy), pw = fyWindow(fy - 1);
+  // #396: the household's year — financial (the default) or calendar; tax-year figures stay on the financial year.
+  var yr = reviewYear(today, opts.basis || state.yearBasis, opts.yearWin);
+  var fy = yr.fy, w = yr.w, pw = yr.pw, endLabel = yr.calendar ? "31 December" : "30 June", taxNote = taxYearNote(yr);
   var money = function(v){ return (v < 0 ? "−" : "") + "$" + Math.round(Math.abs(v)).toLocaleString("en-AU"); };
   var story = [], rows = [], row = function(item, v, prev, cls){ rows.push({ cls: cls, cells: { item: item, v: v == null ? null : r2(v), prev: prev == null ? null : r2(prev), chg: v == null || prev == null ? null : r2(v - prev) } }); };
   var dayBefore = function(iso){ var d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)) - 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   var a = netWorthOn(dayBefore(w.start), today), b = netWorthOn(w.end, today);
   if(!a.partial.length && !b.partial.length){
     story.push("Net worth went from " + money(a.total) + " to " + money(b.total) + " — " + (b.total >= a.total ? "up " : "down ") + money(Math.abs(b.total - a.total)) + ".");
-    row("Net worth at 30 June", b.total, a.total, "total");
-  } else if(!b.partial.length) row("Net worth at 30 June", b.total, null, "total");
+    row("Net worth at " + endLabel, b.total, a.total, "total");
+  } else if(!b.partial.length) row("Net worth at " + endLabel, b.total, null, "total");
   var sumIn = function(win){ return (state.incomeLog || []).reduce(function(s, r){ return r.date >= win.start && r.date <= win.end ? s + (Number(r.amount) || 0) : s; }, 0); };
   var sumOut = function(win){ return (state.transactions || []).reduce(function(s, t){ return t.date >= win.start && t.date <= win.end ? s + (Number(t.amount) || 0) : s; }, 0); };
   var tin = sumIn(w), tout = sumOut(w), pin = sumIn(pw), pout = sumOut(pw);
@@ -682,11 +682,11 @@ export function yearInReviewReport(opts){
     if(moves.length && moves[0].d > 200) story.push("The biggest rise on the year before was " + moves[0].k.toLowerCase() + ", up " + money(moves[0].d) + (moves.length > 1 && moves[moves.length - 1].d < -200 ? "; the biggest fall " + moves[moves.length - 1].k.toLowerCase() + ", down " + money(-moves[moves.length - 1].d) : "") + ".");
   }
   var dist = distributionYears(state.assets, toAudAmount).find(function(y){ return y.fy === fy; });
-  if(dist){ story.push("Investments paid " + money(dist.cash) + " in distributions" + (dist.credit ? " with " + money(dist.credit) + " of franking credits" : "") + "."); row("Distributions with franking", dist.total, null); }
+  if(dist){ story.push("Investments paid " + money(dist.cash) + " in distributions" + taxNote + (dist.credit ? " with " + money(dist.credit) + " of franking credits" : "") + "."); row("Distributions with franking", dist.total, null); }
   var cg = cgtParcels(state.assets, { today: today, toAud: toAudAmount }).realised.find(function(y){ return y.fy === fy; });
-  if(cg){ story.push("Shares sold made a net capital gain of " + money(cg.net.net) + " after the discount."); row("Net capital gain", cg.net.net, null); }
+  if(cg){ story.push("Shares sold made a net capital gain of " + money(cg.net.net) + " after the discount" + taxNote + "."); row("Net capital gain", cg.net.net, null); }
   var sup = superContributions(fy).filter(function(c){ return c.total > 0; });
-  if(sup.length){ story.push("Concessional super: " + sup.map(function(c){ return c.person + " " + money(c.total) + (c.room > 0 ? " (" + money(c.room) + " of the cap unused)" : c.over > 0 ? " (" + money(c.over) + " over the cap)" : "") ; }).join(", ") + "."); }
+  if(sup.length){ story.push("Concessional super" + taxNote + ": " + sup.map(function(c){ return c.person + " " + money(c.total) + (c.room > 0 ? " (" + money(c.room) + " of the cap unused)" : c.over > 0 ? " (" + money(c.over) + " over the cap)" : "") ; }).join(", ") + "."); }
   (state.properties || []).forEach(function(p){
     var s = valueOn(p.history, dayBefore(w.start)), e = valueOn(p.history, w.end);
     if(s != null && e != null && s !== e){ story.push((p.what || "The property") + " was valued " + (e > s ? "up " : "down ") + money(Math.abs(e - s)) + " over the year, to " + money(e) + "."); row((p.what || "Property") + " value", e, s); }
@@ -696,7 +696,8 @@ export function yearInReviewReport(opts){
     });
   });
   if(!story.length) story.push("Nothing was logged in " + w.label + " to look back on yet.");
-  return { key: "review", title: "Year in review", subtitle: w.label + " · 1 July " + fy + " to 30 June " + (fy + 1), narrative: story,
+  var sections = yearReviewSections(yr, { tin: tin, tout: tout, pin: pin, pout: pout, start: a, end: b }, today);
+  return { key: "review", title: "Year in review", subtitle: w.label + " · " + reviewYearSpan(yr), narrative: story, sections: sections,
     columns: [{ key: "item", label: "" }, { key: "v", label: w.label, num: true }, { key: "prev", label: pw.label, num: true }, { key: "chg", label: "Change", num: true }], rows: rows,
     note: "From what's been logged. The year before shows only where it was logged too. Pick a finished year in the header to look back on that one." };
 }

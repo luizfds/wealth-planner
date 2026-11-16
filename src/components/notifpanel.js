@@ -11,6 +11,7 @@ import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpag
 import { openTxReview } from "./spendingwiring.js";
 import { openCashRateDialog } from "./cashrate.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
+import { reportShown, rememberReport, renderReports } from "./reports.js";
 
 var notifPanelOpen;
 // #305: opened from a page's line, the list shows only what is about that view, with a way to the rest.
@@ -110,6 +111,8 @@ function followItem(n){
   // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
   if(action === "cashrate"){ openCashRateDialog(); return; }
   if(page === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "year", { replace: true }); renderTaxYear(); return; }
+  // #396: a report by its key — the year in review once a year has finished.
+  if(page === "reports" && sub){ reportShown.key = sub; rememberReport(sub); showPage("reports"); renderReports(); return; }
   showPage(page);
   if(sub && page === "dashboard"){ showDashboardSubpage(sub); if(sub === "review") renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   if(sub && page === "accounts"){ showAccountsSubpage(sub); if(sub === "checks") renderHealth(); }

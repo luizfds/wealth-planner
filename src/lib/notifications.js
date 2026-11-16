@@ -17,6 +17,7 @@ import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
 import { dueAutoPays } from "../calc/autopay.js";
 import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
 import { cashRateMove } from "../calc/cashrate.js";
+import { reviewYear, yearHasData } from "../calc/yearreview.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -366,6 +367,19 @@ function monthReviewNotification(){
     detail: "Money in, card statements, checks and the month against the plan — Home → Review.", date: today, page: "dashboard", sub: "review" }];
 }
 
+// ---------------- The year in review is ready (#396) ----------------
+// For the first three months after a household year ends (financial or calendar, state.yearBasis), when something
+// was logged in it: one To do opening Reports → Year in review. Read is dismissed, like the rest.
+function yearReviewNotification(){
+  if(!hasRealUserData()) return [];
+  var today = todayStr();
+  var y = reviewYear(today, state.yearBasis, null);
+  var until = y.calendar ? (Number(y.w.label) + 1) + "-03-31" : (y.fy + 1) + "-09-30";
+  if(today > until || !yearHasData(y)) return [];
+  return [{ id: "yearreview:" + y.w.label, type: "yearreview", severity: "info", title: "Your " + y.w.label + " in review is ready",
+    detail: "Where the money went, net worth, money leaks, the emergency fund and goals — Reports → Year in review.", date: today, page: "reports", sub: "review" }];
+}
+
 // ---------------- Your week (v3.166.0, item 196) ----------------
 // From Monday, until the week's card is dismissed (on any device — state.weekRecaps syncs).
 function weekRecapNotification(){
@@ -645,6 +659,7 @@ export function getLocalNotifications(){
     staleAccountNotifications(),
     propertyDateNotifications(),
     monthReviewNotification(),
+    yearReviewNotification(),
     weekRecapNotification(),
     dataHealthNotification(),
     storageNotification()

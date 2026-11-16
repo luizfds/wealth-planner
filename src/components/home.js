@@ -1,5 +1,6 @@
 import { emergencyFund } from "../calc/emergency.js";
 import { homeTodoItems } from "../lib/attention.js";
+import { getNotifications } from "../lib/notifications.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
@@ -137,7 +138,19 @@ export function homeSummaryHtml(today, opts){
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
     '<div class="home-grid">' + monthCard + nwCard + billsCard + todoCard + '</div>' +
-    (opts.week === false ? '' : weekCardHtml(today)) + goalsStripHtml(today);
+    (opts.week === false ? '' : weekCardHtml(today)) + (opts.yearReview === false ? '' : yearReviewCardHtml(opts.notifications)) + goalsStripHtml(today);
+}
+
+// #396: once a household year has finished with something logged in it, a card that opens Reports → Year in review —
+// the bell's "yearreview" item (lib/notifications.js), so reading it in either place puts both away.
+export function yearReviewCardHtml(list){
+  var n = (list || getNotifications()).find(function(x){ return x.type === "yearreview" && !x.read; });
+  if(!n) return "";
+  return '<section class="home-card home-yearreview" data-home-card="yearreview" aria-labelledby="homeYearReviewHead">' +
+    '<div class="wk-head"><span class="home-k" id="homeYearReviewHead">' + escapeAttr(n.title) + '</span>' +
+      '<span class="wk-nav"><button type="button" class="icon-btn" data-yr-dismiss="' + escapeAttr(n.id) + '" aria-label="Dismiss the year in review card">✕</button></span></div>' +
+    '<p class="home-note">Where the money went, net worth, money leaks, the emergency fund and goals — each with what to do next.</p>' +
+    '<button type="button" class="btn btn-sm" data-yr-open' + todoAttrs(n) + '>Open the review <span aria-hidden="true">›</span></button></section>';
 }
 
 // Savings goals (v3.65.0): a strip under the cards, each its progress bar, linking to where goals are kept — Plan → Goals

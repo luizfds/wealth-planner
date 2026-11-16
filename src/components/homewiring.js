@@ -4,6 +4,7 @@
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { renderNotifBadge, followNotification } from "./notifpanel.js";
+import { markNotificationRead } from "../lib/notifications.js";
 import { markReviewed, setStatementAmount, monthLabel, monthBounds } from "../calc/monthreview.js";
 import { dismissWeekRecap } from "../calc/weekrecap.js";
 import { copyBenchmarkTemplateToClipboard } from "../lib/backup.js";
@@ -296,6 +297,16 @@ export function wireHomeSummary(){
       showToast("Put away until next Monday");
       return;
     }
+    // #396: the year in review card — open it (the bell's item, followed the same way) or put it away.
+    var yrOff = e.target.closest("[data-yr-dismiss]");
+    if(yrOff){
+      markNotificationRead(yrOff.getAttribute("data-yr-dismiss"));
+      renderHomeSummary(); renderNotifBadge();
+      showToast("Put away — Reports → Year in review is there whenever you want it");
+      return;
+    }
+    var yrOpen = e.target.closest("[data-yr-open]");
+    if(yrOpen){ followNotification(yrOpen); return; }
     // #305: a To do row is the bell's item, followed the same way.
     var todo = e.target.closest(".home-todo [data-notif-id]");
     if(todo){ followNotification(todo); return; }

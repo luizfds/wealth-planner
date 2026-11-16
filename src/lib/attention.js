@@ -82,8 +82,9 @@ export function attentionItems(today){
   return { todo: todoItems(), know: knowItems(today) };
 }
 // Home's To do: the same items in the same words, most pressing first. Bills due and the week's recap are
-// To dos too, but Home's Bills and Your week cards beside this one already show them.
-var ON_HOME_ALREADY = { duebill: true, bill: true, week: true };
+// To dos too, but Home's Bills and Your week cards beside this one already show them — and the year in review its own
+// card (#396).
+var ON_HOME_ALREADY = { duebill: true, bill: true, week: true, yearreview: true };
 export function homeTodoItems(){
   return todoItems().filter(function(n){ return !ON_HOME_ALREADY[n.type]; })
     .map(function(n, i){ return { n: n, i: i }; })

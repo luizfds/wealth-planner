@@ -603,6 +603,11 @@
 .wk-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .wk-range{ font-weight:400; text-transform:none; letter-spacing:0; }
 .wk-nav{ display:flex; gap:2px; flex:0 0 auto; }
+/* #396: the year in review card, under the week's. */
+.home-yearreview{ margin:0 0 12px; display:grid; gap:8px; }
+.home-yearreview[hidden]{ display:none; }
+.home-yearreview .home-note{ margin:0; }
+.home-yearreview .btn{ justify-self:start; }
 .wk-nav .icon-btn[disabled]{ opacity:.3; cursor:default; }
 .wk-body{ display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.2fr); gap:16px; }
 .wk-part{ display:flex; flex-direction:column; gap:4px; min-width:0; }

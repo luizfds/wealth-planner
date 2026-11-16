@@ -1292,6 +1292,20 @@
   .rp-table td.heat-p1{ background: rgba(214,69,69,.10); } .rp-table td.heat-p2{ background: rgba(214,69,69,.22); } .rp-table td.heat-p3{ background: rgba(214,69,69,.38); }
   .rp-table td.heat-n1{ background: rgba(23,163,98,.10); } .rp-table td.heat-n2{ background: rgba(23,163,98,.20); } .rp-table td.heat-n3{ background: rgba(23,163,98,.32); }
   .rp-story{ margin:4px 0 16px; padding-left:20px; display:grid; gap:6px; font-size:var(--fs-lg); line-height:1.5; }
+  /* #396: the guided Year in review — one section per question, its verdict and where it's acted on. */
+  .yr-sections{ display:grid; gap:12px; margin:0 0 16px; }
+  .yr-section{ border:1px solid var(--border); border-radius:var(--inner-radius); padding:12px 14px; min-width:0; }
+  .yr-section h3{ margin:0 0 6px; font-size:var(--fs-md); display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+  .yr-tone{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
+  .yr-good .yr-tone{ color:var(--good-ink); }
+  .yr-warn .yr-tone{ color:var(--warn-ink); }
+  .yr-verdict{ margin:0; font-size:var(--fs-sm); line-height:1.5; overflow-wrap:anywhere; }
+  .yr-detail{ margin:4px 0 0; font-size:var(--fs-xs); color:var(--ink-soft); line-height:1.5; }
+  .yr-links{ margin:8px 0 0; padding-left:18px; font-size:var(--fs-sm); line-height:1.5; }
+  .yr-links li + li{ margin-top:4px; }
+  .yr-go{ margin-top:6px; }
+  .yr-section .empty-state{ margin:0; }
+  .yr-figures > summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:600; }
   /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
   .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }
   .rp-group{ display:grid; grid-template-columns:170px 1fr; gap:6px; align-items:start; }

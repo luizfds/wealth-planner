@@ -5377,3 +5377,7 @@ Built as planned, plus one thing the demo household showed: loan interest isn't 
 
 Built as planned. The test fixture caught one gap: a loan with a $0 balance that isn't past its term counted as an offset to compare against; an offset against nothing owing saves nothing, so it's skipped. On the demo household the comparison first lists the cash accounts with no rate yet, with a link to Investments → Cash; the `savingsoffset` journey enters one there (30% refused, blank allowed) and sees it compared. `ownersRate` is now exported from `calc/advice.js` for it.
 
+
+## Next year's plan from goals — issue #399 (4/5 of #390)
+
+`[~]` A "Next year's plan" section at the end of the guided Year in review. The owner chose: three kinds of goal — rebuild the emergency fund to 3, 6 or 12 months of essentials (on the savings and offset accounts), save an amount by a date (on accounts you pick), pay a card or loan down to $0 by a date — all ordinary savings goals on account balances; the monthly surplus to share is the lower of the budget's regular surplus and last year's actual kept per month (from #397's reconciliation), and which one is said; goals are funded in the order you put them, each in full until the surplus runs out, and one that doesn't fit shows the date it would reach on what's left. Drafts are session-only until "Save these goals", which adds them as savings goals with their planned monthly amount and plan year (`plannedMonthly`, `planYear`, migration step 30) for #400's progress; cancelling changes nothing. A pure `calc/nextyearplan.js` with tests.

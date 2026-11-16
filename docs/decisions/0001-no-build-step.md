@@ -14,7 +14,7 @@ pdf.js is vendored (`vendor/pdfjs/`) rather than loaded from a CDN, so PDF impor
 - The app must be served over HTTP (`python3 -m http.server`); `file://` can't load modules.
 - Cache-busting is done by `npm run stamp`: an import map in `index.html` maps every module to `?v=<version>`
   (one module instance, no stale mix after a release), modulepreload links avoid a waterfall, and the CSP's script
-  hashes are recomputed. A new module or inline script needs a stamp; `tests/stamp.test.js` fails otherwise.
+  hashes are recomputed. The release stamps, not a pull request ([0015](0015-the-release-stamps.md)).
 - The PWA (`manifest.webmanifest`, `sw.js`) is network-first with cache-as-you-go: no precache list to maintain.
   `start_url`/`scope` are `"."` so the same files work at `/` locally and under `/wealth-planner/` on Pages.
   Two `sw.js` traps cost real time: a cache write after `respondWith` needs `event.waitUntil()`, and a same-origin

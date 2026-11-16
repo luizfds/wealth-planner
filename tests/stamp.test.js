@@ -1,16 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { appVersion, moduleFiles, stampedIndex, stampedStyles } from "../scripts/stamp.mjs";
+import { appVersion, moduleFiles, stampedIndex, stampProblems, withScriptHashes } from "../scripts/stamp.mjs";
 
-// The version bump and `npm run stamp` go together: if index.html's version moved on and the
-// script URLs didn't, an update could again load a new page with an old module.
-test("every module and stylesheet carries the current version", function(){
+// The release stamps every module after a merge (scripts/release.mjs → npm run stamp); a pull request doesn't, so a
+// release never conflicts with the PRs still open. What a PR can't leave for the release is checked here.
+test("index.html and styles.css load nothing stale, missing or blocked", function(){
   var html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
-  var v = appVersion(html);
-  assert.equal(html, stampedIndex(html, v, moduleFiles()), "index.html is out of date — run npm run stamp");
   var css = fs.readFileSync(new URL("../styles.css", import.meta.url), "utf8");
-  assert.equal(css, stampedStyles(css, v), "styles.css is out of date — run npm run stamp");
+  assert.deepEqual(stampProblems(html, css, appVersion(html), moduleFiles()), [], "fix these — an inline script's hash: npm run stamp -- --hashes");
+});
+
+test("what a pull request has to get right without stamping", function(){
+  var v = "1.2.3", files = ["src/app.js", "src/state.js"];
+  var base = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; script-src \'self\'">\n<p class="app-version"><span class="app-version-num">v1.2.3</span></p>\n<link rel="stylesheet" href="styles.css">\n<script type="module" src="src/app.js"></script>';
+  var stamped = stampedIndex(base, v, files), css = '@import url("src/styles/base.css?v=1.2.3") layer(base);\n@import url("src/styles/new.css") layer(pages);';
+  assert.deepEqual(stampProblems(stamped, css, v, files), [], "a stamped page is fine");
+  assert.deepEqual(stampProblems(stamped, css, v, files.concat(["src/new.js"])), [], "a new module, not yet in the map, waits for the release");
+  assert.match(stampProblems(stamped, css, v, ["src/app.js"]).join(), /lists src\/state\.js, which doesn't exist/);
+  assert.match(stampProblems(stamped.replace("</p>", "</p><script>go()</script>"), css, v, files).join(), /inline <script> isn't allowed/);
+  assert.deepEqual(stampProblems(withScriptHashes(stamped.replace("</p>", "</p><script>go()</script>")), css, v, files), [], "--hashes allows it");
+  assert.match(stampProblems(stamped, css, "1.2.4", files).join(), /maps src\/app\.js to \.\/src\/app\.js\?v=1\.2\.3, not v1\.2\.4/);
+  assert.match(stampProblems(stamped, css.replace("base.css?v=1.2.3", "base.css?v=1.0.0"), v, files).join(), /styles\.css imports src\/styles\/base\.css\?v=1\.0\.0/);
 });
 
 test("the import map maps each module to one versioned URL", function(){

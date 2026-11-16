@@ -1,6 +1,7 @@
 // Screenshot comparison (v3.130.0) — what a pull request changes on screen.
 //
 // Run: node scripts/shotdiff.mjs <base shots> <head shots> <out dir>
+// Two states per view (#267): <view>.png as it opens, <view>.expanded.png with every disclosure open — reported apart.
 // Compares the PNGs scripts/smoke.mjs saved for the base branch and for the PR (SHOTS_DIR), pixel by
 // pixel in headless Chromium (no image library: the browser decodes and diffs them on a canvas), and
 // writes <out>/index.html — every view that changed, base beside head beside the difference marked
@@ -54,10 +55,16 @@ await browser.close();
 added.forEach(f => fs.copyFileSync(path.join(headDir, f), path.join(outDir, f.replace(/\.png$/, ".head.png"))));
 changed.sort((x, y) => y.pct - x.pct);
 
-const name = f => f.replace(/\.png$/, "").replace(/^(\d+)-/, "$1px · ").replace(/-/g, " / ");
+// #267: each view is photographed as it opens and with every disclosure open (<view>.expanded.png); the two states
+// are reported apart, so a change to what a page shows first isn't read inside its expanded state.
+const isExpanded = f => /\.expanded\.png$/.test(f);
+const name = f => f.replace(/\.expanded\.png$|\.png$/, "").replace(/^(\d+)-/, "$1px · ").replace(/-/g, " / ");
+const table = (title, rows) => rows.length ? ["", "**" + title + "**", "", "| View | Pixels changed |", "|---|---|"].concat(rows.map(c => "| " + name(c.f) + " | " + c.pct + "%" + (c.sizeChanged ? " (page length changed)" : "") + " |")) : [];
+const defaults = changed.filter(c => !isExpanded(c.f)), expanded = changed.filter(c => isExpanded(c.f));
 const md = ["### Screens", "",
-  both.length + " views compared, " + changed.length + " changed" + (added.length ? ", " + added.length + " new" : "") + (removed.length ? ", " + removed.length + " gone" : "") + ".", ""]
-  .concat(changed.length ? ["| View | Pixels changed |", "|---|---|"].concat(changed.map(c => "| " + name(c.f) + " | " + c.pct + "%" + (c.sizeChanged ? " (page length changed)" : "") + " |")) : [])
+  both.filter(f => !isExpanded(f)).length + " views compared as they open and " + both.filter(isExpanded).length + " expanded: " +
+    defaults.length + " changed as they open, " + expanded.length + " changed expanded" + (added.length ? ", " + added.length + " new" : "") + (removed.length ? ", " + removed.length + " gone" : "") + "."]
+  .concat(table("As the page opens", defaults)).concat(table("Every disclosure open", expanded))
   .concat(added.length ? ["", "New: " + added.map(name).join(", ")] : [])
   .concat(removed.length ? ["", "Gone: " + removed.map(name).join(", ")] : [])
   .concat(changed.length || added.length ? ["", "Side by side in the **screens** artifact (open index.html)."] : []);
@@ -65,7 +72,8 @@ fs.writeFileSync(path.join(outDir, "summary.md"), md.join("\n") + "\n");
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 fs.writeFileSync(path.join(outDir, "index.html"), "<!doctype html><meta charset=utf-8><title>Screens</title><style>body{font:14px system-ui;margin:16px}figure{margin:0}.row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 28px}img{width:100%;border:1px solid #ccc}h2{font-size:16px}</style>" +
   "<h1>Screens</h1><p>" + esc(md[2]) + "</p>" +
-  changed.map(c => "<h2>" + esc(name(c.f)) + " — " + c.pct + "%</h2><div class=row><figure><figcaption>Base</figcaption><img src='" + c.stem + ".base.png'></figure><figure><figcaption>This PR</figcaption><img src='" + c.stem + ".head.png'></figure>" +
-    (c.diff ? "<figure><figcaption>Difference</figcaption><img src='" + c.stem + ".diff.png'></figure>" : "") + "</div>").join("") +
+  [["As the page opens", defaults], ["Every disclosure open", expanded]].filter(g => g[1].length).map(g => "<h2>" + esc(g[0]) + "</h2>" +
+    g[1].map(c => "<h3>" + esc(name(c.f)) + " — " + c.pct + "%</h3><div class=row><figure><figcaption>Base</figcaption><img src='" + c.stem + ".base.png'></figure><figure><figcaption>This PR</figcaption><img src='" + c.stem + ".head.png'></figure>" +
+      (c.diff ? "<figure><figcaption>Difference</figcaption><img src='" + c.stem + ".diff.png'></figure>" : "") + "</div>").join("")).join("") +
   (added.length ? "<h2>New views</h2>" + added.map(f => "<h3>" + esc(name(f)) + "</h3><img style='max-width:640px' src='" + f.replace(/\.png$/, ".head.png") + "'>").join("") : ""));
 console.log(md.join("\n"));

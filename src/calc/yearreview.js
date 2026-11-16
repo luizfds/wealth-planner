@@ -55,10 +55,15 @@ export function yearReviewSections(y, f, today){
   var out = [], label = y.w.label;
   // 1. Where the money went.
   if(f.tin || f.tout){
-    var kept = f.tin - f.tout;
+    // #397: kept as the reconciliation has it — after loan interest, which isn't in Spending — so the headline and
+    // "How it adds up" say the same.
+    var interest = f.reconcile && f.reconcile.interest ? f.reconcile.interest.total : 0;
+    var kept = f.tin - f.tout - interest;
     out.push({ key: "money", title: "Where the money went", tone: kept >= 0 ? "good" : "warn",
-      verdict: money(f.tin) + " came in and " + money(f.tout) + " was spent" + (f.tin > 0 ? ": " + (kept >= 0 ? money(kept) + " kept, " + Math.round(kept / f.tin * 100) + "% of it." : money(-kept) + " more went out than came in.") : "."),
-      detail: f.pin || f.pout ? "The year before: " + money(f.pin) + " in, " + money(f.pout) + " spent." : "", go: "expenses/spending", label: "Go to Spending →" });
+      verdict: money(f.tin) + " came in and " + money(f.tout) + " was spent" + (interest ? ", with " + money(interest) + " of loan interest and fees" : "") +
+        (f.tin > 0 ? ": " + (kept >= 0 ? money(kept) + " kept, " + Math.round(kept / f.tin * 100) + "% of it." : money(-kept) + " more went out than came in.") : "."),
+      detail: f.pin || f.pout ? "The year before: " + money(f.pin) + " in, " + money(f.pout) + " spent." : "", go: "expenses/spending", label: "Go to Spending →",
+      reconcile: f.reconcile || null });
   } else out.push({ key: "money", title: "Where the money went", tone: "empty", empty: "Nothing came in or went out in " + label + " that was logged — a bank statement for the year fills this in.", go: "expenses/spending", label: "Go to Spending →" });
   // 2. Net worth.
   var s = f.start, e = f.end;

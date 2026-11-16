@@ -54,3 +54,12 @@ test("with figures: kept or overspent, net worth up or down", () => {
     assert.equal(yearHasData(reviewYear("2026-11-03", "calendar")), false, "a January 2026 transaction isn't in calendar 2025");
   } finally { setState(was); }
 });
+
+test("the headline's kept is the reconciliation's: after loan interest (#397)", () => {
+  const was = state; setState(defaultState());
+  try {
+    const y = reviewYear("2026-11-03", "financial");
+    const s = yearReviewSections(y, { tin: 100000, tout: 60000, pin: 0, pout: 0, start: { total: 1, partial: [] }, end: { total: 2, partial: [] }, reconcile: { interest: { total: 12000 } } }, "2026-11-03");
+    assert.match(s[0].verdict, /\$100,000 came in and \$60,000 was spent, with \$12,000 of loan interest and fees: \$28,000 kept, 28% of it\./);
+  } finally { setState(was); }
+});

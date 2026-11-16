@@ -1306,6 +1306,17 @@
   .yr-go{ margin-top:6px; }
   .yr-section .empty-state{ margin:0; }
   .yr-figures > summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:600; }
+  /* #397: how the year adds up — under "Where the money went". */
+  .yr-recon{ margin-top:8px; }
+  .yr-recon > summary{ min-height:44px; display:flex; align-items:center; cursor:pointer; font-weight:600; font-size:var(--fs-sm); }
+  .yr-recon-lines{ margin:4px 0 0; }
+  .yr-recon-lines > div{ display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--border); font-size:var(--fs-sm); }
+  .yr-recon-lines dt{ min-width:0; overflow-wrap:anywhere; }
+  .yr-recon-lines dd{ margin:0; text-align:right; white-space:nowrap; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
+  .yr-recon-total{ font-weight:600; }
+  .yr-recon-gap dd{ color:var(--warn-ink); }
+  .yr-recon-sub{ margin:10px 0 0; font-size:var(--fs-sm); }
+  .yr-missing ul{ margin:4px 0 0; padding-left:18px; font-size:var(--fs-xs); color:var(--ink-soft); line-height:1.5; overflow-wrap:anywhere; }
   /* v3.124.0: the picker in groups, pinned reports, and the printout's title block. */
   .rp-picker{ display:grid; gap:8px; margin-bottom:14px; }
   .rp-group{ display:grid; grid-template-columns:170px 1fr; gap:6px; align-items:start; }

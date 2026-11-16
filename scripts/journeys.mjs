@@ -382,6 +382,15 @@ const JOURNEYS = {
     check(await links.count() === 3, 'worth checking links missing');
     check(await links.evaluateAll(as => as.every(a => a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/(moneysmart|www\.ato|www\.servicesaustralia)\.gov\.au\//.test(a.href))), 'a worth-checking link is not an official site opened safely');
     check(await sheet.locator('details.yr-figures summary').count() === 1, 'the figures fold is missing');
+    // #397: how the year adds up — kept, and where it went, with what's unaccounted shown, not hidden.
+    const recon = sheet.locator('[data-yr-section="money"] details.yr-recon');
+    await recon.locator('summary').click();
+    const rt = await recon.innerText();
+    check(/Money in/.test(rt) && /Kept/.test(rt) && /Cash and savings/.test(rt) && /Loans (paid down|borrowed)|Borrowed on loans/.test(rt) && /Shares (bought|sold)/.test(rt) && /Unaccounted/.test(rt), 'how it adds up is incomplete: ' + rt.slice(0, 200));
+    check(/Loan interest and fees/.test(rt), 'the loan\'s interest is not taken off');
+    check(!/NaN|Infinity|\d{4}-\d{2}-\d{2}/.test(rt), 'how it adds up shows NaN or a raw date');
+    const nums = await recon.evaluate(el => [...el.querySelectorAll('.yr-recon-lines dd')].map(d => Number(d.textContent.replace(/[^0-9.−-]/g, '').replace('−', '-'))));
+    check(nums.length >= 8, 'how it adds up has too few lines');
     // A section's way there goes there.
     await sheet.locator('[data-yr-section="leaks"] [data-go]').click();
     await waited(page, () => document.body.dataset.currentPage === 'expenses' && !!document.querySelector('[data-expenses-sub="budget"].active, [data-expenses-sub="budget"][aria-current]'), 'Budget, where Trim is');

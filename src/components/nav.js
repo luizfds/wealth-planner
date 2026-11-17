@@ -324,42 +324,60 @@ function groupedFabTarget(rootId){
 // Ordered by how often a household actually does them, not by how the app is organised — logging
 // spend is a daily act, adding a property is a once-every-few-years one.
 export var QUICK_ACTIONS = [
-  { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn" },
-  { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]' },
-  { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received" },
+  { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn", group: "log" },
+  { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]', group: "add", short: "Budget line" },
+  { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received", group: "log" },
   // v3.208.0 (item 240): only offered with an investment property — the statement form, on its Income & costs tab.
-  { label: "Log a rent statement", hint: "A property manager's monthly statement", page: "properties", mode: "rentstatement", needsIP: true },
+  { label: "Log a rent statement", hint: "A property manager's monthly statement", page: "properties", mode: "rentstatement", needsIP: true, group: "log" },
   // v3.141.0: a card repayment is a transfer — this opens the form with the card and its payment in.
-  { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard" },
+  { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard", group: "log" },
   // No selector on these three: Income and Assets build their add buttons per person/category
   // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
   // They resolve to the first visible [data-add] on the destination page instead — the same way
   // updateQuickFab already targets those pages, and robust to the row markup changing.
-  { label: "Add income",    hint: "A salary, rent or other income row",       page: "income" },
-  { label: "Add shares",    hint: "A holding in the Shares list",             page: "assets",     sub: "Shares" },
-  { label: "Add cash",      hint: "A savings or offset balance",              page: "assets",     sub: "Cash" },
-  { label: "Add property",  hint: "A home or investment property",            page: "properties", selector: "#addPropertyBtn" },
-  { label: "Add account",   hint: "A bank or credit card account",            page: "accounts",   selector: "#addAccountBtn" },
-  { label: "Record net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth" }
+  { label: "Add income",    hint: "A salary, rent or other income row",       page: "income", group: "add", short: "Income" },
+  { label: "Add shares",    hint: "A holding in the Shares list",             page: "assets",     sub: "Shares", group: "add", short: "Shares" },
+  { label: "Add cash",      hint: "A savings or offset balance",              page: "assets",     sub: "Cash", group: "add", short: "Cash account" },
+  { label: "Add property",  hint: "A home or investment property",            page: "properties", selector: "#addPropertyBtn", group: "add", short: "Property" },
+  { label: "Add account",   hint: "A bank or credit card account",            page: "accounts",   selector: "#addAccountBtn", group: "add", short: "Bank or card account" },
+  { label: "Record net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth", group: "log" }
 ];
 // Reuses the .review-backdrop/.review-panel sheet shell every other overlay in this app uses (see
 // ledger.css), so this inherits the bottom-anchored-on-mobile treatment and the shared backdrop
 // behaviour for free rather than inventing a third overlay shape.
+// Simpler navigation step 2 (#411): the + button always opens this sheet. It leads with what this page itself adds (the
+// page's action, as updateQuickFab found it), then logging, importing and adding — one button that always does the same
+// thing, where before it ran the page's action on some pages and opened this list on others.
+var SHEET_GROUPS = [["log", "Log"], ["import", "Import"], ["add", "Add something new"]];
+function sheetRow(attr, label, hint){
+  return '<button type="button" class="qfab-action" ' + attr + '><span class="qfab-action-label">' + escapeAttr(label) + '</span>' +
+    '<span class="qfab-action-hint">' + escapeAttr(hint) + '</span></button>';
+}
 export function quickActionsSheetHtml(){
   var hasIP = (state.properties || []).some(function(p){ return p && p.kind === "IP"; });
-  var rows = QUICK_ACTIONS.map(function(action, i){
-    if(action.needsIP && !hasIP) return "";
-    return '<button type="button" class="qfab-action" data-quick-action="' + i + '">' +
-      '<span class="qfab-action-label">' + escapeAttr(action.label) + '</span>' +
-      '<span class="qfab-action-hint">' + escapeAttr(action.hint) + '</span>' +
-    '</button>';
-  }).join("");
+  var own = pageAction && pageAction.label && !QUICK_ACTIONS.some(function(a){ return a.label === pageAction.label; }) ? pageAction : null;
+  var html = own ? '<h5 class="qfab-group">On this page</h5>' + sheetRow('data-quick-page', own.label, "Here, on " + pageLabel(currentPage)) : "";
+  SHEET_GROUPS.forEach(function(g){
+    var rows = g[0] === "import"
+      ? sheetRow('data-quick-import', "Import a file", "A bank, loan, property manager or payslip statement, broker trades, prices or a spreadsheet")
+      : QUICK_ACTIONS.map(function(action, i){
+        if(action.group !== g[0] || (action.needsIP && !hasIP)) return "";
+        // Adding is named by what it adds, two to a row: the sheet fits a phone without scrolling.
+        if(g[0] === "add") return '<button type="button" class="qfab-chip" data-quick-action="' + i + '" title="' + escapeAttr(action.hint) + '" aria-label="' + escapeAttr(action.label + ": " + action.hint) + '">' + escapeAttr(action.short) + '</button>';
+        return sheetRow('data-quick-action="' + i + '"', action.label, action.hint);
+      }).join("");
+    if(rows) html += '<h5 class="qfab-group">' + g[1] + '</h5>' + (g[0] === "add" ? '<div class="qfab-chips">' + rows + '</div>' : rows);
+  });
   return '<div class="review-backdrop" data-qfab-backdrop>' +
-    '<div class="review-panel qfab-panel" role="dialog" aria-label="Quick actions">' +
-      '<div class="review-head"><h4>Quick actions</h4><button type="button" class="icon-btn" data-qfab-close aria-label="Close">✕</button></div>' +
-      '<div class="qfab-actions">' + rows + '</div>' +
+    '<div class="review-panel qfab-panel" role="dialog" aria-label="Add, log or import">' +
+      '<div class="review-head"><h4>Add, log or import</h4><button type="button" class="icon-btn" data-qfab-close aria-label="Close">✕</button></div>' +
+      '<div class="qfab-actions">' + html + '</div>' +
     '</div></div>';
 }
+function pageLabel(id){ var p = PAGES.find(function(x){ return x.id === id; }); return p ? p.label : "this page"; }
+// This page's own add or log action, for the sheet's first row and an empty state's next step (chromewiring.js).
+var pageAction = null;
+export function currentPageAction(){ return pageAction; }
 
 // Re-targets the quick-action button for whichever page/subpage is now visible — called after
 // every page switch and Assets subpage switch (see applyPageChange/showAssetsSubpage below), so
@@ -391,32 +409,22 @@ export function updateQuickFab(pageId){
     selector = QUICK_FAB_BUTTON_PAGES[pageId].selector;
   }
   if(grouped){ label = grouped.label; selector = grouped.selector; }
-  // No single obvious action for this page (Projections): the button opens the quick-actions menu
-  // instead of hiding. #304: the same action is the header's button on a desktop, where it carries
-  // the label; on a phone the round button is named by its aria-label.
+  // #411: the button always opens the sheet (quickActionsSheetHtml), named the same everywhere; this page's own action
+  // is remembered for the sheet's first row and for an empty state's next step (runPageAction, chromewiring.js).
+  pageAction = label ? { label: label, mode: mode, selector: selector } : null;
   fab.hidden = false;
   var headerBtn = document.getElementById("headerAddBtn"), headerLabel = document.getElementById("headerAddLabel");
   if(headerBtn) headerBtn.hidden = false;
-  if(headerLabel) headerLabel.textContent = label || "Quick actions";
-  if(headerBtn){
-    headerBtn.setAttribute("aria-label", label || "Quick actions");
-    headerBtn.title = label || "Quick actions";
-    headerBtn.setAttribute("aria-haspopup", label ? "false" : "dialog");
-    // #255: it is the view's primary only when it is the page's own action and the page shows no primary
-    // of its own — lib/help.js's updatePageHelp() settles that as the page changes.
-    headerBtn.toggleAttribute("data-page-action", !!label);
-  }
-  if(!label){
-    fab.setAttribute("data-fab-mode", "menu");
-    fab.removeAttribute("data-fab-selector");
-    fab.title = "Quick actions";
-    fab.setAttribute("aria-label", "Quick actions");
-    return;
-  }
-  fab.title = label;
-  fab.setAttribute("aria-label", label);
-  if(mode) fab.setAttribute("data-fab-mode", mode); else fab.removeAttribute("data-fab-mode");
-  if(selector) fab.setAttribute("data-fab-selector", selector); else fab.removeAttribute("data-fab-selector");
+  if(headerLabel) headerLabel.textContent = "Add";
+  [fab, headerBtn].forEach(function(btn){
+    if(!btn) return;
+    btn.setAttribute("aria-label", "Add, log or import");
+    btn.title = "Add, log or import";
+    btn.setAttribute("aria-haspopup", "dialog");
+  });
+  // #255: it is the view's primary only when the page has an action of its own and shows no primary of its own —
+  // lib/help.js's updatePageHelp() settles that as the page changes.
+  if(headerBtn) headerBtn.toggleAttribute("data-page-action", !!label);
 }
 // Overlays that live *outside* any .app-page section (the row-edit modal and its backdrop, the
 // search sheet, the quick-log sheet, the expense review) have to be torn down when the page

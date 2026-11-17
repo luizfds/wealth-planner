@@ -46,7 +46,7 @@ export var TOUR_STEPS = [
   { key: "scenarios", title: "Scenarios", page: "plan", sub: "scenarios", targets: ['#planSubnav [data-plan-sub="scenarios"]', "#planSubnav .section-picker"],
     text: "A scenario is a safe what-if: keep renting or buy, a different job. Change anything in one and your real figures stay as they are, then compare scenarios side by side." },
   { key: "add", title: "Adding and editing", page: "expenses", targets: ["#headerAddBtn", "#quickFab"],
-    text: "The + button adds to whichever page you're on. To change something already there, open its row." },
+    text: "The + button adds, logs or imports from any page — what this page adds comes first. To change something already there, open its row." },
   { key: "menu", title: "Your menu", targets: ["#avatarBtn"],
     text: "Reports, calculators, settings and backups live here — and this tour, whenever you'd like it again." },
   { key: "start", title: "Getting started", page: "dashboard", checklist: true,

@@ -1,6 +1,6 @@
 # Shared import discovery
 
-The Import data chooser is the first slice of issue #265. The avatar menu, relevant page actions and global search all open the same native modal. It groups statements, investments and spreadsheet rows, with supported formats and destinations stated before selection. Backup restore has its own replacement section.
+The Import data chooser is the first slice of issue #265. The avatar menu, the + sheet's "Import a file" (#411), relevant page actions and global search all open the same native modal. Its first choice, "Any statement file", is Spending's reader, which works out whether a file is a bank or loan statement, a property manager's statement or a payslip and opens that review; broker trades, prices and spreadsheet rows keep their own choices, since no reader recognises them yet. It groups statements, investments and spreadsheet rows, with supported formats and destinations stated before selection. Backup restore has its own replacement section.
 
 A choice navigates to an existing tool, opens its disclosure/menu and focuses its control. It does not select a file, call a parser or confirm an import. Back returns to the origin. Escape, Cancel and backdrop dismissal return focus to the visible opener, including the menu toggle when the original menu item is hidden. Tab stays inside the chooser. No new persistent state or import data model is introduced.
 

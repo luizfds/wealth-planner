@@ -92,4 +92,12 @@ balance, last year's tax estimate, get back to where you started.
   adding. Log spend becomes two taps from +; Spending's list keeps its own one-tap "+ Log spend".
 - Reports, Calculators and Settings stay where they are (sidebar and avatar menu) until step 3 brings the More tab, so
   they move once.
+- As built: the sheet ("Add, log or import") groups On this page · Log · Import · Add something new. Adding is a
+  two-column grid of short names ("Budget line", "Cash account"…), each with its full name and hint as its accessible
+  name, so the sheet fits a 320×844 phone and a 1280×800 desktop without scrolling. The page's own row runs once the
+  sheet's history entry is gone; Import a file opens the import chooser in the sheet's place, so Back closes it and
+  doesn't bring the sheet back. An empty state's next step with no target of its own still runs the page's action
+  directly (`runPageAction`). The avatar menu's item is renamed to match. Journey `plussheet`.
+- "Works out the kind" is Spending's statement reader (bank, loan, property manager, payslip), now the chooser's first
+  choice, "Any statement file". Broker trades are not recognised from a statement file yet; they keep their own choice.
 

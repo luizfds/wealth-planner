@@ -191,7 +191,7 @@
         <div class="page-overflow avatar-wrap">
           <button type="button" class="avatar-btn" id="avatarBtn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Your menu: reports, settings, backup and more" title="Reports, settings, backup and more"><span id="avatarInitial" aria-hidden="true">·</span><i class="avatar-dot" id="avatarDot" hidden></i></button>
           <div class="page-overflow-menu avatar-menu" data-overflow-menu hidden>
-            <button type="button" class="btn btn-sm btn-ghost avatar-item" id="avatarQuickActions" aria-haspopup="dialog">Quick actions</button>
+            <button type="button" class="btn btn-sm btn-ghost avatar-item" id="avatarQuickActions" aria-haspopup="dialog">Add, log or import</button>
             <div class="avatar-divider"></div>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="reports">Reports</button>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="calc">Calculators</button>
@@ -1109,7 +1109,8 @@
   </button>
 </nav>
 
-<!-- #304: one round button on a phone, named by aria-label; the other quick actions are in the avatar menu. -->
+<!-- #304: one round button on a phone, named by aria-label. #411: it (and the header's on a desktop) always opens the
+     "Add, log or import" sheet, this page's own action first. -->
 <div class="quick-fab-wrap" id="quickFabWrap">
   <button type="button" class="quick-fab" id="quickFab" hidden>
     <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M10 3v14M3 10h14"/></svg>

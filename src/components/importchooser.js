@@ -4,7 +4,9 @@ import { escapeAttr } from "../lib/html.js";
 export function importChoices(context){
   var c = context || {};
   return [
-    { key: "bank", group: "Statements", label: "Bank or loan statement", description: "CSV, PDF, OFX, QFX or QIF → Cash flow → Spending. Choose the destination account in the statement review.", page: "expenses", sub: "spending", target: "#bankImportPickBtn" },
+    // #411: the one reader that works out what a statement is — bank or loan, a property manager's or a payslip PDF — and
+    // hands each to its own review. The two choices below go straight to the property and payslip tools.
+    { key: "bank", group: "Statements", label: "Any statement file", description: "Bank or loan (CSV, PDF, OFX, QFX or QIF), a property manager's statement or a payslip PDF → Cash flow → Spending, which works out which it is and opens its review.", page: "expenses", sub: "spending", target: "#bankImportPickBtn" },
     { key: "property", group: "Statements", label: "Property manager statement", description: c.properties ? "PDF → the named investment property, or choose its property after reading." : "Add an investment property first, then bring in its statement PDF.", page: c.properties ? "expenses" : "properties", sub: c.properties ? "spending" : null, target: c.properties ? "#bankImportPickBtn" : "#addPropertyBtn" },
     { key: "payslip", group: "Statements", label: "Payslip", description: c.people ? "PDF → Tax → This year. Pick the person's payslip check. Review the figures before saving, with Undo." : "Add a person in Tax → People first, then read their payslip PDF.", page: "tax", sub: c.people ? "year" : "people", target: c.people ? ".tax-ytd summary" : "#addPersonBtn" },
     { key: "trades", group: "Investments", label: "Broker trades", description: "CSV, Excel or pasted CSV → Investments → Shares. Review buys, sells and matching holdings.", page: "assets", sub: "Shares", tool: "trades", target: "[data-tr-text]" },

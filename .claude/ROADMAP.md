@@ -5390,3 +5390,17 @@ Built as planned, with one simplification: a "save an amount" goal sits on one a
 `[x]` Each month, every goal saved from next year's plan (#399) against the plan: progress so far, a forecast to the year's end at the pace so far, how far off it is, and — when it's behind — a suggested adjustment. The owner chose: progress is measured from the day the plan was saved (saving now records the date and each goal's balance that day, `planFrom` and `planStart`, migration step 31; a goal saved before that falls back to the start of its plan year, from balance history, and says so when there's none); a goal is behind (or ahead) when it's more than 10% of the progress planned so far, and at least $100, off the plan's line; the adjustment gives both the monthly amount for the rest of the time to still land on the goal's date and the month it reaches at the pace so far; it shows as a "Your plan" part of the monthly review, and one bell item a month only when a goal is behind or its data is missing or stale. All of it behind one opt-in household setting, off by default — off, nothing shows. In-app only: no push or email. Stale or missing balances are said, never filled in. A pure `calc/planprogress.js` with tests.
 
 Built as planned. "10% off" is 10% of the progress the plan has planned so far (what it gives a month × months since it was saved), with $100 the least — 10% of the whole balance would let a goal that started large drift a long way before saying so. The line stops at the target, so a goal's line never runs past it (a card's line stops at $0). It's measured as of today whichever month is being reviewed, and says so. "Too soon to tell" in the first month; "Can't tell yet" when an account is gone or nothing was recorded when the plan started; a balance not updated in six weeks is called out beside the figures. The setting is on Settings → Preferences ("Next year's plan"); the review gains a step 5 of 6 before the summary only while it's on and a planned goal exists, and the bell's item (once a month, only when something needs a look) opens the review at that step. `tests/planprogress.test.js` covers on track, behind and its catch-up, the $100 floor, ahead, reached, the first month, no data, a goal saved before the start was recorded, a card paid down, and a stale balance; the `planprogress` journey checks off-by-default, on, the bell, four widths and off again.
+
+
+## Simpler navigation — November 2026 review (v3.286.0)
+
+People reported the app hard to find their way around. Measured and planned in `docs/design/simpler-navigation.md`,
+approved by the owner. Five steps, each its own PR, in this order.
+
+1. `[~]` **Back works everywhere.** Home's tabs and the chosen report get their own addresses; Details, Reports, Settings
+   and Calculators get one back link in the header, named for where it goes; a deep link puts Home beneath it.
+2. `[ ]` **One + for adding and importing.** "Import a file" in the + sheet, detecting the kind; page import buttons open
+   it preset; Reports and Calculators in the same place on a phone and a desktop.
+3. `[ ]` **Home becomes Today.** Insights and Benchmarks off the rail; seasonal cards.
+4. `[ ]` **Accounts as one list.** Net worth's four pages as one list with filter chips; tools on each Details page.
+5. `[ ]` **Simple and Advanced.** `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.

@@ -178,7 +178,7 @@ export function wireNavigation(){
     else if(page === "plan") showPlanSubpage(sub, { replace: true });
     else if(page === "assets") showAssetsSubpage(sub, { replace: true });
     else if(page === "settings") showAccountsSubpage(sub, { replace: true });
-    else if(page === "dashboard") showDashboardSubpage(sub);
+    else if(page === "dashboard") showDashboardSubpage(sub, { replace: true });
   });
   // ---------------- Page navigation ----------------
   document.getElementById("appNav").addEventListener("click", function(e){

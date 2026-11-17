@@ -139,7 +139,8 @@ function entryState(){
   var st = history.state;
   return st && typeof st.depth === "number" ? st : null;
 }
-function syncUrl(pageId, replace){
+var pendingPageWrite = null;
+function syncUrl(pageId, replace, asTab){
   var path = buildRoutePath(pageId);
   if(location.pathname === path){
     // Same address (a deep link landing on itself, the startup pass): just name the entry for the next one's back link.
@@ -149,6 +150,10 @@ function syncUrl(pageId, replace){
     return;
   }
   var cur = entryState();
+  // showPage() applies inside a view transition, so a tab chosen just after it ("open Spending") writes the address
+  // before the page does. That write is the page's: it pushes or replaces as the page asked, never replacing the
+  // entry of the page being left (which a tab's own "replace" would, taking it out of Back).
+  if(asTab && pendingPageWrite && pendingPageWrite.page === pageId){ replace = pendingPageWrite.replace; pendingPageWrite = null; }
   var next = {page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub, planSub: currentPlanSub,
     settingsSub: currentSettingsSub, title: entryTitle(pageId)};
   // Replacing a page's own entry keeps its place. Replacing a sheet's (search opening a result) is a step on from
@@ -464,6 +469,7 @@ export function showPage(id, opts){
     }
   }
   currentPage = id;
+  pendingPageWrite = opts.skipUrl ? null : { page: id, replace: !!opts.replace };
   // The editor or sheet open as this was asked for is the one leaving the page closes. One opened while the change
   // waits for its transition stays: on a slow device the app's first page change applied after an empty household's
   // setup sheet had opened by itself, closed it, and recorded setup as skipped before anyone touched anything.
@@ -519,6 +525,7 @@ export function showPage(id, opts){
     if(id === "expenses" && currentExpensesSub === "income") renderReceived();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
+    if(pendingPageWrite && pendingPageWrite.page === id) pendingPageWrite = null;
     if(!opts.skipUrl) syncUrl(id, !!opts.replace); else renderBackLink();
   }
 
@@ -562,7 +569,7 @@ export function showAssetsSubpage(id, opts){
   });
   updateQuickFab("assets");
   scrollActiveSubnavIntoView("assetsSubnav");
-  if(!opts.skipUrl) syncUrl("assets", !!opts.replace);
+  if(!opts.skipUrl) syncUrl("assets", !!opts.replace, true);
 }
 
 // Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
@@ -579,7 +586,7 @@ export function showAccountsSubpage(id, opts){
     var to = MOVED_SETTINGS[id];
     return afterNavigation(showPage(to[0], opts), function(){
       if(to[0] === "tax") showTaxSubpage(to[1], { replace: true, skipUrl: opts.skipUrl });
-      else { showDashboardSubpage(to[1]); setTimeout(function(){ var c = document.getElementById("checksCard"); if(c && c.scrollIntoView) c.scrollIntoView({ block: "start", behavior: "smooth" }); }, 250); }
+      else { showDashboardSubpage(to[1], { replace: true, skipUrl: opts.skipUrl }); setTimeout(function(){ var c = document.getElementById("checksCard"); if(c && c.scrollIntoView) c.scrollIntoView({ block: "start", behavior: "smooth" }); }, 250); }
       return true;
     });
   }
@@ -592,7 +599,7 @@ export function showAccountsSubpage(id, opts){
   });
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("settings");
-  if(!opts.skipUrl) syncUrl("settings", !!opts.replace);
+  if(!opts.skipUrl) syncUrl("settings", !!opts.replace, true);
   return true;
 }
 export function settingsSubpage(){ return currentSettingsSub; }
@@ -609,7 +616,7 @@ export function showPlanSubpage(id, opts){
   scrollActiveSubnavIntoView("planSubnav");
   if(id === "projections") renderProjectionsIfStale();
   updateQuickFab("plan");
-  if(!opts.skipUrl) syncUrl("plan", !!opts.replace);
+  if(!opts.skipUrl) syncUrl("plan", !!opts.replace, true);
 }
 
 export function showTaxSubpage(id, opts){
@@ -623,7 +630,7 @@ export function showTaxSubpage(id, opts){
   });
   scrollActiveSubnavIntoView("taxSubnav");
   updateQuickFab("tax");
-  if(!opts.skipUrl) syncUrl("tax", !!opts.replace);
+  if(!opts.skipUrl) syncUrl("tax", !!opts.replace, true);
 }
 export function taxSubpage(){ return currentTaxSub || defaultTaxSub(); }
 
@@ -646,7 +653,7 @@ export function showExpensesSubpage(id, opts){
   renderPeriodButton();
   if(id === "income") renderReceived();
   updateQuickFab("expenses");
-  if(!opts.skipUrl) syncUrl("expenses", !!opts.replace);
+  if(!opts.skipUrl) syncUrl("expenses", !!opts.replace, true);
 }
 
 // Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,
@@ -666,7 +673,7 @@ export function showDashboardSubpage(id, opts){
   });
   scrollActiveSubnavIntoView("dashboardSubnav");
   renderPeriodButton();
-  if(currentPage === "dashboard" && !opts.skipUrl) syncUrl("dashboard", !!opts.replace);
+  if(currentPage === "dashboard" && !opts.skipUrl) syncUrl("dashboard", !!opts.replace, true);
 }
 
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px

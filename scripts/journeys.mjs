@@ -3292,6 +3292,12 @@ const JOURNEYS = {
         await page.goBack(); await at(p);
       }
       check(await page.evaluate(() => !document.getElementById('dashboardSub-overview').hidden), 'Back to /dashboard did not show Overview');
+      // A link into another page's tab (data-go, as notices and empty states use): Back returns to the page it was on.
+      // The tab chosen during the page's transition used to replace the entry of the page being left.
+      await go(page, 'tax', 'data-tax-sub', 'year'); await at('/tax/year');
+      await page.evaluate(() => { const a = document.createElement('button'); a.setAttribute('data-go', 'expenses/spending'); document.body.appendChild(a); a.click(); a.remove(); });
+      await at('/expenses/spending');
+      await page.goBack(); await at('/tax/year');
       // A shared link, bounced through 404.html as GitHub Pages does: Home is beneath it.
       await page.evaluate(() => sessionStorage.setItem('wealthPlanner.redirectPath', '/reports/budget'));
       await page.goto(base + '/index.html'); await quiet(page); await at('/reports/budget');
@@ -6006,7 +6012,7 @@ const JOURNEYS = {
     const scenarioName=await editor.getAttribute('data-edit-scenario');await editor.click();
     await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
     await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
-    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard']];
+    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
     for(const [route,expected]of cases){
       const before=await page.evaluate(async()=>({url:location.pathname,settings:(await import('/src/components/nav.js')).settingsSubpage(),tax:(await import('/src/components/nav.js')).taxSubpage(),plan:document.querySelector('#planSubnav .active')?.dataset.planSub,expense:document.querySelector('#expensesSubnav .active')?.dataset.expensesSub}));
       async function request(){await page.evaluate(async route=>{
@@ -6987,7 +6993,9 @@ const JOURNEYS = {
     check(await page.locator('[data-current-report="networth"]').count() === 1, 'cancelling the chooser changed the report');
     await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
     check(await frame() === pinnedFrame, 'pinned shortcut did not restore its frame');
-    await page.reload(); await quiet(page); await go(page, 'reports');
+    // A report has its own address now (/reports/networth); this test server can't serve a nested route the way
+    // production's 404 bounce does, so reload from Home.
+    await go(page, 'dashboard'); await page.reload(); await quiet(page); await go(page, 'reports');
     await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
     check(await frame() === pinnedFrame, 'pinned report did not survive reload');
     await opener.click(); await dialog.locator('[data-report-search]').fill('discard this search'); await page.keyboard.press('Escape');

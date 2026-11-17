@@ -92,7 +92,7 @@ export function wireAdvice(){
       var pg = go.getAttribute("data-adv-go"), sub = go.getAttribute("data-adv-sub");
       showPage(pg);
       if(sub){
-        if(pg === "dashboard") showDashboardSubpage(sub);
+        if(pg === "dashboard") showDashboardSubpage(sub, { replace: true });
         else if(pg === "expenses") showExpensesSubpage(sub, { replace: true });
         else if(pg === "plan") showPlanSubpage(sub, { replace: true });
         else if(pg === "assets") showAssetsSubpage(sub, { replace: true });

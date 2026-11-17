@@ -151,7 +151,7 @@ export function wireReports(){
     var go = e.target.closest("[data-ye-go]");
     if(go){
       var where = go.getAttribute("data-ye-go");
-      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review"); renderMonthReview(); return; }
+      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review", { replace: true }); renderMonthReview(); return; }
       showPage("tax");
       showTaxSubpage(where === "documents" ? "documents" : "returns", { replace: true });
       renderTaxYear();

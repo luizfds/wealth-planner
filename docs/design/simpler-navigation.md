@@ -76,5 +76,10 @@ balance, last year's tax estimate, get back to where you started.
   its saved dates are not in it.
 - Search opening a result replaces the search sheet's entry, not the page's: the result counts as a step on from the
   page under the sheet, so its back link names that page.
+- Found while building it, on main too: a link into another page's tab (`data-go`, notices, empty states) chose the tab
+  with "replace" while the page change still waited for its view transition, so it replaced the entry of the page
+  being left — Back from Spending skipped Tax. A tab written while its page change is pending now pushes or replaces
+  as the page asked (nav.js `pendingPageWrite`).
 - Journey: `backeverywhere` (390 and 1280px) walks Home → Insights → Spending → two reports → Net worth → a Details page,
-  then Back the whole way, and opens a shared report link through the 404 bounce.
+  then Back the whole way, follows a link from Tax into Spending and back, and opens a shared report link through the
+  404 bounce.

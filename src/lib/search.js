@@ -63,7 +63,7 @@ function searchEntries(){
     });
   });
   (state.debts || []).forEach(function(d){
-    add("Debt", d.what, fmtCurrency0.format(Number(d.balance) || 0), "assets", d.id ? { sub: "summary", detail: { kind: "debt", id: d.id } } : { sub: "summary" });
+    add("Debt", d.what, fmtCurrency0.format(Number(d.balance) || 0), "accounts", d.id ? { detail: { kind: "debt", id: d.id } } : {});   // #413: debts are on Accounts
   });
   (state.accounts || []).forEach(function(a){
     add("Account", a.name, ({ everyday: "Everyday account", savings: "Savings account", offset: "Offset account", credit: "Credit card", loan: "Loan" })[a.type] || "Account", "accounts", a.id ? { detail: { kind: "account", id: a.id } } : {});

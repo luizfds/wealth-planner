@@ -16,7 +16,10 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
   sidebar lists the same five under a More heading. The phone's More tab stays lit on each of them (`MORE_GROUP`).
 - **Cash flow** (`page-expenses`): Budget / Income / Spending / Bills.
 - **Net worth**: one menu entry over four pages sharing a rail of tabs — the overview (`page-networth`), Accounts,
-  Investments (`page-assets`), Property (`page-properties`).
+  Investments (`page-assets`), Property (`page-properties`). The overview is one list with chips by kind
+  (`setNetWorthFilter`), and under it, folded, the allocation, purchase funding, net worth over time and where wealth
+  sits (`#netWorthMore`, view `netWorthMore`). Debts are edited on Accounts (view `debts`). Investments has no Summary
+  since #413: it opens on Cash, and `/assets/summary` lands there.
 - **Tax**: Year / Returns / Documents / People. **Plan** (`page-plan`): Scenarios / Projections / Goals / Retirement;
   a scenario is edited on `page-scenario`; the purchase and invest calculators on `page-calc` (avatar menu).
 - **Reports**, **Settings** (`page-settings`: Categories / Preferences / Import rules), and a Details page

@@ -60,8 +60,9 @@ test("searchApp covers income, debts and accounts too", function(){
   }, function(){
     assert.equal(searchApp("salary")[0].page, "income");
     var debtResult = searchApp("credit card debt")[0];
-    assert.equal(debtResult.page, "assets");
-    assert.equal(debtResult.extra.sub, "summary");
+    // #413: debts are edited on Accounts (Investments → Summary went).
+    assert.equal(debtResult.page, "accounts");
+    assert.equal(debtResult.extra.sub, undefined);
     assert.equal(searchApp("everyday")[0].page, "accounts");
   });
 });

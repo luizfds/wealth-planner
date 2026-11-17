@@ -20,6 +20,7 @@ import { renderNotifBadge } from "./notifpanel.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
+import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage } from "./nav.js";
@@ -121,7 +122,7 @@ function firstVisibleAddButton(pageId){
 function stepAssetsSubpage(step){
   if(!window.matchMedia("(max-width: 880px)").matches) return;
   var activeBtn = document.querySelector("#assetsSubnav .subnav-item.active");
-  var current = activeBtn ? activeBtn.getAttribute("data-assets-sub") : "summary";
+  var current = activeBtn ? activeBtn.getAttribute("data-assets-sub") : "Cash";
   var nextIndex = ASSETS_SUB_ORDER.indexOf(current) + step;
   if(nextIndex < 0 || nextIndex >= ASSETS_SUB_ORDER.length) return;
   showAssetsSubpage(ASSETS_SUB_ORDER[nextIndex]);
@@ -305,15 +306,16 @@ export function wireNavigation(){
     setIncomeShowAs(b.getAttribute("data-showas"));
     renderIncomeGroups();
     renderTotals();
-  });  // v3.138.0: the empty summary's "Add cash / shares / super" go to that tab.
-  document.getElementById("assetsSummaryStats").addEventListener("click", function(e){
-    var btn = e.target.closest("[data-empty-assets]");
-    if(btn) showAssetsSubpage(btn.getAttribute("data-empty-assets"));
   });
   // #412: Today's other views open from its links (no tab rail); each has the header's way back.
   document.querySelector(".today-more").addEventListener("click", function(e){
     var btn = e.target.closest("[data-dashboard-sub]");
     if(btn) openTodayView(btn.getAttribute("data-dashboard-sub"));
+  });
+  // #413: Net worth's list by kind.
+  document.getElementById("netWorthBody").addEventListener("click", function(e){
+    var chip = e.target.closest("[data-nw-filter]");
+    if(chip){ setNetWorthFilter(chip.getAttribute("data-nw-filter")); var again = document.querySelector('#netWorthBody [data-nw-filter="' + chip.getAttribute("data-nw-filter") + '"]'); if(again) again.focus(); }
   });
   // #412: More's rows, a phone's way to Tax, Reports, Calculators, Settings and Backup.
   document.getElementById("moreList").addEventListener("click", function(e){
@@ -338,7 +340,7 @@ export function wireSubpages(){
   // the subnav buttons within easy reach, so this only kicks in below the app's usual mobile
   // breakpoint. No wraparound (swiping past the last tab does nothing) — a jump from Other back
   // to Summary would be more disorienting than a swipe that simply stops.
-  ASSETS_SUB_ORDER = ["summary", "Cash", "Shares", "Super", "Vehicle", "Other"];
+  ASSETS_SUB_ORDER = ["Cash", "Shares", "Super", "Vehicle", "Other"];
   onHorizontalSwipe(document.getElementById("page-assets"), {
     onSwipeLeft: function(){ stepAssetsSubpage(1); },
     onSwipeRight: function(){ stepAssetsSubpage(-1); }

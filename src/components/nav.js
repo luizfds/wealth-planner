@@ -94,9 +94,10 @@ var BASE_PATH = location.hostname.indexOf("github.io") !== -1 ? "/wealth-planner
 export function appAssetUrl(file){
   return BASE_PATH + "/" + file;
 }
-var ASSETS_SUB_TO_SLUG = { summary: "summary", Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other", Offsets: "offsets" };
-var SLUG_TO_ASSETS_SUB = { summary: "summary", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other", offsets: "Offsets" };
-var currentAssetsSub = "summary";
+var ASSETS_SUB_TO_SLUG = { Cash: "cash", Shares: "shares", Super: "super", Vehicle: "vehicle", Other: "other", Offsets: "offsets" };
+// #413: Investments → Summary went (its parts are on Net worth and Accounts); an old /assets/summary opens on Cash.
+var SLUG_TO_ASSETS_SUB = { summary: "Cash", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other", offsets: "Offsets" };
+var currentAssetsSub = "Cash";
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
@@ -125,7 +126,7 @@ export function defaultTaxSub(){
 
 function buildRoutePath(pageId){
   var parts = [pageId];
-  if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[currentAssetsSub] || "summary");
+  if(pageId === "assets") parts.push(ASSETS_SUB_TO_SLUG[currentAssetsSub] || "cash");
   if(pageId === "expenses") parts.push(currentExpensesSub);
   if(pageId === "tax") parts.push(currentTaxSub || defaultTaxSub());
   if(pageId === "plan") parts.push(currentPlanSub);
@@ -589,6 +590,7 @@ function scrollActiveSubnavIntoView(railId){
 export function showAssetsSubpage(id, opts){
   opts = opts || {};
   if(leavePending) return afterPendingPage("assets", function(){ return showAssetsSubpage(id, Object.assign({}, opts, { replace: true })); });
+  if(id === "summary" || !ASSETS_SUB_TO_SLUG[id]) id = "Cash";   // #413: no Summary tab now
   currentAssetsSub = id;
   document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = el.id !== "assetsSub-" + id; });
   document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){

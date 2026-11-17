@@ -96,7 +96,7 @@ export function homeTodoItems(){
 // A page shows one line — "3 to look at" — in place of a stack of notices, and only for what is about that
 // view: an item belongs to the page and tab it sends you to, and one with no tab to the page's first tab. So
 // Tax's two notices about pay count on People, not on every Tax tab.
-var FIRST_TAB = { expenses: "budget", tax: "year", plan: "scenarios", assets: "summary" };
+var FIRST_TAB = { expenses: "budget", tax: "year", plan: "scenarios", assets: "Cash" };
 // What the page itself already shows in full stays off its line — on Tax, each person's super room is the
 // Top up box on their card (v3.158.0, item 188).
 var SHOWN_ON_PAGE = { tax: /^super-room:/ };

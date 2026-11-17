@@ -3,9 +3,9 @@ import { fieldHtml } from "../lib/field.js";
 import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
 import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
-import { ASSET_CATEGORIES, LIQUID_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
+import { ASSET_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
-import { totalAssetsValue, totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
+import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr, segLabel, figureAttrs } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
@@ -1209,31 +1209,9 @@ function renderAssetAllocationHtml(){
     '<div class="tax-inputs-label" style="margin-top:16px">Illiquid — ' + fmtCurrency0.format(illiquidTotal) + '</div>' + allocBarHtml(illiquidSegs, values);
 }
 
+// #413: Investments → Summary went. Its four figures repeated Net worth's own; the allocation it drew is under Net
+// worth's list now (#assetsAllocation, drawn by the netWorthMore view).
 export function renderAssetsSummary(){
-  var help = document.getElementById("assetsSummaryHelp");
-  if(help) help.hidden = !state.assets.length && !state.properties.length;
-  var statsEl = document.getElementById("assetsSummaryStats");
-  if(statsEl){
-    var liquidAssets = state.assets.filter(function(a){ return LIQUID_CATEGORIES.indexOf(a.category) !== -1; })
-      .reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
-    var offset = propertiesOffsetTotal();
-    var liquid = liquidAssets + offset;
-    var illiquid = totalAssetsValue() - liquidAssets;
-    var propEquity = propertiesIlliquidEquityToday();
-    // v3.138.0: four tiles of $0 tell someone new nothing; say where to start instead.
-    if(!state.assets.length && !state.properties.length){
-      statsEl.innerHTML = '<div class="empty-start"><b>Nothing here yet</b><p>Add what you own, one tab at a time — cash in Cash, holdings in Shares, each person\'s fund in Super — and this summary adds it up. Property has its own tab under Net worth.</p>' +
-        '<div class="empty-start-actions"><button type="button" class="btn btn-sm" data-empty-assets="Cash">+ Add cash account</button><button type="button" class="btn btn-sm" data-empty-assets="Shares">+ Add holding</button><button type="button" class="btn btn-sm" data-empty-assets="Super">+ Add super fund</button></div></div>';
-      var alloc0 = document.getElementById("assetsAllocation");
-      if(alloc0) alloc0.innerHTML = renderAssetAllocationHtml();
-      return;
-    }
-    statsEl.innerHTML =
-      '<div class="stat-tile"><span>Total net worth</span><b>' + fmtCurrency0.format(totalNetWorthValue()) + '</b><small>assets + property equity</small></div>' +
-      '<div class="stat-tile"><span>Liquid assets</span><b>' + fmtCurrency0.format(liquid) + '</b><small>Cash + Shares + Offset</small></div>' +
-      '<div class="stat-tile"><span>Illiquid assets</span><b>' + fmtCurrency0.format(illiquid) + '</b><small>Super + Vehicle + Other</small></div>' +
-      '<div class="stat-tile"><span>Property equity</span><b>' + fmtCurrency0.format(propEquity) + '</b><small>' + state.properties.length + ' propert' + (state.properties.length === 1 ? "y" : "ies") + (propertiesOffsetTotal() > 0 ? ' · offset counted in Liquid' : '') + '</small></div>';
-  }
   var allocEl = document.getElementById("assetsAllocation");
   if(allocEl) allocEl.innerHTML = renderAssetAllocationHtml();
 }
@@ -1693,12 +1671,8 @@ function drawAssets(){
   renderAssetCategoryPage("Super");
   renderVehiclesSubpage();
   renderAssetCategoryPage("Other");
-  renderAssetsSummary();
-  renderDebts();
+  // #413: the summary's parts are Net worth's (netWorthMore) and Accounts' (debts) views now.
   renderOffsetsSubpage();
-  renderNetWorthPanel();
-  renderPortfolioHistoryChart();
-  renderAllocationChart();
   renderProjectionOutputs();
 }
 

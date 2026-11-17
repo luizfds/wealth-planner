@@ -122,7 +122,7 @@ export function detailView(kind, id, today){
       if(cg.realised.length) html += section("Sales", '<ul class="dt-list">' + cg.realised.map(function(y){ return '<li>' + y.label + ': net capital gain <b>' + money(y.net.net) + '</b></li>'; }).join("") + '</ul>');
     }
     return { title: a.what || a.symbol || "Holding", kicker: a.category || "Asset", history: a.history || [], html: html,
-      edit: { label: "Edit on Investments", to: { page: "assets", sub: a.category || "summary" } } };
+      edit: { label: "Edit on Investments", to: { page: "assets", sub: a.category || "Cash" } } };
   }
   if(kind === "property"){
     var p = (state.properties || []).find(function(x){ return x.id === id; });
@@ -151,7 +151,7 @@ export function detailView(kind, id, today){
     var db = (state.debts || []).find(function(x){ return x.id === id; });
     if(!db) return null;
     return { title: db.what || "Debt", kicker: "Debt", history: db.history || [], html: facts([["Owed", money(Number(db.balance) || 0)]]),
-      edit: { label: "Edit on Investments", to: { page: "assets", sub: "summary" } } };
+      edit: { label: "Edit on Accounts", to: { page: "accounts" } } };
   }
   if(kind === "line"){
     var line = budgetLineItems().find(function(l){ return l.id === id; });

@@ -19,7 +19,7 @@ import { renderSavingsGoals } from "./accountswiring.js";
 import { renderActivity } from "./activity.js";
 import { renderAdvice } from "./advice.js";
 import { renderAttentionLine } from "./attentionline.js";
-import { renderAssets } from "./assets.js";
+import { renderAssets, renderAssetsSummary, renderNetWorthPanel, renderPortfolioHistoryChart, renderAllocationChart, renderDebts } from "./assets.js";
 import { renderBankImportHelp } from "./bank-import.js";
 import { renderBenchmarks } from "./benchmarks.js";
 import { renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
@@ -159,6 +159,10 @@ function defineViews(){
   defineView("benchmarks", ["dashboard"], renderBenchmarks, ["*"]);
   defineView("totals", null, renderTotals, ["*"]);
   defineView("assets", ["assets", "plan"], renderAssets, ["*"]);
+  // #413: Investments → Summary's parts — the mix, what buying would do, net worth and its shape over time — under Net
+  // worth's list, and its debts on Accounts.
+  defineView("netWorthMore", ["networth"], function(){ renderAssetsSummary(); renderNetWorthPanel(); renderPortfolioHistoryChart(); renderAllocationChart(); }, ["*"]);
+  defineView("debts", ["accounts"], renderDebts, ["*"]);
   defineView("personSuggestions", null, updatePersonSuggestions, ["income", "assets"]);
   defineView("accountSuggestions", null, updateAccountSuggestions, ["accounts"]);
   defineView("taxSuper", ["tax"], renderTaxSuper, ["*"]);

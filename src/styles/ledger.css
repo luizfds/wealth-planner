@@ -1860,3 +1860,14 @@
 .more-item-flag{ display:inline-block; padding:1px 8px; border-radius:100px; background: var(--brass-wash); color: var(--warn-ink); font-size:var(--fs-xs); font-weight:600; }
 .more-item-flag[hidden]{ display:none; }
 
+/* #413: Net worth's list by kind. */
+.nw-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 4px; }
+.nw-chip{
+  all:unset; box-sizing:border-box; display:inline-flex; align-items:center; min-height:44px; padding:0 14px; border-radius:100px; cursor:pointer;
+  border:1px solid var(--border); background: var(--paper); color: var(--ink); font-size:var(--fs-sm); font-weight:600;
+}
+.nw-chip:hover{ background: var(--paper-sunken); }
+.nw-chip.is-on{ background: var(--brass-wash); border-color: var(--brass-strong); color: var(--brass-strong); }
+.nw-chip:focus-visible{ box-shadow: var(--focus-ring); }
+.nw-more{ margin-top:20px; }
+

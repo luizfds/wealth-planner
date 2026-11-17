@@ -3266,6 +3266,51 @@ const JOURNEYS = {
   // A view that draws into one tab of a page (lib/views.js opts.tabs) waits, stale, while another tab shows, and is
   // drawn when its tab opens. Saving a transfer on Spending used to redraw the hidden Bills calendar and, for one
   // block on Budget, the whole Property page — which tipped the speed budget's transfer step over its 60%.
+  // #411: one + button. It always opens the same sheet — this page's own action first, then Log, Import and Add — at
+  // every width; the page's row runs that action; Import a file opens the import chooser in the sheet's place, so Back
+  // closes it without bringing the sheet back; an empty state with no target of its own still runs the page's action.
+  async plussheet(page){
+    await quiet(page);
+    const plus = () => page.evaluate(() => [document.getElementById('headerAddBtn'), document.getElementById('quickFab')].find(b => b.getClientRects().length).click());
+    const sheet = page.locator('.qfab-panel');
+    for(const width of [320, 390, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      for(const [pg, attr, sub, own] of [['dashboard', 'data-dashboard-sub', 'overview', null], ['expenses', 'data-expenses-sub', 'income', 'Add income for'],
+        ['assets', 'data-assets-sub', 'Shares', 'Add holding'], ['plan', 'data-plan-sub', 'projections', null]]){
+        await go(page, pg, attr, sub);
+        const name = await page.evaluate(() => [document.getElementById('headerAddBtn'), document.getElementById('quickFab')].find(b => b.getClientRects().length).getAttribute('aria-label'));
+        check(name === 'Add, log or import', pg + '/' + sub + ': + is named ' + name);
+        await plus(); await sheet.waitFor();
+        await sheet.evaluate(e => Promise.all(e.getAnimations().map(a => a.finished)));   // a phone's sheet slides up
+        const groups = await sheet.locator('.qfab-group').allInnerTexts();
+        check(JSON.stringify(groups.map(g => g.toUpperCase())) === JSON.stringify((own ? ['ON THIS PAGE'] : []).concat(['LOG', 'IMPORT', 'ADD SOMETHING NEW'])), pg + '/' + sub + ': sheet groups ' + JSON.stringify(groups));
+        if(own) check((await sheet.locator('[data-quick-page] .qfab-action-label').innerText()).startsWith(own), pg + '/' + sub + ': first row is not ' + own);
+        check(await sheet.evaluate(e => { const r = e.getBoundingClientRect(); return e.scrollHeight <= e.clientHeight + 1 && r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1; }), pg + '/' + sub + ' at ' + width + 'px: the sheet scrolls or leaves the screen');
+        await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'detached' });
+      }
+    }
+    // This page's own row runs it: Add holding opens the holding editor on Shares.
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    const holdings = await st(page, 'state.assets.length');
+    await plus(); await sheet.locator('[data-quick-page]').click(); await sheet.waitFor({ state: 'detached' });
+    await waited(page, () => !!document.querySelector('.row-modal, [data-row-editor], .m-row.open, .review-panel'), 'Add holding opened an editor');
+    await page.keyboard.press('Escape'); await settle(page);
+    check(await st(page, 'state.assets.length') >= holdings, 'opening Add holding lost a holding');
+    // Import a file: the chooser in the sheet's place; Back closes it and leaves no sheet behind.
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const url = await page.evaluate(() => location.pathname);
+    await plus(); await sheet.locator('[data-quick-import]').click();
+    const chooser = page.locator('.import-chooser');
+    await chooser.waitFor();
+    check((await chooser.locator('[data-import-choice="bank"] .import-choice-label').innerText()) === 'Any statement file', 'the chooser does not lead with the statement reader');
+    await page.goBack(); await chooser.waitFor({ state: 'detached' });
+    check(!await sheet.count(), 'Back from the chooser reopened the + sheet');
+    check(await page.evaluate(() => location.pathname) === url, 'Back from the chooser left Home');
+    // Log spend from the sheet, as from Home's + before.
+    await plus(); await sheet.locator('[data-quick-action]', { hasText: 'Log spend' }).first().click();
+    await waited(page, () => !!document.querySelector('#quickLogRoot input, #quickLogSheet input'), 'Log spend opened the quick log');
+    await page.keyboard.press('Escape');
+  },
   async tabviews(page){
     await quiet(page);
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
@@ -6386,7 +6431,9 @@ const JOURNEYS = {
     check((await home.innerText()).includes('Planned monthly surplus'), 'planned and logged cash flow are not distinguished');
     check((await page.locator('[data-home-card="tax"]').textContent()).includes('estimated annual tax'), 'annual tax still reads as tax so far');
     check((await home.innerText()).includes('Recorded balances'), 'net worth lacks data-quality context');
+    // #411: + opens one sheet; Log spend is its first Log row.
     await page.locator('#quickFab').click();
+    await page.locator('.qfab-panel [data-quick-action]', { hasText: 'Log spend' }).first().click();
     await until(page, () => !!document.querySelector('#quickLogRoot [role="dialog"], #quickLogRoot .quick-log, #quickLogRoot input, #quickLogSheet input'));
     check(await page.locator('#quickLogRoot [role="dialog"], #quickLogRoot .quick-log, #quickLogRoot input').count() > 0 || await page.locator('#quickLogSheet input').count() > 0, 'primary Log spending action did not open entry');
     await page.keyboard.press('Escape');

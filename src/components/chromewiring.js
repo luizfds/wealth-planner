@@ -25,7 +25,7 @@ import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetG
 import { renderHealth } from "./health.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction } from "./nav.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -33,6 +33,7 @@ import { renderTotals, renderAll } from "./redraw.js";
 import { runSync, initialSync } from "./safekeepingwiring.js";
 import { openSearchOverlay } from "./searchwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
+import { openImportChooser } from "./importchooserwiring.js";
 import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
 import { readInput } from "../lib/validate.js";
 import { initSectionPickers } from "../lib/sectionpicker.js";
@@ -46,6 +47,21 @@ function openQuickActions(){
 }
 function closeQuickActions(){
   document.getElementById("quickFabRoot").innerHTML = "";
+}
+function visiblePlusButton(){
+  return [document.getElementById("headerAddBtn"), document.getElementById("quickFab")].find(function(b){ return b && b.getClientRects().length; }) || null;
+}
+// This page's own add or log action (nav.js currentPageAction): the sheet's first row, and an empty state's next step
+// with no target of its own. A page with none opens the sheet.
+export function runPageAction(){
+  var a = currentPageAction();
+  if(!a){ openQuickActions(); return; }
+  if(a.mode === "spending"){ runQuickAction(QUICK_ACTIONS[0]); return; }
+  if(a.mode === "networth"){ logNetWorthSnapshot(); return; }
+  var target = a.selector && document.querySelector(a.selector);
+  if(!target) return;
+  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  setTimeout(function(){ target.click(); }, 220);
 }
 // Unlike the fab itself — which only ever clicks something already on screen — a quick action
 // usually has to travel first: "Add shares" from the Dashboard means Assets, then the Shares
@@ -154,7 +170,7 @@ export function wireNavigation(){
   // #255 step 3: an empty state's next step (lib/empty.js) — to another page and its tab, or the page's own add.
   document.addEventListener("click", function(e){
     var add = e.target.closest && e.target.closest("[data-empty-add]");
-    if(add){ var target = add.getAttribute("data-empty-add"), btn = target ? document.querySelector(target) : document.getElementById("quickFab"); if(btn) btn.click(); return; }
+    if(add){ var target = add.getAttribute("data-empty-add"); if(!target){ runPageAction(); return; } var btn = document.querySelector(target); if(btn) btn.click(); return; }
     var to = e.target.closest && e.target.closest("[data-empty-scroll]");
     if(to){
       var where = document.querySelector(to.getAttribute("data-empty-scroll"));
@@ -208,31 +224,21 @@ export function wireNavigation(){
   document.querySelector(".investments-back").addEventListener("click", function(){
     showPage("networth");
   });
-  // Quick-action button — one button, present on every page, retargeted per page/subpage by
-  // nav.js's updateQuickFab() (data-fab-mode/data-fab-selector). "networth" is the one mode with
-  // no button to click (Dashboard has no add-something UI at all); everything else scrolls the
-  // page's own real +Add control into view and clicks it, so this never duplicates what that
-  // button already does — it just saves the trip down the page to find it.
-  document.getElementById("quickFab").addEventListener("click", function(e){
-    var fab = e.currentTarget;
-    var fabMode = fab.getAttribute("data-fab-mode");
-    if(fabMode === "spending"){ runQuickAction(QUICK_ACTIONS[0]); return; }
-    if(fabMode === "networth"){ logNetWorthSnapshot(); return; }
-    if(fabMode === "menu"){ openQuickActions(); return; }
-    var selector = fab.getAttribute("data-fab-selector");
-    var target = selector && document.querySelector(selector);
-    if(!target) return;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
-    setTimeout(function(){ target.click(); }, 220);
-  });
+  // #411: the + button — the round one on a phone, the header's on a desktop — always opens one sheet: this page's own
+  // action first (nav.js updateQuickFab finds it), then logging, importing and adding.
+  document.getElementById("quickFab").addEventListener("click", openQuickActions);
   // #304: the header's button (desktop) is the same action; the menu of the others opens from the avatar menu.
-  document.getElementById("headerAddBtn").addEventListener("click", function(){ document.getElementById("quickFab").click(); });
+  document.getElementById("headerAddBtn").addEventListener("click", openQuickActions);
   document.getElementById("avatarQuickActions").addEventListener("click", openQuickActions);
   document.getElementById("quickFabRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qfab-close]") || e.target === e.target.closest("[data-qfab-backdrop]")){
       requestCloseActiveOverlay();
       return;
     }
+    // This page's own action runs here, once the sheet's history entry is gone (it may open its own sheet).
+    if(e.target.closest("[data-quick-page]")){ requestCloseActiveOverlay().then(function(closed){ if(closed) runPageAction(); }); return; }
+    // The import chooser takes the sheet's place, history entry and all, so Back doesn't reopen the sheet.
+    if(e.target.closest("[data-quick-import]")){ closeQuickActions(); forgetActiveOverlay(); openImportChooser(null, { opener: visiblePlusButton(), replace: true }); return; }
     var actionBtn = e.target.closest("[data-quick-action]");
     if(!actionBtn) return;
     var action = QUICK_ACTIONS[Number(actionBtn.getAttribute("data-quick-action"))];

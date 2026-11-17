@@ -759,14 +759,14 @@
 
   /* ---------------- Quick actions menu (the avatar menu, #304) ---------------- */
   /* Reuses .review-backdrop/.review-panel for the shell, same as the quick-log sheet above. */
-  .qfab-panel{ max-width:400px; text-align:left; }
+  .qfab-panel{ max-width:440px; text-align:left; }
   .qfab-actions{ display:flex; flex-direction:column; gap:2px; }
   /* A list, not the chip grid the quick-log sheet uses: these are eight distinct destinations
      that each need a name and a line of explanation, where the chips are one repeated kind of
      thing (a budget line) picked by name alone. */
   .qfab-action{
     all:unset; box-sizing:border-box; display:flex; flex-direction:column; gap:1px;
-    width:100%; padding:10px; border-radius:8px; cursor:pointer;
+    width:100%; padding:8px 10px; border-radius:8px; cursor:pointer;
   }
   .qfab-action:hover{ background: var(--paper-sunken); }
   /* The asset-person sheet reuses this row to present a *choice* rather than a list of actions,
@@ -777,6 +777,16 @@
   .qfab-action:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
   .qfab-action-label{ font-size:var(--fs-md); font-weight:600; color: var(--ink); }
   .qfab-action-hint{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  /* #411: the + sheet's groups — this page's own action, then Log, Import, Add something new. */
+  .qfab-group{ margin:8px 10px 2px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .qfab-group:first-child{ margin-top:0; }
+  .qfab-chips{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; padding:2px 10px 4px; }
+  .qfab-chip{
+    all:unset; box-sizing:border-box; display:flex; align-items:center; min-height:44px; padding:8px 12px; border-radius:8px;
+    border:1px solid var(--border); font-size:var(--fs-md); font-weight:600; color: var(--ink); cursor:pointer; overflow-wrap:anywhere;
+  }
+  .qfab-chip:hover{ background: var(--paper-sunken); }
+  .qfab-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
 
   /* ---------------- Cross-page search ---------------- */
   /* Reuses .review-backdrop/.review-panel as-is (see above) for the modal shell — this only adds

@@ -287,6 +287,13 @@ async function go(page, pageId, subAttr, sub){
     await page.waitForFunction(key => !!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser'), sub);
     await settle(page); return;
   }
+  // #412: Today has no tab rail — its views open from links on it — so they are chosen through nav.js.
+  if(subAttr === 'data-dashboard-sub'){
+    await page.evaluate(async s => { const b = document.querySelector('[data-page="dashboard"]'); b.click(); (await import('/src/components/nav.js')).showDashboardSubpage(s); }, sub);
+    await page.waitForFunction(s => document.body.getAttribute("data-current-page") === "dashboard" && !document.getElementById("dashboardSub-" + s).hidden, sub, { timeout: 10000 });
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    return;
+  }
   await page.evaluate(([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]'); b.click(); if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
   // The page, and its subtab, showing — then a frame for what they draw.
   await page.waitForFunction(([p, a, s]) => document.body.getAttribute("data-current-page") === p &&
@@ -2163,7 +2170,8 @@ const JOURNEYS = {
     check(s.inert && s.focusInCard && s.focus === 'Next', 'the tour did not open as a modal with focus on Next: ' + JSON.stringify(s));
     check(!s.offer && await page.locator('#tourOffer').isHidden(), 'the offer stayed on screen under the tour');
     // The five places, each named as its own tab names it, ringed, with the card beside it.
-    const places = [['Home', 'dashboard'], ['Cash flow', 'expenses'], ['Net worth', 'networth'], ['Tax', 'tax'], ['Plan', 'plan']];
+    // #412: Today, and More (with Tax inside) in place of Tax.
+    const places = [['Today', 'dashboard'], ['Cash flow', 'expenses'], ['Net worth', 'networth'], ['Plan', 'plan'], ['More', 'more']];
     for(let i = 0; i < places.length; i++){
       await onStep(i + 1);
       // The ring slides to its place; wait for it to arrive around this step's own tab, not for a length of time.
@@ -3269,6 +3277,56 @@ const JOURNEYS = {
   // #411: one + button. It always opens the same sheet — this page's own action first, then Log, Import and Add — at
   // every width; the page's row runs that action; Import a file opens the import chooser in the sheet's place, so Back
   // closes it without bringing the sheet back; an empty state with no target of its own still runs the page's action.
+  // #412: Home is Today, with no tab rail — Insights, How you compare and the Monthly review open from links on it, at
+  // their own addresses, with the header's way back; the Today tab, chosen on one of them, comes back to Today. A phone's
+  // bar is Today · Cash flow · Net worth · Plan · More, More holds Tax, Reports, Calculators, Settings and Backup and stays
+  // lit on each; a desktop's sidebar lists the same five under More.
+  async todaymore(page){
+    await quiet(page);
+    const shown = () => page.evaluate(() => ({ path: location.pathname, title: document.getElementById('pageTitle').textContent,
+      back: (b => b.hidden ? null : b.querySelector('.page-back-label').textContent)(document.getElementById('pageBack')),
+      lit: [...document.querySelectorAll('.mobile-tab.active, .nav-item.active')].filter(e => e.getClientRects().length).map(e => (e.querySelector('.mobile-tab-label') || e).firstChild.textContent.trim()) }));
+    for(const width of [390, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+      check(!await page.locator('#dashboardSubnav').count(), 'Today still has a tab rail');
+      let s = await shown();
+      check(s.title === 'Today' && s.path === '/dashboard' && !s.back && s.lit.join() === 'Today', width + ': Today is not itself: ' + JSON.stringify(s));
+      for(const [sub, title] of [['insights', 'Insights'], ['benchmarks', 'How you compare'], ['review', 'Monthly review']]){
+        await page.locator('.today-more [data-dashboard-sub="' + sub + '"]').click();
+        await page.waitForFunction(p => location.pathname === p, '/dashboard/' + sub);
+        s = await shown();
+        check(s.title === title && s.back === 'Today' && s.lit.join() === 'Today', width + ': ' + sub + ' reads ' + JSON.stringify(s));
+        await page.locator('#pageBack').click(); await page.waitForFunction(() => location.pathname === '/dashboard');
+      }
+      // The Today tab, chosen on Insights, is Today again.
+      await page.locator('.today-more [data-dashboard-sub="insights"]').click(); await page.waitForFunction(() => location.pathname === '/dashboard/insights');
+      await page.locator((width > 900 ? '.nav-item' : '.mobile-tab') + '[data-page="dashboard"]').click();
+      await page.waitForFunction(() => location.pathname === '/dashboard' && !document.getElementById('dashboardSub-overview').hidden);
+      if(width < 900){
+        const tabs = await page.locator('.mobile-tab .mobile-tab-label').allInnerTexts();
+        check(tabs.join() === 'Today,Cash flow,Net worth,Plan,More', 'the tab bar reads ' + tabs.join());
+        await page.locator('.mobile-tab[data-page="more"]').click(); await page.waitForFunction(() => location.pathname === '/more');
+        const rows = await page.locator('#moreList .more-item-label').allInnerTexts();
+        check(rows.map(r => r.split('\n')[0].replace(/Lodge by.*/, '').trim()).join() === 'Tax,Reports,Calculators,Settings,Backup & sync', 'More lists ' + JSON.stringify(rows));
+        for(const [page_, path] of [['tax', '/tax/'], ['reports', '/reports/'], ['calc', '/calc'], ['settings', '/settings/']]){
+          await go(page, 'more');
+          await page.locator('#moreList [data-page="' + page_ + '"]').click();
+          await page.waitForFunction(p => location.pathname.indexOf(p) === 0, path);
+          s = await shown();
+          check(s.lit.join() === 'More' && s.back === 'More', 'More → ' + page_ + ': ' + JSON.stringify(s));
+        }
+        await go(page, 'more'); await page.locator('#moreList [data-more-go="backup"]').click();
+        await page.waitForFunction(() => location.pathname === '/settings/preferences');
+      } else {
+        const side = await page.locator('.app-nav > .nav-item, .nav-group, .nav-group-items .nav-item').allInnerTexts();
+        check(side.map(t => t.trim()).join() === 'Today,Cash flow,Net worth,Plan,MORE,Tax,Reports,Calculators,Settings,Backup & sync' ||
+          side.map(t => t.trim()).join() === 'Today,Cash flow,Net worth,Plan,More,Tax,Reports,Calculators,Settings,Backup & sync', 'the sidebar reads ' + side.join());
+        await page.locator('.nav-item[data-page="tax"]').click(); await page.waitForFunction(() => location.pathname.indexOf('/tax/') === 0);
+        check((await shown()).lit.join() === 'Tax', 'the sidebar does not light Tax');
+      }
+    }
+  },
   async plussheet(page){
     await quiet(page);
     const plus = () => page.evaluate(() => [document.getElementById('headerAddBtn'), document.getElementById('quickFab')].find(b => b.getClientRects().length).click());
@@ -3351,7 +3409,7 @@ const JOURNEYS = {
       await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
       check(await backLabel() === null, 'a page in the menu has a header back link');
       // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
-      await page.evaluate(() => document.querySelector('[data-avatar-go="reports"]').click());
+      await page.evaluate(() => document.querySelector('.nav-item[data-page="reports"]').click());   // a phone's More holds it too
       await page.waitForFunction(() => location.pathname.indexOf('/reports/') === 0);
       const first = (await page.evaluate(() => location.pathname)).split('/')[2];
       const [second, firstLabel] = first === 'budget' ? ['cashflow', 'Budget vs actual'] : ['budget', 'Monthly cash flow'];
@@ -3381,7 +3439,7 @@ const JOURNEYS = {
       await page.evaluate(() => sessionStorage.setItem('wealthPlanner.redirectPath', '/reports/budget'));
       await page.goto(base + '/index.html'); await quiet(page); await at('/reports/budget');
       check(await page.evaluate(() => document.querySelector('[data-current-report="budget"]') !== null), 'a report link did not open that report');
-      check(await backLabel() === 'Home', 'a shared report link does not offer Home: ' + await backLabel());
+      check(await backLabel() === 'Today', 'a shared report link does not offer Today: ' + await backLabel());
       await page.goBack(); await at('/dashboard');
       check(await page.evaluate(() => document.body.dataset.currentPage === 'dashboard'), 'Back from a shared link did not show Home');
     }

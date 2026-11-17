@@ -60,7 +60,7 @@ export function personCardHtml(person, index, today){
     '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +
       field(ppid + "dob", "Date of birth", person, '<input type="date" class="pp-in pp-dob field-control" data-pp-person="' + pid + '" id="' + ppid + 'dob" aria-describedby="' + ppid + 'dob-help" value="' + escapeAttr(st.dateOfBirth || "") + '">',
-        "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Home → Benchmarks.") +
+        "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Today → How you compare.") +
       field(ppid + "help", "HELP/HECS owing $", person, numInput("pp-help", person, st.helpBalance, ppid + "help", true),
         "What's still owed on a study loan. The compulsory repayment is worked out from this and comes out of take-home.") +
       field(ppid + "cap", "Concessional cap $/yr", person, numInput("pp-cap", person, st.concessionalCap, ppid + "cap", false)) +

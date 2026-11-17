@@ -21,6 +21,11 @@
   .nav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
   .nav-item:focus-visible{ box-shadow: var(--focus-ring); }
   .nav-icon{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; }
+  /* #412: the sidebar's More — the same five a phone's More tab holds, quieter than the four everyday places. */
+  .nav-group{ margin:14px 10px 4px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .nav-group-items{ display:flex; flex-direction:column; gap:2px; }
+  .nav-group-items .nav-item{ font-weight:400; }
+  .nav-group-items .nav-item.active{ font-weight:600; }
   /* A tab rail, not a row of pills. Two things do the work here and both are load-bearing:
      the full-width hairline, which makes the strip read as navigation before you've read a single
      label; and nowrap + overflow-x, which is what stops six Assets categories wrapping so that

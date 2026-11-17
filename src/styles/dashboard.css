@@ -656,3 +656,8 @@
 /* Item 257: a scenario card's one-line difference, opening its breakdown. */
 .card-diff-link{ all:unset; cursor:pointer; display:flex; align-items:center; margin-top:2px; font-size:var(--fs-xs); color: var(--brass-strong); min-height:44px; }
 .card-diff-link:hover{ text-decoration:underline; }
+
+/* #412: Today's other views — no tab rail; quiet links under its cards, each 44px to tap. */
+.today-more{ display:flex; flex-wrap:wrap; gap:4px 18px; margin:14px 0 4px; }
+.today-more .link-btn{ min-height:44px; display:inline-flex; align-items:center; font-size:var(--fs-md); }
+

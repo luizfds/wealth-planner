@@ -104,7 +104,7 @@ export function renderCards(){
                   (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-danger menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
                 '</span>' +
               '</span>' +
-              '<button type="button" class="card-radio" role="radio" aria-checked="' + (isActive ? "true" : "false") + '" aria-label="Show ' + escapeAttr(scenario) + ' on Home"></button>' +
+              '<button type="button" class="card-radio" role="radio" aria-checked="' + (isActive ? "true" : "false") + '" aria-label="Show ' + escapeAttr(scenario) + ' on Today"></button>' +
             '</span>' +
           '</div>' +
           '<div>' +

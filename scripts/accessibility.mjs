@@ -77,7 +77,7 @@ for(const width of widths)for(const scheme of schemes){
  for(const [pg,attr,sub]of views){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
   await page.waitForTimeout(300);
-  if(attr) await page.evaluate(([a,s])=>{if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
+  if(attr) await page.evaluate(async([a,s])=>{if(a==='dashboard-sub'){(await import('/src/components/nav.js')).showDashboardSubpage(s);return;}if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
   if(attr==='report') await page.waitForFunction(key=>!!document.querySelector('[data-current-report="'+key+'"]')&&!document.querySelector('.report-chooser'),sub);
   if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   // #261: Tax's forms and Plan's goal editor, every section open (and a goal open) — the fields axe should see.

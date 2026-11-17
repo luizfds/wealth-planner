@@ -398,7 +398,7 @@ function monthReviewNotification(){
   var last = reviewMonth(today);
   if(state.monthReviews && state.monthReviews[last] && state.monthReviews[last].done) return [];
   return [{ id: "review:" + last, type: "review", severity: "warn", title: "Review " + monthLabel(last),
-    detail: "Money in, card statements, checks and the month against the plan — Home → Review.", date: today, page: "dashboard", sub: "review" }];
+    detail: "Money in, card statements, checks and the month against the plan — Today → Monthly review.", date: today, page: "dashboard", sub: "review" }];
 }
 
 // ---------------- The year in review is ready (#396) ----------------
@@ -429,7 +429,7 @@ function planProgressNotification(){
   if(p.stale) bits.push(p.stale + " with a balance out of date");
   return [{ id: "planprogress:" + today.slice(0, 7), type: "planprogress", severity: p.behind ? "warn" : "info",
     title: p.behind ? (p.behind === 1 ? "A planned goal is behind" : p.behind + " planned goals are behind") : "Next year's plan needs a look",
-    detail: "Of next year's plan: " + bits.join(", ") + " — Home → Review shows each goal and what would catch it up.", date: today, page: "dashboard", sub: "review", action: "planstep" }];
+    detail: "Of next year's plan: " + bits.join(", ") + " — Today → Monthly review shows each goal and what would catch it up.", date: today, page: "dashboard", sub: "review", action: "planstep" }];
 }
 
 // ---------------- Your week (v3.166.0, item 196) ----------------
@@ -440,7 +440,7 @@ function weekRecapNotification(){
   var w = weekRecap(state.transactions, today);
   var vs = w.usual == null || Math.abs(w.vsUsual) < 1 ? "" : " — " + fmtCurrency0.format(Math.abs(w.vsUsual)) + (w.vsUsual > 0 ? " more" : " less") + " than usual";
   return [{ id: "week:" + w.start, type: "week", severity: "info", title: "Your week: " + fmtCurrency0.format(w.spent) + " spent" + vs,
-    detail: "The biggest three, bills this week and anything to review — on Home.", date: today, page: "dashboard", sub: "overview" }];
+    detail: "The biggest three, bills this week and anything to review — on Today.", date: today, page: "dashboard", sub: "overview" }];
 }
 
 // ---------------- Loan rate changes (v3.53.0) ----------------
@@ -516,7 +516,7 @@ export function autoPayReminders(st, today){
   return dueAutoPays(st, today).map(function(p){
     return { id: "autopay:" + p.id + ":" + p.date, type: "bill", severity: p.days < -3 ? "warn" : "info",
       title: p.what + " — " + fmtCurrency0.format(p.amount) + (p.days === 0 ? " today" : " on " + fmtDate(p.date)) + ": did it go through?",
-      detail: "Automatic, " + p.from + " → " + p.to + ". Confirm it on Home — yes records the transfer, or say it was a different amount or didn't happen.",
+      detail: "Automatic, " + p.from + " → " + p.to + ". Confirm it on Today — yes records the transfer, or say it was a different amount or didn't happen.",
       date: p.date, page: "dashboard", sub: "overview" };
   });
 }
@@ -541,7 +541,7 @@ function dataHealthNotification(){
     id: "health:" + fix.map(function(c){ return c.id; }).sort().join(","),
     type: "data", severity: fix.some(function(c){ return c.severity === "bad"; }) ? "warn" : "info",
     title: fix.length === 1 ? fix[0].title : fix.length + " things in your data to fix",
-    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Home → Review lists them.",
+    detail: fix.length === 1 ? fix[0].detail : fix.slice(0, 2).map(function(c){ return c.title; }).join("; ") + (fix.length > 2 ? "; and more" : "") + ". Today → Monthly review lists them.",
     date: todayStr(), page: "accounts", sub: "checks"
   }];
 }

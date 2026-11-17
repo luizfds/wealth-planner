@@ -54,9 +54,10 @@ export function periodHeaderLabel(today, view){
 }
 function shownPeriodView(){
   var page = document.body.getAttribute('data-current-page');
-  var rail = page === 'dashboard' ? '#dashboardSubnav' : page === 'expenses' ? '#expensesSubnav' : null;
-  var tab = rail && document.querySelector(rail + ' [aria-current="page"]');
-  return {page:page, sub:tab && tab.getAttribute(page === 'dashboard' ? 'data-dashboard-sub' : 'data-expenses-sub')};
+  // #412: Today has no tab rail; its view is the one the Today links last opened (or Today itself).
+  if(page === 'dashboard'){ var cur = document.querySelector('.today-more [aria-current="page"]'); return {page:page, sub:cur ? cur.getAttribute('data-dashboard-sub') : 'overview'}; }
+  var tab = page === 'expenses' && document.querySelector('#expensesSubnav [aria-current="page"]');
+  return {page:page, sub:tab && tab.getAttribute('data-expenses-sub')};
 }
 export function periodButtonHtml(today, view){
   return '<span class="period-btn-label">' + escapeAttr(periodHeaderLabel(today, view)) + '</span> ' +

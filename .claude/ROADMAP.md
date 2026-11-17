@@ -5401,11 +5401,13 @@ approved by the owner. Tracked as issue #409, one sub-issue per step (#410–#41
    addresses; Details, Reports, Settings and Calculators get one back link in the header, named for where it goes; a
    deep link puts Home beneath it. Also fixed: a link into another page's tab replaced the entry of the page it left.
    The journey's tab choice was made picker-proof in PR #408 (CI's wider font turns Home's tabs into a picker at 390px).
-2. `[~]` **One + for adding and importing** (#411). The owner chose: + always opens one sheet (this page's own action
+2. `[x]` **One + for adding and importing** (#411) — shipped v3.289.0 (PR #417). The owner chose: + always opens one sheet (this page's own action
    first, then logging, Import a file, adding); Reports, Calculators and Settings stay where they are until step 3's
    More tab. "Import a file" in the + sheet, detecting the kind; page import buttons open
    it preset; Reports and Calculators in the same place on a phone and a desktop.
-3. `[ ]` **Home becomes Today** (#412). Insights and Benchmarks off the rail; seasonal cards.
+3. `[~]` **Home becomes Today** (#412). The owner chose a More tab with Tax inside: a phone's bar is Today · Cash flow ·
+   Net worth · Plan · More; More holds Tax, Reports, Calculators, Settings and Backup, and a desktop's sidebar lists the
+   same five under More. Insights and Benchmarks off the rail; seasonal cards.
 4. `[ ]` **Accounts as one list** (#413). Net worth's four pages as one list with filter chips; tools on each Details page.
 5. `[ ]` **Simple and Advanced** (#414). `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
 

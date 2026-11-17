@@ -101,3 +101,11 @@ balance, last year's tax estimate, get back to where you started.
 - "Works out the kind" is Spending's statement reader (bank, loan, property manager, payslip), now the chooser's first
   choice, "Any statement file". Broker trades are not recognised from a statement file yet; they keep their own choice.
 
+## Step 3 decisions (#412)
+
+- A More tab, with Tax inside it. A phone's bar is Today · Cash flow · Net worth · Plan · More. More holds Tax, Reports,
+  Calculators, Settings and Backup & sync; a desktop's sidebar lists the same five under a "More" heading. Tax time also
+  gets a card on Today from July to October, so moving Tax off the bar doesn't hide it when it matters.
+- Home is named Today. Its tab rail goes: Insights, Benchmarks and the monthly Review open from links on Today, each with
+  the header's back link, at the addresses step 1 gave them.
+

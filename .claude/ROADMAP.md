@@ -5405,10 +5405,12 @@ approved by the owner. Tracked as issue #409, one sub-issue per step (#410–#41
    first, then logging, Import a file, adding); Reports, Calculators and Settings stay where they are until step 3's
    More tab. "Import a file" in the + sheet, detecting the kind; page import buttons open
    it preset; Reports and Calculators in the same place on a phone and a desktop.
-3. `[~]` **Home becomes Today** (#412). The owner chose a More tab with Tax inside: a phone's bar is Today · Cash flow ·
+3. `[x]` **Home becomes Today** (#412) — shipped v3.290.0 (PR #418). The owner chose a More tab with Tax inside: a phone's bar is Today · Cash flow ·
    Net worth · Plan · More; More holds Tax, Reports, Calculators, Settings and Backup, and a desktop's sidebar lists the
    same five under More. Insights and Benchmarks off the rail; seasonal cards.
-4. `[ ]` **Accounts as one list** (#413). Net worth's four pages as one list with filter chips; tools on each Details page.
+4. `[~]` **Accounts as one list** (#413). The owner chose "dedupe + chips": filter chips on Net worth's overview, and
+   Investments → Summary goes — its repeats removed, its own parts moved under the overview's list. Accounts, Investments
+   and Property stay as the editing pages behind the rail. Net worth's four pages as one list with filter chips; tools on each Details page.
 5. `[ ]` **Simple and Advanced** (#414). `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
 
 Alongside: `[x]` **Bills to confirm in the page's line, not the header** (#415, PR #408). On a day with a bill to confirm,
@@ -5417,6 +5419,11 @@ pushed Spending's first record below half the screen, failing the smoke run on m
 do. The button is gone; a bill that fell due with nothing logged is a To do with action `catchup` that opens the confirm
 sheet, from the bell, Home's To do or Spending's line ("1 bill to confirm: Power", or a due bill by name). A line never
 logged still "needs a fresh entry". Journeys `bills` and `billconfirmation` open the sheet from the bell.
+
+A journey that failed once and didn't reproduce: `errorsummaries` on main after #418 ("Execution context was destroyed,
+most likely because of a navigation"); its PR-head run passed, three local runs at 6× CPU passed and CI's one re-run
+passed. Nothing in the journey or the error summary navigates (links preventDefault; the targets are buttons), so the
+cause is unknown — recorded under #267.
 
 Then: `[x]` **Views drawn per tab, not per page** (follow-up to #415). Removing the header button made every full redraw
 about 30% cheaper (it worked out the bills list twice), so the speed budget's transfer save, unchanged at about 190ms,

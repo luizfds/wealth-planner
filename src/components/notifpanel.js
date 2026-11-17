@@ -10,6 +10,7 @@ import { renderMonthReview, showPlanStep } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
 import { openTxReview } from "./spendingwiring.js";
 import { openCashRateDialog } from "./cashrate.js";
+import { openBillsToConfirm } from "./cashflowwiring.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 import { reportShown, rememberReport, renderReports } from "./reports.js";
 
@@ -108,6 +109,8 @@ function followItem(n){
   closeNotifPanel();
   if(action === "backup"){ var exp = document.getElementById("exportBtn"); if(exp) exp.click(); return; }
   if(action === "txreview"){ openTxReview(); return; }
+  // #415: bills that fell due with nothing logged — the confirm sheet, over whatever page is showing.
+  if(action === "catchup"){ openBillsToConfirm(); return; }
   // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
   if(action === "cashrate"){ openCashRateDialog(); return; }
   // #400: next year's plan — the month review, at its plan step.

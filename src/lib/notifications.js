@@ -110,9 +110,10 @@ function dueBillPairs(){
     }, []);
 }
 function dueBillNotifications(pairs){
+  var toConfirm = confirmSet(todayStr());
   return (pairs || dueBillPairs())
     .map(function(x){
-      return {
+      var n = {
         // Deliberately keyed on the projected due date only. `behind` changes the wording, not
         // which occurrence this is about, so folding it into the id would resurface an already
         // dismissed notification the moment a line slipped a period.
@@ -127,6 +128,11 @@ function dueBillNotifications(pairs){
         date: x.due,
         page: "expenses", sub: "bills"
       };
+      // #415: when a payment of it has fallen due unlogged (today's, or one before), it opens the confirm sheet, where
+      // that payment waits, and counts on Spending's line, where payments are logged (the header button it replaces
+      // showed there). One still to come goes to the Bills calendar, as before.
+      if(toConfirm[x.item.id]){ n.action = "catchup"; n.sub = "spending"; }
+      return n;
     });
 }
 // Shared expenses with no transaction logged recently enough against their own frequency —
@@ -163,6 +169,12 @@ function dueBillNotifications(pairs){
 // does not travel alone: the surviving due-bill notification carries that fact in its own wording
 // and severity (see dueBillPairs' `behind`). Suppression without that would be a regression, not
 // a tidy-up.
+// The budget lines with a payment that fell due and isn't logged — what Cash flow's confirm sheet lists (calc/bills.js).
+function confirmSet(today){
+  var set = {};
+  billsToConfirm(state.shared, state.transactions, today, { accounts: state.accounts, transfers: state.transfers }).forEach(function(b){ set[b.id] = true; });
+  return set;
+}
 function reviewDueNotifications(alreadyBilled){
   alreadyBilled = alreadyBilled || {};
   var today0 = todayStr();
@@ -171,8 +183,7 @@ function reviewDueNotifications(alreadyBilled){
   // dates, its day of the month, paid from a card or by the property manager — rather than by a
   // plain "last entry older than its frequency" test that disagreed with the list the notification
   // sends you to. A line never logged has no expected date yet, so it still asks for a first entry.
-  var toConfirm = {};
-  billsToConfirm(state.shared, state.transactions, today0, { accounts: state.accounts, transfers: state.transfers }).forEach(function(b){ toConfirm[b.id] = true; });
+  var toConfirm = confirmSet(today0);
   var due = state.shared.filter(function(item){
     if(item.irregular) return false;
     if(alreadyBilled[item.id]) return false;
@@ -182,13 +193,35 @@ function reviewDueNotifications(alreadyBilled){
     return lastDate ? !!toConfirm[item.id] : true;
   });
   if(!due.length) return [];
+  // #415: a line that has been logged and fell due again is a bill to confirm — one tap opens the confirm sheet, the
+  // way Cash flow's header button used to. A line never logged still asks for its first entry.
+  var confirm = due.filter(function(item){ return toConfirm[item.id]; });
+  var fresh = due.filter(function(item){ return !toConfirm[item.id]; });
+  return confirmNotification(confirm).concat(freshEntryNotification(fresh));
+}
+// The ids keep the review: scheme (and the same set → the same id), so one already read stays read.
+function confirmNotification(due){
+  if(!due.length) return [];
+  return [{
+    id: "review:" + due.map(function(item){ return item.id; }).sort().join(","),
+    type: "review",
+    severity: "warn",
+    title: due.length === 1 ? "1 bill to confirm: " + due[0].what : due.length + " bills to confirm",
+    detail: (due.length === 1 ? "It fell due with nothing logged" : due.slice(0, 3).map(function(item){ return item.what; }).join(", ") +
+      (due.length > 3 ? " and " + (due.length - 3) + " more" : "") + " fell due with nothing logged") + " — confirm what was paid.",
+    date: todayStr(),
+    page: "expenses", sub: "spending", action: "catchup"
+  }];
+}
+function freshEntryNotification(due){
+  if(!due.length) return [];
   if(due.length === 1){
     return [{
       id: "review:" + due[0].id,
       type: "review",
       severity: "warn",
       title: due[0].what + " needs a fresh entry",
-      detail: "No recent transaction logged against this budget line — use Review expenses on Cash flow.",
+      detail: "Nothing logged against this budget line yet — log its first payment on Cash flow → Spending.",
       date: todayStr(),
       page: "expenses", sub: "spending"
     }];
@@ -200,7 +233,7 @@ function reviewDueNotifications(alreadyBilled){
     type: "review",
     severity: "warn",
     title: due.length + " budget lines need a fresh entry",
-    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — use Review expenses on Cash flow.",
+    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — nothing logged yet; log each one's first payment on Cash flow → Spending.",
     date: todayStr(),
     page: "expenses", sub: "spending"
   }];

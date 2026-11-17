@@ -129,3 +129,15 @@ Scenarios are sandboxes ([0005](../decisions/0005-scenarios-are-sandboxes.md)). 
 
 Nothing a scenario holds may change, replace or join a household observation. The emergency fund (`ef-ok`/`ef-low`) and the offset's after-tax rate (`offset-rate`) always describe the household. Their after-buying versions are each scenario's own (`ef-after-buy:<scenario>`; `offset-move` for the first scenario that buys, so an earlier dismissal still holds, then `offset-move:<scenario>`). Super room no longer mentions a deposit. The `scenariosandbox` journey checks that Home → Insights and the bell read the same, word for word, with every scenario's purchase on or off. `dismissnotice` shows a Watch can't be dismissed on Plan → Scenarios, where the demo household's Watches now are.
 
+## Bills to confirm are a To do, not a header button (#415)
+
+Cash flow's Spending tab moved its "N bills to confirm" button into the header (lib/help.js moves a page's intro actions
+there). On a day with a bill to confirm it wrapped the header to a second row, on a phone and at 1280px, and said again
+what the page's line already said. The owner chose one place:
+
+- A budget line with a payment that fell due and isn't logged (`billsToConfirm`) is a To do with action `catchup`, which
+  opens the confirm sheet over the page (`openBillsToConfirm`, with its history entry).
+- Lines logged before and fallen due again read "1 bill to confirm: Power" / "3 bills to confirm". A due bill with a
+  payment waiting keeps its name, takes the same action and counts on Spending's line, where payments are logged.
+- A line never logged still "needs a fresh entry", with no action: the confirm sheet doesn't list it.
+

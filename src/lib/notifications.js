@@ -109,8 +109,8 @@ function dueBillPairs(){
       return acc;
     }, []);
 }
-function dueBillNotifications(pairs){
-  var toConfirm = confirmSet(todayStr());
+function dueBillNotifications(pairs, toConfirm){
+  toConfirm = toConfirm || confirmSet(todayStr());
   return (pairs || dueBillPairs())
     .map(function(x){
       var n = {
@@ -175,7 +175,7 @@ function confirmSet(today){
   billsToConfirm(state.shared, state.transactions, today, { accounts: state.accounts, transfers: state.transfers }).forEach(function(b){ set[b.id] = true; });
   return set;
 }
-function reviewDueNotifications(alreadyBilled){
+function reviewDueNotifications(alreadyBilled, toConfirm){
   alreadyBilled = alreadyBilled || {};
   var today0 = todayStr();
   // v3.131.0: a line that has been logged before is waiting for an entry exactly when Review
@@ -183,7 +183,7 @@ function reviewDueNotifications(alreadyBilled){
   // dates, its day of the month, paid from a card or by the property manager — rather than by a
   // plain "last entry older than its frequency" test that disagreed with the list the notification
   // sends you to. A line never logged has no expected date yet, so it still asks for a first entry.
-  var toConfirm = confirmSet(today0);
+  toConfirm = toConfirm || confirmSet(today0);
   var due = state.shared.filter(function(item){
     if(item.irregular) return false;
     if(alreadyBilled[item.id]) return false;
@@ -693,10 +693,12 @@ export function getLocalNotifications(){
   var pairs = dueBillPairs();
   var billed = {};
   pairs.forEach(function(x){ billed[x.item.id] = true; });
+  // #415: what the confirm sheet would list, worked out once for both (a save redraws the badge and the line).
+  var toConfirm = confirmSet(todayStr());
   return [].concat(
     txReviewNotification(),
-    dueBillNotifications(pairs),
-    reviewDueNotifications(billed),
+    dueBillNotifications(pairs, toConfirm),
+    reviewDueNotifications(billed, toConfirm),
     staleAssetNotifications(),
     sharePricesNotifications(),
     backupReminderNotification(),

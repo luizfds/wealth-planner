@@ -3263,6 +3263,32 @@ const JOURNEYS = {
   },
   // Simpler navigation step 1: Home's tabs and each report have their own address, so Back steps through them; an inner
   // page's header link names where it goes; a deep link has Home beneath it. Phone and desktop.
+  // A view that draws into one tab of a page (lib/views.js opts.tabs) waits, stale, while another tab shows, and is
+  // drawn when its tab opens. Saving a transfer on Spending used to redraw the hidden Bills calendar and, for one
+  // block on Budget, the whole Property page — which tipped the speed budget's transfer step over its 60%.
+  async tabviews(page){
+    await quiet(page);
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    const staleNow = () => page.evaluate(async () => (await import('/src/lib/views.js')).staleViews());
+    await page.evaluate(() => document.querySelector('#transactionsTable [data-cf-transfer]').click());
+    await page.locator('#transactionsTable [data-tf="from"]').waitFor();
+    await page.evaluate(() => { const f = document.querySelector('#transactionsTable [data-tf="from"]'), t = document.querySelector('#transactionsTable [data-tf="to"]'), o = [...f.options].map(x => x.value).filter(Boolean); f.value = o[0]; t.value = o[1]; document.querySelector('#transactionsTable [data-tf="amount"]').value = "75"; });
+    const before = await page.evaluate(() => document.getElementById('billsCalendar').innerHTML);
+    await page.evaluate(() => document.querySelector('#transactionsTable [data-tf-save]').click());
+    await settle(page);
+    const stale = await staleNow();
+    check(stale.includes('billsCalendar'), 'the Bills calendar was drawn while Spending showed: ' + JSON.stringify(stale));
+    check(await page.evaluate(() => document.getElementById('billsCalendar').innerHTML) === before, 'the hidden Bills calendar changed while Spending showed');
+    await go(page, 'expenses', 'data-expenses-sub', 'bills');
+    check(!(await staleNow()).includes('billsCalendar'), 'opening Bills did not draw its calendar');
+    check(await page.locator('#billsCalendar').evaluate(e => e.children.length > 0), 'Bills calendar is empty after opening Bills');
+    // A balance edit touches the properties view, whose Cash flow block is on Budget.
+    await page.evaluate(async () => { const { commit } = await import('/src/state.js'); commit(['balances']); });
+    await settle(page);
+    check((await staleNow()).includes('properties'), 'the property block on Budget was drawn while Bills showed');
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    check(!(await staleNow()).includes('properties'), 'opening Budget did not draw its property block');
+  },
   async backeverywhere(page){
     await quiet(page);
     const at = async (p) => {

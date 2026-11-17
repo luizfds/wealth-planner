@@ -83,3 +83,13 @@ balance, last year's tax estimate, get back to where you started.
 - Journey: `backeverywhere` (390 and 1280px) walks Home → Insights → Spending → two reports → Net worth → a Details page,
   then Back the whole way, follows a link from Tax into Spending and back, and opens a shared report link through the
   404 bounce.
+
+## Step 2 decisions (#411)
+
+- The + button (the header's on a desktop, the round one on a phone) always opens one sheet. Before, it ran the page's own
+  action on 8 views (Log spend on Home and Cash flow, Add holding on Shares…) and opened Quick actions on the other 9,
+  so the same button did different things. The sheet leads with this page's own action, then logging, Import a file and
+  adding. Log spend becomes two taps from +; Spending's list keeps its own one-tap "+ Log spend".
+- Reports, Calculators and Settings stay where they are (sidebar and avatar menu) until step 3 brings the More tab, so
+  they move once.
+

@@ -17,14 +17,11 @@ import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
 import { autoPricesNeeded } from "./autoprices.js";
 import { cashRateDue, readCashRateNow } from "./cashrate.js";
 import { renderNotifBadge } from "./notifpanel.js";
-import { renderBenchmarks } from "./benchmarks.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
-import { renderHealth } from "./health.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
-import { renderMonthReview } from "./monthreview.js";
 import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage } from "./nav.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
@@ -325,11 +322,7 @@ export function wireNavigation(){
   });
 }
 
-function openTodayView(sub){
-  showDashboardSubpage(sub);
-  if(sub === "benchmarks") renderBenchmarks();
-  if(sub === "review"){ renderMonthReview(); renderHealth(); }
-}
+function openTodayView(sub){ showDashboardSubpage(sub); }   // which draws the view
 // A row of More (or the sidebar's same five): its page, or Backup & sync — Settings → Preferences.
 function goMore(btn){
   if(btn.getAttribute("data-more-go") === "backup"){ showPage("settings"); showAccountsSubpage("preferences"); return; }

@@ -274,9 +274,9 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const current = () => document.body.getAttribute("data-current-page");
       const out = [];
       if(w < 880){
-        // v3.140.0: Home · Cash flow · Net worth · Tax · Plan, and the avatar's menu for the rest.
-        const tax = document.querySelector('.mobile-tab[data-page="tax"]');
-        if(!tax) out.push("no Tax tab"); else { tax.click(); await wait(600); if(current() !== "tax") out.push("the Tax tab didn't open it"); }
+        // #412: Today · Cash flow · Net worth · Plan · More; Tax is in More (checked below).
+        const plan = document.querySelector('.mobile-tab[data-page="plan"]');
+        if(!plan) out.push("no Plan tab"); else { plan.click(); await wait(600); if(current() !== "plan") out.push("the Plan tab didn't open it"); }
         const tab = document.querySelector('.mobile-tab[data-page="networth"]');
         if(tab){ tab.click(); await wait(600); if(current() !== "networth") out.push("the Net worth tab didn't open it"); }
       }

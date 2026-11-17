@@ -7,6 +7,9 @@ import { drawStale } from "../lib/views.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
+import { renderBenchmarks } from "./benchmarks.js";
+import { renderMonthReview } from "./monthreview.js";
+import { renderHealth } from "./health.js";
 import { renderReports, reportShown } from "./reports.js";
 import { REPORTS } from "../calc/reports.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
@@ -706,6 +709,9 @@ export function showDashboardSubpage(id, opts){
   document.querySelectorAll(".today-more [data-dashboard-sub]").forEach(function(btn){
     markCurrent(btn, btn.getAttribute("data-dashboard-sub") === id);
   });
+  // Drawn here, not by whatever opened it — a link on Today, a notice, a shared /dashboard/benchmarks or Back.
+  if(id === "benchmarks") renderBenchmarks();
+  if(id === "review"){ renderMonthReview(); renderHealth(); }
   if(currentPage === "dashboard"){ document.getElementById("pageTitle").textContent = titleFor("dashboard"); window.scrollTo(0, 0); }
   renderPeriodButton();
   if(currentPage === "dashboard" && !opts.skipUrl) syncUrl("dashboard", !!opts.replace, true);

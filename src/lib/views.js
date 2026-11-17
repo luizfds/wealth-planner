@@ -17,10 +17,20 @@ var stale = {};
 // for a view showing what's in an account, a loan or an offset (a transfer moves those without touching
 // anything else about the records); opts.later — drawn
 // just after the edit's frame rather than inside it (the bell's count, which reads everything and is slow).
+// opts.tabs — on a page with tabs, the tabs' elements the view draws into ({ expenses: ["expensesSub-bills"] }): on
+// another tab of that page it is left stale like a page not showing, and drawn when one of them is shown (nav.js
+// calls drawStale on a tab change). Saving a transfer on Spending redrew the hidden Bills calendar and, for one
+// block on Budget, the whole Property page.
 export function defineView(name, pages, draw, reads, opts){
-  views.push({ name: name, pages: pages, draw: draw, reads: reads || ["*"], later: !!(opts && opts.later) });
+  views.push({ name: name, pages: pages, draw: draw, reads: reads || ["*"], later: !!(opts && opts.later), tabs: (opts && opts.tabs) || null });
 }
-function shows(view, page){ return !view.pages || (page && view.pages.indexOf(page) !== -1); }
+function shows(view, page){
+  if(!view.pages) return true;
+  if(!page || view.pages.indexOf(page) === -1) return false;
+  var tabs = view.tabs && view.tabs[page];
+  if(!tabs || typeof document === "undefined") return true;
+  return tabs.some(function(id){ var el = document.getElementById(id); return !!el && !el.hidden; });
+}
 var laterQueued = {};
 function run(view, now){
   if(view.later && !now){
@@ -48,9 +58,9 @@ export function drawViews(opts){
     else stale[v.name] = true;
   });
 }
-// Just before a page is shown: anything stale that draws into it.
+// Just before a page is shown, and when one of its tabs is: anything stale that draws into what's showing.
 export function drawStale(page){
-  views.forEach(function(v){ if(stale[v.name] && v.pages && v.pages.indexOf(page) !== -1) run(v); });
+  views.forEach(function(v){ if(stale[v.name] && v.pages && shows(v, page)) run(v); });
 }
 export function staleViews(){ return Object.keys(stale); }
 // Some views, by name: drawn now if they show on the page on screen, else left stale for when it's opened. What

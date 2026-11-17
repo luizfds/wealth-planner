@@ -516,8 +516,9 @@ export function showPage(id, opts){
     if(id === "calc"){ renderCalcScenario(); renderCalcTools(); }
     if(id === "plan" && currentPlanSub === "projections") renderProjectionsIfStale();
     if(id === "networth") renderNetWorthPage();
-    // v3.98.0: each page's "The app notices" strip reads figures changed on other pages.
-    renderAdvice();
+    // v3.98.0: the notices read figures changed on other pages. Since #305 only Home → Insights shows them in full
+    // (every other page has one line, drawn by attentionline.js).
+    if(id === "dashboard") renderAdvice();
     // The worksheet only re-renders itself while visible (see income.js refreshOpenTaxYear), so
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();
@@ -646,6 +647,8 @@ export function showExpensesSubpage(id, opts){
   if(EXPENSES_SUBS.indexOf(id) === -1) id = "budget";
   currentExpensesSub = id;
   document.querySelectorAll(".expenses-subpage").forEach(function(el){ el.hidden = el.id !== "expensesSub-" + id; });
+  // A view that draws into one tab (lib/views.js opts.tabs) was left stale while another showed.
+  if(currentPage === "expenses") drawStale("expenses");
   document.querySelectorAll("#expensesSubnav .subnav-item").forEach(function(btn){
     markCurrent(btn, btn.getAttribute("data-expenses-sub") === id);
   });

@@ -47,8 +47,9 @@ and report without figures. Before every push, grep the diff for names, places a
 - **An edit** saves with `commit([...top-level keys it touched])`, never a bare `persist()` or a write the ratchet
   counts; its commit *is* its redraw — no list of render calls after it
   ([0007](docs/decisions/0007-edits-redraw-what-they-touched.md)).
-- **A new part of the full redraw** is a `defineView(name, pages, draw, reads)` in `components/redraw.js`; an edit's own
-  partial redraw is `redraw([names])`. The projection chart goes through `renderProjectionsWhenSeen()`.
+- **A new part of the full redraw** is a `defineView(name, pages, draw, reads)` in `components/redraw.js` — with
+  `{ tabs: { page: [tab element ids] } }` when it draws into one tab of a page, so it waits until that tab shows; an
+  edit's own partial redraw is `redraw([names])`. The projection chart goes through `renderProjectionsWhenSeen()`.
 - **A new listener** goes in its page's wiring module; **a new list of editable rows** registers its kind with
   `defineSection` (`lib/sections.js`); a page's own button inside rows is `defineRowAction`.
 - **A new field or change of shape** in `state` is a new `MIGRATION_STEPS` entry with a test in

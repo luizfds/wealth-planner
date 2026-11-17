@@ -5413,3 +5413,11 @@ pushed Spending's first record below half the screen, failing the smoke run on m
 do. The button is gone; a bill that fell due with nothing logged is a To do with action `catchup` that opens the confirm
 sheet, from the bell, Home's To do or Spending's line ("1 bill to confirm: Power", or a due bill by name). A line never
 logged still "needs a fresh entry". Journeys `bills` and `billconfirmation` open the sheet from the bell.
+
+Then: `[x]` **Views drawn per tab, not per page** (follow-up to #415). Removing the header button made every full redraw
+about 30% cheaper (it worked out the bills list twice), so the speed budget's transfer save, unchanged at about 190ms,
+rose from about 40% to 64% of a full redraw on CI. The save itself was redrawing what wasn't on screen: on Spending it drew
+the Bills tab's calendar, the whole Property page (for one block on Budget), and the advice, which since #305 shows
+only on Home → Insights. A view can now name the tabs it draws into (`defineView(…, { tabs: { expenses: [...] } })`);
+on another tab it waits, stale, and nav.js draws it when its tab opens. The advice view is Home's only. Measured at 4×
+CPU: 39–43% of a full redraw. Journey `tabviews`.

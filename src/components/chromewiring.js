@@ -25,7 +25,7 @@ import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetG
 import { renderHealth } from "./health.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp } from "./nav.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -148,6 +148,9 @@ function shortcutsDialog(){
 
 export function wireNavigation(){
   initSectionPickers(document.body);
+  // Simpler navigation step 1: the header's way back from an inner page (nav.js renderBackLink names it).
+  var pageBack = document.getElementById("pageBack");
+  if(pageBack) pageBack.addEventListener("click", function(){ goBackInApp(); });
   // #255 step 3: an empty state's next step (lib/empty.js) — to another page and its tab, or the page's own add.
   document.addEventListener("click", function(e){
     var add = e.target.closest && e.target.closest("[data-empty-add]");
@@ -175,7 +178,7 @@ export function wireNavigation(){
     else if(page === "plan") showPlanSubpage(sub, { replace: true });
     else if(page === "assets") showAssetsSubpage(sub, { replace: true });
     else if(page === "settings") showAccountsSubpage(sub, { replace: true });
-    else if(page === "dashboard") showDashboardSubpage(sub);
+    else if(page === "dashboard") showDashboardSubpage(sub, { replace: true });
   });
   // ---------------- Page navigation ----------------
   document.getElementById("appNav").addEventListener("click", function(e){

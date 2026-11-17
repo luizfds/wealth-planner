@@ -202,7 +202,7 @@ export function detailView(kind, id, today){
 export function detailPageHtml(today){
   var v = detailTarget.kind ? detailView(detailTarget.kind, detailTarget.id, today) : null;
   if(!v) return '<p class="ledger-note">That isn\'t here any more — it may have been renamed or deleted.</p><button type="button" class="btn btn-sm" data-detail-back>Back</button>';
-  return '<div class="dt-head"><button type="button" class="link-btn dt-back" data-detail-back>← Back</button><span class="dt-kicker">' + escapeAttr(v.kicker) + '</span><h2>' + escapeAttr(v.title) + '</h2>' +
+  return '<div class="dt-head"><span class="dt-kicker">' + escapeAttr(v.kicker) + '</span><h2>' + escapeAttr(v.title) + '</h2>' +
     (v.edit ? '<button type="button" class="btn btn-sm btn-ghost dt-edit" data-detail-edit>' + escapeAttr(v.edit.label) + ' →</button>' : '') + '</div>' +
     (v.history && v.history.length > 1 ? '<div class="dt-chart" id="detailChart"></div>' : '') + v.html;
 }

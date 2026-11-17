@@ -3255,6 +3255,58 @@ const JOURNEYS = {
     }), 'keyboard selection lacks visible focus');
     check(await stored(page, 'JSON.stringify(state.assets)') === before, 'period/filter controls changed holdings');
   },
+  // Simpler navigation step 1: Home's tabs and each report have their own address, so Back steps through them; an inner
+  // page's header link names where it goes; a deep link has Home beneath it. Phone and desktop.
+  async backeverywhere(page){
+    await quiet(page);
+    const at = async (p) => {
+      try{ await page.waitForFunction(p => location.pathname === p, p, { timeout: 10000 }); }
+      catch(e){ throw new Error('expected ' + p + ', at ' + await page.evaluate(() => location.pathname), { cause: e }); }
+      await settle(page);
+    };
+    const backLabel = () => page.evaluate(() => { const b = document.getElementById('pageBack'); return b && !b.hidden && b.getClientRects().length ? b.querySelector('.page-back-label').textContent : null; });
+    for(const width of [390, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+      await page.locator('[data-dashboard-sub="insights"]').click(); await at('/dashboard/insights');
+      await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
+      check(await backLabel() === null, 'a page in the menu has a header back link');
+      // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
+      await page.evaluate(() => document.querySelector('[data-avatar-go="reports"]').click());
+      await page.waitForFunction(() => location.pathname.indexOf('/reports/') === 0);
+      const first = (await page.evaluate(() => location.pathname)).split('/')[2];
+      const [second, firstLabel] = first === 'budget' ? ['cashflow', 'Budget vs actual'] : ['budget', 'Monthly cash flow'];
+      check(await backLabel() === 'Spending', 'Reports does not offer the way back to Spending: ' + await backLabel());
+      await page.locator('#reportsBody [data-report-choose]').first().click();
+      await page.locator('.report-chooser [data-report="' + second + '"]').click(); await at('/reports/' + second);
+      check(await backLabel() === firstLabel, 'the second report does not name the first: ' + await backLabel());
+      await go(page, 'networth'); await at('/networth');
+      await page.locator('#page-networth [data-detail]').first().click();
+      await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
+      check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
+      check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');
+      const target = await page.locator('#pageBack').boundingBox();
+      check(target.height >= 36 && target.width >= 44, 'the back link is too small to tap: ' + JSON.stringify(target));
+      await page.locator('#pageBack').click(); await at('/networth');
+      for(const p of ['/reports/' + second, '/reports/' + first, '/expenses/spending', '/expenses/budget', '/dashboard/insights', '/dashboard']){
+        await page.goBack(); await at(p);
+      }
+      check(await page.evaluate(() => !document.getElementById('dashboardSub-overview').hidden), 'Back to /dashboard did not show Overview');
+      // A link into another page's tab (data-go, as notices and empty states use): Back returns to the page it was on.
+      // The tab chosen during the page's transition used to replace the entry of the page being left.
+      await go(page, 'tax', 'data-tax-sub', 'year'); await at('/tax/year');
+      await page.evaluate(() => { const a = document.createElement('button'); a.setAttribute('data-go', 'expenses/spending'); document.body.appendChild(a); a.click(); a.remove(); });
+      await at('/expenses/spending');
+      await page.goBack(); await at('/tax/year');
+      // A shared link, bounced through 404.html as GitHub Pages does: Home is beneath it.
+      await page.evaluate(() => sessionStorage.setItem('wealthPlanner.redirectPath', '/reports/budget'));
+      await page.goto(base + '/index.html'); await quiet(page); await at('/reports/budget');
+      check(await page.evaluate(() => document.querySelector('[data-current-report="budget"]') !== null), 'a report link did not open that report');
+      check(await backLabel() === 'Home', 'a shared report link does not offer Home: ' + await backLabel());
+      await page.goBack(); await at('/dashboard');
+      check(await page.evaluate(() => document.body.dataset.currentPage === 'dashboard'), 'Back from a shared link did not show Home');
+    }
+  },
   async sectionpickers(page){
     await quiet(page);
     for(const width of [320, 390]){
@@ -5960,7 +6012,7 @@ const JOURNEYS = {
     const scenarioName=await editor.getAttribute('data-edit-scenario');await editor.click();
     await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
     await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
-    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard']];
+    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
     for(const [route,expected]of cases){
       const before=await page.evaluate(async()=>({url:location.pathname,settings:(await import('/src/components/nav.js')).settingsSubpage(),tax:(await import('/src/components/nav.js')).taxSubpage(),plan:document.querySelector('#planSubnav .active')?.dataset.planSub,expense:document.querySelector('#expensesSubnav .active')?.dataset.expensesSub}));
       async function request(){await page.evaluate(async route=>{
@@ -6941,7 +6993,9 @@ const JOURNEYS = {
     check(await page.locator('[data-current-report="networth"]').count() === 1, 'cancelling the chooser changed the report');
     await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
     check(await frame() === pinnedFrame, 'pinned shortcut did not restore its frame');
-    await page.reload(); await quiet(page); await go(page, 'reports');
+    // A report has its own address now (/reports/networth); this test server can't serve a nested route the way
+    // production's 404 bounce does, so reload from Home.
+    await go(page, 'dashboard'); await page.reload(); await quiet(page); await go(page, 'reports');
     await page.locator('#reportsBody [data-report-saved="'+id+'"]').click();
     check(await frame() === pinnedFrame, 'pinned report did not survive reload');
     await opener.click(); await dialog.locator('[data-report-search]').fill('discard this search'); await page.keyboard.press('Escape');

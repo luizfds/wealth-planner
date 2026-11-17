@@ -10,7 +10,7 @@ import { showToast } from "../lib/toast.js";
 import { persist, commit } from "../state.js";
 import { monthDetailUi, shownMonth as mdShownMonth } from "./monthdetail.js";
 import { renderMonthReview } from "./monthreview.js";
-import { showPage, showDashboardSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showDashboardSubpage, showTaxSubpage, syncReportRoute } from "./nav.js";
 import { startPlan, addDraft, cancelPlan, moveDraft, removeDraft, setDraftField, savePlanGoals } from "./nextyearplan.js";
 import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay, reportOpts } from "./reports.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
@@ -42,6 +42,7 @@ export function openReportChooser(){
       else reportShown.key = selection.key;
       rememberReport(reportShown.key);
       renderReports();
+      syncReportRoute();
     }
     var opener = document.querySelector('#reportsBody [data-report-choose]');
     if(opener && opener.getClientRects().length) opener.focus({preventScroll:true});
@@ -123,10 +124,10 @@ export function wireReports(){
       return;
     }
     var pick = e.target.closest("[data-report]");
-    if(pick){ reportShown.key = pick.getAttribute("data-report"); rememberReport(reportShown.key); renderReports(); return; }
+    if(pick){ reportShown.key = pick.getAttribute("data-report"); rememberReport(reportShown.key); renderReports(); syncReportRoute(); return; }
     // v3.124.0: pinned reports.
     var saved = e.target.closest("[data-report-saved]");
-    if(saved){ if(openSavedReport(saved.getAttribute("data-report-saved"))){ rememberReport(reportShown.key); renderReports(); } return; }
+    if(saved){ if(openSavedReport(saved.getAttribute("data-report-saved"))){ rememberReport(reportShown.key); renderReports(); syncReportRoute(); } return; }
     var unpin = e.target.closest("[data-report-unpin]");
     if(unpin){ unpinReport(unpin.getAttribute("data-report-unpin")); persist(); renderReports(); return; }
     if(e.target.closest("[data-report-pin]")){ var pinned = pinReport(); if(pinned){ persist(); showToast("Pinned: " + pinned.name); } else showToast("Already pinned."); renderReports(); return; }
@@ -135,7 +136,7 @@ export function wireReports(){
     if(drill){ var dk = drill.getAttribute("data-rf-drill"); reportFrame.open[dk] = !reportFrame.open[dk]; renderReports(); return; }
     // v3.81.0: Month in detail.
     var mdOpen = e.target.closest("[data-md-open]");
-    if(mdOpen){ monthDetailUi.ym = mdOpen.getAttribute("data-md-open"); monthDetailUi.open = {}; reportShown.key = "month"; renderReports(); return; }
+    if(mdOpen){ monthDetailUi.ym = mdOpen.getAttribute("data-md-open"); monthDetailUi.open = {}; reportShown.key = "month"; renderReports(); syncReportRoute(); return; }
     var mdStep = e.target.closest("[data-md-step]");
     if(mdStep){ monthDetailUi.ym = mdShiftMonth(mdShownMonth(), Number(mdStep.getAttribute("data-md-step"))); monthDetailUi.open = {}; renderReports(); return; }
     var mdCat = e.target.closest("[data-md-cat]");
@@ -150,7 +151,7 @@ export function wireReports(){
     var go = e.target.closest("[data-ye-go]");
     if(go){
       var where = go.getAttribute("data-ye-go");
-      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review"); renderMonthReview(); return; }
+      if(where === "review"){ showPage("dashboard"); showDashboardSubpage("review", { replace: true }); renderMonthReview(); return; }
       showPage("tax");
       showTaxSubpage(where === "documents" ? "documents" : "returns", { replace: true });
       renderTaxYear();

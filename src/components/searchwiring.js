@@ -7,7 +7,7 @@ import { openImportChooser } from "./importchooserwiring.js";
 import { persist } from "../state.js";
 import { detailTarget, detailView } from "./detail.js";
 import { renderSharedGroups, renderBudgetGroupByToggle, revealBudgetLine } from "./expenses.js";
-import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage } from "./nav.js";
+import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, goBackInApp } from "./nav.js";
 import { openSearch, closeSearch, setSearchQuery, getSearchResult, unavailableSearchResult } from "./search.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, forgetActiveOverlay } from "../lib/overlaystack.js";
 
@@ -78,7 +78,8 @@ export function wireSearch(){  document.getElementById("searchBtn").addEventList
   document.addEventListener("click", function(e){
     var link = e.target.closest("[data-detail]");
     if(link){ e.preventDefault(); e.stopPropagation(); openDetail(link.getAttribute("data-detail"), link.getAttribute("data-detail-id")); return; }
-    if(e.target.closest("[data-detail-back]")){ if(history.length > 1) history.back(); else showPage("dashboard"); return; }
+    // Never history.length: it counts the other sites earlier in the tab, and Back would leave the app.
+    if(e.target.closest("[data-detail-back]")){ goBackInApp(); return; }
     if(e.target.closest("[data-detail-edit]")){
       var v = detailView(detailTarget.kind, detailTarget.id);
       if(v && v.edit) goToPlace(v.edit.to.page, v.edit.to);

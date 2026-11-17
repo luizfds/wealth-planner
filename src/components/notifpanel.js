@@ -111,12 +111,12 @@ function followItem(n){
   // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
   if(action === "cashrate"){ openCashRateDialog(); return; }
   // #400: next year's plan — the month review, at its plan step.
-  if(action === "planstep"){ showPage("dashboard"); showDashboardSubpage("review"); showPlanStep(); renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  if(action === "planstep"){ showPage("dashboard"); showDashboardSubpage("review", { replace: true }); showPlanStep(); renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   if(page === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "year", { replace: true }); renderTaxYear(); return; }
   // #396: a report by its key — the year in review once a year has finished.
   if(page === "reports" && sub){ reportShown.key = sub; rememberReport(sub); showPage("reports"); renderReports(); return; }
   showPage(page);
-  if(sub && page === "dashboard"){ showDashboardSubpage(sub); if(sub === "review") renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  if(sub && page === "dashboard"){ showDashboardSubpage(sub, { replace: true }); if(sub === "review") renderMonthReview(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   if(sub && page === "accounts"){ showAccountsSubpage(sub); if(sub === "checks") renderHealth(); }
   if(sub && page === "expenses") showExpensesSubpage(sub, { replace: true });
 }

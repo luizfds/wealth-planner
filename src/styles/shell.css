@@ -456,6 +456,19 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
   .app-topbar.is-compact h1{ font-size:var(--fs-lg); }
   .app-topbar.is-compact .period-wrap, .app-topbar.is-compact .page-help-btn, .app-topbar.is-compact .page-actions-slot{ display:none; }
 }
+/* Simpler navigation step 1: an inner page's way back, named for where it goes — before the title on a desktop,
+   on its own line above it on a phone. */
+.page-back{ display:inline-flex; align-items:center; gap:4px; min-height:36px; padding:0 4px; margin-left:-4px; border-radius:6px;
+  font-size:var(--fs-md); white-space:nowrap; max-width:16em; overflow:hidden; text-overflow:ellipsis; }
+.page-back[hidden]{ display:none; }
+.page-back:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
+.page-back-chevron{ font-size:1.25em; line-height:1; }
+.page-back-label{ overflow:hidden; text-overflow:ellipsis; }
+@media (max-width: 880px){
+  .page-back{ flex-basis:100%; align-self:flex-start; justify-content:flex-start; min-height:44px; margin-block:-10px -6px; max-width:100%; }
+  .app-topbar.is-compact .page-back{ flex-basis:auto; min-width:44px; justify-content:center; margin-block:-10px; }
+  .app-topbar.is-compact .page-back-label{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+}
 .avatar-menu a.avatar-item{ text-decoration:none; color: var(--ink); }
 /* v3.143.0: when two devices changed the same thing, one choice each. */
 .merge-dialog{ max-width:min(520px, calc(100vw - 32px)); max-height:min(80vh, 640px); overflow:auto; }

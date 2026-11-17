@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pageTransitionDone } from '../src/lib/pagetransition.js';
 
-for(const name of ['AbortError', 'TimeoutError']){
+for(const name of ['AbortError', 'TimeoutError', 'InvalidStateError']){
   test(name + ' does not fail a successful page update', async()=>{
     let complete;
     const updateCallbackDone = new Promise(resolve=>{ complete=resolve; });

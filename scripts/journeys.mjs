@@ -3255,6 +3255,52 @@ const JOURNEYS = {
     }), 'keyboard selection lacks visible focus');
     check(await stored(page, 'JSON.stringify(state.assets)') === before, 'period/filter controls changed holdings');
   },
+  // Simpler navigation step 1: Home's tabs and each report have their own address, so Back steps through them; an inner
+  // page's header link names where it goes; a deep link has Home beneath it. Phone and desktop.
+  async backeverywhere(page){
+    await quiet(page);
+    const at = async (p) => {
+      try{ await page.waitForFunction(p => location.pathname === p, p, { timeout: 10000 }); }
+      catch(e){ throw new Error('expected ' + p + ', at ' + await page.evaluate(() => location.pathname), { cause: e }); }
+      await settle(page);
+    };
+    const backLabel = () => page.evaluate(() => { const b = document.getElementById('pageBack'); return b && !b.hidden && b.getClientRects().length ? b.querySelector('.page-back-label').textContent : null; });
+    for(const width of [390, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+      await page.locator('[data-dashboard-sub="insights"]').click(); await at('/dashboard/insights');
+      await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
+      check(await backLabel() === null, 'a page in the menu has a header back link');
+      // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
+      await page.evaluate(() => document.querySelector('[data-avatar-go="reports"]').click());
+      await page.waitForFunction(() => location.pathname.indexOf('/reports/') === 0);
+      const first = (await page.evaluate(() => location.pathname)).split('/')[2];
+      const [second, firstLabel] = first === 'budget' ? ['cashflow', 'Budget vs actual'] : ['budget', 'Monthly cash flow'];
+      check(await backLabel() === 'Spending', 'Reports does not offer the way back to Spending: ' + await backLabel());
+      await page.locator('#reportsBody [data-report-choose]').first().click();
+      await page.locator('.report-chooser [data-report="' + second + '"]').click(); await at('/reports/' + second);
+      check(await backLabel() === firstLabel, 'the second report does not name the first: ' + await backLabel());
+      await go(page, 'networth'); await at('/networth');
+      await page.locator('#page-networth [data-detail]').first().click();
+      await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
+      check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
+      check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');
+      const target = await page.locator('#pageBack').boundingBox();
+      check(target.height >= 36 && target.width >= 44, 'the back link is too small to tap: ' + JSON.stringify(target));
+      await page.locator('#pageBack').click(); await at('/networth');
+      for(const p of ['/reports/' + second, '/reports/' + first, '/expenses/spending', '/expenses/budget', '/dashboard/insights', '/dashboard']){
+        await page.goBack(); await at(p);
+      }
+      check(await page.evaluate(() => !document.getElementById('dashboardSub-overview').hidden), 'Back to /dashboard did not show Overview');
+      // A shared link, bounced through 404.html as GitHub Pages does: Home is beneath it.
+      await page.evaluate(() => sessionStorage.setItem('wealthPlanner.redirectPath', '/reports/budget'));
+      await page.goto(base + '/index.html'); await quiet(page); await at('/reports/budget');
+      check(await page.evaluate(() => document.querySelector('[data-current-report="budget"]') !== null), 'a report link did not open that report');
+      check(await backLabel() === 'Home', 'a shared report link does not offer Home: ' + await backLabel());
+      await page.goBack(); await at('/dashboard');
+      check(await page.evaluate(() => document.body.dataset.currentPage === 'dashboard'), 'Back from a shared link did not show Home');
+    }
+  },
   async sectionpickers(page){
     await quiet(page);
     for(const width of [320, 390]){

@@ -1365,8 +1365,6 @@
   .dt-page{ max-width:980px; }
   .dt-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; margin-bottom:12px; }
   .dt-head h2{ margin:0; font-size:var(--fs-2xl); flex:1 1 auto; }
-  .dt-back{ all:unset; cursor:pointer; flex-basis:100%; color: var(--brass-strong); font-size:var(--fs-md); font-weight:600; }
-  .dt-back:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; border-radius:3px; }
   .dt-sec .rc{ max-width:720px; }
   .dt-kicker{ flex-basis:100%; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.05em; color: var(--ink-soft); }
   .dt-chart{ margin:4px 0 14px; }

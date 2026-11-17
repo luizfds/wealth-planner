@@ -17,7 +17,8 @@ import { wireScenarioEditor } from "./components/scenariowiring.js";
 import { netWorthOn } from "./calc/nwhistory.js";
 import { backfillNetWorth } from "./calc/nwauto.js";
 import { detailTarget } from "./components/detail.js";
-import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY } from "./components/nav.js";
+import { reportShown } from "./components/reports.js";
+import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY, seedHomeBeneath } from "./components/nav.js";
 import { wireLedgerEdits, wireRowEditors, wireMoreRowEditors, wireAddButtons } from "./components/rows.js";
 import { wireSuggestions, renderGlobalMetrics, renderAll } from "./components/redraw.js";
 import { wirePhoneSheets, wireOverflowMenus, wireModalHistory } from "./components/overlays.js";
@@ -133,6 +134,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     if(routeFromUrl.sub && routeFromUrl.page === "tax") initialTaxSub = routeFromUrl.sub;
     if(routeFromUrl.sub && routeFromUrl.page === "plan") initialPlanSub = routeFromUrl.sub;
     if(routeFromUrl.page === "settings") initialSettingsSub = routeFromUrl.sub || "categories";
+    if(routeFromUrl.sub && routeFromUrl.page === "reports") reportShown.key = routeFromUrl.sub;
   } else {
     try{ initialPage = localStorage.getItem(PAGE_KEY) || "dashboard"; }catch(e){}
     // A page remembered from before v3.57.0 that is now a subpage.
@@ -154,6 +156,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     if(handleOverlayHistory(e)) return;
     var route = parseRouteFromLocation() || { page: "dashboard", sub: null };
     if(route.page === "detail" && route.detail){ detailTarget.kind = route.detail.kind; detailTarget.id = route.detail.id; }
+    if(route.page === "reports" && route.sub) reportShown.key = route.sub;
     showPage(route.page, { skipUrl: true });
     if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
@@ -161,7 +164,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });
     if(route.page === "settings") showAccountsSubpage(route.sub || "categories", { skipUrl: true });
     if(route.page === "tax" && route.sub === "people") renderPeopleTab();
-    if(route.page === "dashboard" && route.sub){ showDashboardSubpage(route.sub); if(route.sub === "review"){ renderMonthReview(); renderHealth(); } }
+    if(route.page === "dashboard"){ showDashboardSubpage(route.sub || "overview", { skipUrl: true }); if(route.sub === "review"){ renderMonthReview(); renderHealth(); } }
   });
   wireAdvice();
 
@@ -222,6 +225,8 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   })();
   renderAll();
   initTableScrollShadows();
+  // Simpler navigation step 1: anything but Home opens with Home beneath it, so Back reaches Home before leaving the app.
+  seedHomeBeneath(initialPage);
   showPage(initialPage, { replace: true, skipScroll: true });
   // v3.203.1 (item 234): the speed budget (scripts/journeys.mjs) times startup to here.
   try { performance.mark("wp:ready"); } catch(e){}
@@ -239,7 +244,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   if(initialSettingsSub){ showAccountsSubpage(initialSettingsSub, { replace: true }); renderSettingsTab(initialSettingsSub); }
   if(initialPage === "tax" && initialTaxSub === "people") renderPeopleTab();
   if(initialPage === "plan" && initialPlanSub === "goals") renderGoalsTab();
-  if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
+  if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub, { replace: true }); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
 
   // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
   // after confirming replacement if a household already exists. A sample link can be

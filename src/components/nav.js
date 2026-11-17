@@ -7,7 +7,8 @@ import { drawStale } from "../lib/views.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
-import { renderReports } from "./reports.js";
+import { renderReports, reportShown } from "./reports.js";
+import { REPORTS } from "../calc/reports.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
 import { escapeAttr } from "../lib/html.js";
 import { lodgementStatus } from "../calc/taxyear.js";
@@ -109,6 +110,8 @@ var SETTINGS_SUBS = ["categories", "preferences", "rules"];
 var MOVED_SETTINGS = { people: ["tax", "people"], checks: ["dashboard", "review"] };
 var currentSettingsSub = "categories";
 var currentTaxSub = null;
+var DASHBOARD_SUBS = ["overview", "insights", "benchmarks", "review"];
+var currentDashboardSub = "overview";
 // Between 1 July and 31 October the year just ended is the thing to be doing, so Tax opens on its
 // return; the rest of the year it opens on the plan.
 export function defaultTaxSub(){
@@ -122,13 +125,110 @@ function buildRoutePath(pageId){
   if(pageId === "tax") parts.push(currentTaxSub || defaultTaxSub());
   if(pageId === "plan") parts.push(currentPlanSub);
   if(pageId === "settings") parts.push(currentSettingsSub);
+  // Simpler navigation step 1: Home's tabs and the report on screen have addresses too, so Back steps through them.
+  // Overview stays plain /dashboard, which every older link and bookmark already names.
+  if(pageId === "dashboard" && currentDashboardSub !== "overview") parts.push(currentDashboardSub);
+  if(pageId === "reports" && reportKeyValid(reportShown.key)) parts.push(reportShown.key);
   if(pageId === "detail" && detailTarget.kind) parts.push(detailTarget.kind, encodeURIComponent(detailTarget.id));
   return BASE_PATH + "/" + parts.join("/");
 }
+// Each history entry the app writes says how deep it is in the app's own entries (0: the first) and the name of the
+// screen it was opened from, so a back link can say where it goes and never steps out of the app.
+var lastEntry = { depth: 0, title: "Home" };
+function entryState(){
+  var st = history.state;
+  return st && typeof st.depth === "number" ? st : null;
+}
 function syncUrl(pageId, replace){
   var path = buildRoutePath(pageId);
-  if(location.pathname === path) return;
-  history[replace ? "replaceState" : "pushState"]({page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub, planSub: currentPlanSub, settingsSub: currentSettingsSub}, "", path + location.search);
+  if(location.pathname === path){
+    // Same address (a deep link landing on itself, the startup pass): just name the entry for the next one's back link.
+    var here = entryState(), title = entryTitle(pageId);
+    if(here && here.title !== title) try{ history.replaceState(Object.assign({}, here, { title: title }), "", location.href); }catch(e){}
+    renderBackLink();
+    return;
+  }
+  var cur = entryState();
+  var next = {page: pageId, assetsSub: currentAssetsSub, expensesSub: currentExpensesSub, taxSub: currentTaxSub, planSub: currentPlanSub,
+    settingsSub: currentSettingsSub, title: entryTitle(pageId)};
+  // Replacing a page's own entry keeps its place. Replacing a sheet's (search opening a result) is a step on from
+  // the page under the sheet, like a push.
+  if(replace && cur){ next.depth = cur.depth; next.from = cur.from || null; }
+  else if(replace && !history.state){ next.depth = 0; next.from = null; }
+  else { var base = cur || lastEntry; next.depth = base.depth + 1; next.from = base.title || null; }
+  history[replace ? "replaceState" : "pushState"](next, "", path + location.search);
+  renderBackLink();
+}
+function reportKeyValid(key){ return REPORTS.some(function(r){ return r.key === key; }); }
+// What a screen is called where a back link names it: the tab when the tab says more than the page.
+var SUB_TITLES = {
+  dashboard: { overview: "Home" },
+  assets: { summary: "Investments" },
+  tax: { year: "Tax", returns: "Tax returns", documents: "Tax documents", people: "People" },
+  settings: { categories: "Settings", preferences: "Settings", rules: "Import rules" }
+};
+function entryTitle(pageId){
+  var page = PAGES.find(function(p){ return p.id === pageId; });
+  var label = page ? page.label : "Home";
+  if(pageId === "detail"){
+    var h = document.querySelector("#detailBody .dt-head h2");
+    return (h && h.textContent.trim()) || label;
+  }
+  if(pageId === "reports"){
+    var rep = REPORTS.find(function(r){ return r.key === reportShown.key; });
+    return rep ? rep.label : label;
+  }
+  var sub = pageId === "dashboard" ? currentDashboardSub : pageId === "expenses" ? currentExpensesSub : pageId === "assets" ? currentAssetsSub
+    : pageId === "tax" ? (currentTaxSub || defaultTaxSub()) : pageId === "plan" ? currentPlanSub : pageId === "settings" ? currentSettingsSub : null;
+  if(!sub) return label;
+  var named = SUB_TITLES[pageId] && SUB_TITLES[pageId][sub];
+  if(named) return named;
+  var btn = document.querySelector('[data-' + (pageId === "settings" ? "accounts" : pageId) + '-sub="' + sub + '"]');
+  return (btn && btn.textContent.trim()) || label;
+}
+// Pages with no tab of their own and no other way out get the header's back link. The rest have the menu or
+// tab bar; the scenario editor keeps its own (it asks before leaving) and Investments its "‹ Net worth".
+var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc"];
+function backTarget(){
+  var st = entryState();
+  if(st && st.depth > 0) return { history: true, title: st.from || "Back" };
+  return { history: false, title: "Home" };
+}
+export function renderBackLink(){
+  var st = entryState();
+  if(st) lastEntry = { depth: st.depth, title: st.title, from: st.from };
+  var btn = document.getElementById("pageBack");
+  if(!btn) return;
+  var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1;
+  btn.hidden = !show;
+  if(!show) return;
+  var to = backTarget();
+  var label = btn.querySelector(".page-back-label");
+  if(label) label.textContent = to.title;
+  btn.setAttribute("aria-label", to.history && to.title === "Back" ? "Back" : "Back to " + to.title);
+}
+// The header's back link, and any Back button inside a page: the screen before when it is the app's own,
+// else Home — never out of the app (history.length counts other sites' entries in the tab too).
+export function goBackInApp(){
+  if(backTarget().history){ history.back(); return true; }
+  return showPage("dashboard", { replace: true });
+}
+// A deep link (or a reopened app remembering another page) starts with nothing of the app's below it, so a phone's
+// Back would close the app. Put Home beneath it, the way a native app's first screen is always under the others.
+export function seedHomeBeneath(pageId, sub){
+  if(pageId === "dashboard") return false;
+  var st = entryState();
+  if(st && st.depth > 0) return false;
+  var here = location.pathname + location.search + location.hash;
+  try{
+    history.replaceState({ page: "dashboard", depth: 0, title: "Home" }, "", BASE_PATH + "/dashboard" + location.search);
+    history.pushState({ page: pageId, depth: 1, from: "Home", title: null }, "", here);
+  }catch(e){ return false; }
+  return true;
+}
+// Reports → a report chosen: its own entry, so Back returns to the one before.
+export function syncReportRoute(){
+  if(currentPage === "reports") syncUrl("reports", false);
 }
 export function parseRouteFromLocation(){
   var path = location.pathname;
@@ -154,6 +254,8 @@ export function parseRouteFromLocation(){
   else if(page.id === "tax" && segs[1] && TAX_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   else if(page.id === "plan" && segs[1] && PLAN_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
   else if(page.id === "settings" && segs[1] && SETTINGS_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "dashboard" && segs[1] && DASHBOARD_SUBS.indexOf(segs[1]) !== -1) sub = segs[1];
+  else if(page.id === "reports" && segs[1] && reportKeyValid(segs[1])) sub = segs[1];
   else if(page.id === "settings" && segs[1] && MOVED_SETTINGS[segs[1]]) return { page: MOVED_SETTINGS[segs[1]][0], sub: MOVED_SETTINGS[segs[1]][1] };
   return { page: page.id, sub: sub };
 }
@@ -417,7 +519,7 @@ export function showPage(id, opts){
     if(id === "expenses" && currentExpensesSub === "income") renderReceived();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
-    if(!opts.skipUrl) syncUrl(id, !!opts.replace);
+    if(!opts.skipUrl) syncUrl(id, !!opts.replace); else renderBackLink();
   }
 
   // A plain hidden-toggle instant swap is the single biggest "this is a website, not an app" tell
@@ -550,17 +652,21 @@ export function showExpensesSubpage(id, opts){
 // Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,
 // upcoming bills, projection accuracy) — same pill-subnav pattern as showAssetsSubpage above, so a
 // daily glance at Dashboard only pays for the six Insights cards' scroll length when actually
-// wanted. No URL sync or persisted default (unlike Assets' subpage, which is deep-linkable) —
-// this stays a lighter, session-only split; navigating away and back to Dashboard keeps whichever
-// tab was last open rather than resetting, since the two subpage <div>s are never destroyed.
-export function showDashboardSubpage(id){
-  if(leavePending) return afterPendingPage("dashboard", function(){ return showDashboardSubpage(id); });
+// wanted. Navigating away and back to Home keeps whichever tab was last open, since the subpage <div>s are never
+// destroyed. Since simpler navigation step 1 each tab has its own address (/dashboard/insights), so Back steps
+// through them; Overview stays /dashboard.
+export function showDashboardSubpage(id, opts){
+  opts = opts || {};
+  if(leavePending) return afterPendingPage("dashboard", function(){ return showDashboardSubpage(id, Object.assign({}, opts, { replace: true })); });
+  if(DASHBOARD_SUBS.indexOf(id) === -1) id = "overview";
+  currentDashboardSub = id;
   document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
   document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
     markCurrent(btn, btn.getAttribute("data-dashboard-sub") === id);
   });
   scrollActiveSubnavIntoView("dashboardSubnav");
   renderPeriodButton();
+  if(currentPage === "dashboard" && !opts.skipUrl) syncUrl("dashboard", !!opts.replace);
 }
 
 // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px

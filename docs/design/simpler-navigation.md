@@ -65,7 +65,16 @@ balance, last year's tax estimate, get back to where you started.
 ## Step 1 decisions
 
 - The header link goes back through history when the screen before was the app's own (each entry the app writes records
-  how deep it is and the name of the screen it came from), so scroll and filters come back as they were. With nothing
-  of the app's below, it goes to the page's parent: Home for Reports, Settings and Calculators; for a Details page, the
-  page that lists the thing.
-- Home's Overview stays at `/dashboard`, so old links and bookmarks keep working; the other tabs add a segment.
+  how deep it is and the name of the screen it came from), so scroll and filters come back as they were, and it is
+  named for that screen ("‹ Spending", "‹ Monthly cash flow", "‹ Net worth"). With nothing of the app's below — which
+  Home beneath a deep link makes rare — it goes Home. Never `history.length`: it counts other sites in the tab.
+- It shows on Details, Reports, Settings and Calculators only. Pages in the menu have the menu; Accounts and Property
+  keep Net worth's rail. On a phone it sits on its own line above the title, and shrinks to a 44px chevron when the
+  header does. Details' own "← Back" went, so there is one.
+- Home's Overview stays at `/dashboard`, so old links and bookmarks keep working; the other tabs add a segment
+  (`/dashboard/insights`). Reports name the report (`/reports/budget`); a pinned report opens at its report's address,
+  its saved dates are not in it.
+- Search opening a result replaces the search sheet's entry, not the page's: the result counts as a step on from the
+  page under the sheet, so its back link names that page.
+- Journey: `backeverywhere` (390 and 1280px) walks Home → Insights → Spending → two reports → Net worth → a Details page,
+  then Back the whole way, and opens a shared report link through the 404 bounce.

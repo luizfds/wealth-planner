@@ -54,7 +54,8 @@ const VIEWS = [
   ["calc", null, [null]], // v3.189.0: opened from the avatar menu
   ["reports", "report", ["cashflow", "categories", "income", "flow", "budget", "trends", "month", "networth", "nwcheck", "invest", "dividends", "cgt",
     "propreturns", "property", "debts", "super", "tax", "taxpack", "review", "lender", "yearend"]],
-  ["settings", "accounts-sub", ["categories", "preferences", "rules"]]
+  ["settings", "accounts-sub", ["categories", "preferences", "rules"]],
+  ["more", null, [null]]   // #412: a phone's More tab
 ];
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
@@ -89,7 +90,8 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
     await page.waitForTimeout(250);
     for (const sub of subs) {
       if(sub) {
-        const hasSub = await page.evaluate(([a, s]) => { if(a === 'report'){ const chooser = document.querySelector('[data-report-choose]'); if(chooser) chooser.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
+        // #412: Today's views open from links, with no tab for its first view — chosen through nav.js.
+        const hasSub = await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return true; } if(a === 'report'){ const chooser = document.querySelector('[data-report-choose]'); if(chooser) chooser.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
         if(!hasSub && SHOTS) continue;
         if(attr === 'report') await page.waitForFunction(key => !document.querySelector('[data-report-choose]') || (!!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser')), sub);
         await page.waitForTimeout(250);
@@ -272,20 +274,32 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const current = () => document.body.getAttribute("data-current-page");
       const out = [];
       if(w < 880){
-        // v3.140.0: Home · Cash flow · Net worth · Tax · Plan, and the avatar's menu for the rest.
-        const tax = document.querySelector('.mobile-tab[data-page="tax"]');
-        if(!tax) out.push("no Tax tab"); else { tax.click(); await wait(600); if(current() !== "tax") out.push("the Tax tab didn't open it"); }
+        // #412: Today · Cash flow · Net worth · Plan · More; Tax is in More (checked below).
+        const plan = document.querySelector('.mobile-tab[data-page="plan"]');
+        if(!plan) out.push("no Plan tab"); else { plan.click(); await wait(600); if(current() !== "plan") out.push("the Plan tab didn't open it"); }
         const tab = document.querySelector('.mobile-tab[data-page="networth"]');
         if(tab){ tab.click(); await wait(600); if(current() !== "networth") out.push("the Net worth tab didn't open it"); }
       }
-      // The avatar menu, at every width: it opens, and Reports in it opens Reports and closes it.
+      // #412: a phone's More tab opens More, and its Tax row opens Tax (Tax left the bar for it).
+      if(w < 880){
+        const more = document.querySelector('.mobile-tab[data-page="more"]');
+        if(!more) out.push("no More tab");
+        else {
+          more.click(); await wait(600); if(current() !== "more") out.push("the More tab didn't open More");
+          const taxRow = document.querySelector('#moreList [data-page="tax"]');
+          if(taxRow){ taxRow.click(); await wait(600); if(current() !== "tax") out.push("More → Tax didn't open it"); if(!more.classList.contains("active")) out.push("the More tab isn't lit on Tax"); }
+          else out.push("More has no Tax row");
+        }
+      }
+      // The avatar menu, at every width: it opens, and Backup & sync in it opens Settings and closes it.
       const avatar = document.getElementById("avatarBtn"), menu = document.querySelector(".avatar-menu");
       if(!avatar || !avatar.getClientRects().length) out.push("no avatar in the header");
       else {
         avatar.click(); await wait(200);
         if(menu.hidden) out.push("the avatar doesn't open its menu");
-        const rep = menu.querySelector('[data-avatar-go="reports"]');
-        if(rep){ rep.click(); await wait(600); if(current() !== "reports") out.push("avatar → Reports didn't open it"); if(!menu.hidden) out.push("the avatar's menu stays open after choosing"); }
+        const rep = menu.querySelector('[data-avatar-go="backup"]');
+        if(!rep) out.push("the avatar's menu has no Backup & sync");
+        else { rep.click(); await wait(600); if(current() !== "settings") out.push("avatar → Backup & sync didn't open Settings"); if(!menu.hidden) out.push("the avatar's menu stays open after choosing"); }
       }
       if(w >= 880){
         const item = document.querySelector('.nav-item[data-page="tax"]');
@@ -406,7 +420,7 @@ if(!SHOTS){
     await page.waitForTimeout(300);
     for (const sub of subs) {
       if(sub){
-        await page.evaluate(([a, s]) => { if(a === 'report'){ const c = document.querySelector('[data-report-choose]'); if(c) c.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);
+        await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return; } if(a === 'report'){ const c = document.querySelector('[data-report-choose]'); if(c) c.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);
         await page.waitForTimeout(300);
       }
       await page.evaluate(() => document.querySelectorAll(".app-page:not([hidden]) details").forEach(d => { d.open = true; }));

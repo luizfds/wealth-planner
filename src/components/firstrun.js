@@ -54,7 +54,7 @@ export function firstRunHtml(){
   } else {
     // v3.117.0: statements are the main path — three months of them and the budget builds itself.
     body = '<p class="fr-lede">The quickest way in: download your last three months of statements (CSV or PDF — most banks have "Export" or "Download transactions") and import them. Well-known shops file themselves, the budget is proposed from what you actually spent (Cash flow → Budget), and a payslip on Tax fills in pay and tax so far.</p>' +
-      '<p class="ledger-note">After that, a monthly review on Home keeps it current in about ten minutes.</p>';
+      '<p class="ledger-note">After that, a monthly review on Today keeps it current in about ten minutes.</p>';
   }
   var last = st === STEPS.length - 1;
   return '<div class="review-backdrop" data-fr-backdrop><div class="review-panel fr-panel" role="dialog" aria-modal="true" aria-label="Set up Wealth Planner" aria-describedby="firstRunProgress">' +

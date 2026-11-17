@@ -33,22 +33,23 @@ function navTargets(page){
 // `page` is shown behind the card; `targets` are tried in order and the first one on screen is ringed — a
 // step whose target isn't there (a narrower layout, a later redesign) is still read, just without a ring.
 export var TOUR_STEPS = [
-  { key: "home", title: "Home", page: "dashboard", targets: navTargets("dashboard"),
-    text: "Your money at a glance: what you're worth, how this month is going against your plan, and anything that needs doing." },
+  { key: "home", title: "Today", page: "dashboard", targets: navTargets("dashboard"),
+    text: "Your money at a glance: how this month is going against your plan, bills coming up, what you're worth, and anything that needs doing." },
   { key: "cashflow", title: "Cash flow", page: "expenses", targets: navTargets("expenses"),
     text: "Your budget, your pay after tax, what you actually spent — brought in from bank statements — and the bills coming up." },
   { key: "networth", title: "Net worth", page: "networth", targets: navTargets("networth"),
     text: "Everything you own and owe: accounts, investments and super, and property with its loans." },
-  { key: "tax", title: "Tax", page: "tax", targets: navTargets("tax"),
-    text: "Income tax, Medicare and super worked out from your pay, with each year's return and the documents for it." },
   { key: "plan", title: "Plan", page: "plan", targets: navTargets("plan"),
     text: "Looking ahead: how your net worth could grow, savings goals and retirement — built on the same numbers as every other page." },
+  // #412: Tax left the phone's tab bar for More, with Reports, Calculators, Settings and Backup.
+  { key: "more", title: "More", page: "more", targets: ['.mobile-tab[data-page="more"]', "#navMoreHead", "#navMenuToggle"],
+    text: "What's used now and then: Tax — income tax from your pay, each year's return and its documents — then reports, calculators, settings and backups." },
   { key: "scenarios", title: "Scenarios", page: "plan", sub: "scenarios", targets: ['#planSubnav [data-plan-sub="scenarios"]', "#planSubnav .section-picker"],
     text: "A scenario is a safe what-if: keep renting or buy, a different job. Change anything in one and your real figures stay as they are, then compare scenarios side by side." },
   { key: "add", title: "Adding and editing", page: "expenses", targets: ["#headerAddBtn", "#quickFab"],
     text: "The + button adds, logs or imports from any page — what this page adds comes first. To change something already there, open its row." },
   { key: "menu", title: "Your menu", targets: ["#avatarBtn"],
-    text: "Reports, calculators, settings and backups live here — and this tour, whenever you'd like it again." },
+    text: "Your data — backups, importing and the sample household — the theme, and this tour, whenever you'd like it again." },
   { key: "start", title: "Getting started", page: "dashboard", checklist: true,
     text: "That's the lot. Nothing is required and any order works — these make a good start:" }
 ];

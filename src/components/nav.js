@@ -7,6 +7,9 @@ import { drawStale } from "../lib/views.js";
 import { renderProjectionsIfStale } from "./projections.js";
 import { renderDashboardStats } from "./dashboard.js";
 import { renderHomeSummary } from "./home.js";
+import { renderBenchmarks } from "./benchmarks.js";
+import { renderMonthReview } from "./monthreview.js";
+import { renderHealth } from "./health.js";
 import { renderReports, reportShown } from "./reports.js";
 import { REPORTS } from "../calc/reports.js";
 import { closeScenarioOverridePanel } from "./expenses.js";
@@ -32,7 +35,7 @@ function markCurrent(btn, on){
 // the old ones where a page carried on (so saved links, localStorage and every data-page attribute
 // keep working); Income, Scenarios and Projections became subpages, reached through ALIASES.
 var PAGES = [
-  { id: "dashboard", label: "Home" },
+  { id: "dashboard", label: "Today" },
   { id: "expenses", label: "Cash flow" },
   // v3.129.0: one Net worth entry; its overview and these three sit under one rail of tabs.
   { id: "networth", label: "Net worth" },
@@ -47,8 +50,10 @@ var PAGES = [
   { id: "detail", label: "Details" },
   // v3.181.0 (item 212): one scenario being edited. In no menu; a scenario card's Edit opens it.
   { id: "scenario", label: "Edit scenario" },
-  // v3.189.0 (item 220): in the avatar menu.
-  { id: "calc", label: "Calculators" }
+  // v3.189.0 (item 220): in the avatar menu. #412: under More.
+  { id: "calc", label: "Calculators" },
+  // #412: a phone's More tab — Tax, Reports, Calculators, Settings and Backup, used now and then.
+  { id: "more", label: "More" }
 ];
 // Old page ids → [page, subpage]. Anything that still says showPage("income") — a notification, the
 // setup checklist, a search result, an old bookmark — lands on the subpage that replaced it.
@@ -134,7 +139,7 @@ function buildRoutePath(pageId){
 }
 // Each history entry the app writes says how deep it is in the app's own entries (0: the first) and the name of the
 // screen it was opened from, so a back link can say where it goes and never steps out of the app.
-var lastEntry = { depth: 0, title: "Home" };
+var lastEntry = { depth: 0, title: "Today" };
 function entryState(){
   var st = history.state;
   return st && typeof st.depth === "number" ? st : null;
@@ -167,14 +172,14 @@ function syncUrl(pageId, replace, asTab){
 function reportKeyValid(key){ return REPORTS.some(function(r){ return r.key === key; }); }
 // What a screen is called where a back link names it: the tab when the tab says more than the page.
 var SUB_TITLES = {
-  dashboard: { overview: "Home" },
+  dashboard: { overview: "Today", insights: "Insights", benchmarks: "How you compare", review: "Monthly review" },
   assets: { summary: "Investments" },
   tax: { year: "Tax", returns: "Tax returns", documents: "Tax documents", people: "People" },
   settings: { categories: "Settings", preferences: "Settings", rules: "Import rules" }
 };
 function entryTitle(pageId){
   var page = PAGES.find(function(p){ return p.id === pageId; });
-  var label = page ? page.label : "Home";
+  var label = page ? page.label : "Today";
   if(pageId === "detail"){
     var h = document.querySelector("#detailBody .dt-head h2");
     return (h && h.textContent.trim()) || label;
@@ -193,18 +198,18 @@ function entryTitle(pageId){
 }
 // Pages with no tab of their own and no other way out get the header's back link. The rest have the menu or
 // tab bar; the scenario editor keeps its own (it asks before leaving) and Investments its "‹ Net worth".
-var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc"];
+var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc", "tax"];   // #412: Tax too, now under More
 function backTarget(){
   var st = entryState();
   if(st && st.depth > 0) return { history: true, title: st.from || "Back" };
-  return { history: false, title: "Home" };
+  return { history: false, title: "Today" };
 }
 export function renderBackLink(){
   var st = entryState();
   if(st) lastEntry = { depth: st.depth, title: st.title, from: st.from };
   var btn = document.getElementById("pageBack");
   if(!btn) return;
-  var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1;
+  var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1 || (currentPage === "dashboard" && currentDashboardSub !== "overview");
   btn.hidden = !show;
   if(!show) return;
   var to = backTarget();
@@ -216,6 +221,7 @@ export function renderBackLink(){
 // else Home — never out of the app (history.length counts other sites' entries in the tab too).
 export function goBackInApp(){
   if(backTarget().history){ history.back(); return true; }
+  if(currentPage === "dashboard") return showDashboardSubpage("overview", { replace: true });
   return showPage("dashboard", { replace: true });
 }
 // A deep link (or a reopened app remembering another page) starts with nothing of the app's below it, so a phone's
@@ -226,8 +232,8 @@ export function seedHomeBeneath(pageId, sub){
   if(st && st.depth > 0) return false;
   var here = location.pathname + location.search + location.hash;
   try{
-    history.replaceState({ page: "dashboard", depth: 0, title: "Home" }, "", BASE_PATH + "/dashboard" + location.search);
-    history.pushState({ page: pageId, depth: 1, from: "Home", title: null }, "", here);
+    history.replaceState({ page: "dashboard", depth: 0, title: "Today" }, "", BASE_PATH + "/dashboard" + location.search);
+    history.pushState({ page: pageId, depth: 1, from: "Today", title: null }, "", here);
   }catch(e){ return false; }
   return true;
 }
@@ -276,6 +282,15 @@ export function parseRouteFromLocation(){
 // rest (Property, Tax, Plan, Settings) sit behind More.
 // v3.129.0: the pages under Net worth — its nav entry and tab stay lit on each of them.
 var NETWORTH_GROUP = ["networth", "accounts", "assets", "properties"];
+// #412: the pages a phone's More tab holds — it stays lit on each. A desktop's sidebar lists them itself.
+var MORE_GROUP = ["more", "tax", "reports", "calc", "settings"];
+// Today's views besides its first, opened from links on it (no tab rail since #412), each named in the header.
+var DASHBOARD_TITLES = { insights: "Insights", benchmarks: "How you compare", review: "Monthly review" };
+function titleFor(id){
+  if(id === "dashboard" && DASHBOARD_TITLES[currentDashboardSub]) return DASHBOARD_TITLES[currentDashboardSub];
+  var page = PAGES.find(function(p){ return p.id === id; });
+  return page ? page.label : "Today";
+}
 
 
 // Plain-button pages: the page's own single, unambiguous "add" entry point. Income/Assets/
@@ -326,11 +341,11 @@ function groupedFabTarget(rootId){
 export var QUICK_ACTIONS = [
   { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn", group: "log" },
   { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]', group: "add", short: "Budget line" },
-  { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received", group: "log" },
+  { label: "Log income",    hint: "Pay, rent or a distribution that came in", page: "income",     mode: "received", group: "log" },
   // v3.208.0 (item 240): only offered with an investment property — the statement form, on its Income & costs tab.
   { label: "Log a rent statement", hint: "A property manager's monthly statement", page: "properties", mode: "rentstatement", needsIP: true, group: "log" },
   // v3.141.0: a card repayment is a transfer — this opens the form with the card and its payment in.
-  { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard", group: "log" },
+  { label: "Pay a card",    hint: "A repayment to a credit card", page: "expenses", sub: "spending", mode: "paycard", group: "log" },
   // No selector on these three: Income and Assets build their add buttons per person/category
   // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
   // They resolve to the first visible [data-add] on the destination page instead — the same way
@@ -359,7 +374,7 @@ export function quickActionsSheetHtml(){
   var html = own ? '<h5 class="qfab-group">On this page</h5>' + sheetRow('data-quick-page', own.label, "Here, on " + pageLabel(currentPage)) : "";
   SHEET_GROUPS.forEach(function(g){
     var rows = g[0] === "import"
-      ? sheetRow('data-quick-import', "Import a file", "A bank, loan, property manager or payslip statement, broker trades, prices or a spreadsheet")
+      ? sheetRow('data-quick-import', "Import a file", "Statements, payslips, trades, prices or a spreadsheet")
       : QUICK_ACTIONS.map(function(action, i){
         if(action.group !== g[0] || (action.needsIP && !hasIP)) return "";
         // Adding is named by what it adds, two to a row: the sheet fits a phone without scrolling.
@@ -494,14 +509,16 @@ export function showPage(id, opts){
     closeScenarioOverridePanel();
     if(overlayCleanup && closesOverlay) overlayCleanup();
     var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
+    var tabId = MORE_GROUP.indexOf(id) !== -1 ? "more" : navId;
     // v3.205.0 (item 236a): what a full redraw left for later, drawn before the page shows.
     drawStale(id);
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);
-      document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"], .mobile-more-item[data-page="' + p.id + '"]').forEach(function(navBtn){
-        navBtn.classList.toggle("active", p.id === navId);
-        if(p.id === navId) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
+      document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"]').forEach(function(navBtn){
+        var on = p.id === (navBtn.classList.contains("mobile-tab") ? tabId : navId);
+        navBtn.classList.toggle("active", on);
+        if(on) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
       });
     });
     document.querySelectorAll(".nw-rail-item").forEach(function(b){ markCurrent(b, b.getAttribute("data-page") === id); });
@@ -511,9 +528,10 @@ export function showPage(id, opts){
     // Its own name (v3.139.1): `data-page` marks the buttons that go to a page, and a click handler
     // looking for the nearest one found <body> — the mobile More tab opened the current page instead.
     document.body.setAttribute("data-current-page", id);
-    document.getElementById("pageTitle").textContent = page ? page.label : "Home";
+    document.getElementById("pageTitle").textContent = titleFor(id);
     var navLabel = document.getElementById("navMenuCurrentLabel");
-    if(navLabel) navLabel.textContent = page ? page.label : "Home";
+    if(navLabel) navLabel.textContent = page ? page.label : "Today";
+    if(id === "more") renderMorePage();
     // A detail page needs its target, which a later visit won't have.
     if(id !== "detail" && id !== "scenario") try{ localStorage.setItem(PAGE_KEY, id); }catch(e){}
     renderPeriodButton();
@@ -642,6 +660,15 @@ export function showTaxSubpage(id, opts){
   if(!opts.skipUrl) syncUrl("tax", !!opts.replace, true);
 }
 export function taxSubpage(){ return currentTaxSub || defaultTaxSub(); }
+export function dashboardSubpage(){ return currentDashboardSub; }
+// #412: More's Tax row says when a return is due, since Tax left the phone's tab bar.
+function renderMorePage(){
+  var flag = document.getElementById("moreTaxFlag");
+  if(!flag) return;
+  var st = lodgementStatus(localDateStr());
+  flag.hidden = !st.inSeason;
+  flag.textContent = st.inSeason ? "Lodge by 31 Oct" : "";
+}
 
 // Budget (what you plan to spend) vs. Spending (what you actually spent, logged against it) —
 // same pill-subnav + URL-sync pattern as showAssetsSubpage above, and deep-linkable for the same
@@ -679,10 +706,13 @@ export function showDashboardSubpage(id, opts){
   if(DASHBOARD_SUBS.indexOf(id) === -1) id = "overview";
   currentDashboardSub = id;
   document.querySelectorAll(".dashboard-subpage").forEach(function(el){ el.hidden = el.id !== "dashboardSub-" + id; });
-  document.querySelectorAll("#dashboardSubnav .subnav-item").forEach(function(btn){
+  document.querySelectorAll(".today-more [data-dashboard-sub]").forEach(function(btn){
     markCurrent(btn, btn.getAttribute("data-dashboard-sub") === id);
   });
-  scrollActiveSubnavIntoView("dashboardSubnav");
+  // Drawn here, not by whatever opened it — a link on Today, a notice, a shared /dashboard/benchmarks or Back.
+  if(id === "benchmarks") renderBenchmarks();
+  if(id === "review"){ renderMonthReview(); renderHealth(); }
+  if(currentPage === "dashboard"){ document.getElementById("pageTitle").textContent = titleFor("dashboard"); window.scrollTo(0, 0); }
   renderPeriodButton();
   if(currentPage === "dashboard" && !opts.skipUrl) syncUrl("dashboard", !!opts.replace, true);
 }

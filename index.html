@@ -133,17 +133,23 @@
       <div class="app-brand-tag">Budget · Property · Tax</div>
     </div>
     <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-haspopup="true" aria-expanded="false" aria-controls="appNav">
-      <span id="navMenuCurrentLabel">Home</span>
+      <span id="navMenuCurrentLabel">Today</span>
       <svg class="nav-menu-chevron" width="10" height="10" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 2l3 3 3-3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <div class="app-nav" id="appNav">
-      <button type="button" class="nav-item" data-page="dashboard">Home <span class="nav-badge" data-checks-badge hidden></span></button>
+      <button type="button" class="nav-item" data-page="dashboard">Today <span class="nav-badge" data-checks-badge hidden></span></button>
       <button type="button" class="nav-item" data-page="expenses">Cash flow</button>
       <button type="button" class="nav-item" data-page="networth">Net worth</button>
-      <button type="button" class="nav-item" data-page="tax">Tax</button>
       <button type="button" class="nav-item" data-page="plan">Plan</button>
-      <button type="button" class="nav-item" data-page="reports">Reports</button>
-      <button type="button" class="nav-item" data-page="settings">Settings</button>
+      <!-- #412: what a phone's More tab holds, the same five in the same order. -->
+      <p class="nav-group" id="navMoreHead">More</p>
+      <div class="nav-group-items" role="group" aria-labelledby="navMoreHead">
+        <button type="button" class="nav-item" data-page="tax">Tax</button>
+        <button type="button" class="nav-item" data-page="reports">Reports</button>
+        <button type="button" class="nav-item" data-page="calc">Calculators</button>
+        <button type="button" class="nav-item" data-page="settings">Settings</button>
+        <button type="button" class="nav-item" data-more-go="backup">Backup &amp; sync</button>
+      </div>
     </div>
     <div class="app-sidebar-footer">
       <p class="app-sidebar-note">Stored on this device · <button type="button" class="link-btn" id="exportLink2">Back up</button></p>
@@ -153,8 +159,8 @@
   <div class="app-main">
     <header class="app-topbar">
       <div class="app-topbar-left">
-        <button type="button" class="link-btn page-back" id="pageBack" hidden><span class="page-back-chevron" aria-hidden="true">‹</span><span class="page-back-label">Home</span></button>
-        <h1 id="pageTitle">Home</h1>
+        <button type="button" class="link-btn page-back" id="pageBack" hidden><span class="page-back-chevron" aria-hidden="true">‹</span><span class="page-back-label">Today</span></button>
+        <h1 id="pageTitle">Today</h1>
         <div class="period-wrap">
           <button type="button" class="period-btn" id="periodBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="periodMenu" aria-label="Period">—</button>
           <div class="period-menu" id="periodMenu" role="dialog" aria-label="Choose the period" hidden></div>
@@ -189,13 +195,10 @@
              version — in place of the ⋯, on a phone and on desktop alike. The buttons keep their
              ids, so everything wired to them works as it did. Its dot shows when a save failed. -->
         <div class="page-overflow avatar-wrap">
-          <button type="button" class="avatar-btn" id="avatarBtn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Your menu: reports, settings, backup and more" title="Reports, settings, backup and more"><span id="avatarInitial" aria-hidden="true">·</span><i class="avatar-dot" id="avatarDot" hidden></i></button>
+          <button type="button" class="avatar-btn" id="avatarBtn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Your menu: your data, backup, theme and help" title="Your data, backup, theme and help"><span id="avatarInitial" aria-hidden="true">·</span><i class="avatar-dot" id="avatarDot" hidden></i></button>
           <div class="page-overflow-menu avatar-menu" data-overflow-menu hidden>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" id="avatarQuickActions" aria-haspopup="dialog">Add, log or import</button>
             <div class="avatar-divider"></div>
-            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="reports">Reports</button>
-            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="calc">Calculators</button>
-            <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="settings">Settings</button>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="backup">Backup &amp; sync <small id="avatarSyncState"></small></button>
             <div class="avatar-divider"></div>
             <button class="btn btn-sm btn-ghost" id="exportBtn" title="Save a backup file — same data as Share, but downloaded instead of sent, with an optional passphrase">Export backup</button>
@@ -230,23 +233,23 @@
              vs. expected, etc.) — a daily 5-second glance only needs the former; splitting them the
              same way Assets already splits Summary/Cash/Shares/... means Insights' six cards stop
              adding to the scroll length of every single visit, not just the ones that want them. -->
-        <div class="subnav" id="dashboardSubnav" role="group" aria-label="Home sections">
-          <button type="button" class="subnav-item active" aria-current="page" data-dashboard-sub="overview">Overview</button>
-          <button type="button" class="subnav-item" data-dashboard-sub="insights">Insights</button>
-          <button type="button" class="subnav-item" data-dashboard-sub="benchmarks">Benchmarks</button>
-          <button type="button" class="subnav-item" data-dashboard-sub="review">Review</button>
-        </div>
 
         <!-- v3.147.0: the tabs head the page, as on every other page; the summary cards are the
              Overview tab rather than sitting above all four, so Insights, Benchmarks and Review
              open on their own content instead of below the cards. -->
         <div class="dashboard-subpage" id="dashboardSub-overview">
           <div id="homeSummary"></div>
+          <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
+          <nav class="today-more" aria-label="More on Today">
+            <button type="button" class="link-btn" data-dashboard-sub="insights">Insights</button>
+            <button type="button" class="link-btn" data-dashboard-sub="benchmarks">How you compare</button>
+            <button type="button" class="link-btn" data-dashboard-sub="review">Monthly review</button>
+          </nav>
           <div id="staleAssetsBanner"></div>
           <div class="page-intro-row">
             <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
             <div class="page-intro-actions">
-              <button type="button" class="btn btn-sm btn-ghost" id="homeArrangeBtn" data-ha-open title="Reorder and hide Home's cards, or bring Insights panels onto Home">Arrange</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="homeArrangeBtn" data-ha-open title="Reorder and hide Today's cards, or bring Insights panels onto Home">Arrange</button>
             </div>
           </div>
           <div class="stat-row" id="dashboardStats"></div>
@@ -739,7 +742,7 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Needs and take-home</h2></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">The share of a normal month's take-home your Needs should be at most. A scenario's comparison on Plan → Scenarios works out the take-home that would take, before and after the change. 50% is the Needs part of Home's 50/30/20.</p>
+              <p class="ledger-note help" style="margin-left:0">The share of a normal month's take-home your Needs should be at most. A scenario's comparison on Plan → Scenarios works out the take-home that would take, before and after the change. 50% is the Needs part of the 50/30/20 on Today → Insights.</p>
               <div id="needsTargetPref"></div>
             </div>
           </details>
@@ -959,6 +962,16 @@
         </div>
         <div id="addChangeRoot"></div>
       </section>
+      <section class="app-page" id="page-more" hidden>
+        <div class="page-intro-row"><p class="page-intro help">What's used now and then: tax, reports, calculators, settings and backups. On a desktop they're under More in the sidebar.</p></div>
+        <div class="more-list" id="moreList">
+          <button type="button" class="more-item" data-page="tax"><span class="more-item-label">Tax <span class="more-item-flag" id="moreTaxFlag" hidden></span></span><span class="more-item-hint">Income tax worked out from your pay, each year's return and its documents</span></button>
+          <button type="button" class="more-item" data-page="reports"><span class="more-item-label">Reports</span><span class="more-item-hint">Statements for the period — to read, print or hand to an accountant</span></button>
+          <button type="button" class="more-item" data-page="calc"><span class="more-item-label">Calculators</span><span class="more-item-hint">Stamp duty, LMI, repayments and borrowing power</span></button>
+          <button type="button" class="more-item" data-page="settings"><span class="more-item-label">Settings</span><span class="more-item-hint">Categories, preferences and import rules</span></button>
+          <button type="button" class="more-item" data-more-go="backup"><span class="more-item-label">Backup &amp; sync</span><span class="more-item-hint">Save a backup, or keep two devices in step</span></button>
+        </div>
+      </section>
       <section class="app-page" id="page-detail" hidden>
         <div id="detailBody" class="dt-page"></div>
       </section>
@@ -1079,7 +1092,7 @@
   <button type="button" class="mobile-tab" data-page="dashboard">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5"/><rect x="11" y="11" width="6" height="6" rx="1.5"/></svg>
-      <span class="mobile-tab-label">Home</span>
+      <span class="mobile-tab-label">Today</span>
       <span class="nav-badge nav-badge-dot" data-checks-badge hidden></span>
     </span>
   </button>
@@ -1095,16 +1108,16 @@
       <span class="mobile-tab-label">Net worth</span>
     </span>
   </button>
-  <button type="button" class="mobile-tab" data-page="tax">
-    <span class="mobile-tab-pill">
-      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z"/><path d="M12 2.5v3h3"/><path d="M8 14l4-5"/><circle cx="8.3" cy="9.3" r=".9"/><circle cx="11.7" cy="13.7" r=".9"/></svg>
-      <span class="mobile-tab-label">Tax</span>
-    </span>
-  </button>
   <button type="button" class="mobile-tab" data-page="plan">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16l4.5-5 3 3L17 6"/><path d="M13 6h4v4"/></svg>
       <span class="mobile-tab-label">Plan</span>
+    </span>
+  </button>
+  <button type="button" class="mobile-tab" data-page="more">
+    <span class="mobile-tab-pill">
+      <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="4.5" cy="10" r="1.6"/><circle cx="10" cy="10" r="1.6"/><circle cx="15.5" cy="10" r="1.6"/></svg>
+      <span class="mobile-tab-label">More</span>
     </span>
   </button>
 </nav>

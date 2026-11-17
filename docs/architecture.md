@@ -8,8 +8,12 @@ working on it are in [CLAUDE.md](../CLAUDE.md).
 All markup is in `index.html`; pages are `<section class="app-page" id="page-…">`, shown and hidden by `showPage()`
 (`components/nav.js`), not separate documents. By what you own:
 
-- **Home** (`page-dashboard`): Overview / Insights / Benchmarks / Review (Checks sit in Review). Cards carry
-  `data-home-card` and can be arranged (`lib/homelayout.js`); "Your week" (`calc/weekrecap.js`) from each Monday.
+- **Today** (`page-dashboard`, named Home before #412): its cards, then links to Insights, How you compare (benchmarks)
+  and the Monthly review (Checks sit in it) — no tab rail; each opens at `/dashboard/<view>` with the header's back
+  link. Cards carry `data-home-card` and can be arranged (`lib/homelayout.js`); "Your week" (`calc/weekrecap.js`) from
+  each Monday.
+- **More** (`page-more`, #412): a phone's tab for Tax, Reports, Calculators, Settings and Backup & sync; a desktop's
+  sidebar lists the same five under a More heading. The phone's More tab stays lit on each of them (`MORE_GROUP`).
 - **Cash flow** (`page-expenses`): Budget / Income / Spending / Bills.
 - **Net worth**: one menu entry over four pages sharing a rail of tabs — the overview (`page-networth`), Accounts,
   Investments (`page-assets`), Property (`page-properties`).

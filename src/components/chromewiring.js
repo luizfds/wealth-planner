@@ -17,15 +17,12 @@ import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
 import { autoPricesNeeded } from "./autoprices.js";
 import { cashRateDue, readCashRateNow } from "./cashrate.js";
 import { renderNotifBadge } from "./notifpanel.js";
-import { renderBenchmarks } from "./benchmarks.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
-import { renderHealth } from "./health.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
-import { renderMonthReview } from "./monthreview.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage } from "./nav.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -200,7 +197,7 @@ export function wireNavigation(){
   document.getElementById("appNav").addEventListener("click", function(e){
     var btn = e.target.closest(".nav-item");
     if(!btn) return;
-    showPage(btn.getAttribute("data-page"));
+    if(btn.hasAttribute("data-more-go")) goMore(btn); else goPage(btn.getAttribute("data-page"));
     closeNavMenu();
   });
   // Mobile-only dropdown: appNav is a vertical panel behind this toggle below 880px
@@ -215,11 +212,11 @@ export function wireNavigation(){
   document.getElementById("appNav").addEventListener("click", function(e){ e.stopPropagation(); });
   document.addEventListener("click", closeNavMenu);
   document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeNavMenu(); });
-  // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px). v3.140.0: Home, Cash flow,
-  // Net worth, Tax and Plan; Reports and Settings are in the avatar's menu.
+  // Mobile bottom tab bar — the primary nav on a mobile viewport (<880px). #412: Today, Cash flow, Net worth, Plan
+  // and More (Tax, Reports, Calculators, Settings, Backup).
   document.getElementById("mobileTabbar").addEventListener("click", function(e){
     var pageBtn = e.target.closest(".mobile-tab[data-page]");
-    if(pageBtn) showPage(pageBtn.getAttribute("data-page"));
+    if(pageBtn) goPage(pageBtn.getAttribute("data-page"));
   });
   document.querySelector(".investments-back").addEventListener("click", function(){
     showPage("networth");
@@ -313,15 +310,29 @@ export function wireNavigation(){
     var btn = e.target.closest("[data-empty-assets]");
     if(btn) showAssetsSubpage(btn.getAttribute("data-empty-assets"));
   });
-  document.getElementById("dashboardSubnav").addEventListener("click", function(e){
+  // #412: Today's other views open from its links (no tab rail); each has the header's way back.
+  document.querySelector(".today-more").addEventListener("click", function(e){
     var btn = e.target.closest("[data-dashboard-sub]");
-    if(!btn) return;
-    showDashboardSubpage(btn.getAttribute("data-dashboard-sub"));
-    if(btn.getAttribute("data-dashboard-sub") === "benchmarks") renderBenchmarks();
-    if(btn.getAttribute("data-dashboard-sub") === "review"){ renderMonthReview(); renderHealth(); }
+    if(btn) openTodayView(btn.getAttribute("data-dashboard-sub"));
+  });
+  // #412: More's rows, a phone's way to Tax, Reports, Calculators, Settings and Backup.
+  document.getElementById("moreList").addEventListener("click", function(e){
+    var btn = e.target.closest(".more-item");
+    if(btn) goMore(btn);
   });
 }
 
+function openTodayView(sub){ showDashboardSubpage(sub); }   // which draws the view
+// A row of More (or the sidebar's same five): its page, or Backup & sync — Settings → Preferences.
+function goMore(btn){
+  if(btn.getAttribute("data-more-go") === "backup"){ showPage("settings"); showAccountsSubpage("preferences"); return; }
+  showPage(btn.getAttribute("data-page"));
+}
+// Today's tab (the sidebar's or the bar's), chosen while on Insights or the review, goes back to Today itself.
+function goPage(pageId){
+  if(pageId === "dashboard" && currentPageId() === "dashboard" && dashboardSubpage() !== "overview"){ showDashboardSubpage("overview"); return; }
+  showPage(pageId);
+}
 export function wireSubpages(){
   // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
   // the subnav buttons within easy reach, so this only kicks in below the app's usual mobile

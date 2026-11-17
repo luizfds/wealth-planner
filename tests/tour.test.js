@@ -37,12 +37,16 @@ test("each place is named as the menu names it, and points at something in the p
   var navLabel = {}, tabLabel = {};
   html.replace(/class="nav-item" data-page="([a-z]+)">([^<]+)/g, function(_, page, label){ navLabel[page] = label.trim(); return _; });
   html.replace(/class="mobile-tab" data-page="([a-z]+)">[\s\S]*?mobile-tab-label">([^<]+)/g, function(_, page, label){ tabLabel[page] = label.trim(); return _; });
-  ["dashboard", "expenses", "networth", "tax", "plan"].forEach(function(page){
+  ["dashboard", "expenses", "networth", "plan"].forEach(function(page){
     var step = TOUR_STEPS.find(function(s){ return s.page === page && s.targets && s.targets[0].indexOf(".nav-item") === 0; });
     assert.ok(step, "a step for " + page);
     assert.equal(step.title, navLabel[page], "the sidebar's label");
     assert.equal(step.title, tabLabel[page], "the tab bar's label");
   });
+  // #412: More is a tab on a phone and a heading over the same five in the sidebar.
+  var more = TOUR_STEPS.find(function(s){ return s.key === "more"; });
+  assert.equal(more.page, "more"); assert.equal(more.title, tabLabel.more, "the tab bar's label");
+  assert.match(html, /id="navMoreHead">More</, "the sidebar's More heading");
   var scen = TOUR_STEPS.find(function(s){ return s.key === "scenarios"; });
   assert.match(html, /data-plan-sub="scenarios">Scenarios</, "Scenarios is a tab of Plan");
   assert.equal(scen.page, "plan"); assert.equal(scen.title, "Scenarios");
@@ -93,7 +97,7 @@ test("the tour's markup: a named dialog, a live step, and the first steps as pla
   assert.match(shell, /aria-live="polite"/);
   ["data-tour-next", "data-tour-back", "data-tour-end", "aria-label=\"Close the tour\""].forEach(function(a){ assert.ok(shell.indexOf(a) !== -1, a); });
   var first = tourStepHtml(TOUR_STEPS[0], 0, TOUR_STEPS.length, []);
-  assert.match(first, /Step 1 of 9/); assert.match(first, /<h2 class="tour-title">Home<\/h2>/);
+  assert.match(first, /Step 1 of 9/); assert.match(first, /<h2 class="tour-title">Today<\/h2>/);
   assert.doesNotMatch(first, /data-tour-go/);
   var last = tourStepHtml(TOUR_STEPS[TOUR_STEPS.length - 1], TOUR_STEPS.length - 1, TOUR_STEPS.length,
     [{ label: "Add your pay", done: true }, { label: "A <b>step</b>", done: false }]);

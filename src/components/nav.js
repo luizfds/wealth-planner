@@ -341,11 +341,11 @@ function groupedFabTarget(rootId){
 export var QUICK_ACTIONS = [
   { label: "Log spend",     hint: "A real transaction against a budget line", page: "expenses",   sub: "spending", selector: "#quickLogBtn", group: "log" },
   { label: "Add expense",   hint: "A new planned budget line",                page: "expenses",   sub: "budget",   selector: '[data-add="shared"]', group: "add", short: "Budget line" },
-  { label: "Log income",    hint: "Pay, rent or a distribution that arrived", page: "income",     mode: "received", group: "log" },
+  { label: "Log income",    hint: "Pay, rent or a distribution that came in", page: "income",     mode: "received", group: "log" },
   // v3.208.0 (item 240): only offered with an investment property — the statement form, on its Income & costs tab.
   { label: "Log a rent statement", hint: "A property manager's monthly statement", page: "properties", mode: "rentstatement", needsIP: true, group: "log" },
   // v3.141.0: a card repayment is a transfer — this opens the form with the card and its payment in.
-  { label: "Pay a card",    hint: "A repayment from an account to a credit card", page: "expenses", sub: "spending", mode: "paycard", group: "log" },
+  { label: "Pay a card",    hint: "A repayment to a credit card", page: "expenses", sub: "spending", mode: "paycard", group: "log" },
   // No selector on these three: Income and Assets build their add buttons per person/category
   // (data-add="income:<person>", "assets:Cash", "holding"), so the value isn't knowable from here.
   // They resolve to the first visible [data-add] on the destination page instead — the same way
@@ -374,7 +374,7 @@ export function quickActionsSheetHtml(){
   var html = own ? '<h5 class="qfab-group">On this page</h5>' + sheetRow('data-quick-page', own.label, "Here, on " + pageLabel(currentPage)) : "";
   SHEET_GROUPS.forEach(function(g){
     var rows = g[0] === "import"
-      ? sheetRow('data-quick-import', "Import a file", "A bank, loan, property manager or payslip statement, broker trades, prices or a spreadsheet")
+      ? sheetRow('data-quick-import', "Import a file", "Statements, payslips, trades, prices or a spreadsheet")
       : QUICK_ACTIONS.map(function(action, i){
         if(action.group !== g[0] || (action.needsIP && !hasIP)) return "";
         // Adding is named by what it adds, two to a row: the sheet fits a phone without scrolling.

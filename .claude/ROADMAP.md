@@ -5395,12 +5395,21 @@ Built as planned. "10% off" is 10% of the progress the plan has planned so far (
 ## Simpler navigation — November 2026 review (v3.286.0)
 
 People reported the app hard to find their way around. Measured and planned in `docs/design/simpler-navigation.md`,
-approved by the owner. Five steps, each its own PR, in this order.
+approved by the owner. Tracked as issue #409, one sub-issue per step (#410–#414). Five steps, each its own PR, in this order.
 
-1. `[~]` **Back works everywhere.** Home's tabs and the chosen report get their own addresses; Details, Reports, Settings
-   and Calculators get one back link in the header, named for where it goes; a deep link puts Home beneath it.
-2. `[ ]` **One + for adding and importing.** "Import a file" in the + sheet, detecting the kind; page import buttons open
+1. `[x]` **Back works everywhere** (#410) — shipped v3.287.0 (PR #407). Home's tabs and the chosen report get their own
+   addresses; Details, Reports, Settings and Calculators get one back link in the header, named for where it goes; a
+   deep link puts Home beneath it. Also fixed: a link into another page's tab replaced the entry of the page it left.
+   The journey's tab choice was made picker-proof in PR #408 (CI's wider font turns Home's tabs into a picker at 390px).
+2. `[ ]` **One + for adding and importing** (#411). "Import a file" in the + sheet, detecting the kind; page import buttons open
    it preset; Reports and Calculators in the same place on a phone and a desktop.
-3. `[ ]` **Home becomes Today.** Insights and Benchmarks off the rail; seasonal cards.
-4. `[ ]` **Accounts as one list.** Net worth's four pages as one list with filter chips; tools on each Details page.
-5. `[ ]` **Simple and Advanced.** `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
+3. `[ ]` **Home becomes Today** (#412). Insights and Benchmarks off the rail; seasonal cards.
+4. `[ ]` **Accounts as one list** (#413). Net worth's four pages as one list with filter chips; tools on each Details page.
+5. `[ ]` **Simple and Advanced** (#414). `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
+
+Alongside: `[x]` **Bills to confirm in the page's line, not the header** (#415, PR #408). On a day with a bill to confirm,
+Cash flow's "N bills to confirm" header button wrapped the header to two rows (+48px on a phone, +56px at 1280px) and
+pushed Spending's first record below half the screen, failing the smoke run on main. The same fact was already a To
+do. The button is gone; a bill that fell due with nothing logged is a To do with action `catchup` that opens the confirm
+sheet, from the bell, Home's To do or Spending's line ("1 bill to confirm: Power", or a due bill by name). A line never
+logged still "needs a fresh entry". Journeys `bills` and `billconfirmation` open the sheet from the bell.

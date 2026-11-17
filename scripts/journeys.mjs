@@ -273,6 +273,12 @@ const ready = (page, what) => waited(page, () => !!document.documentElement && d
 const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 }).catch(() => {});
 // The same from this side: until test() (async, here) is true, up to 10s, polling every 100ms.
 async function eventually(test){ for(let t0 = Date.now(); Date.now() - t0 < 10000; await new Promise(r => setTimeout(r, 100))) if(await test()) return; }
+// #415: bills to confirm open from their To do (the bell, Home, a page's line), not a header button.
+async function openBillsToConfirm(page){
+  await page.evaluate(() => [...document.querySelectorAll('.notif-bell-btn')].find(b => b.getClientRects().length).click());
+  await page.locator('#notifPanel [data-notif-action="catchup"]').first().click();
+  await page.locator('#expenseReviewRoot .review-panel').waitFor();
+}
 async function go(page, pageId, subAttr, sub){
   if(pageId === 'reports' && subAttr === 'data-report'){
     await go(page, 'reports');
@@ -3265,10 +3271,12 @@ const JOURNEYS = {
       await settle(page);
     };
     const backLabel = () => page.evaluate(() => { const b = document.getElementById('pageBack'); return b && !b.hidden && b.getClientRects().length ? b.querySelector('.page-back-label').textContent : null; });
-    for(const width of [390, 1280]){
+    // 320px too: there Home's tabs never fit, and a section picker stands in for them (CI's wider fallback font does
+    // the same at 390px), so tabs are chosen the way go() does rather than by clicking a button that may be hidden.
+    for(const width of [320, 390, 1280]){
       await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
       await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
-      await page.locator('[data-dashboard-sub="insights"]').click(); await at('/dashboard/insights');
+      await go(page, 'dashboard', 'data-dashboard-sub', 'insights'); await at('/dashboard/insights');
       await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
       check(await backLabel() === null, 'a page in the menu has a header back link');
       // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
@@ -3281,7 +3289,7 @@ const JOURNEYS = {
       await page.locator('.report-chooser [data-report="' + second + '"]').click(); await at('/reports/' + second);
       check(await backLabel() === firstLabel, 'the second report does not name the first: ' + await backLabel());
       await go(page, 'networth'); await at('/networth');
-      await page.locator('#page-networth [data-detail]').first().click();
+      await page.locator('#page-networth [data-detail]:visible').first().click();
       await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
       check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
       check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');
@@ -7085,7 +7093,7 @@ const JOURNEYS = {
     for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
       await page.setViewportSize({width,height:844});
       await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
-      await click(page,'#reviewExpensesBtn');
+      await openBillsToConfirm(page);
       await waited(page,()=>document.querySelectorAll('.bc-confirm-row').length===4,'four separate due payments');
       if(process.env.BILLS_SHOTS) await page.locator('#expenseReviewRoot .review-panel').screenshot({path:path.join(process.env.BILLS_SHOTS,width+'-'+theme+'.png')});
       const layout=await page.locator('.bc-confirm-row').evaluateAll(rows=>rows.map(row=>{
@@ -7101,7 +7109,7 @@ const JOURNEYS = {
       await waited(page,()=>!document.querySelector('#expenseReviewRoot .review-panel'),'close bills without confirming');
     }
     check(await st(page,'JSON.stringify(state.transactions)')===original,'opening and closing bills changed transactions');
-    await click(page,'#reviewExpensesBtn');
+    await openBillsToConfirm(page);
     await page.locator('.bc-confirm-amount').first().fill('300');
     await page.locator('.bc-confirm-date').first().fill('2026-09-21');
     check(await page.locator('.bc-confirm-check:checked').count()===4,'editing a field toggled a bill checkbox');
@@ -7114,15 +7122,14 @@ const JOURNEYS = {
     check(await st(page,'JSON.stringify(state.shared)')===planned,'confirmation changed the budget plan');
     await click(page,'[data-review-close]');
     await waited(page,()=>!document.querySelector('#expenseReviewRoot .review-panel'),'close completed bills');
-    await click(page,'#reviewExpensesBtn');
+    await openBillsToConfirm(page);
     check(await page.locator('.bc-confirm-row').count()===1,'confirmed payment offered again or unchecked payment lost');
   },
   async bills(page){
     await go(page, "expenses", "data-expenses-sub", "spending");
     const before = await st(page, "state.transactions.length");
-    const btn = await page.$("#reviewExpensesBtn:not([hidden])");
-    check(btn, "no \"bills to confirm\" button on the sample household");
-    await btn.click(); await until(page, () => !!document.querySelector(".bc-confirm-row .bc-confirm-check:checked"));
+    check(await page.locator('#reviewExpensesBtn').count() === 0, "Cash flow's header still carries a bills-to-confirm button");
+    await openBillsToConfirm(page); await until(page, () => !!document.querySelector(".bc-confirm-row .bc-confirm-check:checked"));
     const n = await page.evaluate(() => document.querySelectorAll(".bc-confirm-row .bc-confirm-check:checked").length);
     check(n > 0, "the sheet lists no bills");
     await click(page, "[data-review-confirm]"); await eventually(async () => await st(page, "state.transactions.length") > before);

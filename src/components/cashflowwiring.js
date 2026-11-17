@@ -36,7 +36,7 @@ import { renderProjectionsWhenSeen } from "./projections.js";
 import { renderTotals, updatePersonSuggestions } from "./redraw.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 
-var reviewBtn, quickLogBtn;
+var quickLogBtn;
 
 // ---------------- Cash flow's lists, registered (v3.206.2, item 237b) ----------------
 // Income and the Budget's lines, as the generic row code sees them (lib/sections.js).
@@ -301,13 +301,14 @@ export function wireOverrides(){  document.getElementById("scenarioOverrideRoot"
   });
 }
 
-export function wireCashflowSheets(){  reviewBtn = document.getElementById("reviewExpensesBtn");
-  if(reviewBtn) reviewBtn.addEventListener("click", function(){
-    openExpenseReview();
-    // openExpenseReview() can no-op (nothing due for review, or no expenses at all — see its own
-    // early-return toasts), so check the panel actually rendered before claiming a history entry.
-    if(document.querySelector("[data-review-backdrop]")) pushActiveOverlay(closeExpenseReview);
-  });
+// Bills to confirm, from the bell, Home's To do or a page's line (#415: their "catchup" action).
+export function openBillsToConfirm(){
+  openExpenseReview();
+  // openExpenseReview() can no-op (nothing due for review, or no expenses at all — see its own
+  // early-return toasts), so check the panel actually rendered before claiming a history entry.
+  if(document.querySelector("[data-review-backdrop]")) pushActiveOverlay(closeExpenseReview);
+}
+export function wireCashflowSheets(){
   document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
       requestCloseActiveOverlay();

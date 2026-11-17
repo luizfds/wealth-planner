@@ -157,3 +157,29 @@ test("a bill paid from a card isn't nagged for an entry — Review expenses does
       });
   } finally { state.accounts = prevAcc; }
 });
+
+// #415: Cash flow's header no longer carries "N bills to confirm" — the bell, Home's To do and the page's line do,
+// and tapping it opens the confirm sheet (action "catchup"). A line never logged still asks for its first entry.
+test("a bill that fell due with nothing logged is a To do that opens the confirm sheet; a never-logged line is not", function(){
+  var prev = { shared: state.shared, transactions: state.transactions, accounts: state.accounts, transfers: state.transfers };
+  var d = new Date(); d.setDate(d.getDate() - 40);
+  var lastPaid = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  state.accounts = [{ id: "acc-everyday", name: "Everyday", type: "everyday" }];
+  state.transfers = [];
+  state.shared = [
+    { id: "power", what: "Power", amount: 150, freq: "Monthly", account: "Everyday" },
+    { id: "groceries", what: "Groceries", amount: 100, freq: "Monthly", account: "Everyday" }
+  ];
+  state.transactions = [{ id: "t1", linkedExpenseId: "power", what: "Power", date: lastPaid, amount: 150, account: "Everyday" }];
+  try {
+    var all = getLocalNotifications();
+    var power = all.filter(function(n){ return /Power|bills? to confirm/.test(n.title); });
+    assert.ok(power.length, "Power is asked about");
+    assert.ok(power.every(function(n){ return n.action === "catchup"; }), "every notice about Power opens the confirm sheet: " + JSON.stringify(power));
+    var fresh = all.find(function(n){ return n.title === "Groceries needs a fresh entry"; });
+    assert.ok(fresh, "a never-logged line still asks for its first entry");
+    assert.equal(fresh.action, undefined, "the confirm sheet doesn't list a line never logged");
+  } finally {
+    Object.assign(state, prev);
+  }
+});

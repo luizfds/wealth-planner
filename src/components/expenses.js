@@ -357,10 +357,6 @@ function drawBudgetPlan(){
   if(scEl) scEl.textContent = scen;
 }
 export function renderSharedGroups(){
-  // The overdue count depends on the budget lines and on what's been logged against them, so it's
-  // refreshed from both of the renders that follow a change to either (see also
-  // renderActualVsPlannedPanel) rather than from every call site that mutates them.
-  renderExpenseReviewButton();
   renderBudgetPlan();
   var container = document.getElementById("sharedGroups");
   if(!container) return;
@@ -615,13 +611,8 @@ export var expenseReview = null;
 function billsDue(){
   return billsToConfirm(loggableBudgetLineItems(currentScenario()), state.transactions, localDateStr(), { accounts: state.accounts, transfers: state.transfers });
 }
-export function renderExpenseReviewButton(){
-  var btn = document.getElementById("reviewExpensesBtn");
-  if(!btn) return;
-  var n = billsDue().length;
-  btn.hidden = n === 0;
-  btn.textContent = n + " bill" + (n === 1 ? "" : "s") + " to confirm";
-}
+// #415: bills to confirm are a To do (lib/notifications.js, action "catchup"), on the page's line and in the bell — not
+// a button in the header, which wrapped it to two rows and said the same thing a second time.
 export function openExpenseReview(){
   var due = billsDue();
   if(!due.length){ showToast("Nothing to confirm — every bill that's fallen due has been logged."); return; }
@@ -1646,7 +1637,6 @@ function billedThisMonth(items){
   }, 0);
 }
 export function renderActualVsPlannedPanel(){
-  renderExpenseReviewButton();
   renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();

@@ -3265,10 +3265,12 @@ const JOURNEYS = {
       await settle(page);
     };
     const backLabel = () => page.evaluate(() => { const b = document.getElementById('pageBack'); return b && !b.hidden && b.getClientRects().length ? b.querySelector('.page-back-label').textContent : null; });
-    for(const width of [390, 1280]){
+    // 320px too: there Home's tabs never fit, and a section picker stands in for them (CI's wider fallback font does
+    // the same at 390px), so tabs are chosen the way go() does rather than by clicking a button that may be hidden.
+    for(const width of [320, 390, 1280]){
       await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
       await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
-      await page.locator('[data-dashboard-sub="insights"]').click(); await at('/dashboard/insights');
+      await go(page, 'dashboard', 'data-dashboard-sub', 'insights'); await at('/dashboard/insights');
       await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
       check(await backLabel() === null, 'a page in the menu has a header back link');
       // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
@@ -3281,7 +3283,7 @@ const JOURNEYS = {
       await page.locator('.report-chooser [data-report="' + second + '"]').click(); await at('/reports/' + second);
       check(await backLabel() === firstLabel, 'the second report does not name the first: ' + await backLabel());
       await go(page, 'networth'); await at('/networth');
-      await page.locator('#page-networth [data-detail]').first().click();
+      await page.locator('#page-networth [data-detail]:visible').first().click();
       await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
       check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
       check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');

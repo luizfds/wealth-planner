@@ -36,6 +36,7 @@ test("an add button reads \"+ Add\" and the thing, lower case, with no article",
     if(!/^\+? ?Add\b/.test(b.text)) return false;
     if(/^Add (to|with|from) /.test(b.text)) return false;          // "Add to budget", "Add with full details": not adding a row
     if(/^Add ' \+/.test(b.text)) return false;                      // "Add 3 trades": a count, built in code
+    if(/^Add, log or import$/.test(b.text)) return false;           // the + sheet's name (#411): opens a menu, adds no row
     return !/^\+ Add (?!an? |the )([a-z]|' \+)/.test(b.text);
   }).map(function(b){ return b.where + " " + b.text; });
   assert.deepEqual(bad, []);

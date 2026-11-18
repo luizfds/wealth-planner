@@ -28,8 +28,12 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
 Every view has its own address — Home's tabs (`/dashboard/insights`, Overview plain `/dashboard`) and the report on
 screen (`/reports/budget`) included — so Back steps through them. Each history entry the app writes carries `depth` and
 the name of the screen it came from (`from`); the header's back link (`#pageBack`, nav.js `renderBackLink`, on the pages
-in `BACK_LINK_PAGES`) goes back through it, named for that screen, or Home. A deep link starts with Home beneath it
-(`seedHomeBeneath`). Anything that sends someone back calls `goBackInApp()`, never `history.length`.
+in `BACK_LINK_PAGES`) goes back through it, named for that screen. With nothing of the app's own behind it (a deep link
+starts with Home beneath it, `seedHomeBeneath`, marked `seeded`) it goes to the screen's parent instead — `lib/parents.js`
+names one for every inner screen (a holding's Details → its Shares tab → Net worth), then Home. The same chain is a
+desktop's breadcrumb (`#pageCrumbs`) and decides the menu entry a Details page lights. Leaving a page keeps its scroll on
+its history entry, and Back puts it back (`restoreScroll`). Anything that sends someone back calls `goBackInApp()`, never
+`history.length`.
 Old ids (`income`, `scenarios`, `projections`) still route through nav.js's ALIASES; `/settings/people|checks` land
 where those tabs moved (`MOVED_SETTINGS`). `showPage()` applies inside a view transition — two navigations in one tick
 are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).

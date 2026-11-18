@@ -19,7 +19,7 @@ import { backfillNetWorth } from "./calc/nwauto.js";
 import { detailTarget } from "./components/detail.js";
 import { applyMode, initialMode } from "./lib/mode.js";
 import { reportShown } from "./components/reports.js";
-import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY, seedHomeBeneath } from "./components/nav.js";
+import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY, seedHomeBeneath, restoreScroll } from "./components/nav.js";
 import { wireLedgerEdits, wireRowEditors, wireMoreRowEditors, wireAddButtons } from "./components/rows.js";
 import { wireSuggestions, renderGlobalMetrics, renderAll } from "./components/redraw.js";
 import { wirePhoneSheets, wireOverflowMenus, wireModalHistory } from "./components/overlays.js";
@@ -166,6 +166,8 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     if(route.page === "settings") showAccountsSubpage(route.sub || "categories", { skipUrl: true });
     if(route.page === "tax" && route.sub === "people") renderPeopleTab();
     if(route.page === "dashboard"){ showDashboardSubpage(route.sub || "overview", { skipUrl: true }); if(route.sub === "review"){ renderMonthReview(); renderHealth(); } }
+    // #425: back where you were on that screen.
+    restoreScroll(route.page, e.state && e.state.scroll);
   });
   wireAdvice();
 

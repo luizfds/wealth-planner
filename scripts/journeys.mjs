@@ -3178,27 +3178,31 @@ const JOURNEYS = {
       await page.waitForFunction(() => document.body.dataset.currentPage === "assets");
     };
     await enter();
-    const picker = page.locator('#assetsSubnav > select');
-    await picker.waitFor({ state: "visible" });
-    // A native popup cannot stay open if every frame hides and restores its select.
+    // #422: Investments' sections are pills with totals, never a dropdown; the way up is the header's "‹ Net worth".
+    check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
     await settle(page);
     await page.evaluate(() => {
       window.__pickerChanges = 0;
       window.__pickerObserver = new MutationObserver(ms => { window.__pickerChanges += ms.length; });
-      window.__pickerObserver.observe(document.getElementById("assetsSubnav"), { attributes: true, attributeFilter: ["class"] });
+      window.__pickerObserver.observe(document.getElementById("assetsSubnav"), { attributes: true, subtree: true, childList: true });
     });
     await page.waitForTimeout(250);
     check(await page.evaluate(() => { window.__pickerObserver.disconnect(); return window.__pickerChanges < 10; }),
-      "Investments picker keeps relaying out while idle");
-    for(const label of ["Shares", "Super", "Cash"]){
-      await picker.selectOption({ label });
+      "Investments' pills keep changing while idle");
+    for(const label of ["Offsets", "Shares", "Super", "Cash"]){
+      const pill = page.locator('#assetsSubnav [data-assets-sub="' + label + '"]');
+      await pill.tap();
       await page.waitForFunction(id => !document.getElementById("assetsSub-" + id).hidden, label);
-      check(await picker.locator('option:checked').textContent() === label, "Investments picker did not keep " + label);
+      check(await pill.getAttribute("aria-current") === "page", "the " + label + " pill is not marked current");
+      check(await page.evaluate(id => { const strip = document.getElementById("assetsSubnav").getBoundingClientRect(); const b = document.querySelector('#assetsSubnav [data-assets-sub="' + id + '"]').getBoundingClientRect();
+        return b.left >= strip.left - 1 && b.right <= strip.right + 1; }, label), "the " + label + " pill is not scrolled into view");
     }
-    await page.locator('.investments-back').tap();
+    const back = page.locator('#pageBack');
+    check(await back.isVisible() && (await back.textContent()).includes("Net worth"), "Investments has no header link up to Net worth");
+    await back.tap();
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     await enter();
-    await page.locator('.investments-back').tap();
+    await page.locator('#pageBack').tap();
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
   },
   async sharesquickperiod(page){
@@ -3542,27 +3546,29 @@ const JOURNEYS = {
     for(const width of [320, 390]){
       await page.setViewportSize({ width, height: 844 });
       await go(page, "assets", "data-assets-sub", "Shares");
-      const picker = page.locator('#assetsSubnav > select');
-      await picker.waitFor({ state: "visible" });
-      check(await picker.locator('option:checked').textContent() === "Shares", "deep-linked Shares is not the selected section");
+      // #422: Investments keeps its pills at every width — no picker — and goes up to Net worth from the header.
+      const pill = id => page.locator('#assetsSubnav [data-assets-sub="' + id + '"]');
+      await pill("Shares").waitFor({ state: "visible" });
+      check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
+      check(await pill("Shares").getAttribute("aria-current") === "page", "deep-linked Shares is not the selected section");
       check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
-      check(await page.locator('.investments-back').isVisible(), "Investments has no Net worth back link");
+      check(await page.locator('#pageBack').isVisible() && (await page.locator('#pageBack').textContent()).includes("Net worth"), "Investments has no Net worth back link");
       const range = page.locator('#sharesChangeWindow [data-shares-change-window="1w"]');
       await range.click();
       check(!await page.locator('#sharesChangeWindow select').count(), "Shares range strip became a section picker");
-      await picker.focus();
-      await page.keyboard.press('End');
+      await pill("Offsets").focus();
+      await page.keyboard.press('Enter');
       await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
-      check(await picker.locator('option:checked').textContent() === "Offsets", "keyboard choice did not select Offsets");
-      await picker.selectOption({ label: "Super" });
+      check(await pill("Offsets").getAttribute("aria-current") === "page", "keyboard choice did not select Offsets");
+      await pill("Super").click();
       await page.waitForFunction(() => !document.getElementById('assetsSub-Super').hidden);
       await page.goBack();
       await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
       await settle(page);
-      check(await picker.locator('option:checked').textContent() === "Offsets", "Back did not restore the picker selection");
+      check(await pill("Offsets").getAttribute("aria-current") === "page", "Back did not restore the selected pill");
       await page.setViewportSize({ width: 1280, height: 800 });
-      await picker.waitFor({ state: "hidden" });
-      check(await page.locator('#assetsSubnav [data-assets-sub="Offsets"]').isVisible(), "desktop did not restore tabs");
+      await page.waitForFunction(() => !document.getElementById('pageBack').checkVisibility());
+      check(await pill("Offsets").isVisible() && await page.locator('#page-assets > .nw-rail').isVisible(), "desktop did not show the rail and pills");
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
       const prop = page.locator('#propertiesBody .prop-tabs').first();
@@ -5862,23 +5868,12 @@ const JOURNEYS = {
     check(!resumed.skipped, 'prices stayed blocked after the editor closed');
     check(await saved('amount')===275, 'resuming prices changed the saved amount');
   },
-  // Hold pending resize frames to reproduce the hidden-tab focus handoff, rather than hoping
-  // the category change happens to beat ResizeObserver in a busy CI run.
+  // A category change moves the asset to its new section and focuses that section's pill (#422: the one control for
+  // it at every width — it was a hand-off between a phone's picker and a desktop's tab, raced by resize frames).
   async categoryresizefocus(page){
-    await page.addInitScript(() => {
-      const raf = window.requestAnimationFrame.bind(window), queued = [];
-      let held = false;
-      window.requestAnimationFrame = cb => raf(t => { if(held) queued.push(cb); else cb(t); });
-      window.holdCategoryFrames = () => { held = true; };
-      window.releaseCategoryFrames = () => { held = false; queued.splice(0).forEach(cb => raf(cb)); };
-    });
-    await page.reload();
     await quiet(page);
     await go(page, 'assets', 'data-assets-sub', 'Cash');
     await page.locator('#assetsSub-Cash .m-row [data-row-toggle]').first().click();
-    await page.evaluate(() => window.holdCategoryFrames());
-    await page.setViewportSize({width:1280,height:844});
-    check(await page.locator('#assetsSubnav > select').isVisible(), 'the resize probe did not retain the phone picker');
     await page.evaluate(() => new Promise((resolve, reject) => {
       const timer = setTimeout(() => { observer.disconnect(); reject(new Error('Category change did not close its editor')); }, 5000);
       const observer = new MutationObserver(() => {
@@ -5888,9 +5883,11 @@ const JOURNEYS = {
       const field = document.querySelector('#assetsSub-Cash .m-row.open .a-category');
       field.value = 'Other'; field.dispatchEvent(new Event('change', {bubbles:true}));
     }));
-    check(await page.evaluate(() => document.activeElement.matches('#assetsSubnav > select') && !!document.activeElement.getClientRects().length), 'Category change focused a hidden tab instead of the visible picker');
-    await page.evaluate(() => window.releaseCategoryFrames());
-    await page.waitForFunction(() => document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
+    await page.waitForFunction(() => document.activeElement.matches('#assetsSubnav .subnav-item.active[data-assets-sub="Cash"]') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
+    // Each pill's total is its section's own Total, so the move shows on both pills straight away.
+    check(await page.evaluate(async () => { const a = await import('/src/components/assets.js'), f = await import('/src/lib/format.js'), t = a.investmentsStripTotals();
+      return ["Cash", "Other"].every(k => document.querySelector('[data-inv-total="' + k + '"]').textContent === f.fmtCompact(t[k])) && t.Other > 0; }),
+      "the Cash and Other pills' totals did not follow the move");
   },
   async assetfields(page){
     const indexOf=id=>page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),id);

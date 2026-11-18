@@ -60,6 +60,7 @@ const VIEWS = [
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
   ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
+  ".inv-strip",                            // Investments' sections as pills with totals, never a dropdown (the owner's choice, #422)
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
   ".scenario-tradeoffs [role=region]",     // Home's scenario comparison table, every column a figure (#266)

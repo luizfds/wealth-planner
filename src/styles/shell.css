@@ -64,10 +64,9 @@
     display:block; width:100%; min-width:0; min-height:44px;
     font-size:var(--fs-md); font-weight:600;
   }
-  .investments-back{ display:none; }
+  /* #422: on a phone Investments' way up is the header's back link (nav.js upToNetWorth), not a second rail. */
   @media (max-width:880px){
     #page-assets > .nw-rail{ display:none; }
-    .investments-back{ display:inline-flex; align-items:center; align-self:flex-start; min-height:44px; }
   }
   .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
   .assets-subpage[hidden]{ display:none; }
@@ -461,11 +460,18 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
   .app-topbar.is-compact h1{ font-size:var(--fs-lg); }
   .app-topbar.is-compact .period-wrap, .app-topbar.is-compact .page-help-btn, .app-topbar.is-compact .page-actions-slot{ display:none; }
 }
+/* #422: "Investments" is the one title too long for its ⋯ beside it on a phone, which left the ⋯ alone on a row. There
+   the year chip doesn't take a row of its own; the ⋯ follows it. */
+@media (max-width: 880px){
+  body[data-current-page="assets"] .app-topbar .period-wrap{ flex-basis:auto; order:3; }
+  body[data-current-page="assets"] .app-topbar .page-actions-slot{ order:4; }
+}
 /* Simpler navigation step 1: an inner page's way back, named for where it goes — before the title on a desktop,
    on its own line above it on a phone. */
 .page-back{ display:inline-flex; align-items:center; gap:4px; min-height:36px; padding:0 4px; margin-left:-4px; border-radius:6px;
   font-size:var(--fs-md); white-space:nowrap; max-width:16em; overflow:hidden; text-overflow:ellipsis; }
 .page-back[hidden]{ display:none; }
+@media (min-width:881px){ .page-back[data-phone-only]{ display:none; } }
 .page-back:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
 .page-back-chevron{ font-size:1.25em; line-height:1; }
 .page-back-label{ overflow:hidden; text-overflow:ellipsis; }

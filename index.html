@@ -146,7 +146,7 @@
       <div class="nav-group-items" role="group" aria-labelledby="navMoreHead">
         <button type="button" class="nav-item" data-page="tax">Tax</button>
         <button type="button" class="nav-item" data-page="reports">Reports</button>
-        <button type="button" class="nav-item" data-page="calc">Calculators</button>
+        <button type="button" class="nav-item" data-page="calc" data-level="advanced">Calculators</button>
         <button type="button" class="nav-item" data-page="settings">Settings</button>
         <button type="button" class="nav-item" data-more-go="backup">Backup &amp; sync</button>
       </div>
@@ -241,8 +241,8 @@
           <div id="homeSummary"></div>
           <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
           <nav class="today-more" aria-label="More on Today">
-            <button type="button" class="link-btn" data-dashboard-sub="insights">Insights</button>
-            <button type="button" class="link-btn" data-dashboard-sub="benchmarks">How you compare</button>
+            <button type="button" class="link-btn" data-dashboard-sub="insights" data-level="advanced">Insights</button>
+            <button type="button" class="link-btn" data-dashboard-sub="benchmarks" data-level="advanced">How you compare</button>
             <button type="button" class="link-btn" data-dashboard-sub="review">Monthly review</button>
           </nav>
           <div id="staleAssetsBanner"></div>
@@ -256,7 +256,7 @@
           <div class="savings-why" id="savingsBreakdown" hidden></div>
           <!-- v3.165.0: Insights panels brought onto Home are moved in here (lib/homelayout.js). -->
           <div class="detail-grid home-pinned" id="homePinned" hidden></div>
-          <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
+          <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" data-level="advanced" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
           <button type="button" class="calc-hint-link" data-adv-go="plan" data-adv-sub="scenarios" style="display:block;margin:0 0 12px">Compare scenarios side by side in Plan →</button>
         </div>
 
@@ -536,7 +536,7 @@
               </div>
             </div>
           </details>
-          <details class="ledger" open>
+          <details class="ledger" open data-level="advanced">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Spending over time</h2></div>
               <div class="ledger-total">last 6 months</div>
@@ -663,7 +663,7 @@
         <div class="subnav" id="accountsSubnav" role="group" aria-label="Settings sections">
           <button type="button" class="subnav-item active" aria-current="page" data-accounts-sub="categories">Categories</button>
           <button type="button" class="subnav-item" data-accounts-sub="preferences">Preferences</button>
-          <button type="button" class="subnav-item" data-accounts-sub="rules">Import rules</button>
+          <button type="button" class="subnav-item" data-accounts-sub="rules" data-level="advanced">Import rules</button>
         </div>
         <div class="accounts-subpage" id="accountsSub-categories">
         <div class="page-intro-row">
@@ -782,7 +782,9 @@
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Explanations</h2></div>
             </summary>
             <div class="ledger-body">
-              <label class="pref-check"><input type="checkbox" id="showHelpToggle"> Show every section's explanation</label>
+              <label class="pref-check"><input type="checkbox" id="modeAdvancedToggle" data-mode-toggle> Show everything (Advanced)</label>
+              <p class="ledger-note" style="margin-left:0;margin-top:8px">Off (Simple), the tools most households use now and then — scenarios, projections, retirement, calculators, import rules, the deeper charts and most reports — stay out of the way; "Show more on this page" brings a page's back for a visit. Every figure counts everything either way. Remembered on this device only.</p>
+              <label class="pref-check" style="margin-top:12px"><input type="checkbox" id="showHelpToggle"> Show every section's explanation</label>
               <p class="ledger-note" style="margin-left:0;margin-top:8px">Off, each section keeps its explanation behind the ⓘ next to its title. This is remembered on this device only.</p>
             </div>
           </details>
@@ -897,7 +899,7 @@
         <div id="netWorthBody" class="nw-page"></div>
         <!-- #413: what Investments → Summary held that the list doesn't say — the mix, what buying would do, and how
              net worth and its shape have moved. The repeated totals went with it. Folded, so the list leads. -->
-        <div class="ledgers nw-more" id="netWorthMore">
+        <div class="ledgers nw-more" id="netWorthMore" data-level="advanced">
             <details class="ledger">
               <summary>
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>
@@ -960,10 +962,12 @@
         <div class="more-list" id="moreList">
           <button type="button" class="more-item" data-page="tax"><span class="more-item-label">Tax <span class="more-item-flag" id="moreTaxFlag" hidden></span></span><span class="more-item-hint">Income tax worked out from your pay, each year's return and its documents</span></button>
           <button type="button" class="more-item" data-page="reports"><span class="more-item-label">Reports</span><span class="more-item-hint">Statements for the period — to read, print or hand to an accountant</span></button>
-          <button type="button" class="more-item" data-page="calc"><span class="more-item-label">Calculators</span><span class="more-item-hint">Stamp duty, LMI, repayments and borrowing power</span></button>
+          <button type="button" class="more-item" data-page="calc" data-level="advanced"><span class="more-item-label">Calculators</span><span class="more-item-hint">Stamp duty, LMI, repayments and borrowing power</span></button>
           <button type="button" class="more-item" data-page="settings"><span class="more-item-label">Settings</span><span class="more-item-hint">Categories, preferences and import rules</span></button>
           <button type="button" class="more-item" data-more-go="backup"><span class="more-item-label">Backup &amp; sync</span><span class="more-item-hint">Save a backup, or keep two devices in step</span></button>
         </div>
+        <!-- #414: the same switch as Settings → Preferences. -->
+        <label class="more-mode"><input type="checkbox" id="moreModeToggle" data-mode-toggle><span><b>Show everything</b><small>Scenarios, projections, calculators and the deeper charts and reports</small></span></label>
       </section>
       <section class="app-page" id="page-detail" hidden>
         <div id="detailBody" class="dt-page"></div>
@@ -977,10 +981,10 @@
 
       <section class="app-page" id="page-plan" hidden>
         <div class="subnav" id="planSubnav" role="group" aria-label="Plan sections">
-          <button type="button" class="subnav-item active" aria-current="page" data-plan-sub="scenarios">Scenarios</button>
-          <button type="button" class="subnav-item" data-plan-sub="projections">Projections</button>
+          <button type="button" class="subnav-item active" aria-current="page" data-plan-sub="scenarios" data-level="advanced">Scenarios</button>
+          <button type="button" class="subnav-item" data-plan-sub="projections" data-level="advanced">Projections</button>
           <button type="button" class="subnav-item" data-plan-sub="goals">Goals</button>
-          <button type="button" class="subnav-item" data-plan-sub="retirement">Retirement</button>
+          <button type="button" class="subnav-item" data-plan-sub="retirement" data-level="advanced">Retirement</button>
         </div>
         <div class="plan-subpage" id="planSub-goals" hidden>
           <div class="page-intro-row"><p class="page-intro help">What you're saving toward — a safety net, the things on the list, a purchase, and the point where work becomes optional.</p></div>

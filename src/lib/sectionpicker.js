@@ -20,7 +20,7 @@ export function initSectionPickers(root){
   var resize = new ResizeObserver(schedule);
   function watch(){
     observer.observe(root, { subtree: true, childList: true, attributes: true,
-      attributeFilter: ["hidden", "aria-current", "aria-selected", "aria-pressed"] });
+      attributeFilter: ["hidden", "aria-current", "aria-selected", "aria-pressed", "data-shown"] });
   }
   function schedule(){
     if(scheduled) return;
@@ -89,6 +89,8 @@ export function initSectionPickers(root){
   // Household parts are CSS switches on body; a hidden Shares/Property destination must
   // disappear from the native options too, even when the rail's dimensions stay unchanged.
   new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  // #414: Simple mode puts some tabs away (html[data-mode]); "Show more on this page" brings them back (data-shown, above).
+  new MutationObserver(schedule).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
   if(document.fonts) document.fonts.ready.then(schedule);
   update();
 }

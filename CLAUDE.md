@@ -60,6 +60,9 @@ and report without figures. Before every push, grep the diff for names, places a
 - **Scenario maths** reads `effectiveChanges(name)`, `scenarioSharedItems(name)` and `projectionFor(scenario)` — never
   the household's rows or `state.projection` directly; every other page shows the household (`currentScenario()`)
   ([0005](docs/decisions/0005-scenarios-are-sandboxes.md)).
+- **Something used now and then** (a tab, link, tile or fold most households rarely need) gets `data-level="advanced"`
+  on its entry point, and Simple mode puts it away — never a branch on the mode
+  ([0016](docs/decisions/0016-simple-mode-hides.md)).
 - **Something about a property or shares** gets a `data-part` or a `part`; a new Home card a `data-home-card`
   ([0010](docs/decisions/0010-one-design-system.md)).
 - **An empty state** is `emptyStateHtml()` (`lib/empty.js`): what fills it, and its next step as a control — or

@@ -196,7 +196,7 @@ function fiTileHtml(t){
   if(!(target > 0)) return "";
   var split = fireWealthSplit();
   var pct = Math.max(0, split.accessible) / target;
-  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="fi" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
+  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="fi" data-level="advanced" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
     '<span>Financial independence</span><b>' + fmtPercent1.format(pct) + '</b>' +
     '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
     '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
@@ -381,7 +381,7 @@ export function renderDashboardStats(){
   var statsHtml =
     '<div class="stat-tile" data-home-card="savings"><span>Planned monthly surplus</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
       '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
-    '<div class="stat-tile" data-home-card="projected"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
+    '<div class="stat-tile" data-home-card="projected" data-level="advanced"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
     runwayTile +
     fiTileHtml(t) +
     taxTileHtml() +

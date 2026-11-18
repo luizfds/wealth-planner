@@ -21,6 +21,8 @@ import { renderAdvice } from "./advice.js";
 import { localDateStr } from "../lib/format.js";
 import { detailTarget, renderDetailPage } from "./detail.js";
 import { renderNetWorthPage } from "./networth.js";
+import { renderShowMore } from "./showmore.js";
+import { hideShownAgain } from "../lib/mode.js";
 import { state } from "../state.js";
 
 // #262: a subtab says which one is showing to a screen reader too (aria-current), not only by its colour. The rails are
@@ -509,6 +511,8 @@ export function showPage(id, opts){
     // whatever page the user navigates to next.
     closeScenarioOverridePanel();
     if(overlayCleanup && closesOverlay) overlayCleanup();
+    // #414: what "Show more on this page" brought back was for that visit.
+    hideShownAgain();
     var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
     var tabId = MORE_GROUP.indexOf(id) !== -1 ? "more" : navId;
     // v3.205.0 (item 236a): what a full redraw left for later, drawn before the page shows.
@@ -555,6 +559,7 @@ export function showPage(id, opts){
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(pendingPageWrite && pendingPageWrite.page === id) pendingPageWrite = null;
     if(!opts.skipUrl) syncUrl(id, !!opts.replace); else renderBackLink();
+    renderShowMore();
   }
 
   // A plain hidden-toggle instant swap is the single biggest "this is a website, not an app" tell
@@ -599,6 +604,7 @@ export function showAssetsSubpage(id, opts){
   updateQuickFab("assets");
   scrollActiveSubnavIntoView("assetsSubnav");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace, true);
+  renderShowMore();
 }
 
 // Accounts vs. Categories — the two registries this app asks you to maintain. Session-only, like
@@ -629,6 +635,7 @@ export function showAccountsSubpage(id, opts){
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("settings");
   if(!opts.skipUrl) syncUrl("settings", !!opts.replace, true);
+  renderShowMore();
   return true;
 }
 export function settingsSubpage(){ return currentSettingsSub; }
@@ -646,6 +653,7 @@ export function showPlanSubpage(id, opts){
   if(id === "projections") renderProjectionsIfStale();
   updateQuickFab("plan");
   if(!opts.skipUrl) syncUrl("plan", !!opts.replace, true);
+  renderShowMore();
 }
 
 export function showTaxSubpage(id, opts){
@@ -660,9 +668,11 @@ export function showTaxSubpage(id, opts){
   scrollActiveSubnavIntoView("taxSubnav");
   updateQuickFab("tax");
   if(!opts.skipUrl) syncUrl("tax", !!opts.replace, true);
+  renderShowMore();
 }
 export function taxSubpage(){ return currentTaxSub || defaultTaxSub(); }
 export function dashboardSubpage(){ return currentDashboardSub; }
+export function planSubpage(){ return currentPlanSub; }
 // #412: More's Tax row says when a return is due, since Tax left the phone's tab bar.
 function renderMorePage(){
   var flag = document.getElementById("moreTaxFlag");
@@ -694,6 +704,7 @@ export function showExpensesSubpage(id, opts){
   if(id === "income") renderReceived();
   updateQuickFab("expenses");
   if(!opts.skipUrl) syncUrl("expenses", !!opts.replace, true);
+  renderShowMore();
 }
 
 // Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,

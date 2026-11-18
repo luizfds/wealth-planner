@@ -137,6 +137,8 @@ async function fresh(opts){
     localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
     // #339: a journey is someone who has been here before; the tour's own journey clears this to be asked.
     localStorage.setItem("wealthPlanner.tour", "skipped");
+    // #414: everything on screen, as before Simple mode; the simplemode journey switches.
+    localStorage.setItem("wealthPlanner.mode", "advanced");
     if(stored) localStorage.setItem("wealthPlanner.v1", stored);
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
@@ -3290,6 +3292,61 @@ const JOURNEYS = {
   // #413: Net worth is one list, filtered by kind with chips; Investments → Summary went — its funding, allocation and
   // history are folded under the list, its debts are on Accounts, and Investments opens on Cash (an old
   // /assets/summary too).
+  // #414: Simple and Advanced. Switched from More (or Settings → Preferences) and remembered on this device: Simple puts
+  // the tools used now and then away — Today's deeper links and tiles, Spending over time, Net worth's folded extras,
+  // Plan's other tabs (Plan opens on Goals), Calculators, Import rules and all but five reports — and a page's "Show
+  // more on this page" brings its own back until you leave it. Every figure is the same either way.
+  async simplemode(page){
+    await quiet(page);
+    const mode = () => page.evaluate(() => document.documentElement.getAttribute('data-mode'));
+    const shownAdvanced = () => page.evaluate(() => [...document.querySelectorAll('[data-level="advanced"]')].filter(e => e.getClientRects().length).length);
+    check(await mode() === 'advanced', 'journeys start in Advanced');
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const figure = () => page.evaluate(() => document.getElementById('globalNetWorth').textContent);
+    const before = await figure();
+    await page.locator('.mobile-tab[data-page="more"]').click(); await page.waitForFunction(() => location.pathname === '/more');
+    await page.locator('#moreModeToggle').uncheck();
+    check(await mode() === 'simple' && await page.evaluate(() => localStorage.getItem('wealthPlanner.mode')) === 'simple', 'Simple was not switched on and remembered');
+    check(await page.locator('#moreList [data-page="calc"]').isHidden(), 'Calculators still shows in More');
+    check(await figure() === before, 'Simple changed the net worth figure: ' + before + ' → ' + await figure());
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    check(await page.locator('.today-more [data-dashboard-sub="insights"]').isHidden() && await page.locator('.today-more [data-dashboard-sub="review"]').isVisible(), 'Today: Insights should go, the monthly review stay');
+    check(await page.locator('[data-home-card="projected"]').isHidden(), 'Today still shows the projected net worth tile');
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    check(await page.locator('#spendingTrendsPanel').isHidden(), 'Spending over time still shows');
+    await go(page, 'networth');
+    check(await page.locator('#netWorthMore').isHidden() && await page.locator('#netWorthBody .nw-group').first().isVisible(), 'Net worth: the list should stay, the extras go');
+    // Plan opens on Goals; Show more brings its tabs back, and leaving the page puts them away again.
+    await page.locator('.mobile-tab[data-page="plan"]').click(); await page.waitForFunction(() => location.pathname === '/plan/goals');
+    check(await page.locator('#planSubnav [data-plan-sub="projections"]').isHidden(), 'Plan still shows Projections');
+    await page.locator('#showMoreHere [data-show-more]').click();
+    await page.waitForFunction(() => document.querySelector('#planSubnav [data-plan-sub="projections"]').getClientRects().length > 0 || [...document.querySelectorAll('#planSubnav > select option')].some(o => o.textContent === 'Projections'));
+    check(await page.locator('#showMoreHere').isHidden(), 'Show more stays after showing everything');
+    await page.locator('.mobile-tab[data-page="dashboard"]').click(); await page.waitForFunction(() => location.pathname === '/dashboard');
+    check(await shownAdvanced() === 0, 'what Show more brought back stayed after leaving the page');
+    // A link to an advanced view still opens it.
+    await page.evaluate(async () => (await import('/src/components/nav.js')).showDashboardSubpage('insights'));
+    await page.waitForFunction(() => location.pathname === '/dashboard/insights' && !document.getElementById('dashboardSub-insights').hidden);
+    // Reports: the everyday five, then all of them.
+    await go(page, 'reports');
+    await page.locator('#reportsBody [data-report-choose]').first().click();
+    const chooser = page.locator('.report-chooser');
+    await chooser.waitFor();
+    const everyday = await chooser.locator('[data-report]').evaluateAll(es => es.map(e => e.getAttribute('data-report')));
+    check(everyday.length <= 6 && everyday.includes('budget') && !everyday.includes('cgt'), 'Simple chooser lists ' + everyday.join());
+    await chooser.locator('[data-report-show-all]').click();
+    check(await chooser.locator('[data-report="cgt"]').count() === 1, 'Show all reports did not list them all');
+    await page.keyboard.press('Escape'); await chooser.waitFor({ state: 'detached' });
+    // Remembered across a reload; switched back, everything shows.
+    // From /dashboard itself: this test server can't reload a nested address (production's 404 bounce can).
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview'); await page.reload(); await quiet(page);
+    check(await mode() === 'simple', 'Simple was not remembered');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await page.locator('#modeAdvancedToggle').check();
+    check(await mode() === 'advanced', 'Advanced was not switched back on');
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    check(await page.locator('.today-more [data-dashboard-sub="insights"]').isVisible() && await page.locator('#showMoreHere').isHidden(), 'Advanced does not show everything');
+  },
   async networthlist(page){
     await quiet(page);
     for(const width of [390, 1280]){

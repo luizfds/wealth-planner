@@ -121,3 +121,17 @@ balance, last year's tax estimate, get back to where you started.
 - Accounts, Investments and Property stay as the editing pages behind the rail; moving editing onto each thing's
   Details page was the larger option, not taken.
 
+## Step 5 decisions (#414)
+
+- As built: `lib/mode.js` (per device, `wealthPlanner.mode`; a household with data the first time starts Advanced, a new
+  one Simple), one rule in `utilities.css`, `components/showmore.js`, a switch in Settings → Preferences and at the foot
+  of More. Decision record [0016](../decisions/0016-simple-mode-hides.md).
+- Put away in Simple: Today's Insights and How you compare links, its projected-net-worth and financial-independence
+  tiles and the projections link; Spending over time; Net worth's folded extras; Plan's Scenarios, Projections and
+  Retirement tabs (Plan opens on Goals); Calculators (sidebar and More); Settings → Import rules; all but five reports in
+  the chooser (Monthly cash flow, Month in detail, Spending, Budget vs actual, Net worth statement), with "Show all".
+- Measured at 390px on the demo household, controls per view, Advanced → Simple: Today 27 → 24, Spending 39 → 34, Net
+  worth 34 → 22, Plan 16 → 14. Budget (52), Bills (44), Tax → Returns (53) and Settings → Categories (591) are unchanged:
+  nothing on them was marked. Not done here, and left as the next item: Categories as collapsed rows, the Tax return
+  worksheet's detail and the per-view control cap in Simple (Categories would fail it until it collapses).
+

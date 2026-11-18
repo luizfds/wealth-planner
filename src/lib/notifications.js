@@ -221,7 +221,7 @@ function freshEntryNotification(due){
       type: "review",
       severity: "warn",
       title: due[0].what + " needs a fresh entry",
-      detail: "Nothing logged against this budget line yet — log its first payment on Cash flow → Spending.",
+      detail: "Nothing logged against this budget line yet — log its first payment on Money → Transactions.",
       date: todayStr(),
       page: "expenses", sub: "spending"
     }];
@@ -233,7 +233,7 @@ function freshEntryNotification(due){
     type: "review",
     severity: "warn",
     title: due.length + " budget lines need a fresh entry",
-    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — nothing logged yet; log each one's first payment on Cash flow → Spending.",
+    detail: names + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — nothing logged yet; log each one's first payment on Money → Transactions.",
     date: todayStr(),
     page: "expenses", sub: "spending"
   }];
@@ -626,7 +626,7 @@ export function endingPayNotifications(today){
     if(days > 45) return null;
     return { id: "payends:" + i.syntheticEndingFor + ":" + ends, type: "income", severity: days <= 14 ? "warn" : "info",
       title: (src.what || "Part of " + (i.person || "the") + " pay") + " ends " + fmtDate(ends),
-      detail: "Take-home drops by about " + fmtCurrency0.format(Math.abs(Number(i.amount) || 0)) + " a month after tax from then — the cash-flow forecast already counts it. If it's being extended, change its end date in Cash flow → Income.",
+      detail: "Take-home drops by about " + fmtCurrency0.format(Math.abs(Number(i.amount) || 0)) + " a month after tax from then — the cash-flow forecast already counts it. If it's being extended, change its end date in Money → Budget → Money in.",
       date: ends, page: "expenses", sub: "income" };
   }).filter(Boolean);
 }
@@ -640,7 +640,7 @@ export function cancelByNotifications(today){
     var days = daysUntil(s.cancelBy, today);
     return { id: "cancelby:" + s.key + ":" + s.cancelBy, type: "bill", severity: days <= 1 ? "warn" : "info",
       title: "Cancel " + (s.name || s.label) + (days < 0 ? " — it was due " : " by ") + fmtDate(s.cancelBy),
-      detail: "It charges " + fmtCurrency0.format(s.amount) + " " + String(s.freq).toLowerCase() + (s.next ? ", next on " + fmtDate(s.next) : "") + " — about " + fmtCurrency0.format(s.yearly) + " a year. Once it stops charging it drops off; or clear the date under Cash flow → Bills.",
+      detail: "It charges " + fmtCurrency0.format(s.amount) + " " + String(s.freq).toLowerCase() + (s.next ? ", next on " + fmtDate(s.next) : "") + " — about " + fmtCurrency0.format(s.yearly) + " a year. Once it stops charging it drops off; or clear the date under Money → Bills.",
       date: s.cancelBy, page: "expenses", sub: "bills" };
   });
 }

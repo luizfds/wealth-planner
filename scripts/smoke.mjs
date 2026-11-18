@@ -44,7 +44,7 @@ const base = "http://127.0.0.1:" + server.address().port;
 
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks", "review"]],
-  ["expenses", "expenses-sub", ["budget", "income", "spending", "bills"]],
+  ["expenses", "expenses-sub", ["budget", "spending", "bills"]],   // #427: Money in is the top of Budget
   ["networth", null, [null]],
   ["accounts", null, [null]],
   ["assets", "assets-sub", ["Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],   // #413: no Summary
@@ -200,7 +200,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // #255 step 4 rolls out view by view. Migrated views keep explanatory help behind ⓘ.
         // Exact chart values may keep hover titles when the figure or month button has the same accessible name.
         const tooltipHelp = [];
-        document.querySelectorAll("#expensesSub-spending, #expensesSub-income, .page-intro-actions:has(#incomeExportCsvBtn), #planSub-projections, #taxSub-year, #reportsBody .md, #page-properties, #assetsSub-summary, #assetsSub-Cash, #assetsSub-Super, #assetsSub-Vehicle, #assetsSub-Other").forEach(view => {
+        document.querySelectorAll("#expensesSub-spending, #expensesSub-income, .money-head-actions:has(#incomeExportCsvBtn), #planSub-projections, #taxSub-year, #reportsBody .md, #page-properties, #assetsSub-summary, #assetsSub-Cash, #assetsSub-Super, #assetsSub-Vehicle, #assetsSub-Other").forEach(view => {
           if(!view.getClientRects().length) return;
           view.querySelectorAll("[title]").forEach(el => {
             const title = el.getAttribute("title");
@@ -275,7 +275,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const current = () => document.body.getAttribute("data-current-page");
       const out = [];
       if(w < 880){
-        // #412: Today · Cash flow · Net worth · Plan · More; Tax is in More (checked below).
+        // #412: Today · Money · Net worth · Plan · More; Tax is in More (checked below).
         const plan = document.querySelector('.mobile-tab[data-page="plan"]');
         if(!plan) out.push("no Plan tab"); else { plan.click(); await wait(600); if(current() !== "plan") out.push("the Plan tab didn't open it"); }
         const tab = document.querySelector('.mobile-tab[data-page="networth"]');

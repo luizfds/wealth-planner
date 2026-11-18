@@ -36,7 +36,7 @@ function card(a, withGo, away){
     '<p>' + escapeAttr(a.detail) + '</p>' +
     (withGo && a.go ? (a.go.filter
       // v3.168.0: a notice about spending opens Spending filtered to exactly what it counted.
-      ? '<button type="button" class="link-btn adv-go" data-sv' + Object.keys(a.go.filter).map(function(k){ return ' data-sv-' + k + '="' + escapeAttr(a.go.filter[k]) + '"'; }).join("") + '>Show me in Spending →</button>'
+      ? '<button type="button" class="link-btn adv-go" data-sv' + Object.keys(a.go.filter).map(function(k){ return ' data-sv-' + k + '="' + escapeAttr(a.go.filter[k]) + '"'; }).join("") + '>Show me in Transactions →</button>'
       : '<button type="button" class="link-btn adv-go" data-adv-go="' + escapeAttr(a.go.page) + '"' + (a.go.sub ? ' data-adv-sub="' + escapeAttr(a.go.sub) + '"' : '') + '>See the figures →</button>') : '') +
   '</details>';
   return withGo && canDismiss(a) ? '<div class="adv-row">' + details + dismissBtn(a, away) + '</div>' : details;

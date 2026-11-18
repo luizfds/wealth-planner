@@ -79,7 +79,7 @@ export function dataHealthChecks(opts){
       detail: odd.slice(0, 3).map(function(o){ return fmtDate(o.transfer.date) + " to " + o.card + " from " + o.transfer.from; }).join("; ") + (odd.length > 3 ? " and " + (odd.length - 3) + " more" : "") +
         " — that reads as borrowing more to pay the card." + (usual ? " Other repayments come from " + usual + "." : "") +
         " If the balances were moved when it was saved, check both accounts' balances on Accounts afterwards.",
-      where: { page: "expenses", sub: "spending", label: "Open Spending" },
+      where: { page: "expenses", sub: "spending", label: "Open Transactions" },
       fix: fixable.length ? { label: fixable.every(function(o){ return o.usual === usual; }) ? "Change to " + usual : "Change to the usual accounts", kind: "card-from" } : null });
   }
 
@@ -161,7 +161,7 @@ export function dataHealthChecks(opts){
   // Take-home off the plan three months running (v3.87.0).
   takeHomeDrifts(today).forEach(function(d){
     add({ id: "takehome:" + d.person, severity: "warn", title: d.person + "'s pay is landing " + (d.gap < 0 ? "below" : "above") + " the plan",
-      detail: "About $" + Math.round(Math.abs(d.gap)).toLocaleString("en-AU") + "/mo " + (d.gap < 0 ? "less" : "more") + " than planned for three months. Cash flow → Income can plan with what actually lands.",
+      detail: "About $" + Math.round(Math.abs(d.gap)).toLocaleString("en-AU") + "/mo " + (d.gap < 0 ? "less" : "more") + " than planned for three months. Money → Budget → Money in can plan with what actually lands.",
       where: { page: "expenses", sub: "income" } });
   });
 

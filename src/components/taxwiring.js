@@ -375,7 +375,7 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
         if(!(amount > 0)){ showToast("Enter the statement balance"); return; }
         var card = state.accounts.find(function(a){ return a.name === arg[0]; });
         var from = card && usualCardSource(card, state.accounts, state.transfers);
-        if(!card || !from){ showToast("Couldn't tell which account pays this card — log it on Cash flow → Spending"); return; }
+        if(!card || !from){ showToast("Couldn't tell which account pays this card — log it on Money → Transactions"); return; }
         saveTransfer({ date: arg[1], amount: amount, from: from, to: card.name, what: card.name + " repayment" }, true, "Repayment saved");
         renderHealth(); renderChecksBadge(); renderNotifBadge();
         return;

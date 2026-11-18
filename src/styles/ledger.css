@@ -1881,3 +1881,11 @@
 .cat-fold-name{ font-weight:600; color: var(--ink); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .cat-fold-summary .cat-mgmt-count{ margin-left:4px; }
 .cat-fold-body{ border-top:1px solid var(--border); }
+
+/* #427: Budget is one plan — Money in, then Money out — each a heading over its ledgers, Money in's ⋯ beside it. */
+.money-in{ display:flex; flex-direction:column; gap:inherit; }
+.money-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 2px 0; scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
+.money-head-title{ margin:0; font-size:var(--fs-lg); font-weight:600; color: var(--ink); }
+.money-head-actions{ display:flex; align-items:center; gap:6px; }
+.money-head{ flex-wrap:wrap; }
+.money-head > .money-head-help{ flex-basis:100%; order:3; margin:0; }

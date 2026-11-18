@@ -9,8 +9,8 @@ import { emptyStateHtml } from "../lib/empty.js";
 export var KNOWN_SCREENS = [
   { key: "dashboard/insights", label: "Today → Insights" }, { key: "dashboard/benchmarks", label: "Today → How you compare" },
   { key: "dashboard/review", label: "Today → Monthly review" },
-  { key: "expenses/budget", label: "Cash flow → Budget" }, { key: "expenses/income", label: "Cash flow → Income" },
-  { key: "expenses/spending", label: "Cash flow → Spending" }, { key: "expenses/bills", label: "Cash flow → Bills" },
+  { key: "expenses/budget", label: "Money → Budget" },
+  { key: "expenses/spending", label: "Money → Transactions" }, { key: "expenses/bills", label: "Money → Bills" },
   { key: "networth", label: "Net worth" }, { key: "accounts", label: "Net worth → Accounts" },
   { key: "assets", label: "Net worth → Investments" }, { key: "properties", label: "Net worth → Property" },
   { key: "plan/scenarios", label: "Plan → Scenarios" }, { key: "plan/projections", label: "Plan → Projections" },

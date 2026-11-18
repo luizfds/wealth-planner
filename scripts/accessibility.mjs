@@ -77,7 +77,7 @@ for(const width of widths)for(const scheme of schemes){
  for(const [pg,attr,sub]of views){
   await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
   await page.waitForTimeout(300);
-  if(attr) await page.evaluate(async([a,s])=>{if(a==='dashboard-sub'){(await import('/src/components/nav.js')).showDashboardSubpage(s);return;}if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
+  if(attr) await page.evaluate(async([a,s])=>{if(a==='dashboard-sub'){(await import('/src/components/nav.js')).showDashboardSubpage(s);return;}if(a==='expenses-sub'&&s==='income'){(await import('/src/components/nav.js')).showExpensesSubpage(s);return;}if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
   if(attr==='report') await page.waitForFunction(key=>!!document.querySelector('[data-current-report="'+key+'"]')&&!document.querySelector('.report-chooser'),sub);
   if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   // #261: Tax's forms and Plan's goal editor, every section open (and a goal open) — the fields axe should see.
@@ -199,13 +199,12 @@ for(const width of widths)for(const scheme of schemes){
    await scan('income-help/hourly', '#expensesSub-income');
    await page.locator('#incomeGroups [data-showas="month"]').click();
    await help.click();
-   await page.evaluate(()=>window.scrollTo(0,0));
-   await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
-   await page.locator('#pageHelpBtn').click();
+   // #427: Money in's explanation is behind the ⓘ beside its heading, not the page's.
+   await page.locator('#moneyIn [data-help-toggle]').click();
    await page.getByRole('button',{name:'Income import and export',exact:true}).click();
-   await scan('income-help/csv', '.page-intro-actions:has(#incomeExportCsvBtn)');
+   await scan('income-help/csv', '.money-head-actions:has(#incomeExportCsvBtn)');
    await page.getByRole('button',{name:'Income import and export',exact:true}).click();
-   await page.locator('#pageHelpBtn').click();
+   await page.locator('#moneyIn [data-help-toggle]').click();
    const index=await page.evaluate(async()=> (await import('/src/state.js')).state.income.findIndex(x=>x.id==='demo-pay-alex'));
    const row=page.locator('#incomeGroups .m-row[data-index="'+index+'"]');
    await row.locator('[data-row-toggle]').first().click();

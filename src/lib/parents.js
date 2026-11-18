@@ -10,8 +10,8 @@ var ASSET_SUBS = ["Cash", "Shares", "Super", "Vehicle", "Other"];
 
 function detailParent(detail, st){
   var kind = detail && detail.kind, id = detail && detail.id;
-  if(kind === "transaction" || kind === "merchant") return { page: "expenses", sub: "spending", title: "Spending" };
-  if(kind === "income") return { page: "expenses", sub: "income", title: "Income" };
+  if(kind === "transaction" || kind === "merchant") return { page: "expenses", sub: "spending", title: "Transactions" };
+  if(kind === "income") return { page: "expenses", sub: "income", title: "Money in" };   // #427: the top of Budget
   if(kind === "line") return { page: "expenses", sub: "budget", title: "Budget" };
   if(kind === "account" || kind === "debt") return { page: "accounts", sub: null, title: "Accounts" };
   if(kind === "asset"){

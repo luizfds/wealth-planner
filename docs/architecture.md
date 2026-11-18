@@ -14,7 +14,9 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
   each Monday.
 - **More** (`page-more`, #412): a phone's tab for Tax, Reports, Calculators, Settings and Backup & sync; a desktop's
   sidebar lists the same five under a More heading. The phone's More tab stays lit on each of them (`MORE_GROUP`).
-- **Cash flow** (`page-expenses`): Budget / Income / Spending / Bills.
+- **Money** (`page-expenses`, was Cash flow; #427): Budget / Transactions / Bills. Budget is one plan — Money in (the old
+  Income tab, still `#expensesSub-income`, where `/expenses/income` and every Income link land) then Money out.
+  Transactions is the old Spending (`data-expenses-sub="spending"`, `/expenses/spending`).
 - **Net worth**: one menu entry over four pages sharing a rail of tabs — the overview (`page-networth`), Accounts,
   Investments (`page-assets`), Property (`page-properties`). The overview is one list with chips by kind
   (`setNetWorthFilter`), and under it, folded, the allocation, purchase funding, net worth over time and where wealth

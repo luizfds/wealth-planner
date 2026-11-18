@@ -164,7 +164,7 @@ export function detailView(kind, id, today){
       html: facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["A year", money(per.yearly)], ["Spent in the last 12 months", money(spent12)],
           ["Category", escapeAttr(line.category || "")], ["Needs or wants", escapeAttr(line.classification || "")], ["Account", line.account ? escapeAttr(line.account) : null]]) +
         section("Month by month", monthlyChart(ltx, today)) + section("Transactions", txTable(ltx)),
-      edit: { label: "Edit on Cash flow", to: { page: "expenses", sub: "budget", lineId: id } } };
+      edit: { label: "Edit on Money", to: { page: "expenses", sub: "budget", lineId: id } } };
   }
   if(kind === "merchant"){
     var lines = budgetLineItems();

@@ -520,7 +520,7 @@ function ownershipSectionHtml(p){
     (offBy
       ? '<p class="tax-cap-note warn" style="margin:10px 0 0">These add to ' + Math.round(total) + '%, not 100% — ' +
         fmtCurrency0.format(Math.abs(result * (total - 100) / 100)) + '/yr of this property\'s result is being ' +
-        (total > 100 ? "claimed twice" : "claimed by nobody") + ' on Cash flow → Income.</p>'
+        (total > 100 ? "claimed twice" : "claimed by nobody") + ' on Money → Budget → Money in.</p>'
       : '') );
 }
 
@@ -597,7 +597,7 @@ export function rentPanelHtml(p, today){
     '<div class="rentp-figs"><div><span>Expected</span><b>' + fmtCurrency0.format(r.expected) + '</b><small>' + (r.vacancyWeeks ? r.vacancyWeeks + ' weeks vacant' : 'no vacancy recorded') + '</small></div>' +
       '<div><span>Received</span><b>' + fmtCurrency0.format(r.received) + '</b><small>logged as money in</small></div>' +
       (r.received ? '<div><span>Difference</span><b class="' + (r.gap >= -1 ? "up" : "down") + '">' + (r.gap < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(r.gap)) + '</b><small>' + (r.gap < -1 ? "less than expected" : "on or above") + '</small></div></div>'
-        : '<div><span>Difference</span><b>—</b><small>log rent as it arrives (Cash flow → Income)</small></div></div>') +
+        : '<div><span>Difference</span><b>—</b><small>log rent as it arrives (Money → Budget → Money in)</small></div></div>') +
     '<div class="rentp-grid">' +
       '<label class="cf-filter"><span>Next rent review</span><input type="date" class="field-control" data-rent-next value="' + escapeAttr(r.nextReview) + '"></label>' +
       (row ? '<div class="rentp-review"><label class="cf-filter"><span>Record a review — new rent ' + escapeAttr(String(row.freq || "").toLowerCase()) + '</span><input type="number" min="0" step="1" class="field-control" data-rent-new placeholder="' + (Number(row.amount) || 0) + '"></label>' +

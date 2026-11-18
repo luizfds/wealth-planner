@@ -535,7 +535,7 @@ export function wireShortcuts(){
   // ---------------- Keyboard shortcuts (v3.138.0) ----------------
   // For a desktop: / search, n log a spend, g then a letter to go to a page, ? to list them. Never
   // while typing in a field, and never with a modifier held (those belong to the browser).
-  GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Cash flow"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };
+  GO_KEYS = { h: ["dashboard", "Home"], c: ["expenses", "Money"], w: ["networth", "Net worth"], t: ["tax", "Tax"], p: ["plan", "Plan"], r: ["reports", "Reports"], s: ["settings", "Settings"] };
   goPending = 0;
   document.addEventListener("keydown", function(e){
     if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;

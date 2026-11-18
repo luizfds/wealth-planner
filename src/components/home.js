@@ -124,7 +124,7 @@ export function homeSummaryHtml(today, opts){
       var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
       return '<li><span title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + (b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "") + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
     }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
-    : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Spending →", className: "home-note" })) + '</div>';
+    : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Transactions →", className: "home-note" })) + '</div>';
 
   var todos = opts.todos || homeTodos();
   var more = todos.length - HOME_TODO_MAX;
@@ -214,7 +214,7 @@ export function weekCardHtml(today, recap){
       '<button type="button" class="icon-btn" data-wk-step="-1" aria-label="The week after"' + (w.back ? '' : ' disabled') + '>›</button>' +
       '<button type="button" class="icon-btn" data-wk-dismiss aria-label="Dismiss this week\'s card">✕</button></span></div>' +
     '<details class="wk-details"><summary>Weekly recap · ' + money(w.spent) + ' spent</summary><div class="wk-body"><div class="wk-part wk-spent"><b class="home-big">' + money(w.spent) + '</b><span>spent · ' + w.count + ' transaction' + (w.count === 1 ? '' : 's') + '</span>' + vs +
-      '<button type="button" class="link-btn home-link" data-sv data-sv-direction="out" data-sv-from="' + w.start + '" data-sv-to="' + w.end + '">See this week in Spending →</button></div>' +
+      '<button type="button" class="link-btn home-link" data-sv data-sv-direction="out" data-sv-from="' + w.start + '" data-sv-to="' + w.end + '">See this week in Transactions →</button></div>' +
       biggest + bills + '</div>' +
     (foot ? '<div class="wk-foot">' + foot + '</div>' : '') + '</details></section>';
 }

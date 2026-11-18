@@ -37,7 +37,7 @@ export function projSourceHtml(a, source){
       btn("plan", "Plan") +
       btn("actuals", "Actuals", !a.available) +
     '</div><span class="proj-basis-note">' + escapeAttr(note) + '</span>' +
-    '<p class="ledger-note help"><span id="projPlanHelp">Plan: Every figure as planned under Cash flow.</span> <span id="projActualsHelp">Actuals: ' +
+    '<p class="ledger-note help"><span id="projPlanHelp">Plan: Every figure as planned under Money.</span> <span id="projActualsHelp">Actuals: ' +
       "The plan, corrected by what's really been received and spent lately on the lines that have any logged" +
       escapeAttr(a.available ? " (" + a.incomeLines + " income and " + a.spendLines + " spending lines, plus one-offs)." : ".") + '</span></p>';
 }

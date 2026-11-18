@@ -69,7 +69,7 @@ export function personCardHtml(person, index, today){
       field(ppid + "losses", "Capital losses b/f $", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true, 100),
         "Net capital losses brought forward (b/f) from earlier years, as on the last notice of assessment.") +
       field(ppid + "week", "Hours worked a week", person, '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week field-control" data-pp-person="' + pid + '" id="' + ppid + 'week" aria-describedby="' + ppid + 'week-help" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
-        "What Cash flow → Income divides by when it's shown per hour. Empty counts as 38.") +
+        "What Money → Budget → Money in divides by when it's shown per hour. Empty counts as 38.") +
     '</div>' +
     // v3.145.0: only for someone a rental's loss saves tax for — whether their pay already has it.
     (ownsRentalLoss(person) ? '<label class="pp-variation"><input type="checkbox" class="pp-in pp-var" data-pp-person="' + pid + '"' + (st.withholdingVariation ? " checked" : "") + '> ' +

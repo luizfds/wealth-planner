@@ -5411,7 +5411,9 @@ approved by the owner. Tracked as issue #409, one sub-issue per step (#410–#41
 4. `[x]` **Accounts as one list** (#413) — shipped (PR #419). The owner chose "dedupe + chips": filter chips on Net worth's overview, and
    Investments → Summary goes — its repeats removed, its own parts moved under the overview's list. Accounts, Investments
    and Property stay as the editing pages behind the rail. Net worth's four pages as one list with filter chips; tools on each Details page.
-5. `[~]` **Simple and Advanced** (#414). `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
+5. `[~]` **Simple and Advanced** (#414). Mode, marking, "Show more on this page", both switches, reports' everyday
+   five and the smoke run's Simple pass are in PR (this one). Still to do under #414: Settings → Categories as collapsed
+   rows (591 controls), the Tax return worksheet's detail as advanced, and the per-view control cap in Simple. `data-level="advanced"`, one rule, "Show more on this page", both modes in the smoke run.
 
 Alongside: `[x]` **Bills to confirm in the page's line, not the header** (#415, PR #408). On a day with a bill to confirm,
 Cash flow's "N bills to confirm" header button wrapped the header to two rows (+48px on a phone, +56px at 1280px) and

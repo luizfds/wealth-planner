@@ -72,7 +72,7 @@ const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath
 // #267: 768px too, light only — a tablet, and the width where the phone layout gives way.
 for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 768], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
   const ctx = await browser.newContext({ viewport: { width, height: width >= 1280 ? 800 : 844 }, colorScheme: scheme });
-  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await ctx.addInitScript(list => { window.__LOCAL_SCROLL = list; }, LOCAL_SCROLL);
   const page = await ctx.newPage();
@@ -316,7 +316,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
 // keep out of the way, and the way back in works. The all-on demo above covers everything else.
 if(!SHOTS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const page = await ctx.newPage();
   const errors = [];
@@ -363,7 +363,7 @@ if(!SHOTS){
 // v3.181.0 (item 212): a scenario on its own page — opened from its card, changed, saved.
 if(!SHOTS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const page = await ctx.newPage();
   const errors = [];
@@ -408,7 +408,7 @@ if(!SHOTS){
 // the row it's in has its own button (a checklist step) — an intro or a setting's value isn't one.
 if(!SHOTS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   const page = await ctx.newPage();
   await page.goto(base + "/index.html");
@@ -450,6 +450,50 @@ if(!SHOTS){
       bad.forEach(f => failures.push(where + ": " + f));
     }
   }
+  await ctx.close();
+}
+// #414: Simple mode, on the sample household at 390px. On every view nothing marked advanced shows; where a page has
+// some put away, it ends with "Show more on this page", and that brings every one of them back. Only data-level hides
+// anything, so the views themselves are the Advanced ones above.
+if(!SHOTS){
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.mode", "simple"); });
+  await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push("page error: " + e.message));
+  await page.goto(base + "/index.html?mock=1");
+  await page.waitForFunction(() => ((JSON.parse(localStorage.getItem("wealthPlanner.v1") || "{}").income) || []).length > 0, null, { timeout: 15000 });
+  await page.waitForTimeout(800);
+  if(await page.evaluate(() => document.documentElement.getAttribute("data-mode")) !== "simple") failures.push("simple mode: the page isn't in Simple mode");
+  for (const [pg, attr, subs] of VIEWS) {
+    if(pg === "reports") continue;   // one report page; its chooser is the journey's
+    await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); }, pg);
+    await page.waitForTimeout(300);
+    for (const sub of subs) {
+      if(sub) await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return; } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);
+      await page.waitForTimeout(300);
+      const where = "simple mode 390px " + pg + (sub ? "/" + sub : "");
+      const r = await page.evaluate(async () => {
+        const vis = e => e.getClientRects().length > 0;
+        const pageEl = document.querySelector(".app-page:not([hidden])");
+        const advanced = () => [...document.querySelectorAll('[data-level="advanced"]')].filter(vis).map(e => (e.id || e.getAttribute("data-page") || e.textContent.trim()).slice(0, 30));
+        const shownNow = advanced();
+        const away = [...pageEl.querySelectorAll('[data-level="advanced"]')].filter(e => !e.parentElement.closest("[hidden]")).length;
+        const more = document.getElementById("showMoreHere");
+        const offered = !!more && !more.hidden && more.parentElement === pageEl;
+        let after = null;
+        if(offered){ more.querySelector("[data-show-more]").click(); await new Promise(r => setTimeout(r, 50));
+          after = [...pageEl.querySelectorAll('[data-level="advanced"]')].filter(e => !e.parentElement.closest("[hidden]") && !vis(e)).length; }
+        return { shownNow, away, offered, after };
+      });
+      if(r.shownNow.length) failures.push(where + ": advanced parts show: " + r.shownNow.join(", "));
+      if(r.away && !r.offered) failures.push(where + ": " + r.away + " part(s) put away and no Show more on this page");
+      if(!r.away && r.offered) failures.push(where + ": Show more on this page with nothing put away");
+      if(r.offered && r.after) failures.push(where + ": Show more left " + r.after + " part(s) hidden");
+    }
+  }
+  errors.forEach(e => failures.push("simple mode: " + e));
   await ctx.close();
 }
 await browser.close();

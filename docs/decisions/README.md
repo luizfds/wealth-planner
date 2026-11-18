@@ -21,3 +21,4 @@ that says which one it replaces; the old one stays.
 | [0013](0013-testing-in-three-layers.md) | Testing in three layers, and what each can't see |
 | [0014](0014-security-baseline.md) | A Content-Security-Policy, escaped text and a local error log |
 | [0015](0015-the-release-stamps.md) | The release stamps the import map; a pull request doesn't |
+| [0016](0016-simple-mode-hides.md) | Simple mode hides parts; it never draws a page another way |

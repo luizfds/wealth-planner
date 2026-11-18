@@ -12,7 +12,7 @@ import { monthDetailUi, shownMonth as mdShownMonth } from "./monthdetail.js";
 import { renderMonthReview } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showTaxSubpage, syncReportRoute } from "./nav.js";
 import { startPlan, addDraft, cancelPlan, moveDraft, removeDraft, setDraftField, savePlanGoals } from "./nextyearplan.js";
-import { renderReports, reportShown, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay, reportOpts } from "./reports.js";
+import { renderReports, reportShown, reportChooserAll, reportPrintHtml, reportCsv, reportFrame, pinReport, openSavedReport, unpinReport, reportChooserResultsHtml, rememberReport, reportDisplay, reportOpts } from "./reports.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { printStatic } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
@@ -36,7 +36,7 @@ export function openReportChooser(){
   document.body.appendChild(dialog);
   reportChooser = dialog;
   pushActiveOverlay(function(){
-    dialog.close(); dialog.remove(); reportChooser = null;
+    dialog.close(); dialog.remove(); reportChooser = null; reportChooserAll.on = false;
     if(selection){
       if(selection.saved) openSavedReport(selection.saved);
       else reportShown.key = selection.key;
@@ -62,6 +62,8 @@ export function openReportChooser(){
   dialog.addEventListener('click', function(e){
     if(e.target.closest('[data-report-chooser-close]')){ close(); return; }
     if(e.target.closest('[data-report-search-clear]')){ search.value = ''; draw(); search.focus(); return; }
+    // #414: Simple mode's chooser opens on the everyday reports; this brings the rest into the list.
+    if(e.target.closest('[data-report-show-all]')){ reportChooserAll.on = true; draw(); var next = results.querySelector('.rp-choice-group:last-of-type .rp-choice'); if(next) next.focus(); return; }
     var pick = e.target.closest('[data-report], [data-report-recent], [data-report-saved]');
     if(pick){ selection = pick.hasAttribute('data-report-saved') ? {saved:pick.getAttribute('data-report-saved')} : {key:pick.getAttribute('data-report') || pick.getAttribute('data-report-recent')}; close(); return; }
     var unpin = e.target.closest('[data-report-unpin]');

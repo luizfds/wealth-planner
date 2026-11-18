@@ -23,7 +23,9 @@ import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
 import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
+import { isSimple, setStoredMode, applyMode } from "../lib/mode.js";
+import { renderShowMore, showMoreHere } from "./showmore.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -312,6 +314,17 @@ export function wireNavigation(){
     var btn = e.target.closest("[data-dashboard-sub]");
     if(btn) openTodayView(btn.getAttribute("data-dashboard-sub"));
   });
+  // #414: Simple or Advanced (Settings → Preferences and More), and a page's "Show more on this page".
+  document.addEventListener("change", function(e){
+    var box = e.target.closest && e.target.closest("[data-mode-toggle]");
+    if(!box) return;
+    var mode = box.checked ? "advanced" : "simple";
+    setStoredMode(mode); applyMode(mode); renderShowMore();
+    showToast(mode === "simple" ? "Simple: the tools used now and then are put away. Show more on a page brings them back." : "Showing everything.");
+  });
+  document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest("[data-show-more]")) showMoreHere();
+  });
   // #413: Net worth's list by kind.
   document.getElementById("netWorthBody").addEventListener("click", function(e){
     var chip = e.target.closest("[data-nw-filter]");
@@ -333,6 +346,8 @@ function goMore(btn){
 // Today's tab (the sidebar's or the bar's), chosen while on Insights or the review, goes back to Today itself.
 function goPage(pageId){
   if(pageId === "dashboard" && currentPageId() === "dashboard" && dashboardSubpage() !== "overview"){ showDashboardSubpage("overview"); return; }
+  // #414: in Simple mode Plan's Scenarios, Projections and Retirement tabs are put away, so its tab opens on Goals.
+  if(pageId === "plan" && isSimple() && planSubpage() !== "goals"){ showPage("plan"); showPlanSubpage("goals", { replace: true }); return; }
   showPage(pageId);
 }
 export function wireSubpages(){

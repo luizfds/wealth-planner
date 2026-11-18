@@ -1,3 +1,4 @@
+import { isSimple } from "../lib/mode.js";
 import { canShareCsv } from "../lib/backup.js";
 import { state } from "../state.js";
 import { planningReadiness, reportDisclosure, reportDisclosureRows } from "../calc/planningreadiness.js";
@@ -294,13 +295,20 @@ function pickerHtml(){
     '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
     ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
 }
+// #414: Simple mode's reports — the ones read month to month. The chooser offers these first, with "Show all reports";
+// searching finds every one, and a report opened from anywhere else opens as ever.
+export var SIMPLE_REPORTS = ["cashflow", "month", "categories", "budget", "networth"];
+export var reportChooserAll = { on: false };
 export function reportChooserResultsHtml(query){
   var text = (query || '').trim().toLowerCase();
   var available = availableReports();
+  var everyday = isSimple() && !text && !reportChooserAll.on;
   var matches = available.filter(function(r){
     var group = REPORT_GROUPS.find(function(g){ return g.key === r.group; });
+    if(everyday && SIMPLE_REPORTS.indexOf(r.key) === -1 && r.key !== reportShown.key) return false;
     return !text || (r.label + ' ' + group.label + ' ' + (r.part || '') + ' ' + REPORT_DESCRIPTIONS[r.key]).toLowerCase().includes(text);
   });
+  var more = everyday && available.length > matches.length ? '<button type="button" class="btn btn-sm btn-ghost rp-show-all" data-report-show-all>Show all ' + available.length + ' reports</button>' : '';
   var recent = !text ? reportRecent.filter(function(key){ return key !== reportShown.key && available.some(function(r){ return r.key === key; }); }) : [];
   var recentHtml = recent.length ? '<div class="rp-recent" role="group" aria-label="Recently viewed"><h3>Recently viewed</h3>' + recent.map(function(key){
     var r = available.find(function(r){ return r.key === key; });
@@ -317,7 +325,7 @@ export function reportChooserResultsHtml(query){
     }).join('') + '</section>';
   }).join('');
   var pins = pinsHtml(null, query);
-  return pins + recentHtml + catalogue +
+  return pins + recentHtml + catalogue + more +
     (!matches.length && !pins ? '<p>No reports match “' + escapeAttr(query || '') + '”.</p><button type="button" class="btn btn-sm" data-report-search-clear>Clear search</button>' : '');
 }
 // v3.124.0: what a printout opens with — whose it is, what it is, for when, and when it was printed.

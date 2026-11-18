@@ -17,6 +17,7 @@ import { wireScenarioEditor } from "./components/scenariowiring.js";
 import { netWorthOn } from "./calc/nwhistory.js";
 import { backfillNetWorth } from "./calc/nwauto.js";
 import { detailTarget } from "./components/detail.js";
+import { applyMode, initialMode } from "./lib/mode.js";
 import { reportShown } from "./components/reports.js";
 import { showPage, parseRouteFromLocation, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, taxSubpage, setOverlayCleanup, PAGE_KEY, seedHomeBeneath } from "./components/nav.js";
 import { wireLedgerEdits, wireRowEditors, wireMoreRowEditors, wireAddButtons } from "./components/rows.js";
@@ -223,6 +224,9 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     // #269: a background save — it never overwrites another tab's, and is skipped when nothing changed.
     if(keepNetWorthHistory() || added) persist({ background: true });
   })();
+  // #414: Simple or Advanced, per device — a household with something in it the first time this version opens keeps
+  // everything on screen; a new one starts Simple.
+  applyMode(initialMode(["income", "shared", "transactions", "assets", "properties", "accounts"].some(function(k){ return (state[k] || []).length > 0; })));
   renderAll();
   initTableScrollShadows();
   // Simpler navigation step 1: anything but Home opens with Home beneath it, so Back reaches Home before leaving the app.

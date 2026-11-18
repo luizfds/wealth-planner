@@ -48,7 +48,7 @@ test("each place is named as the menu names it, and points at something in the p
   assert.equal(more.page, "more"); assert.equal(more.title, tabLabel.more, "the tab bar's label");
   assert.match(html, /id="navMoreHead">More</, "the sidebar's More heading");
   var scen = TOUR_STEPS.find(function(s){ return s.key === "scenarios"; });
-  assert.match(html, /data-plan-sub="scenarios">Scenarios</, "Scenarios is a tab of Plan");
+  assert.match(html, /data-plan-sub="scenarios"[^>]*>Scenarios</, "Scenarios is a tab of Plan");
   assert.equal(scen.page, "plan"); assert.equal(scen.title, "Scenarios");
   TOUR_STEPS.forEach(function(s){
     (s.targets || []).forEach(function(sel){

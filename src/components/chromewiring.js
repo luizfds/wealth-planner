@@ -24,8 +24,8 @@ import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, goCrumb, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
-import { isSimple, setStoredMode, applyMode } from "../lib/mode.js";
-import { renderShowMore, showMoreHere } from "./showmore.js";
+import { isSimple, setStoredMode, applyMode, endSimpleOffer } from "../lib/mode.js";
+import { renderShowMore, showMoreHere, renderSimpleOffer } from "./showmore.js";
 import { closeAllOverflowMenus } from "./overlays.js";
 import { loadPeriod, applyPeriod, setPeriodRerender, renderPeriodMenu } from "./period.js";
 import { priceSheetDue } from "./pricesheet.js";
@@ -34,6 +34,9 @@ import { runSync, initialSync } from "./safekeepingwiring.js";
 import { openSearchOverlay } from "./searchwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay, overlayOpen, forgetActiveOverlay } from "../lib/overlaystack.js";
 import { openImportChooser } from "./importchooserwiring.js";
+import { chooseOne } from "../lib/chooser.js";
+import { clearUse } from "../lib/pageuse.js";
+import { renderPageUse } from "./pageuse.js";
 import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js";
 import { readInput } from "../lib/validate.js";
 import { initSectionPickers } from "../lib/sectionpicker.js";
@@ -69,6 +72,21 @@ export function runPageAction(){
 // including why the menu's own history entry is replaced rather than popped: we're navigating
 // straight to a destination, so back should return to wherever you were before opening the
 // menu, not resurrect the menu on the way.
+// #426: "Update a balance" — the accounts whose balance can be updated now (an offset waits for its loan), then that
+// account's own Update form on Accounts, the one its card opens.
+function chooseBalanceToUpdate(){
+  var open = function(id){ var b = document.querySelector('#accountsTable [data-acct-bal="' + CSS.escape(id) + '"]'); if(b && !b.disabled) b.click(); };
+  var ready = Array.prototype.filter.call(document.querySelectorAll("#accountsTable [data-acct-bal]"), function(b){ return !b.disabled; })
+    .map(function(b){ return b.getAttribute("data-acct-bal"); });
+  var accounts = ready.map(function(id){ return (state.accounts || []).find(function(a){ return a.id === id; }); }).filter(Boolean);
+  if(!accounts.length){ showToast("Add a bank account first — then its balance can be updated here"); return; }
+  if(accounts.length === 1){ open(accounts[0].id); return; }
+  chooseOne({ title: "Update which balance?", attr: "bal-choice", items: accounts.map(function(a){
+      return { id: a.id, label: a.name || "Account", hint: a.type ? a.type.charAt(0).toUpperCase() + a.type.slice(1) : "" };
+    }),
+    valid: function(id){ return (state.accounts || []).some(function(a){ return a.id === id; }); },
+    gone: "That account is no longer there.", then: open });
+}
 function runQuickAction(action){
   closeQuickActions();
   forgetActiveOverlay();
@@ -78,6 +96,7 @@ function runQuickAction(action){
   if(action.mode === "networth"){ logNetWorthSnapshot(); return; }
   if(action.mode === "received"){ setTimeout(function(){ openReceivedSheetFor(); }, 240); return; }
   if(action.mode === "paycard"){ setTimeout(openPayCard, 240); return; }
+  if(action.mode === "balance"){ setTimeout(chooseBalanceToUpdate, 240); return; }
   if(action.mode === "rentstatement"){ setTimeout(function(){ chooseInvestmentProperty("Log a statement for…", function(p){ openStatementForm(p); }); }, 240); return; }
   // Deferred for the same reason the search handler defers its scroll: showPage's render and
   // view transition have to settle before the target button exists in its final form.
@@ -319,11 +338,24 @@ export function wireNavigation(){
     var box = e.target.closest && e.target.closest("[data-mode-toggle]");
     if(!box) return;
     var mode = box.checked ? "advanced" : "simple";
-    setStoredMode(mode); applyMode(mode); renderShowMore();
+    setStoredMode(mode); endSimpleOffer(); applyMode(mode); renderShowMore(); renderSimpleOffer();
     showToast(mode === "simple" ? "Simple: the tools used now and then are put away. Show more on a page brings them back." : "Showing everything.");
   });
   document.addEventListener("click", function(e){
     if(e.target.closest && e.target.closest("[data-show-more]")) showMoreHere();
+  });
+  // #426: Preferences → Screens you rarely open — forgetting the device's count.
+  document.getElementById("pageUseClear").addEventListener("click", function(){ clearUse(); renderPageUse(); showToast("Forgotten"); });
+  // #426: Today's one-time offer of Simple (drawn by app.js once the mode is decided).
+  document.getElementById("modeOffer").addEventListener("click", function(e){
+    var choice = e.target.closest("[data-mode-offer]");
+    if(!choice) return;
+    endSimpleOffer();
+    if(choice.getAttribute("data-mode-offer") === "simple"){
+      setStoredMode("simple"); applyMode("simple"); renderShowMore();
+      showToast("Simple: the tools used now and then are put away. Switch back any time in More.");
+    }
+    renderSimpleOffer();
   });
   // #413: Net worth's list by kind.
   document.getElementById("netWorthBody").addEventListener("click", function(e){

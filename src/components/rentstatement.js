@@ -8,8 +8,7 @@ import { statementTotals } from "../calc/agentstatement.js";
 import { propertyOwnershipPct } from "../calc/property.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { fmtCurrency2, fmtDate } from "../lib/format.js";
-import { escapeAttr } from "../lib/html.js";
-import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { chooseOne } from "../lib/chooser.js";
 import { showToast } from "../lib/toast.js";
 import { state } from "../state.js";
 import { showPage } from "./nav.js";
@@ -63,63 +62,20 @@ export async function openStatementForm(p, filled, options){
 }
 
 // Choose a live destination after the modal's history entry has actually closed.
-var propertyPicker = null, propertyPickerSequence = 0;
 export function chooseInvestmentProperty(title, then){
-  if(propertyPicker){ propertyPicker.querySelector("button").focus(); return; }
-  var ips = investmentProperties(), household = state;
+  var ips = investmentProperties(), household = state, people = getTaxPeople();
   if(!ips.length){ showToast("Add the investment property first (Net worth → Property), then log its statements there"); return; }
   if(ips.length === 1){ then(ips[0]); return; }
-  var opener = document.activeElement, request = ++propertyPickerSequence, closing = false;
-  var menu = opener && opener.closest("[data-overflow-menu]");
-  if(menu) opener = menu.parentElement.querySelector("[data-overflow-toggle]");
-  var root = propertyPicker = document.createElement("dialog"), people = getTaxPeople();
-  root.className = "app-dialog property-picker";
-  root.setAttribute("aria-labelledby", "propertyPickerTitle");
-  root.setAttribute("aria-describedby", "propertyPickerHelp");
-  root.innerHTML = '<h2 id="propertyPickerTitle">' + escapeAttr(title) + '</h2>' +
-    '<p id="propertyPickerHelp">Choose the investment property. You will review the statement before logging it.</p>' +
-    '<div class="qfab-actions">' + ips.map(function(p){
+  // #426: the dialog is lib/chooser.js's, shared with the + sheet's "Update a balance".
+  chooseOne({ title: title, help: "Choose the investment property. You will review the statement before logging it.", cls: "property-picker", attr: "ipp",
+    fallbacks: ["bankImportPickBtn", "quickFab", "avatarBtn"],
+    items: ips.map(function(p){
       var owners = people.filter(function(person){ return propertyOwnershipPct(p, person, people) > 0; }).join(" / ");
-      var context = [p.state, p.purchaseDate ? "Bought " + fmtDate(p.purchaseDate) : "", owners].filter(Boolean).join(" · ");
-      return '<button type="button" class="qfab-action property-picker-choice" data-ipp="' + escapeAttr(p.id) + '"><span class="qfab-action-label">' + escapeAttr(p.what || "Investment property") + '</span>' +
-        (context ? '<span class="qfab-action-hint">' + escapeAttr(context) + '</span>' : '') + '</button>';
-    }).join("") + '</div><div class="app-dialog-actions"><button type="button" class="btn btn-ghost" data-ipp-close>Cancel</button></div>';
-  document.body.appendChild(root);
-  function restoreFocus(){
-    var target = opener && opener.isConnected ? opener : opener && opener.id ? document.getElementById(opener.id) : null;
-    function available(el){ return el && el !== document.body && el.getClientRects().length && !el.disabled && !el.closest("[inert]"); }
-    if(!available(target)) target = ["bankImportPickBtn", "quickFab", "avatarBtn"].map(function(id){ return document.getElementById(id); }).find(available);
-    if(target) target.focus({ preventScroll: true });
-  }
-  pushActiveOverlay(function(){
-    root.close(); root.remove();
-    if(propertyPicker === root) propertyPicker = null;
-    restoreFocus();
-  });
-  function cancelChoice(){ if(closing) return; closing = true; requestCloseActiveOverlay(); }
-  root.addEventListener("cancel", function(e){ e.preventDefault(); cancelChoice(); });
-  root.addEventListener("click", function(e){
-    if(closing) return;
-    var bounds = root.getBoundingClientRect();
-    var backdrop = e.target === root && (e.clientX < bounds.left || e.clientX > bounds.right || e.clientY < bounds.top || e.clientY > bounds.bottom);
-    if(e.target.closest("[data-ipp-close]") || backdrop){ cancelChoice(); return; }
-    var button = e.target.closest("[data-ipp]");
-    if(!button) return;
-    var chosen = ips.find(function(p){ return p.id === button.getAttribute("data-ipp"); });
-    closing = true;
-    requestCloseActiveOverlay().then(function(closed){
-      if(!closed || request !== propertyPickerSequence) return;
-      if(state !== household || investmentProperties().indexOf(chosen) === -1){ showToast("That property or statement is no longer available. Choose the statement again."); return; }
-      then(chosen);
-    });
-  });
-  root.addEventListener("keydown", function(e){
-    e.stopPropagation();
-    if(e.key !== "Tab") return;
-    var stops = Array.from(root.querySelectorAll("button")), first = stops[0], last = stops[stops.length - 1];
-    if(e.shiftKey && (document.activeElement === first || !root.contains(document.activeElement))){ e.preventDefault(); last.focus(); }
-    else if(!e.shiftKey && (document.activeElement === last || !root.contains(document.activeElement))){ e.preventDefault(); first.focus(); }
-  });
-  root.showModal();
-  root.querySelector("[data-ipp]").focus();
+      return { id: p.id, label: p.what || "Investment property", hint: [p.state, p.purchaseDate ? "Bought " + fmtDate(p.purchaseDate) : "", owners].filter(Boolean).join(" · ") };
+    }),
+    // The very property offered, not one with its id: a household replaced meanwhile (an import, another tab's save)
+    // has new objects, and logging against a stale one would write to nothing.
+    valid: function(id){ var chosen = ips.find(function(p){ return p.id === id; }); return state === household && investmentProperties().indexOf(chosen) !== -1; },
+    gone: "That property or statement is no longer available. Choose the statement again.",
+    then: function(id){ then(ips.find(function(p){ return p.id === id; })); } });
 }

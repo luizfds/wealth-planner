@@ -1,3 +1,4 @@
+import { clearUse } from "../lib/pageuse.js";
 import { confirmDialog, textDialog } from "../lib/dialogs.js";
 // ---------------- Your data, wired (v3.206.1, item 237) ----------------
 //
@@ -297,6 +298,7 @@ export function wireData(){
   document.getElementById("resetBtn").addEventListener("click", async function(){
     if(!(await confirmDialog("Clear everything back to a blank slate? This replaces everything currently entered — export a backup first if you want to keep it.", {"title":"Reset household","accept":"Clear household","danger":true}))) return;
     setState(defaultState());
+    clearUse();   // #426: the device's count of screens opened goes with it
     renderAll();
     persist();
     showToast("Cleared");

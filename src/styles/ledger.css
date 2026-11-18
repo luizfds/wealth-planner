@@ -1871,3 +1871,13 @@
 .nw-chip:focus-visible{ box-shadow: var(--focus-ring); }
 .nw-more{ margin-top:20px; }
 
+
+/* #426: Settings → Categories, folded — each row its icon, name and use until opened. */
+.cat-fold > .cat-fold-summary{ display:flex; align-items:center; gap:10px; min-height:44px; padding:6px 12px; cursor:pointer; list-style:none; }
+.cat-fold > .cat-fold-summary::-webkit-details-marker{ display:none; }
+.cat-fold > .cat-fold-summary::after{ content:"›"; margin-left:auto; color: var(--ink-soft); transition: transform .15s ease; }
+.cat-fold[open] > .cat-fold-summary::after{ transform: rotate(90deg); }
+.cat-fold > .cat-fold-summary:focus-visible{ box-shadow: inset var(--focus-ring); outline:none; border-radius:8px; }
+.cat-fold-name{ font-weight:600; color: var(--ink); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cat-fold-summary .cat-mgmt-count{ margin-left:4px; }
+.cat-fold-body{ border-top:1px solid var(--border); }

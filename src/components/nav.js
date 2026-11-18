@@ -25,6 +25,8 @@ import { renderShowMore } from "./showmore.js";
 import { hideShownAgain } from "../lib/mode.js";
 import { state } from "../state.js";
 import { parentOf, ancestorsOf, sectionOf } from "../lib/parents.js";
+import { recordView } from "../lib/pageuse.js";
+import { renderPageUse } from "./pageuse.js";
 
 // #262: a subtab says which one is showing to a screen reader too (aria-current), not only by its colour. The rails are
 // choosers that navigate (each has its own address), not ARIA tabs: buttons in a named group.
@@ -186,6 +188,8 @@ function syncUrl(pageId, replace, asTab){
   else if(replace && !history.state){ next.depth = 0; next.from = null; }
   else { var base = cur || lastEntry; next.depth = base.depth + 1; next.from = base.title || null; }
   history[replace ? "replaceState" : "pushState"](next, "", path + location.search);
+  // #426: counted on this device only (lib/pageuse.js) — a Details page by its kind, not the thing.
+  recordView(path.slice(BASE_PATH.length + 1).split("/").slice(0, 2).join("/"), localDateStr());
   renderBackLink();
 }
 function reportKeyValid(key){ return REPORTS.some(function(r){ return r.key === key; }); }
@@ -435,7 +439,10 @@ export var QUICK_ACTIONS = [
   { label: "Add cash",      hint: "A savings or offset balance",              page: "assets",     sub: "Cash", group: "add", short: "Cash account" },
   { label: "Add property",  hint: "A home or investment property",            page: "properties", selector: "#addPropertyBtn", group: "add", short: "Property" },
   { label: "Add account",   hint: "A bank or credit card account",            page: "accounts",   selector: "#addAccountBtn", group: "add", short: "Bank or card account" },
-  { label: "Record net worth", hint: "Snapshot today's total",                   page: "dashboard",  mode: "networth", group: "log" }
+  // #426: from a statement or the bank's app — which account, then that account's own balance form.
+  // (#426: "Record net worth" is Net worth's own action now — the sheet's first row there — and on Today's projection
+  // card; it made the sheet scroll on a 320px phone beside this.)
+  { label: "Update a balance", hint: "From a statement or your bank's app",       page: "accounts",   mode: "balance", group: "log" }
 ];
 // Reuses the .review-backdrop/.review-panel sheet shell every other overlay in this app uses (see
 // ledger.css), so this inherits the bottom-anchored-on-mobile treatment and the shared backdrop
@@ -487,6 +494,9 @@ export function updateQuickFab(pageId){
     label = "Log spend";
     selector = "#quickLogBtn";
     mode = "spending";
+  } else if(pageId === "networth"){
+    // #426: a snapshot of today's total belongs with the total.
+    label = "Record net worth"; mode = "networth";
   } else if(pageId === "accounts"){
     label = "Add account"; selector = "#addAccountBtn";
   } else if(pageId === "settings"){
@@ -718,6 +728,7 @@ export function showAccountsSubpage(id, opts){
   scrollActiveSubnavIntoView("accountsSubnav");
   updateQuickFab("settings");
   if(!opts.skipUrl) syncUrl("settings", !!opts.replace, true);
+  if(id === "preferences") renderPageUse();
   renderShowMore();
   return true;
 }

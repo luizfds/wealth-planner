@@ -15,7 +15,7 @@ export function existingEmergencyGoal(){
 }
 
 export function emergencyHtml(f){
-  if(!(f.monthly > 0)) return '<p class="ledger-note" style="margin:0">Mark the budget lines you couldn\'t stop paying as <b>Needs</b> on Cash flow → Budget — rent, utilities, groceries, insurance — and this works out how much to keep aside.</p>';
+  if(!(f.monthly > 0)) return '<p class="ledger-note" style="margin:0">Mark the budget lines you couldn\'t stop paying as <b>Needs</b> on Money → Budget — rent, utilities, groceries, insurance — and this works out how much to keep aside.</p>';
   var seg = '<div class="seg-control ef-seg" role="group" aria-label="Months to cover">' + EMERGENCY_MONTHS.map(function(m){
     return '<button type="button" class="seg-option' + (m === f.months ? ' active' : '') + '" data-ef-months="' + m + '" aria-pressed="' + (m === f.months) + '">' + m + ' months</button>';
   }).join("") + '</div>';
@@ -46,12 +46,12 @@ export function emergencyHtml(f){
     '<div class="ef-bar" aria-hidden="true"><i class="' + (enough ? 'ok' : '') + '" style="width:' + pct.toFixed(1) + '%"></i></div>' +
     '<p class="ef-status ' + (enough ? 'ok' : 'short') + '">' + status + '</p>' +
     people +
-    (f.unclassified && f.unclassified.length ? '<p class="ledger-note">Counted as essential until classified — review on Cash flow → Budget: ' + f.unclassified.map(escapeAttr).join(', ') + '.</p>' : '') +
+    (f.unclassified && f.unclassified.length ? '<p class="ledger-note">Counted as essential until classified — review on Money → Budget: ' + f.unclassified.map(escapeAttr).join(', ') + '.</p>' : '') +
     '<div class="ef-sub">What counts as essential</div><ul class="ef-groups">' + groups + '</ul>' +
     '<details class="ef-lines"><summary>Every line (' + f.lines.length + ')</summary><ul>' + lines + '</ul>' +
       '<p class="ledger-note">Budget lines marked <b>Needs</b> or not yet classified, your home costs and what the investment property costs beyond its rent. Wants — trips, eating out, subscriptions — stop in an emergency, so they\'re left out. ' +
       (f.usedActual ? 'A line counts at what you\'ve actually spent over the last year when that\'s more than its plan. ' : '') +
-      'Change a line between Needs and Wants on Cash flow → Budget.</p></details>' +
+      'Change a line between Needs and Wants on Money → Budget.</p></details>' +
     '<p class="ledger-note ef-note">Measured against cash and offset balances — money you can spend tomorrow. Shares aren\'t counted: the point is not having to sell in a bad week.</p>' +
     '<div class="ef-actions">' + goalBtn + '</div>';
 }

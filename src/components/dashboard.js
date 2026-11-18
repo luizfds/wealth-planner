@@ -810,7 +810,7 @@ export function renderMonthlyCashFlow(){
     : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
       fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
       '/mo (' + fmtPercent1.format(coverage.fraction) + ' of it). The month-to-month shape is real; ' +
-      'the gap to income is not savings. Import a bank statement on Cash flow and this becomes ' +
+      'the gap to income is not savings. Import a bank statement on Money and this becomes ' +
       'a savings figure.';
   panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
     '<div class="cf-chart">' + barsHtml + '</div>' +

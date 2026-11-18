@@ -88,7 +88,7 @@ function drillHtml(rep, opts){
     if(!tx.length) return "";
     return '<div class="rp-drill"><div class="rp-drill-head"><b>' + escapeAttr(k) + '</b> — ' + tx.length + ' transaction' + (tx.length === 1 ? '' : 's') +
       // v3.168.0: by category, the same rows in Spending — a filter there, and a view to keep.
-      (reportFrame.group === "category" ? '<button type="button" class="btn btn-ghost btn-sm" data-sv data-sv-direction="out" data-sv-category="' + escapeAttr(k) + '" data-sv-from="' + escapeAttr(opts.win.start) + '" data-sv-to="' + escapeAttr(opts.win.end) + '">Show in Spending</button>' : '') +
+      (reportFrame.group === "category" ? '<button type="button" class="btn btn-ghost btn-sm" data-sv data-sv-direction="out" data-sv-category="' + escapeAttr(k) + '" data-sv-from="' + escapeAttr(opts.win.start) + '" data-sv-to="' + escapeAttr(opts.win.end) + '">Show in Transactions</button>' : '') +
       '<button type="button" class="btn btn-ghost btn-sm" data-rf-drill="' + escapeAttr(k) + '">Close</button></div>' +
       '<table class="rp-table rp-drill-table"><tbody>' + tx.slice(0, 60).map(function(t){
         return '<tr><td>' + escapeAttr(fmtDate(t.date)) + '</td><td>' + escapeAttr(transactionDisplayName(t, budgetLineItems())) + '</td><td class="num">' + fmtCurrency2.format(Number(t.amount) || 0) + '</td></tr>';
@@ -362,12 +362,12 @@ export function reportDisclosureHtml(info, expanded){
 // #255 step 3 (pages.md §4): a report with nothing to show says what it needs and where that's entered, instead of a
 // table of $0 — "Nothing to report yet" said neither. Empty: no rows, or every figure in them nothing.
 var REPORT_NEEDS = {
-  cashflow: ["Monthly cash flow needs money in and out logged for the period — pay received and spending.", "expenses/spending", "Go to Spending →"],
-  categories: ["Spending by category needs spending logged for the period.", "expenses/spending", "Go to Spending →"],
+  cashflow: ["Monthly cash flow needs money in and out logged for the period — pay received and spending.", "expenses/spending", "Go to Transactions →"],
+  categories: ["Spending by category needs spending logged for the period.", "expenses/spending", "Go to Transactions →"],
   income: ["The income statement needs pay or other money in, and spending, logged for the period.", "expenses/income", "Go to Income →"],
-  flow: ["Where the money goes needs income and spending logged for the period.", "expenses/spending", "Go to Spending →"],
+  flow: ["Where the money goes needs income and spending logged for the period.", "expenses/spending", "Go to Transactions →"],
   budget: ["Budget vs actual needs budget lines, and spending logged against them.", "expenses/budget", "Go to Budget →"],
-  trends: ["Year on year needs spending logged in the last twelve months.", "expenses/spending", "Go to Spending →"],
+  trends: ["Year on year needs spending logged in the last twelve months.", "expenses/spending", "Go to Transactions →"],
   networth: ["The net worth statement needs what you own and owe — accounts, investments, property and loans.", "accounts", "Go to Accounts →"],
   nwcheck: ["The net worth check needs balances recorded over the months, and the money in and out between them.", "accounts", "Go to Accounts →"],
   invest: ["Investment returns need holdings and what was paid for them.", "assets/Shares", "Go to Shares →"],
@@ -379,8 +379,8 @@ var REPORT_NEEDS = {
   "super": ["Super needs a super fund, or pay with super, for someone in the household.", "assets/Super", "Go to Super →"],
   tax: ["The tax summary needs a Gross income row with a Person.", "expenses/income", "Go to Income →"],
   taxpack: ["The rental tax pack needs an investment property.", "properties", "Go to Property →"],
-  review: ["The year in review needs a year with money in and out, or balances, recorded.", "expenses/spending", "Go to Spending →"],
-  lender: ["The lender pack needs money in, spending and balances over the last twelve months.", "expenses/spending", "Go to Spending →"]
+  review: ["The year in review needs a year with money in and out, or balances, recorded.", "expenses/spending", "Go to Transactions →"],
+  lender: ["The lender pack needs money in, spending and balances over the last twelve months.", "expenses/spending", "Go to Transactions →"]
 };
 export function reportIsEmpty(rep){
   if(!rep || !rep.rows || !rep.rows.length) return true;

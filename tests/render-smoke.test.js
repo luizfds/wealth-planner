@@ -1186,7 +1186,7 @@ test("a report with nothing to show says what it needs, not a table of $0 (#255 
   assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [] }), true);
   assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [{ cells: { m: "Jul", in: 0, out: 0 } }, { cells: { m: "Aug", in: "", out: null } }] }), true);
   assert.equal(reportIsEmpty({ key: "cashflow", columns, rows: [{ cells: { m: "Jul", in: 0, out: 12.5 } }] }), false);
-  assert.match(reportEmptyHtml({ key: "cashflow" }), /needs money in and out[\s\S]*data-go="expenses\/spending">Go to Spending →/);
+  assert.match(reportEmptyHtml({ key: "cashflow" }), /needs money in and out[\s\S]*data-go="expenses\/spending">Go to Transactions →/);
   assert.match(reportEmptyHtml({ key: "tax" }), /Gross income row with a Person[\s\S]*data-go="expenses\/income"/);
   assert.match(reportEmptyHtml({ key: "unknown" }), /data-empty="done"/);
 });

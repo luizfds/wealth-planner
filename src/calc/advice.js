@@ -228,7 +228,7 @@ export function adviceFor(opts){
   if(trim && trim.overYearly >= 1000){
     add({ id: "plan-padding", area: "cashflow", kind: "opportunity", title: "The plan budgets " + money(trim.overYearly) + " a year more than you spend",
       detail: trim.over.slice(0, 3).map(function(x){ return x.what + " (" + money(x.planned) + " budgeted, " + money(x.actual) + " spent)"; }).join(", ") + (trim.over.length > 3 ? " and " + (trim.over.length - 3) + " more" : "") +
-        ". Every scenario plans with these amounts, so each one looks about " + money(trim.overYearly / 12) + " a month worse than it is. Cash flow → Budget → Trim sets them to what you actually spend.",
+        ". Every scenario plans with these amounts, so each one looks about " + money(trim.overYearly / 12) + " a month worse than it is. Money → Budget → Trim sets them to what you actually spend.",
       impactYearly: null, go: { page: "expenses", sub: "budget" } });
   }
   if(trim && trim.flexibleYearly > 0){
@@ -236,7 +236,7 @@ export function adviceFor(opts){
       if(!out.some(function(x){ return x.id === "buy-stress:" + c.scenario; })) return;
       var half = trim.flexibleYearly / 24;
       add({ id: "buy-lean:" + c.scenario, scenario: c.scenario, area: "plan", kind: "info", title: c.scenario + " run lean: about " + money(half) + "/mo more",
-        detail: "Halving the flexible lines (" + trim.flexible.slice(0, 3).map(function(f){ return f.what; }).join(", ") + (trim.flexible.length > 3 ? "…" : "") + ") in this scenario would leave about " + leaves(c.regularNetMonthly + half) + " in a normal month. Cash flow → Budget → Trim runs it lean without touching your budget.",
+        detail: "Halving the flexible lines (" + trim.flexible.slice(0, 3).map(function(f){ return f.what; }).join(", ") + (trim.flexible.length > 3 ? "…" : "") + ") in this scenario would leave about " + leaves(c.regularNetMonthly + half) + " in a normal month. Money → Budget → Trim runs it lean without touching your budget.",
         impactYearly: null, go: { page: "plan", sub: "scenarios" } });
     });
   }

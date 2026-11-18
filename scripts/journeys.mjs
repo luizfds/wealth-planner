@@ -288,6 +288,12 @@ async function openBillsToConfirm(page){
   await page.locator('#expenseReviewRoot .review-panel').waitFor();
 }
 async function go(page, pageId, subAttr, sub){
+  // #427: Income is no tab — Money in is the top of Budget, where every Income link lands.
+  if(pageId === 'expenses' && sub === 'income'){
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await page.evaluate(() => document.getElementById('moneyIn').scrollIntoView({ block: 'start' }));
+    return;
+  }
   if(pageId === 'reports' && subAttr === 'data-report'){
     await go(page, 'reports');
     await page.locator('#reportsBody [data-report-choose]').first().click();
@@ -2179,7 +2185,7 @@ const JOURNEYS = {
     check(!s.offer && await page.locator('#tourOffer').isHidden(), 'the offer stayed on screen under the tour');
     // The five places, each named as its own tab names it, ringed, with the card beside it.
     // #412: Today, and More (with Tax inside) in place of Tax.
-    const places = [['Today', 'dashboard'], ['Cash flow', 'expenses'], ['Net worth', 'networth'], ['Plan', 'plan'], ['More', 'more']];
+    const places = [['Today', 'dashboard'], ['Money', 'expenses'], ['Net worth', 'networth'], ['Plan', 'plan'], ['More', 'more']];
     for(let i = 0; i < places.length; i++){
       await onStep(i + 1);
       // The ring slides to its place; wait for it to arrive around this step's own tab, not for a length of time.
@@ -3478,7 +3484,7 @@ const JOURNEYS = {
     const fold = page.locator('#pageUseBody').locator('xpath=ancestor::details[1]');
     await fold.evaluate(d => { d.open = true; });
     const listed = await page.locator('#pageUseBody li').allInnerTexts();
-    check(listed.includes('Tax → Returns') && listed.includes('Plan → Retirement') && !listed.includes('Cash flow → Spending') && !listed.includes('Today → Insights'), 'rarely opened lists ' + JSON.stringify(listed));
+    check(listed.includes('Tax → Returns') && listed.includes('Plan → Retirement') && !listed.includes('Money → Transactions') && !listed.includes('Today → Insights'), 'rarely opened lists ' + JSON.stringify(listed));
     await page.locator('#pageUseClear').click();
     check(await page.evaluate(() => localStorage.getItem('wealthPlanner.pageUse') === null || !JSON.parse(localStorage.getItem('wealthPlanner.pageUse')).views['expenses/spending']), 'Forget did not clear the count');
   },
@@ -3512,7 +3518,7 @@ const JOURNEYS = {
       await page.waitForFunction(() => location.pathname === '/dashboard' && !document.getElementById('dashboardSub-overview').hidden);
       if(width < 900){
         const tabs = await page.locator('.mobile-tab .mobile-tab-label').allInnerTexts();
-        check(tabs.join() === 'Today,Cash flow,Net worth,Plan,More', 'the tab bar reads ' + tabs.join());
+        check(tabs.join() === 'Today,Money,Net worth,Plan,More', 'the tab bar reads ' + tabs.join());
         await page.locator('.mobile-tab[data-page="more"]').click(); await page.waitForFunction(() => location.pathname === '/more');
         const rows = await page.locator('#moreList .more-item-label').allInnerTexts();
         check(rows.map(r => r.split('\n')[0].replace(/Lodge by.*/, '').trim()).join() === 'Tax,Reports,Calculators,Settings,Backup & sync', 'More lists ' + JSON.stringify(rows));
@@ -3527,8 +3533,8 @@ const JOURNEYS = {
         await page.waitForFunction(() => location.pathname === '/settings/preferences');
       } else {
         const side = await page.locator('.app-nav > .nav-item, .nav-group, .nav-group-items .nav-item').allInnerTexts();
-        check(side.map(t => t.trim()).join() === 'Today,Cash flow,Net worth,Plan,MORE,Tax,Reports,Calculators,Settings,Backup & sync' ||
-          side.map(t => t.trim()).join() === 'Today,Cash flow,Net worth,Plan,More,Tax,Reports,Calculators,Settings,Backup & sync', 'the sidebar reads ' + side.join());
+        check(side.map(t => t.trim()).join() === 'Today,Money,Net worth,Plan,MORE,Tax,Reports,Calculators,Settings,Backup & sync' ||
+          side.map(t => t.trim()).join() === 'Today,Money,Net worth,Plan,More,Tax,Reports,Calculators,Settings,Backup & sync', 'the sidebar reads ' + side.join());
         await page.locator('.nav-item[data-page="tax"]').click(); await page.waitForFunction(() => location.pathname.indexOf('/tax/') === 0);
         check((await shown()).lit.join() === 'Tax', 'the sidebar does not light Tax');
       }
@@ -3540,7 +3546,7 @@ const JOURNEYS = {
     const sheet = page.locator('.qfab-panel');
     for(const width of [320, 390, 1280]){
       await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
-      for(const [pg, attr, sub, own] of [['dashboard', 'data-dashboard-sub', 'overview', null], ['expenses', 'data-expenses-sub', 'income', 'Add income for'],
+      for(const [pg, attr, sub, own] of [['dashboard', 'data-dashboard-sub', 'overview', null], ['expenses', 'data-expenses-sub', 'budget', null],
         ['assets', 'data-assets-sub', 'Shares', 'Add holding'], ['plan', 'data-plan-sub', 'projections', null]]){
         await go(page, pg, attr, sub);
         const name = await page.evaluate(() => [document.getElementById('headerAddBtn'), document.getElementById('quickFab')].find(b => b.getClientRects().length).getAttribute('aria-label'));
@@ -5661,8 +5667,10 @@ const JOURNEYS = {
     // A link: Tax → Returns has no one to make a return for yet, and goes to Income to add them.
     await go(page, 'tax', 'data-tax-sub', 'returns');
     await click(page, '#page-tax .empty-state [data-go="expenses/income"]');
-    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="income"][aria-current="page"]'));
-    check((await at()) === 'expenses/income', 'Tax → Returns went to ' + await at() + ', not Cash flow → Income');
+    // #427: Income is Money in, the top of Budget — the link lands there, with it in view.
+    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="budget"][aria-current="page"]'));
+    check((await at()) === 'expenses/budget', 'Tax → Returns went to ' + await at() + ', not Money → Budget');
+    await until(page, () => { const r = document.getElementById('moneyIn').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight / 2; });
     // The page's own add: Spending's opens quick log, Accounts' a new account, People's a new person.
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
     await click(page, '#page-expenses .empty-state [data-empty-add="#quickLogBtn"]');
@@ -6359,7 +6367,7 @@ const JOURNEYS = {
     const scenarioName=await editor.getAttribute('data-edit-scenario');await editor.click();
     await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
     await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
-    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
+    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/budget'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
     for(const [route,expected]of cases){
       const before=await page.evaluate(async()=>({url:location.pathname,settings:(await import('/src/components/nav.js')).settingsSubpage(),tax:(await import('/src/components/nav.js')).taxSubpage(),plan:document.querySelector('#planSubnav .active')?.dataset.planSub,expense:document.querySelector('#expensesSubnav .active')?.dataset.expensesSub}));
       async function request(){await page.evaluate(async route=>{
@@ -6416,7 +6424,7 @@ const JOURNEYS = {
       try{
         const nav=await import('/src/components/nav.js');
         if(!await nav.showPage('income')) throw new Error('Navigation did not complete');
-        if(location.pathname!=='/expenses/income' || document.querySelector('#expensesSub-income').hidden || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
+        if(location.pathname!=='/expenses/budget' || !document.querySelector('#expensesSub-income').checkVisibility() || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
       }finally{ document.startViewTransition=original; }
     });
   },

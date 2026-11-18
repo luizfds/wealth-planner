@@ -34,7 +34,7 @@ export function firstRunHtml(){
           '<button type="button" class="btn btn-danger btn-sm" data-fr-del-acct="' + i + '" aria-label="Remove this account">✕</button></div>';
       }).join("") + '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-acct>+ Another account</button>';
   } else if(st === 2){
-    body = '<p class="fr-lede">Pay before tax. Leave it blank to fill in later on Cash flow → Income.</p>' +
+    body = '<p class="fr-lede">Pay before tax. Leave it blank to fill in later on Money → Budget → Money in.</p>' +
       a.people.filter(function(p){ return String(p.name || "").trim(); }).map(function(p){
         var i = a.people.indexOf(p);
         return '<div class="fr-row">' + field(escapeAttr(p.name) + "'s pay before tax $", 'data-fr="people.' + i + '.pay"', p.pay, "number", ' step="100"') +
@@ -42,7 +42,7 @@ export function firstRunHtml(){
       }).join("") || '<p class="ledger-note">Go back and add a name first.</p>';
   } else if(st === 3){
     var h = a.housing;
-    body = '<p class="fr-lede">Roughly what each costs. Blank ones are skipped; everything can be changed on Cash flow → Budget.</p>' +
+    body = '<p class="fr-lede">Roughly what each costs. Blank ones are skipped; everything can be changed on Money → Budget.</p>' +
       '<div class="fr-row"><label class="fr-field"><span>Home</span><select class="field-control" data-fr="housing.kind"><option value="rent"' + (h.kind === "rent" ? " selected" : "") + '>Rent</option><option value="loan"' + (h.kind === "loan" ? " selected" : "") + '>Home loan</option><option value="none"' + (h.kind === "none" ? " selected" : "") + '>Neither</option></select></label>' +
         field("$", 'data-fr="housing.amount"', h.amount, "number") +
         '<label class="fr-field"><span>Per</span><select class="field-control" data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
@@ -53,7 +53,7 @@ export function firstRunHtml(){
         '<label class="pref-check"><input type="checkbox" data-fr="own.shares"' + (a.own && a.own.shares ? " checked" : "") + '> Shares, ETFs or crypto</label></div>';
   } else {
     // v3.117.0: statements are the main path — three months of them and the budget builds itself.
-    body = '<p class="fr-lede">The quickest way in: download your last three months of statements (CSV or PDF — most banks have "Export" or "Download transactions") and import them. Well-known shops file themselves, the budget is proposed from what you actually spent (Cash flow → Budget), and a payslip on Tax fills in pay and tax so far.</p>' +
+    body = '<p class="fr-lede">The quickest way in: download your last three months of statements (CSV or PDF — most banks have "Export" or "Download transactions") and import them. Well-known shops file themselves, the budget is proposed from what you actually spent (Money → Budget), and a payslip on Tax fills in pay and tax so far.</p>' +
       '<p class="ledger-note">After that, a monthly review on Today keeps it current in about ten minutes.</p>';
   }
   var last = st === STEPS.length - 1;

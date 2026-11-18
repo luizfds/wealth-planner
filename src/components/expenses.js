@@ -1580,7 +1580,7 @@ function budgetRowTxnListHtml(pairs, item, cycle){
     '</div>';
   }).join("");
   // v3.168.0: the same rows in Spending, where they can be filtered further or saved as a view.
-  var more = item && cycle ? '<button type="button" class="link-btn budget-row-sv" data-sv data-sv-line="' + escapeAttr(item.id) + '" data-sv-from="' + escapeAttr(cycle.start) + '" data-sv-to="' + escapeAttr(cycle.end) + '">Show these in Spending →</button>' : '';
+  var more = item && cycle ? '<button type="button" class="link-btn budget-row-sv" data-sv data-sv-line="' + escapeAttr(item.id) + '" data-sv-from="' + escapeAttr(cycle.start) + '" data-sv-to="' + escapeAttr(cycle.end) + '">Show these in Transactions →</button>' : '';
   return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>' + more;
 }
 // Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a

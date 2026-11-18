@@ -809,7 +809,7 @@ var TAX_NOTE_HELP = {
   "cgt": "Recorded under 'Record a sale' on a Shares holding. Held more than 12 months, an individual's gain is halved before tax.",
   "fund": "From annual tax statements entered on Shares holdings (Investments). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.",
   "div": "Taken from Shares holdings with a dividend per unit set on Investments. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.",
-  "deduct": "Taken from budget lines flagged as work-related on Cash flow. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.",
+  "deduct": "Taken from budget lines flagged as work-related on Money. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.",
   "mls": "Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.",
   "help": "Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it."
 };
@@ -929,7 +929,7 @@ function deductionsNoteText(r){
     " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself." +
     (r.wfh && r.wfh.amount > 0 ? " Includes working from home: " + Math.round(r.wfh.hours).toLocaleString("en-AU") + " hours x the fixed rate = " + fmtCurrency0.format(r.wfh.amount) + (r.wfh.assumed ? " (rate not yet published for this year — last year's used)" : "") + "." : "") +
     (r.wfhOverlap && r.wfhOverlap.length ? " Check: " + r.wfhOverlap.join(", ") + (r.wfhOverlap.length === 1 ? " is" : " are") + " also flagged, but the fixed rate already covers energy, internet, phone and stationery." : "") +
-    " Flag a budget line as deductible under More options on Cash flow.";
+    " Flag a budget line as deductible under More options on Money.";
 }
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
 // cover still prints a figure.

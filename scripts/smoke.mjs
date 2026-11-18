@@ -44,7 +44,7 @@ const base = "http://127.0.0.1:" + server.address().port;
 
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks", "review"]],
-  ["expenses", "expenses-sub", ["budget", "income", "spending", "bills"]],
+  ["expenses", "expenses-sub", ["budget", "spending", "bills"]],   // #427: Money in is the top of Budget
   ["networth", null, [null]],
   ["accounts", null, [null]],
   ["assets", "assets-sub", ["Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],   // #413: no Summary
@@ -275,7 +275,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       const current = () => document.body.getAttribute("data-current-page");
       const out = [];
       if(w < 880){
-        // #412: Today · Cash flow · Net worth · Plan · More; Tax is in More (checked below).
+        // #412: Today · Money · Net worth · Plan · More; Tax is in More (checked below).
         const plan = document.querySelector('.mobile-tab[data-page="plan"]');
         if(!plan) out.push("no Plan tab"); else { plan.click(); await wait(600); if(current() !== "plan") out.push("the Plan tab didn't open it"); }
         const tab = document.querySelector('.mobile-tab[data-page="networth"]');

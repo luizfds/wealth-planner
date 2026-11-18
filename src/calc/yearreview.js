@@ -63,9 +63,9 @@ export function yearReviewSections(y, f, today){
     out.push({ key: "money", title: "Where the money went", tone: kept >= 0 ? "good" : "warn",
       verdict: money(f.tin) + " came in and " + money(f.tout) + " was spent" + (interest ? ", with " + money(interest) + " of loan interest and fees" : "") +
         (f.tin > 0 ? ": " + (kept >= 0 ? money(kept) + " kept, " + Math.round(kept / f.tin * 100) + "% of it." : money(-kept) + " more went out than came in.") : "."),
-      detail: f.pin || f.pout ? "The year before: " + money(f.pin) + " in, " + money(f.pout) + " spent." : "", go: "expenses/spending", label: "Go to Spending →",
+      detail: f.pin || f.pout ? "The year before: " + money(f.pin) + " in, " + money(f.pout) + " spent." : "", go: "expenses/spending", label: "Go to Transactions →",
       reconcile: f.reconcile || null });
-  } else out.push({ key: "money", title: "Where the money went", tone: "empty", empty: "Nothing came in or went out in " + label + " that was logged — a bank statement for the year fills this in.", go: "expenses/spending", label: "Go to Spending →" });
+  } else out.push({ key: "money", title: "Where the money went", tone: "empty", empty: "Nothing came in or went out in " + label + " that was logged — a bank statement for the year fills this in.", go: "expenses/spending", label: "Go to Transactions →" });
   // 2. Net worth.
   var s = f.start, e = f.end;
   // Nothing recorded at either end reads as $0 to $0 — that's a missing year, not a flat one.

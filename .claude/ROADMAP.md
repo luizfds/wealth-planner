@@ -5458,5 +5458,6 @@ each, in this order (Net worth → Accounts last: Net worth already has an "Acco
 
 1. `[x]` **Back follows the page structure; breadcrumb; return to where you were** (#425) — shipped (PR #429).
 2. `[x]` **Offer Simple once; Update a balance in +; Categories folded; on-device page-use count** (#426) — shipped (PR #430).
-3. `[~]` **Cash flow becomes Money, in three tabs** (#427).
-4. `[ ]` **Accounts as one list; Net worth becomes Accounts** (#428).
+3. `[x]` **Cash flow becomes Money, in three tabs** (#427) — shipped (PR #431).
+4. `[x]` **Accounts as one list; Net worth becomes Accounts** (#428). The owner chose one list with the editing pages
+   behind it (Bank accounts, Investments, Property: Details → Manage, + and search), not moving every tool onto item pages.

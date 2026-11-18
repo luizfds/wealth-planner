@@ -64,10 +64,6 @@
     display:block; width:100%; min-width:0; min-height:44px;
     font-size:var(--fs-md); font-weight:600;
   }
-  /* #422: on a phone Investments' way up is the header's back link (nav.js upToNetWorth), not a second rail. */
-  @media (max-width:880px){
-    #page-assets > .nw-rail{ display:none; }
-  }
   .assets-subpage{ display:flex; flex-direction:column; gap:20px; }
   .assets-subpage[hidden]{ display:none; }
   /* Expenses' Budget/Spending halves — same shape as .assets-subpage above, including the
@@ -473,8 +469,18 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .page-back[hidden]{ display:none; }
 @media (min-width:881px){ .page-back[data-phone-only]{ display:none; } }
 /* #425: the breadcrumb, a desktop's — under the title, each part a link up. A phone has the back link instead. */
-.page-crumbs{ flex-basis:100%; order:10; font-size:var(--fs-sm); color: var(--ink-soft); margin-top:-2px; }
+/* contain: its own width doesn't count towards the title area's, so the header's actions keep their row (#428). */
+.page-crumbs{ flex-basis:100%; order:10; font-size:var(--fs-sm); color: var(--ink-soft); margin-top:-2px; contain: inline-size; }
 .page-crumbs[hidden]{ display:none; }
+/* With a breadcrumb row under the title, the header's actions stay level with the title, not halfway down. */
+@media (min-width:881px){ .app-topbar:has(.page-crumbs:not([hidden])){ align-items:flex-start; } }
+/* A short desktop window (a laptop split in two, a zoomed page) keeps its height for the page: the back link, on the
+   title's own row, says the way up instead of a breadcrumb row under it (#428; errorsummarybounds at 1280×190). */
+@media (min-width:881px) and (max-height:500px){
+  .page-crumbs{ display:none; }
+  .page-back[data-phone-only]:not([hidden]){ display:inline-flex; }
+  .app-topbar:has(.page-crumbs:not([hidden])){ align-items:center; }
+}
 .page-crumbs ol{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; list-style:none; margin:0; padding:0; }
 .page-crumbs li{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .page-crumbs li + li::before{ content:"›"; color: var(--ink-soft); }

@@ -103,7 +103,7 @@ export function detailView(kind, id, today){
         (acct.type === "everyday" ? section("The next 90 days", balanceForecastHtml(acct, today)) : "") +
         section("Spending on this account", monthlyChart(txs, today) + txTable(txs, { third: "Category" })) +
         section("Transfers", moves.length ? '<ul class="dt-list">' + moves.slice(-10).reverse().map(function(m){ return '<li>' + escapeAttr(fmtDate(m.date, { year: true })) + ' — ' + escapeAttr(m.from === acct.name ? "to " + m.to : "from " + m.from) + ' <b>' + money(m.amount) + '</b></li>'; }).join("") + '</ul>' : ""),
-      edit: { label: "Edit on Accounts", to: { page: "accounts" } } };
+      edit: { label: "Manage on Bank accounts", to: { page: "accounts", scrollToId: "acct-card-" + id } } };
   }
   if(kind === "asset"){
     var a = (state.assets || []).find(function(x){ return x.id === id; });
@@ -122,7 +122,7 @@ export function detailView(kind, id, today){
       if(cg.realised.length) html += section("Sales", '<ul class="dt-list">' + cg.realised.map(function(y){ return '<li>' + y.label + ': net capital gain <b>' + money(y.net.net) + '</b></li>'; }).join("") + '</ul>');
     }
     return { title: a.what || a.symbol || "Holding", kicker: a.category || "Asset", history: a.history || [], html: html,
-      edit: { label: "Edit on Investments", to: { page: "assets", sub: a.category || "Cash" } } };
+      edit: { label: "Manage on Investments", to: { page: "assets", sub: a.category || "Cash" } } };
   }
   if(kind === "property"){
     var p = (state.properties || []).find(function(x){ return x.id === id; });
@@ -134,7 +134,7 @@ export function detailView(kind, id, today){
           pr.ip ? ["Rent a year", money(pr.rent)] : null, pr.ip ? ["Gross yield", pct(pr.grossYield)] : null, ["Value growth, 12 months", money(pr.growth)], ["Growth a year since purchase", pct(pr.growthPa)]]) +
         section("Loans", (p.loans || []).length ? '<ul class="dt-list">' + p.loans.map(function(l, i){ return '<li>' + detailLinkHtml("loan", l.id, l.what || "Loan " + (i + 1)) + ' <b>' + money(Number(l.balance) || 0) + '</b> at ' + (Number(l.rate) || 0) + '%</li>'; }).join("") + '</ul>' : "") +
         section("Owners", p.kind === "IP" && people.length ? '<ul class="dt-list">' + people.map(function(n){ return '<li>' + detailLinkHtml("person", n, n) + ' ' + Math.round(propertyOwnershipPct(p, n, people)) + '%</li>'; }).join("") + '</ul>' : ""),
-      edit: { label: "Edit on Property", to: { page: "properties", scrollToId: "property-card-" + p.id } } };
+      edit: { label: "Manage on Property", to: { page: "properties", scrollToId: "property-card-" + p.id } } };
   }
   if(kind === "loan"){
     var f = findLoan(id);
@@ -145,13 +145,13 @@ export function detailView(kind, id, today){
       html: facts([["Owed", money(Number(f.loan.balance) || 0)], ["Offset", money(Number(f.loan.offsetBalance) || 0)], ["Rate", (Number(f.loan.rate) || 0) + "%"], ["Repayment a month", money(row.monthly)],
           ["Interest " + d.thisLabel + " so far", money(row.interestThisYear)], ["Interest " + d.lastLabel, money(row.interestLastYear)], ["Deductible share", row.deductibleShare != null ? pct(row.deductibleShare) : null],
           ["Paid off", row.interestOnly ? "Interest only" : row.payoff ? fmtDate(row.payoff, { year: true }) : "Not at this rate"], ["Property", detailLinkHtml("property", f.property.id, f.property.what || "Property")]]),
-      edit: { label: "Edit on Property", to: { page: "properties", scrollToId: "property-card-" + f.property.id } } };
+      edit: { label: "Manage on Property", to: { page: "properties", scrollToId: "property-card-" + f.property.id } } };
   }
   if(kind === "debt"){
     var db = (state.debts || []).find(function(x){ return x.id === id; });
     if(!db) return null;
     return { title: db.what || "Debt", kicker: "Debt", history: db.history || [], html: facts([["Owed", money(Number(db.balance) || 0)]]),
-      edit: { label: "Edit on Accounts", to: { page: "accounts" } } };
+      edit: { label: "Manage on Bank accounts", to: { page: "accounts", scrollToId: "debtsTable" } } };
   }
   if(kind === "line"){
     var line = budgetLineItems().find(function(l){ return l.id === id; });

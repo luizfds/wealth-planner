@@ -171,7 +171,7 @@ export function investmentsHtml(d){
     '<label>and a fixed <input type="number" class="field-control" step="0.5" min="0" max="30" data-bm-rate value="' + Math.round(d.fixedRate * 1000) / 10 + '" style="width:64px"> % a year</label>' +
   '</div>';
   if(!d.flows.length){
-    return controls + '<p class="fire-note">Add purchase lots to your share holdings (Net worth → Investments → Shares → a holding → Purchase lots) and this compares what your money did against the same dollars, on the same dates, in ' + esc(d.symbol) + ' and at a fixed rate.' +
+    return controls + '<p class="fire-note">Add purchase lots to your share holdings (Accounts → Investments → Shares → a holding → Purchase lots) and this compares what your money did against the same dollars, on the same dates, in ' + esc(d.symbol) + ' and at a fixed rate.' +
       (d.excluded.length ? " Holdings without lots: " + esc(d.excluded.join(", ")) + "." : "") + '</p>';
   }
   var bars = [{ label: "Your shares", value: d.value, rate: d.myRate, cls: "mine" }];

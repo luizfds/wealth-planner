@@ -30,7 +30,7 @@ test("the plan says what will be added, changed and ended, and what waits", func
     var plan = makeRealPlan(state, "Rentvest", "2026-11-01");
     assert.ok(plan.actions.some(function(a){ return /End today's home lines \(Rent\)/.test(a); }));
     assert.ok(plan.actions.some(function(a){ return /Add Rent to Budget as where you live: \$700 weekly/.test(a); }));
-    assert.ok(plan.actions.some(function(a){ return /Example unit to Net worth → Property: \$600,000, a \$480,000 loan, rent \$600 a week/.test(a); }));
+    assert.ok(plan.actions.some(function(a){ return /Example unit to Accounts → Property: \$600,000, a \$480,000 loan, rent \$600 a week/.test(a); }));
     assert.ok(plan.actions.some(function(a){ return /Groceries: \$800 → \$900/.test(a); }));
     assert.deepEqual(plan.skipped.map(function(s){ return s.text; }), ["Second car"]);
     assert.equal(state.properties.length, 0, "a plan changes nothing");

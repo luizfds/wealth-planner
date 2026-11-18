@@ -572,7 +572,7 @@ export function propertyLoansGroupHtml(rows){
       return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
         '<div style="flex:1 1 auto; min-width:0">' +
           '<div class="m-row-name">' + escapeAttr(r.loan.what || ((r.property.what || "Property") + " — loan")) + '</div>' +
-          '<div class="m-row-sub">auto: worked out from the loan\'s balance, rate and term — edit in Net worth → Property</div>' +
+          '<div class="m-row-sub">auto: worked out from the loan\'s balance, rate and term — edit in Accounts → Property</div>' +
         '</div>' +
         '<span class="m-row-amt">' + fmtCurrency0.format(r.monthly) + '/mo</span>' +
       '</div></div>';

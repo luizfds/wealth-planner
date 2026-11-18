@@ -139,7 +139,7 @@
     <div class="app-nav" id="appNav">
       <button type="button" class="nav-item" data-page="dashboard">Today <span class="nav-badge" data-checks-badge hidden></span></button>
       <button type="button" class="nav-item" data-page="expenses">Money</button>
-      <button type="button" class="nav-item" data-page="networth">Net worth</button>
+      <button type="button" class="nav-item" data-page="networth">Accounts</button>
       <button type="button" class="nav-item" data-page="plan">Plan</button>
       <!-- #412: what a phone's More tab holds, the same five in the same order. -->
       <p class="nav-group" id="navMoreHead">More</p>
@@ -630,12 +630,6 @@
       </section>
 
       <section class="app-page" id="page-accounts" hidden>
-        <div class="subnav nw-rail" role="group" aria-label="Net worth">
-          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
-          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="accounts">Accounts</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
-        </div>
         <div class="accounts-subpage" id="accountsSub-accounts">
         <div class="page-intro-row">
           <p class="page-intro help">Every place your money sits — bank accounts, offsets, cards and loans — with what's in each. Tag spending with the account it came out of.</p>
@@ -814,12 +808,6 @@
       </section>
 
       <section class="app-page" id="page-properties" hidden>
-        <div class="subnav nw-rail" role="group" aria-label="Net worth">
-          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="properties" data-part="property">Property</button>
-        </div>
         <div class="page-intro-row">
           <p class="page-intro help" id="propertyPageHelp">What you actually own — value, loans, and the rent/expenses tied to each property. <span id="propertyLoanExportHelp">Export loans CSV downloads every loan, across every property, as a CSV file.</span></p>
           <div class="page-intro-actions"><button type="button" class="btn btn-sm btn-ghost" data-import-open="property" aria-haspopup="dialog">Import data…</button></div>
@@ -868,12 +856,6 @@
 
 
       <section class="app-page" id="page-assets" hidden>
-        <div class="subnav nw-rail" role="group" aria-label="Net worth">
-          <button type="button" class="subnav-item nw-rail-item" data-page="networth">Overview</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
-          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
-        </div>
         <div class="page-intro-row">
           <p class="page-intro help">What you own today, tracked over time, and what buying would do to your net worth.</p>
           <div class="page-intro-actions">
@@ -910,13 +892,7 @@
       </section>
 
       <section class="app-page" id="page-networth" hidden>
-        <div class="subnav nw-rail" role="group" aria-label="Net worth">
-          <button type="button" class="subnav-item nw-rail-item active" aria-current="page" data-page="networth">Overview</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="accounts">Accounts</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="assets">Investments</button>
-          <button type="button" class="subnav-item nw-rail-item" data-page="properties" data-part="property">Property</button>
-        </div>
-        <p class="page-intro help">Everything you own and owe in one list — open any of it for its history and detail, or use the tabs above to update balances, holdings and property.</p>
+        <p class="page-intro help">Everything you own and owe in one list, with your net worth at the top. Open any of it for its history and detail, and Manage from there to update a balance, holdings or a property.</p>
         <div id="netWorthBody" class="nw-page"></div>
         <!-- #413: what Investments → Summary held that the list doesn't say — the mix, what buying would do, and how
              net worth and its shape have moved. The repeated totals went with it. Folded, so the list leads. -->
@@ -1123,7 +1099,7 @@
   <button type="button" class="mobile-tab" data-page="networth">
     <span class="mobile-tab-pill">
       <svg class="mobile-tab-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="15" height="10.5" rx="2"/><path d="M2.5 8.5h15"/><path d="M13 12h2"/></svg>
-      <span class="mobile-tab-label">Net worth</span>
+      <span class="mobile-tab-label">Accounts</span>
     </span>
   </button>
   <button type="button" class="mobile-tab" data-page="plan">

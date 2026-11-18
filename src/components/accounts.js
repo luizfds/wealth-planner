@@ -109,7 +109,8 @@ export function accountRowHtml(a, idx, today){
         '<div class="acct-field-wide acct-card-del"><button type="button" class="btn btn-danger btn-sm row-del" data-acct-del="' + idx + '" aria-label="Delete account">Delete account</button></div>' +
       '</div>'
     : '';
-  return '<div class="acct-card' + (open ? " is-open" : "") + '" data-acct-index="' + idx + '">' + summary + balanceRow + edit + '</div>';
+  // #428: an id, so Details → Manage lands on this card.
+  return '<div class="acct-card' + (open ? " is-open" : "") + '"' + (a.id ? ' id="acct-card-' + escapeAttr(a.id) + '"' : '') + ' data-acct-index="' + idx + '">' + summary + balanceRow + edit + '</div>';
 }
 
 export function accountsPageHtml(today){

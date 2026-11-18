@@ -404,7 +404,7 @@ export var savingsWhyOpen = false;
 export function setSavingsWhyOpen(open){ savingsWhyOpen = !!open; }
 var SAVINGS_GO = {
   income: ["expenses", "income", "Income"], budget: ["expenses", "budget", "Budget"],
-  property: ["properties", "", "Net worth → Property"], scenario: ["plan", "scenarios", "Plan → Scenarios"]
+  property: ["properties", "", "Accounts → Property"], scenario: ["plan", "scenarios", "Plan → Scenarios"]
 };
 export function savingsBreakdownHtml(b, scenario){
   var line = function(r){ return { label: r.label, monthly: r.monthly, oneOff: r.oneOff }; };
@@ -488,7 +488,7 @@ function renderStaleAssetsBanner(){
   var stale = staleAssets();
   if(!stale.length){ el.innerHTML = ""; return; }
   el.innerHTML =
-    '<div class="stale-assets-note" title="Record a fresh value for each (Record value on each one in Net worth → Investments) to keep net worth history and the Actual vs. expected panel accurate.">' +
+    '<div class="stale-assets-note" title="Record a fresh value for each (Record value on each one in Accounts → Investments) to keep net worth history and the Actual vs. expected panel accurate.">' +
       '<span>⏱</span> ' + escapeAttr(stale.length === 1 ? "Due a fresh value — " : stale.length + " assets are due a fresh value — ") + escapeAttr(staleAssetNamesList(stale, 3)) +
     '</div>';
 }
@@ -504,7 +504,7 @@ function renderActualVsExpectedPanel(scenario, t){
   if(!actual.hasData){
     panel.innerHTML =
       '<h3>Actual vs. expected <span style="font-weight:400;color:var(--ink-soft)">— last 30 days</span></h3>' +
-      '<p class="fire-note">Record a value for at least one asset (Record value on each one in Net worth → Investments) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
+      '<p class="fire-note">Record a value for at least one asset (Record value on each one in Accounts → Investments) on two occasions ~a month apart to compare real growth against ' + escapeAttr(scenario) + '\'s expected monthly surplus.</p>';
     return;
   }
   var gap = actual.deltaSum - expected;

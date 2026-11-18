@@ -18,23 +18,20 @@ test("Net worth's pages go up to Net worth; More's to More", () => {
 
 test("a Details page goes up to the list it's from", () => {
   const up = (kind, id) => parentOf({ page: "detail", detail: { kind, id } }, household);
-  assert.deepEqual(up("asset", "h1"), { page: "assets", sub: "Shares", title: "Shares" });
-  assert.deepEqual(up("asset", "c1"), { page: "assets", sub: "Cash", title: "Cash" });
-  assert.equal(up("asset", "x1").sub, "Other", "a category with no tab of its own is under Other");
+  // #428: everything owned or owed is in the one Accounts list.
+  for(const kind of ["asset", "account", "debt", "property", "loan"]) assert.deepEqual(up(kind, "h1"), { page: "networth", sub: null, title: "Accounts" }, kind);
   assert.equal(up("transaction", "t").sub, "spending");
   assert.equal(up("merchant", "m").sub, "spending");
   assert.equal(up("line", "l").sub, "budget");
   assert.equal(up("income", "i").sub, "income");
-  assert.equal(up("account", "a").page, "accounts");
-  assert.equal(up("debt", "d").page, "accounts");
-  assert.equal(up("loan", "l").page, "properties");
+  assert.equal(up("transaction", "t").title, "Transactions");
   assert.deepEqual(up("person", "Alex"), { page: "tax", sub: "people", title: "People" });
   assert.equal(up("nothing-known", "z"), null);
 });
 
 test("the chain runs top first, and the section is its top", () => {
   const holding = { page: "detail", detail: { kind: "asset", id: "h1" } };
-  assert.deepEqual(ancestorsOf(holding, household).map(v => v.title), ["Net worth", "Shares"]);
+  assert.deepEqual(ancestorsOf(holding, household).map(v => v.title), ["Accounts"]);
   assert.equal(sectionOf(holding, household), "networth");
   assert.deepEqual(ancestorsOf({ page: "detail", detail: { kind: "line", id: "l" } }, household).map(v => v.title), ["Budget"]);
   assert.equal(sectionOf({ page: "detail", detail: { kind: "line", id: "l" } }, household), "expenses");

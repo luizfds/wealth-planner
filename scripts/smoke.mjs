@@ -86,7 +86,9 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
   await page.waitForTimeout(800);
   // Open every collapsible section so its contents render and get measured too.
   for (const [pg, attr, subs] of VIEWS) {
-    const hasPage = await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b) b.click(); return !!b; }, pg);
+    // #428: Bank accounts, Investments and Property are behind Accounts' list, with no button of their own.
+    const hasPage = await page.evaluate(async p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b){ b.click(); return true; }
+      if(["accounts", "assets", "properties"].includes(p)){ (await import('/src/components/nav.js')).showPage(p); return true; } return false; }, pg);
     if(!hasPage && SHOTS) continue;
     await page.waitForTimeout(250);
     for (const sub of subs) {
@@ -330,7 +332,7 @@ if(!SHOTS){
   const where = "minimal household 390px";
   const r = await page.evaluate(async () => {
     const wait = ms => new Promise(res => setTimeout(res, ms));
-    const out = [], go = p => { document.querySelector('[data-page="' + p + '"]').click(); return wait(500); };
+    const out = [], go = async p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); else (await import('/src/components/nav.js')).showPage(p); return wait(500); };
     const available = sel => [...document.querySelectorAll(sel)].some(e => {
       if(e.getClientRects().length) return true;
       const picker = e.parentElement.querySelector('select.section-picker');
@@ -340,7 +342,8 @@ if(!SHOTS){
     const checkPage = name => { const t = page().innerText; ["NaN", "undefined", "[object Object]"].forEach(b => { if(t.includes(b)) out.push(name + " shows " + b); }); if(document.documentElement.scrollWidth > 390) out.push(name + " scrolls sideways"); };
     for(const p of ["dashboard", "expenses", "tax", "plan"]){ await go(p); checkPage(p); }
     await go("networth"); checkPage("networth");
-    if(available('.nw-rail-item[data-page="properties"]')) out.push("the Property tab shows with no property");
+    // #428: no rail — Accounts' list offers a Property chip only once there is a property.
+    if(available('#netWorthBody [data-nw-filter="property"]')) out.push("the Property chip shows with no property");
     await go("assets");
     if(available('[data-assets-sub="Shares"]')) out.push("the Shares tab shows with no shares");
     await go("reports"); checkPage("reports");
@@ -352,9 +355,9 @@ if(!SHOTS){
     if(!document.querySelector('[data-part-set="property"]')) out.push("no What this household has in Preferences");
     await go("networth");
     const add = document.querySelector('[data-part-show="property"]');
-    if(!add) out.push("no way back in from Net worth"); else { add.click(); await wait(700);
+    if(!add) out.push("no way back in from Accounts"); else { add.click(); await wait(700);
       if(document.body.getAttribute("data-current-page") !== "properties") out.push("Add a property didn't open Property");
-      if(!available('.nw-rail-item[data-page="properties"]')) out.push("Property stayed unavailable after Add a property"); }
+      if(!available('#addPropertyBtn')) out.push("Property offers no way to add the property after Add a property"); }
     return out;
   });
   r.forEach(f => failures.push(where + ": " + f));
@@ -417,7 +420,7 @@ if(!SHOTS){
   await page.evaluate(() => { const c = document.querySelector("[data-fr-close]"); if(c) c.click(); });
   await page.waitForTimeout(300);
   for (const [pg, attr, subs] of VIEWS) {
-    await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b) b.click(); }, pg);
+    await page.evaluate(async p => { const b = document.querySelector('[data-page="' + p + '"]') || document.querySelector('[data-avatar-go="' + p + '"]'); if(b) b.click(); else (await import('/src/components/nav.js')).showPage(p); }, pg);
     await page.waitForTimeout(300);
     for (const sub of subs) {
       if(sub){
@@ -470,7 +473,7 @@ if(!SHOTS){
   if(await page.evaluate(() => document.documentElement.getAttribute("data-mode")) !== "simple") failures.push("simple mode: the page isn't in Simple mode");
   for (const [pg, attr, subs] of VIEWS) {
     if(pg === "reports") continue;   // one report page; its chooser is the journey's
-    await page.evaluate(p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); }, pg);
+    await page.evaluate(async p => { const b = document.querySelector('[data-page="' + p + '"]'); if(b) b.click(); else (await import('/src/components/nav.js')).showPage(p); }, pg);
     await page.waitForTimeout(300);
     for (const sub of subs) {
       if(sub) await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return; } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);

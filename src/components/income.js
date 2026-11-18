@@ -620,7 +620,7 @@ function ipOwnershipWarningHtml(){
       return '<b>' + escapeAttr(p.what || "an unnamed property") + '</b> (' + Math.round(propertyOwnershipTotal(p)) + '%)';
     }).join(", ") +
     ' — so the result below is ' + (propertyOwnershipTotal(bad[0]) > 100 ? "over" : "under") +
-    '-claimed against it. Fix it in that card\'s Ownership section in Net worth → Property.</p>';
+    '-claimed against it. Fix it in that card\'s Ownership section in Accounts → Property.</p>';
 }
 
 // Ownership/sacrifice sits tucked behind a disclosure instead of always-open, so the net
@@ -659,7 +659,7 @@ export function renderTaxSuper(){
   // Depreciation is named separately because it's the part of the result that isn't cash — leaving
   // it folded into one figure is how people conclude a property "costs" more or less than it does.
   var ipDepreciation = ipDepreciationAnnual();
-  settingsHtml += '<p class="ledger-note tax-ip-note" style="margin:0">Investment property result this year: <b style="font-family:var(--font-num)">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), shared out as each person\'s IP share above — by ownership, set per property, on each card\'s <b>Ownership</b> section in Net worth → Property.' +
+  settingsHtml += '<p class="ledger-note tax-ip-note" style="margin:0">Investment property result this year: <b style="font-family:var(--font-num)">' + fmtCurrency0.format(ipResult) + '</b> (' + (ipResult < 0 ? "a loss — negatively geared, reduces taxable income" : "net rental profit — adds to taxable income") + '), shared out as each person\'s IP share above — by ownership, set per property, on each card\'s <b>Ownership</b> section in Accounts → Property.' +
     (ipDepreciation > 0
       ? ' Includes <b>' + fmtCurrency0.format(ipDepreciation) + '</b> of depreciation — a deduction that never leaves your bank account, so the cash result is that much better than the taxable one.'
       : '') + '</p></details>';

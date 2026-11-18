@@ -768,7 +768,7 @@ export var MIGRATION_STEPS = [
       });
       s.assets = (s.assets || []).filter(function(a){ return (a.category || "Other") !== "Property"; });
       s.assetPropertiesMigrated = true;
-      showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Net worth → Property — check the kind (IP/PPOR) for each");
+      showToast("Moved " + legacyPropertyAssets.length + " propert" + (legacyPropertyAssets.length === 1 ? "y" : "ies") + " to Accounts → Property — check the kind (IP/PPOR) for each");
     }
   } },
   { n: 22, name: "once: scenarios as sealed sandboxes (calc/scenariochanges.js)", run: function(s){

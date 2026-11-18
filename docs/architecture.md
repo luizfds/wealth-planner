@@ -17,8 +17,9 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
 - **Money** (`page-expenses`, was Cash flow; #427): Budget / Transactions / Bills. Budget is one plan — Money in (the old
   Income tab, still `#expensesSub-income`, where `/expenses/income` and every Income link land) then Money out.
   Transactions is the old Spending (`data-expenses-sub="spending"`, `/expenses/spending`).
-- **Net worth**: one menu entry over four pages sharing a rail of tabs — the overview (`page-networth`), Accounts,
-  Investments (`page-assets`), Property (`page-properties`). The overview is one list with chips by kind
+- **Accounts** (was Net worth; #428): the page is one list (`page-networth`), and the editing pages are behind it with
+  no rail — Bank accounts (`page-accounts`), Investments (`page-assets`), Property (`page-properties`) — reached from an
+  item's Details (its "Manage on …" link), + and search, each with the header's "‹ Accounts". The list is one list with chips by kind
   (`setNetWorthFilter`), and under it, folded, the allocation, purchase funding, net worth over time and where wealth
   sits (`#netWorthMore`, view `netWorthMore`). Debts are edited on Accounts (view `debts`). Investments has no Summary
   since #413: it opens on Cash, and `/assets/summary` lands there.
@@ -32,7 +33,7 @@ screen (`/reports/budget`) included — so Back steps through them. Each history
 the name of the screen it came from (`from`); the header's back link (`#pageBack`, nav.js `renderBackLink`, on the pages
 in `BACK_LINK_PAGES`) goes back through it, named for that screen. With nothing of the app's own behind it (a deep link
 starts with Home beneath it, `seedHomeBeneath`, marked `seeded`) it goes to the screen's parent instead — `lib/parents.js`
-names one for every inner screen (a holding's Details → its Shares tab → Net worth), then Home. The same chain is a
+names one for every inner screen (a holding's Details → Accounts; a budget line's → Budget), then Home. The same chain is a
 desktop's breadcrumb (`#pageCrumbs`) and decides the menu entry a Details page lights. Leaving a page keeps its scroll on
 its history entry, and Back puts it back (`restoreScroll`). Anything that sends someone back calls `goBackInApp()`, never
 `history.length`.

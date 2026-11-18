@@ -43,8 +43,8 @@ var PAGES = [
   { id: "dashboard", label: "Today" },
   { id: "expenses", label: "Money" },   // #427: was "Cash flow"
   // v3.129.0: one Net worth entry; its overview and these three sit under one rail of tabs.
-  { id: "networth", label: "Net worth" },
-  { id: "accounts", label: "Accounts" },
+  { id: "networth", label: "Accounts" },   // #428: was "Net worth" — everything you own and owe, one list
+  { id: "accounts", label: "Bank accounts" },   // #428: the editing page behind the list
   { id: "assets", label: "Investments" },
   { id: "properties", label: "Property" },
   { id: "tax", label: "Tax" },
@@ -227,7 +227,8 @@ var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc", "tax"];   // #41
 // #422: on a phone Investments has no Net worth rail (two rails don't fit), so its way up is the header's back link,
 // "‹ Net worth" — always Net worth, the page it lives under, wherever it was opened from. A desktop shows the rail, so
 // the link is marked data-phone-only and CSS hides it there (a resize needs no redraw).
-function upToNetWorth(){ return currentPage === "assets"; }
+// #428: no rail now — Bank accounts, Investments and Property are pages behind the Accounts list, and each goes up to it.
+function upToNetWorth(){ return currentPage === "assets" || currentPage === "accounts" || currentPage === "properties"; }
 // #425: the screen on show, as lib/parents.js names a view.
 function viewHere(){
   var v = currentView();
@@ -238,7 +239,7 @@ function viewHere(){
 function backTarget(){
   if(upToNetWorth()){
     var cur = entryState();
-    return { history: !!(cur && cur.depth > 0 && !cur.seeded && cur.from === "Net worth"), title: "Net worth", up: "networth" };
+    return { history: !!(cur && cur.depth > 0 && !cur.seeded && cur.from === "Accounts"), title: "Accounts", up: "networth" };
   }
   // The way you came, when it's the app's own. Otherwise (a deep link, a reopened tab: the entry beneath is the Today
   // seedHomeBeneath put there) the screen's parent — "‹ Shares" from a holding — and only then Today.
@@ -261,7 +262,8 @@ function openView(v, opts){
 }
 // #425: on a desktop, an inner screen says where it lives under its title — "Net worth › Shares › VAS" — each part a
 // link up. More is left out: a desktop's sidebar lists its pages itself. Net worth's own pages have the rail instead.
-var CRUMB_PAGES = ["detail", "dashboard"];
+// #428: and the pages behind Accounts' list — "Accounts › Investments" — where a desktop had the rail.
+var CRUMB_PAGES = ["detail", "dashboard", "accounts", "assets", "properties"];
 export function renderCrumbs(){
   var nav = document.getElementById("pageCrumbs");
   if(!nav) return;
@@ -297,7 +299,7 @@ export function renderBackLink(){
   btn.setAttribute("aria-label", to.history && to.title === "Back" ? "Back" : "Back to " + to.title);
   // A desktop shows Investments' rail, and the breadcrumb where there is one: there the back link is the phone's, unless
   // it goes somewhere the breadcrumb doesn't name (back to Spending, from a holding opened from a search there).
-  btn.toggleAttribute("data-phone-only", !!to.up || !!(crumbs && (!to.history || crumbs.indexOf(to.title) !== -1)));
+  btn.toggleAttribute("data-phone-only", !!(crumbs && (!to.history || crumbs.indexOf(to.title) !== -1)));
 }
 // The header's back link, and any Back button inside a page: the screen before when it is the app's own,
 // else Home — never out of the app (history.length counts other sites' entries in the tab too).
@@ -618,7 +620,6 @@ export function showPage(id, opts){
         if(on) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
       });
     });
-    document.querySelectorAll(".nw-rail-item").forEach(function(b){ markCurrent(b, b.getAttribute("data-page") === id); });
     var page = PAGES.find(function(p){ return p.id === id; });
     // v3.138.0: styles can tell which page is showing (Home hides the header's net worth pill — its
     // first card says the same thing a few pixels below).

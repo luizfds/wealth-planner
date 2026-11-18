@@ -1158,7 +1158,7 @@ test("Home summary for an empty household: the month and net worth say what's mi
     state.assets = []; state.properties = []; state.debts = []; state.shared = [];
     var html = homeSummaryHtml("2026-10-14", { netWorth: 0, items: [], todos: [] });
     assert.match(html, /home-month is-empty[\s\S]*Nothing planned or logged yet[\s\S]*data-go="expenses\/income">Go to Income →/);
-    assert.match(html, /home-nw is-empty[\s\S]*Nothing you own or owe is entered yet[\s\S]*data-go="networth">Go to Net worth →/);
+    assert.match(html, /home-nw is-empty[\s\S]*Nothing you own or owe is entered yet[\s\S]*data-go="networth">Go to Accounts →/);
     assert.doesNotMatch(html, /\$0\b/, "no $0 figures for a household with nothing in it");
     assert.doesNotMatch(html, /undefined|NaN/);
     // Something owned: the card is the figure again.

@@ -1386,7 +1386,6 @@
   .dt-list{ margin:0; padding-left:18px; display:grid; gap:5px; }
   .dt-tx .detail-link{ text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); }
   /* v3.129.0: Net worth — one list of everything owned and owed, under one rail. */
-  .nw-rail{ margin-bottom:12px; }
   .nw-page{ max-width:900px; }
   .nw-head{ display:flex; flex-wrap:wrap; gap:10px 28px; margin:4px 0 12px; }
   .nw-head div{ display:flex; flex-direction:column; }

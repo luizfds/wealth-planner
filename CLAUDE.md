@@ -11,7 +11,7 @@ A single-page Australian personal finance and property-investment planner. No ba
 
 ## The shape of it
 
-- `index.html` holds every page's markup; `showPage()` (`components/nav.js`) shows one. Today · Money · Net worth ·
+- `index.html` holds every page's markup; `showPage()` (`components/nav.js`) shows one. Today · Money · Accounts ·
   Plan · More (Tax, Reports, Calculators, Settings, Backup), plus a Details page — see docs/architecture.md.
 - `src/app.js` only starts the app. Every listener lives in a page's wiring module (`components/*wiring.js`, `rows.js`,
   `redraw.js`…), called from app.js in the order listeners have always been added. Nothing imports app.js

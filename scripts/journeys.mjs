@@ -4618,11 +4618,12 @@ const JOURNEYS = {
       await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
       for(const width of [320,390,1280]){
         await page.setViewportSize({width,height:844});
-        // #427: Income is Money in, below Budget's summary. A resize here moves the page a few hundred milliseconds later
-        // (by itself, with no script scrolling it: measured 38px at 320px), and a tap already on its way then lands its
-        // touch on the ⓘ and its click on what has moved there. Tap once the page has held still.
+        // #427: Income is Money in, below Budget's summary, so the ⓘ is tapped part-way down a long page. Scrolled only
+        // just into view it sat under the sticky header and section bar, and under emulated touch Chrome sometimes moved
+        // the page between the touch and its click (38px at 320px: the touch on the ⓘ, the click on what moved there; no
+        // script scrolled it). Centred, as a person taps what's in front of them, it didn't (16 of 16 at 6× CPU).
         const still = () => page.evaluate(() => new Promise(r => { let last = scrollY, same = 0; (function f(){ if(scrollY === last) same++; else { same = 0; last = scrollY; } if(same >= 30) r(); else requestAnimationFrame(f); })(); }));
-        await still(); await help.scrollIntoViewIfNeeded(); await still();
+        await still(); await help.evaluate(b => b.scrollIntoView({ block: 'center' })); await still();
         await help.tap();
         check(await hourly.isVisible() && /zero working hours/.test(await hourly.innerText()), 'touch did not reveal the hourly basis');
         check(!/⇄ Vary/.test(await ledger.innerText()) && /Changes from today/.test(await ledger.innerText()), 'Income help points to removed scenario controls');

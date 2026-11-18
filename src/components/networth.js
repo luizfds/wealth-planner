@@ -48,7 +48,8 @@ export function netWorthPageHtml(){
     var ci = shown.indexOf(g.key);
     var manage = MANAGE[g.key];
     return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2>' +
-      (manage ? '<button type="button" class="link-btn nw-manage" data-go="' + manage[0] + '" aria-label="' + escapeAttr("Manage " + g.label.toLowerCase() + " on " + manage[1]) + '">Manage on ' + escapeAttr(manage[1]) + ' →</button>' : '') + '<ul>' + g.rows.map(function(r){
+      // The accessible name starts with what it says (WCAG 2.5.3), then which group: Cash and Debts both go to Bank accounts.
+      (manage ? '<button type="button" class="link-btn nw-manage" data-go="' + manage[0] + '">Manage on ' + escapeAttr(manage[1]) + ' →<span class="visually-hidden"> (' + escapeAttr(g.label) + ')</span></button>' : '') + '<ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
   }).join("") + hiddenPartsLineHtml();

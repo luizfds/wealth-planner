@@ -5485,3 +5485,7 @@ Alongside, from the owner: "Net worth if you buy" moved to Plan → Scenarios (i
 folded under Accounts' list), drawn when that tab shows (view `purchaseFunding`). And each group in Accounts' list says
 where it is managed ("Manage on Investments →" opens Shares with its winners and losers, "Manage on Bank accounts",
 "Manage on Property") — since #428 those pages were reached only from one item's Details.
+
+Recorded under #267, not fixed: `emptystates` failed once on main after #432 ("the budget lines did not clear the sticky
+header after scrolling": they stopped 48px high, the height of their section's sticky summary) and passed on its one
+re-run; 8 of 8 locally at 6× CPU with four at once.

@@ -3629,7 +3629,7 @@ const JOURNEYS = {
       await page.waitForFunction(() => location.pathname.indexOf('/reports/') === 0);
       const first = (await page.evaluate(() => location.pathname)).split('/')[2];
       const [second, firstLabel] = first === 'budget' ? ['cashflow', 'Budget vs actual'] : ['budget', 'Monthly cash flow'];
-      check(await backLabel() === 'Spending', 'Reports does not offer the way back to Spending: ' + await backLabel());
+      check(await backLabel() === 'Transactions', 'Reports does not offer the way back to Transactions: ' + await backLabel());
       await page.locator('#reportsBody [data-report-choose]').first().click();
       await page.locator('.report-chooser [data-report="' + second + '"]').click(); await at('/reports/' + second);
       check(await backLabel() === firstLabel, 'the second report does not name the first: ' + await backLabel());
@@ -4618,6 +4618,11 @@ const JOURNEYS = {
       await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
       for(const width of [320,390,1280]){
         await page.setViewportSize({width,height:844});
+        // #427: Income is Money in, below Budget's summary. A resize here moves the page a few hundred milliseconds later
+        // (by itself, with no script scrolling it: measured 38px at 320px), and a tap already on its way then lands its
+        // touch on the ⓘ and its click on what has moved there. Tap once the page has held still.
+        const still = () => page.evaluate(() => new Promise(r => { let last = scrollY, same = 0; (function f(){ if(scrollY === last) same++; else { same = 0; last = scrollY; } if(same >= 30) r(); else requestAnimationFrame(f); })(); }));
+        await still(); await help.scrollIntoViewIfNeeded(); await still();
         await help.tap();
         check(await hourly.isVisible() && /zero working hours/.test(await hourly.innerText()), 'touch did not reveal the hourly basis');
         check(!/⇄ Vary/.test(await ledger.innerText()) && /Changes from today/.test(await ledger.innerText()), 'Income help points to removed scenario controls');
@@ -4651,8 +4656,9 @@ const JOURNEYS = {
     check(JSON.stringify(await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(beforeLabel), 'live edit left composition labels stale');
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
-    await page.locator('#pageHelpBtn').click();
-    check(await page.locator('#incomePageHelp').isVisible(), 'page help is unavailable');
+    // #427: Money in's explanation is behind the ⓘ beside its heading (it was the Income tab's page help).
+    await page.locator('#moneyIn [data-help-toggle]').click();
+    check(await page.locator('#incomePageHelp').isVisible(), 'Money in help is unavailable');
     const menu = page.getByRole('button',{name:'Income import and export',exact:true});
     const downloadText = async id => {
       if(await menu.getAttribute('aria-expanded') !== 'true') await menu.click();

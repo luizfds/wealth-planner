@@ -14,6 +14,10 @@ import { emptyStateHtml } from "../lib/empty.js";
 // The overview the rail above Accounts, Investments and Property opens on: everything owned and
 // owed in one list, each row to its own page.
 function money(v){ return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)); }
+// Where each kind is managed: its page behind the list (#428), one tap from its heading — Shares with its winners and
+// losers, Super, Bank accounts, Property — not only from one of its items' Details.
+var MANAGE = { cash: ["accounts", "Bank accounts"], invest: ["assets/Shares", "Investments"], super: ["assets/Super", "Investments"],
+  property: ["properties", "Property"], other: ["assets/Other", "Investments"], debts: ["accounts", "Bank accounts"] };
 export function netWorthPageHtml(){
   var today = localDateStr();
   var l = netWorthList(state, toAudAmount, loggedSinceRecorded(today).byRecord);
@@ -42,7 +46,9 @@ export function netWorthPageHtml(){
   var groups = nwFilter === "all" ? l.groups : l.groups.filter(function(g){ return g.key === nwFilter; });
   return head + bar + chips + groups.map(function(g){
     var ci = shown.indexOf(g.key);
-    return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2><ul>' + g.rows.map(function(r){
+    var manage = MANAGE[g.key];
+    return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2>' +
+      (manage ? '<button type="button" class="link-btn nw-manage" data-go="' + manage[0] + '" aria-label="' + escapeAttr("Manage " + g.label.toLowerCase() + " on " + manage[1]) + '">Manage on ' + escapeAttr(manage[1]) + ' →</button>' : '') + '<ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
   }).join("") + hiddenPartsLineHtml();

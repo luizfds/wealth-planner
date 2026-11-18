@@ -5480,3 +5480,8 @@ unchanged (tests/perf-equivalence.test.js holds each path to what it replaced).
 - A page change lights the menu with one query, not two whole-document queries per page.
 
 Left: Investments → Shares (about 0.85s at 4× CPU) and Plan → Scenarios (about 0.47s).
+
+Alongside, from the owner: "Net worth if you buy" moved to Plan → Scenarios (it is about a scenario's purchase; it was
+folded under Accounts' list), drawn when that tab shows (view `purchaseFunding`). And each group in Accounts' list says
+where it is managed ("Manage on Investments →" opens Shares with its winners and losers, "Manage on Bank accounts",
+"Manage on Property") — since #428 those pages were reached only from one item's Details.

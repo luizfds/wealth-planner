@@ -161,7 +161,9 @@ function defineViews(){
   defineView("assets", ["assets", "plan"], renderAssets, ["*"]);
   // #413: Investments → Summary's parts — the mix, what buying would do, net worth and its shape over time — under Net
   // worth's list, and its debts on Accounts.
-  defineView("netWorthMore", ["networth"], function(){ renderAssetsSummary(); renderNetWorthPanel(); renderPortfolioHistoryChart(); renderAllocationChart(); }, ["*"]);
+  defineView("netWorthMore", ["networth"], function(){ renderAssetsSummary(); renderPortfolioHistoryChart(); renderAllocationChart(); }, ["*"]);
+  // Net worth if you buy: a scenario's purchase against today's cash and net worth, on Plan → Scenarios.
+  defineView("purchaseFunding", ["plan"], renderNetWorthPanel, ["*"], { tabs: { plan: ["planSub-scenarios"] } });
   defineView("debts", ["accounts"], renderDebts, ["*"]);
   defineView("personSuggestions", null, updatePersonSuggestions, ["income", "assets"]);
   defineView("accountSuggestions", null, updateAccountSuggestions, ["accounts"]);

@@ -5456,7 +5456,7 @@ input) but focus goes to nothing and the page jumps up about 640px, just after h
 The simpler-navigation review proposed more than its five steps shipped. The owner asked for all of the rest, one PR
 each, in this order (Net worth → Accounts last: Net worth already has an "Accounts" page until the four are one list).
 
-1. `[~]` **Back follows the page structure; breadcrumb; return to where you were** (#425).
-2. `[ ]` **Offer Simple once; Update a balance in +; Categories folded; on-device page-use count** (#426).
+1. `[x]` **Back follows the page structure; breadcrumb; return to where you were** (#425) — shipped (PR #429).
+2. `[~]` **Offer Simple once; Update a balance in +; Categories folded; on-device page-use count** (#426).
 3. `[ ]` **Cash flow becomes Money, in three tabs** (#427).
 4. `[ ]` **Accounts as one list; Net worth becomes Accounts** (#428).

@@ -357,8 +357,7 @@ if(!SHOTS){
     const add = document.querySelector('[data-part-show="property"]');
     if(!add) out.push("no way back in from Accounts"); else { add.click(); await wait(700);
       if(document.body.getAttribute("data-current-page") !== "properties") out.push("Add a property didn't open Property");
-      await go("networth");
-      if(!available('#netWorthBody [data-nw-filter="property"]')) out.push("Property stayed unavailable after Add a property"); }
+      if(!available('#addPropertyBtn')) out.push("Property offers no way to add the property after Add a property"); }
     return out;
   });
   r.forEach(f => failures.push(where + ": " + f));

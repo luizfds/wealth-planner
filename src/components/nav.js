@@ -262,7 +262,8 @@ function openView(v, opts){
 }
 // #425: on a desktop, an inner screen says where it lives under its title — "Net worth › Shares › VAS" — each part a
 // link up. More is left out: a desktop's sidebar lists its pages itself. Net worth's own pages have the rail instead.
-var CRUMB_PAGES = ["detail", "dashboard"];
+// #428: and the pages behind Accounts' list — "Accounts › Investments" — where a desktop had the rail.
+var CRUMB_PAGES = ["detail", "dashboard", "accounts", "assets", "properties"];
 export function renderCrumbs(){
   var nav = document.getElementById("pageCrumbs");
   if(!nav) return;

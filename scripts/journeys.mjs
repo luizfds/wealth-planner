@@ -3700,7 +3700,7 @@ const JOURNEYS = {
       check(await pill("Offsets").getAttribute("aria-current") === "page", "Back did not restore the selected pill");
       await page.setViewportSize({ width: 1280, height: 800 });
       // #428: no rail on a desktop either — the pills, and the header's way up to Accounts.
-      check(await pill("Offsets").isVisible() && await page.locator('#pageBack').isVisible(), "desktop did not show the pills and the way up");
+      check(await pill("Offsets").isVisible() && (await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts', "desktop did not show the pills and the way up (Accounts › Investments)");
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
       const prop = page.locator('#propertiesBody .prop-tabs').first();

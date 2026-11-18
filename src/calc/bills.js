@@ -1,4 +1,4 @@
-import { freqStepMonths, periodsOf, isActiveOn } from "./ledger.js";
+import { freqStepMonths, periodsOf, isActiveOn, isoDayNumber } from "./ledger.js";
 
 // ---------------- The bills calendar (v3.60.0) ----------------
 //
@@ -10,7 +10,14 @@ import { freqStepMonths, periodsOf, isActiveOn } from "./ledger.js";
 var PAID_WINDOW_DAYS = 6;
 function iso(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function parse(s){ var p = String(s).split("-"); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
-function daysBetween(a, b){ return Math.round((parse(a).getTime() - parse(b).getTime()) / 86400000); }
+// Whole days from b to a. Day numbers, not Dates: this runs for every bill date against every payment (v3.298).
+function daysBetween(a, b){ return isoDayNumber(a) - isoDayNumber(b); }
+// Whether any of the sorted day numbers is within `w` days of `day`: a binary search, not a scan of years of history.
+function anyWithin(sortedDays, day, w){
+  var lo = 0, hi = sortedDays.length;
+  while(lo < hi){ var mid = (lo + hi) >> 1; if(sortedDays[mid] < day - w) lo = mid + 1; else hi = mid; }
+  return lo < sortedDays.length && sortedDays[lo] <= day + w;
+}
 
 // Every date the line falls on within [start, end], stepping from `anchor` in both directions.
 // Month steps keep the anchor's day, clamped to short months (31 Jan → 28 Feb → 31 Mar, not 3 Mar).
@@ -188,6 +195,7 @@ export function billsForMonth(items, transactions, ym, today, opts){
       return;
     }
     var dates = logged.map(function(t){ return t.date; });
+    var dayNums = dates.map(isoDayNumber);   // logged is sorted by date, so these are too
     var lastAcct = logged.length ? logged[logged.length - 1].account : (i.account || "");
     var onCard = cards[lastAcct] || null;
     var byAgent = !!agents[lastAcct];
@@ -209,7 +217,7 @@ export function billsForMonth(items, transactions, ym, today, opts){
     }
     occurrencesBetween(anchor, i.freq, start, end).forEach(function(d){
       if(!isActiveOn(i, d) || (quietAfter && d > quietAfter)) return;
-      var paid = dates.some(function(x){ return Math.abs(daysBetween(x, d)) <= PAID_WINDOW_DAYS; });
+      var paid = anyWithin(dayNums, isoDayNumber(d), PAID_WINDOW_DAYS);
       var bill = { id: i.id, what: i.what || "Bill", amount: Number(i.amount) || 0, date: d, paid: paid, overdue: !byAgent && !paid && today && d < today, estimated: estimated, overridden: !!i.billKind,
         card: onCard ? lastAcct : "", payOn: onCard && onCard.payDay ? repaymentFor(d, onCard.card.statementStartDay, onCard.payDay) : "",
         agent: byAgent ? lastAcct : "", account: lastAcct || "" };

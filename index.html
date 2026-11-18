@@ -894,30 +894,16 @@
       <section class="app-page" id="page-networth" hidden>
         <p class="page-intro help">Everything you own and owe in one list, with your net worth at the top. Open any of it for its history and detail, and Manage from there to update a balance, holdings or a property.</p>
         <div id="netWorthBody" class="nw-page"></div>
-        <!-- #413: what Investments → Summary held that the list doesn't say — the mix, what buying would do, and how
-             net worth and its shape have moved. The repeated totals went with it. Folded, so the list leads. -->
+        <!-- #413: what Investments → Summary held that the list doesn't say — the mix, and how net worth and its shape
+             have moved (what buying would do is on Plan → Scenarios). The repeated totals went with it. Folded, so the list leads. -->
         <div class="ledgers nw-more" id="netWorthMore" data-level="advanced">
             <details class="ledger">
               <summary>
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Allocation</h2></div>
               </summary>
               <div class="ledger-body">
-                <p class="ledger-note help" style="margin-left:0">Cash, Shares and offsets count as liquid assets. Purchase funding below uses cash and offsets; selling investments is not assumed. Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
+                <p class="ledger-note help" style="margin-left:0">Cash, Shares and offsets count as liquid assets. Purchase funding (Plan → Scenarios) uses cash and offsets; selling investments is not assumed. Super, Vehicle, Other, and property equity can't be accessed for a deposit.</p>
                 <div id="assetsAllocation"></div>
-              </div>
-            </details>
-            <details class="ledger">
-              <summary>
-                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Net worth if you buy</h2></div>
-              </summary>
-              <div class="ledger-body">
-                <div id="purchaseFundingHelp">
-                  <p class="ledger-note help"><b>Upfront cash needed:</b> <span id="fundingUpfrontHelp">Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.</span></p>
-                  <p class="ledger-note help"><b>Cash and offsets available:</b> <span id="fundingCashHelp">Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.</span></p>
-                  <p class="ledger-note help"><b>Surplus / shortfall:</b> <span id="fundingGapHelp">Cash and offsets minus upfront cash needed. A shortfall means your current liquid savings don't cover it — you'd need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.</span></p>
-                  <p class="ledger-note help"><b>Net worth after costs (if funded):</b> <span id="fundingAfterHelp">Current net worth minus stamp duty, LMI and other acquisition costs (see note below).</span></p>
-                </div>
-                <div id="netWorthPanel"></div>
               </div>
             </details>
             <details class="ledger">
@@ -1024,6 +1010,23 @@
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- v3.175.0 (item 210): side by side. -->
         <div id="scenarioCompare"></div>
+        <!-- What a scenario's purchase does to net worth today: the cash it takes and what's left (was under Accounts' list). -->
+        <div class="ledgers plan-funding">
+            <details class="ledger" id="purchaseFundingCard">
+              <summary>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Net worth if you buy</h2></div>
+              </summary>
+              <div class="ledger-body">
+                <div id="purchaseFundingHelp">
+                  <p class="ledger-note help"><b>Upfront cash needed:</b> <span id="fundingUpfrontHelp">Deposit + stamp duty + LMI + other acquisition costs for this scenario — the cash you need available on settlement day.</span></p>
+                  <p class="ledger-note help"><b>Cash and offsets available:</b> <span id="fundingCashHelp">Cash and offsets available without selling investments; the same funding sources used by Can we buy and Plan.</span></p>
+                  <p class="ledger-note help"><b>Surplus / shortfall:</b> <span id="fundingGapHelp">Cash and offsets minus upfront cash needed. A shortfall means your current liquid savings don't cover it — you'd need to save more first, borrow a larger share (higher LVR, likely with LMI), or choose a cheaper property.</span></p>
+                  <p class="ledger-note help"><b>Net worth after costs (if funded):</b> <span id="fundingAfterHelp">Current net worth minus stamp duty, LMI and other acquisition costs (see note below).</span></p>
+                </div>
+                <div id="netWorthPanel"></div>
+              </div>
+            </details>
+        </div>
         </div>
         <div class="plan-subpage" id="planSub-projections" hidden>
         <p class="page-intro help">Where each scenario's net worth could land years from now, under assumptions you control.</p>

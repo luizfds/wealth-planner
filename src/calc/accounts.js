@@ -146,25 +146,42 @@ export function accountBalance(account){
 // account with nothing recorded yet. opts.accountOf(t) names a transaction's account (default
 // t.account); opts.today bounds what counts.
 // { balance, recorded, date, moved, count }
-export function rolledBalance(account, opts){
+export function rolledBalance(account, opts){ return rolledBalances([account], opts)[0]; }
+// The same for many accounts in one pass over what's logged (v3.298): the projections roll every account forward for
+// each scenario, and scanning every transaction once per account was a large share of a redraw with years of history.
+export function rolledBalances(accounts, opts){
   opts = opts || {};
-  var b = accountBalance(account);
-  var out = { balance: b.balance, recorded: b.balance, date: b.date, moved: 0, count: 0 };
-  if(b.balance == null || !b.date || !b.source || b.source.kind === "loan" || b.source.kind === "property") return out;
-  var name = account.name, today = opts.today || localDateStr(), since = b.date;
+  var today = opts.today || localDateStr();
   var accountOf = opts.accountOf || function(t){ return t.account || ""; };
-  var inWindow = function(d){ return d && d > since && d <= today; };
-  var net = 0;
-  (state.transactions || []).forEach(function(t){ if(inWindow(t.date) && accountOf(t) === name){ net -= Number(t.amount) || 0; out.count++; } });
-  (state.incomeLog || []).forEach(function(r){ if(inWindow(r.date) && r.account === name){ net += Number(r.amount) || 0; out.count++; } });
-  (state.transfers || []).forEach(function(x){
-    if(!inWindow(x.date)) return;
-    if(x.to === name){ net += Number(x.amount) || 0; out.count++; }
-    if(x.from === name){ net -= Number(x.amount) || 0; out.count++; }
+  var outs = [], byName = {};
+  (accounts || []).forEach(function(account, k){
+    var b = accountBalance(account);
+    var out = { balance: b.balance, recorded: b.balance, date: b.date, moved: 0, count: 0 };
+    outs.push(out);
+    if(b.balance == null || !b.date || !b.source || b.source.kind === "loan" || b.source.kind === "property") return;
+    (byName[account.name] = byName[account.name] || []).push({ out: out, since: b.date, owed: b.owed, balance: b.balance, net: 0 });
   });
-  out.moved = Math.round((b.owed ? -net : net) * 100) / 100;
-  out.balance = Math.round((b.balance + out.moved) * 100) / 100;
-  return out;
+  var any = Object.keys(byName).length > 0;
+  function each(name, date, amount){
+    var list = byName[name];
+    if(!list || !date || date > today) return;
+    for(var i = 0; i < list.length; i++) if(date > list[i].since){ list[i].net += amount; list[i].out.count++; }
+  }
+  if(any){
+    (state.transactions || []).forEach(function(t){ each(accountOf(t), t.date, -(Number(t.amount) || 0)); });
+    (state.incomeLog || []).forEach(function(r){ each(r.account, r.date, Number(r.amount) || 0); });
+    (state.transfers || []).forEach(function(x){
+      each(x.to, x.date, Number(x.amount) || 0);
+      each(x.from, x.date, -(Number(x.amount) || 0));
+    });
+  }
+  Object.keys(byName).forEach(function(name){
+    byName[name].forEach(function(e){
+      e.out.moved = Math.round((e.owed ? -e.net : e.net) * 100) / 100;
+      e.out.balance = Math.round((e.balance + e.out.moved) * 100) / 100;
+    });
+  });
+  return outs;
 }
 
 // ---- Net worth on what's been logged since (v3.135.0, item 166) ----
@@ -179,8 +196,9 @@ export function setAccountOfProvider(fn){ accountOfProvider = fn; }
 export function loggedSinceRecorded(today){
   var s = state;
   var byRecord = {}, total = 0;
-  (s.accounts || []).forEach(function(a){
-    var r = rolledBalance(a, { today: today, accountOf: accountOfProvider || undefined });
+  var rolled = rolledBalances(s.accounts || [], { today: today, accountOf: accountOfProvider || undefined });
+  (s.accounts || []).forEach(function(a, k){
+    var r = rolled[k];
     if(!r.count || !r.moved) return;
     var src = resolveLink(a.link, s);
     if(!src || !src.record || !src.record.id) return;
@@ -225,10 +243,11 @@ export function setAccountBalance(account, value, dateStr){
 // Every balance the household has, whether or not an account is attached to it — so the Accounts
 // page can say "cash held" and "owed" in full, and list what still has no account.
 export function accountsOverview(opts){
-  var accounts = (state.accounts || []).map(function(a){
+  var rolledAll = rolledBalances(state.accounts || [], opts);
+  var accounts = (state.accounts || []).map(function(a, k){
     var bal = accountBalance(a);
     // v3.112.0: today's balance, rolled forward from the last recorded one.
-    var rolled = rolledBalance(a, opts);
+    var rolled = rolledAll[k];
     if(rolled.count) bal = Object.assign({}, bal, { balance: rolled.balance });
     return { account: a, bal: bal, rolled: rolled };
   });

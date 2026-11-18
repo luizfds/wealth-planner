@@ -1,4 +1,4 @@
-import { state } from "../state.js";
+import { state, stateVersion } from "../state.js";
 import { daysUntil, lastTransactionDateFor, transactionsInMonth, sumField } from "../calc/ledger.js";
 import { staleAssets } from "../calc/engine.js";
 import { fmtCurrency0, localDateStr, fmtDate } from "./format.js";
@@ -687,7 +687,19 @@ function propertyDateNotifications(){
   return out;
 }
 
+// v3.298: kept while the household is unchanged (state.js stateVersion: every save and replacement), on the same day, for
+// at most half a minute. They read nothing else that changes — the saved size changes only on a save. A page change
+// redrew its line and the bell from scratch: about 110ms a change on a household with years of spending.
+var localMemo = null;
+var MEMO_MS = 30000;
 export function getLocalNotifications(){
+  var day = todayStr(), now = Date.now();
+  if(localMemo && localMemo.version === stateVersion && localMemo.day === day && now - localMemo.at < MEMO_MS && localMemo.state === state) return localMemo.list.slice();
+  var list = computeLocalNotifications();
+  localMemo = { version: stateVersion, day: day, at: now, state: state, list: list };
+  return list.slice();
+}
+function computeLocalNotifications(){
   // Computed once and shared: the due-bill pairs decide both their own notifications and which
   // lines reviewDueNotifications() must stay quiet about (see its comment).
   var pairs = dueBillPairs();

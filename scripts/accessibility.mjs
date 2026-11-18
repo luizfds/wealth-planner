@@ -79,7 +79,6 @@ for(const width of widths)for(const scheme of schemes){
   await page.waitForTimeout(300);
   if(attr) await page.evaluate(async([a,s])=>{if(a==='dashboard-sub'){(await import('/src/components/nav.js')).showDashboardSubpage(s);return;}if(a==='expenses-sub'&&s==='income'){(await import('/src/components/nav.js')).showExpensesSubpage(s);return;}if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
   if(attr==='report') await page.waitForFunction(key=>!!document.querySelector('[data-current-report="'+key+'"]')&&!document.querySelector('.report-chooser'),sub);
-  if(pg==='assets') await page.locator('#netWorthPanel').evaluate(e=>{const d=e.closest('details');if(d)d.open=true;});
   // #261: Tax's forms and Plan's goal editor, every section open (and a goal open) — the fields axe should see.
   if(pg==='tax'||sub==='goals'){
    await page.evaluate(()=>{ document.querySelectorAll('.app-page:not([hidden]) details').forEach(d=>{d.open=true;}); const t=document.querySelector('#savingsGoalsBody [data-goal-toggle][aria-expanded="false"]'); if(t) t.click(); });
@@ -98,14 +97,16 @@ for(const width of widths)for(const scheme of schemes){
    }
   }
   // #413: Investments → Summary's purchase funding is under Net worth's list, folded; its four figures went.
-  if(pg==='networth'){
-   await page.locator('#netWorthMore > details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
-   const fundingHelp=page.locator('#netWorthMore details:has(#netWorthPanel) > [data-help-toggle]');
+  if(pg==='networth') await page.locator('#netWorthMore > details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+  // "Net worth if you buy" is on Plan → Scenarios (it was under Accounts' list).
+  if(pg==='plan'&&sub==='scenarios'){
+   await page.locator('#purchaseFundingCard').evaluate(d=>{d.open=true;});
+   const fundingHelp=page.locator('#purchaseFundingCard > [data-help-toggle]');
    await fundingHelp.click();
    await scan('investment-summary/funding-help','#purchaseFundingHelp');
    await fundingHelp.click();
   }
-  if(pg==='networth' && width<768){
+  if(pg==='plan' && sub==='scenarios' && width<768){
    await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
    await scan('purchase-funding/details', '#netWorthPanel');

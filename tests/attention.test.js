@@ -1,7 +1,10 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { state } from "../src/state.js";
+import { state, setState } from "../src/state.js";
+// v3.298: notifications and advice are kept until the household changes (state.js stateVersion: every save and
+// replacement). These tests change it in place, so each read first says so, as a save would.
+const changed = () => setState(state);
 import { getLocalNotifications } from "../src/lib/notifications.js";
 import { todoItems, knowItems, homeTodoItems, ATTENTION_LABEL, belongsToView, attentionLineHtml, canDismiss, isDismissed } from "../src/lib/attention.js";
 import { adviceHomeHtml } from "../src/components/advice.js";
@@ -16,7 +19,7 @@ var HOUSE = { income: [{ id: "i1", what: "Salary", amount: 90000, freq: "Yearly"
 
 test("a household with data has one review item and one backup item, in one wording", function(){
   withState(HOUSE, function(){
-    var all = getLocalNotifications();
+    var all = (changed(), getLocalNotifications());
     var review = all.filter(function(n){ return /^review:\d{4}-\d{2}$/.test(n.id); });
     assert.equal(review.length, 1);
     assert.match(review[0].title, /^Review [A-Z][a-z]+ \d{4}$/);
@@ -29,9 +32,9 @@ test("a household with data has one review item and one backup item, in one word
 
 test("an empty household is asked for nothing: no review, no backup", function(){
   withState({ income: [], shared: [], assets: [], properties: [], transactions: [], debts: [], accounts: [], lastBackupDate: "", monthReviews: {} }, function(){
-    var ids = getLocalNotifications().map(function(n){ return n.type; });
+    var ids = (changed(), getLocalNotifications()).map(function(n){ return n.type; });
     assert.ok(ids.indexOf("review") === -1 && ids.indexOf("backup") === -1, ids.join(","));
-    assert.deepEqual(homeTodoItems(), []);
+    assert.deepEqual((changed(), homeTodoItems()), []);
   });
 });
 
@@ -42,9 +45,9 @@ test("the to-dos only Home had are items like the rest: transactions to review, 
     accounts: [{ id: "a1", name: "Everyday", type: "everyday", balance: 500, balanceDate: old, balances: [{ date: old, balance: 500 }] }],
     properties: [{ id: "p1", what: "1 Example St", kind: "IP", nextRentReview: soon, loans: [{ id: "l1", what: "Loan one", balance: 100000, fixedUntil: soon }] }]
   }), function(){
-    var types = getLocalNotifications().map(function(n){ return n.id.split(":")[0]; });
+    var types = (changed(), getLocalNotifications()).map(function(n){ return n.id.split(":")[0]; });
     ["rentreview", "fixedend"].forEach(function(t){ assert.equal(types.filter(function(x){ return x === t; }).length, 1, t); });
-    var rent = getLocalNotifications().find(function(n){ return /^rentreview:/.test(n.id); });
+    var rent = (changed(), getLocalNotifications()).find(function(n){ return /^rentreview:/.test(n.id); });
     assert.match(rent.title, /^1 Example St: rent review in \d+ days$/);
     assert.equal(rent.page, "properties");
   });
@@ -52,14 +55,14 @@ test("the to-dos only Home had are items like the rest: transactions to review, 
 
 test("every item has a group and a label from the one vocabulary; Home's To do skips bills and the week, most pressing first", function(){
   withState(HOUSE, function(){
-    var todo = todoItems();
+    var todo = (changed(), todoItems());
     assert.ok(todo.length > 0);
     todo.forEach(function(n){ assert.equal(n.group, "todo"); assert.equal(n.label, n.severity === "bad" ? ATTENTION_LABEL.urgent : n.severity === "warn" ? ATTENTION_LABEL.todo : ATTENTION_LABEL.reminder); });
-    var home = homeTodoItems();
+    var home = (changed(), homeTodoItems());
     assert.ok(home.every(function(n){ return ["duebill", "bill", "week"].indexOf(n.type) === -1; }));
     var rank = { bad: 0, warn: 1, info: 2 };
     for(var i = 1; i < home.length; i++) assert.ok(rank[home[i - 1].severity] <= rank[home[i].severity]);
-    knowItems("2026-10-27").forEach(function(a){ assert.equal(a.group, "know"); assert.notEqual(a.kind, "good"); assert.ok(a.label); });
+    (changed(), knowItems)("2026-10-27").forEach(function(a){ assert.equal(a.group, "know"); assert.notEqual(a.kind, "good"); assert.ok(a.label); });
   });
 });
 

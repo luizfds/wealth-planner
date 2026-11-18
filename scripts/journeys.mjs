@@ -276,6 +276,12 @@ const until = (page, fn, arg) => page.waitForFunction(fn, arg, { timeout: 10000 
 // The same from this side: until test() (async, here) is true, up to 10s, polling every 100ms.
 async function eventually(test){ for(let t0 = Date.now(); Date.now() - t0 < 10000; await new Promise(r => setTimeout(r, 100))) if(await test()) return; }
 // #413: Investments → Summary's purchase funding, allocation and history are under Net worth's list, folded.
+// "Net worth if you buy" is on Plan → Scenarios (it was under Accounts' list): there, opened.
+async function goPurchaseFunding(page){
+  await go(page, 'plan', 'data-plan-sub', 'scenarios');
+  await page.evaluate(() => { document.getElementById('purchaseFundingCard').open = true; });
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+}
 async function goNetWorthMore(page){
   await go(page, 'networth');
   await page.evaluate(() => document.querySelectorAll('#netWorthMore > details').forEach(d => { d.open = true; }));
@@ -3383,8 +3389,8 @@ const JOURNEYS = {
       await page.locator('#netWorthBody .nw-chip', { hasText: 'All' }).click();
       check(await page.locator('#netWorthBody .nw-group').count() === all, 'All does not bring the list back');
       const folded = await page.locator('#netWorthMore > details').evaluateAll(ds => ds.map(d => d.open));
-      check(folded.length === 4 && folded.every(o => !o), 'the moved blocks are not folded: ' + JSON.stringify(folded));
-      check(await page.evaluate(() => ['assetsAllocation', 'netWorthPanel', 'portfolioHistoryPanel', 'allocationHistoryPanel'].every(id => document.getElementById(id).innerHTML.trim().length > 0)), 'a moved block was not drawn on Net worth');
+      check(folded.length === 3 && folded.every(o => !o), 'the moved blocks are not folded: ' + JSON.stringify(folded));
+      check(await page.evaluate(() => ['assetsAllocation', 'portfolioHistoryPanel', 'allocationHistoryPanel'].every(id => document.getElementById(id).innerHTML.trim().length > 0)), 'a moved block was not drawn on Accounts');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Net worth scrolls sideways at ' + width);
       await go(page, 'assets');
       check(await page.evaluate(() => !document.getElementById('assetsSub-Cash').hidden && !document.getElementById('assetsSub-summary') && location.pathname === '/assets/cash'), 'Investments does not open on Cash');
@@ -4511,16 +4517,19 @@ const JOURNEYS = {
     }
   },
   async investmentssummaryhelp(page){
-    // #413: Investments → Summary went; its funding and allocation are under Net worth's list (its four figures went).
+    // #413: Investments → Summary went; its allocation is under Accounts' list, and its funding ("Net worth if you buy")
+    // on Plan → Scenarios. Each is checked where it is.
     await goNetWorthMore(page);
-    const root = page.locator('#netWorthMore');
-    const funding = root.locator('details:has(#netWorthPanel)');
-    const allocation = root.locator('details:has(#assetsAllocation)');
+    const funding = page.locator('#purchaseFundingCard');
+    const allocation = page.locator('#netWorthMore details:has(#assetsAllocation)');
     const groups = [funding,allocation];
+    const showGroup = async group => { if(group === funding) await goPurchaseFunding(page); else await goNetWorthMore(page); };
     const saved = await stored(page,'JSON.stringify({assets:state.assets,properties:state.properties,purchase:state.purchase})');
     const stats = JSON.stringify(await page.locator('#netWorthBody .nw-head b').allTextContents());
+    await goPurchaseFunding(page);   // drawn when its tab shows
     const table = JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents());
     for(const group of groups){
+      await showGroup(group);
       const help = group.locator(':scope > [data-help-toggle], :scope > h2 > [data-help-toggle]');
       const note = group.locator('.help').first();
       check(!await note.isVisible(), 'summary help is not folded initially');
@@ -4534,6 +4543,7 @@ const JOURNEYS = {
       for(const width of [320,390,1280]){
         await page.setViewportSize({width,height:844});
         for(const group of groups){
+          await showGroup(group);
           const help = group.locator(':scope > [data-help-toggle], :scope > h2 > [data-help-toggle]');
           await help.tap();
           check(await group.locator('.help').first().isVisible(), 'touch did not reveal summary help');
@@ -4541,6 +4551,7 @@ const JOURNEYS = {
           await help.tap();
         }
         if(width<768){
+          await goPurchaseFunding(page);
           await page.locator('[data-funding-full-toggle]').check();
           check(await page.locator('.funding-full-table').isVisible(), 'full funding table is unavailable');
           check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width), 'full funding table causes page overflow');
@@ -4563,9 +4574,11 @@ const JOURNEYS = {
       check(await header.evaluate(e=>!!document.getElementById(e.getAttribute('aria-describedby'))?.textContent), 'funding header lacks its explanation');
     }
     check(await page.locator('#netWorthPanel th[aria-describedby]').count() === 4, 'not all funding definitions are linked');
+    await goPurchaseFunding(page);
     const cdp = await page.context().newCDPSession(page), tree = await cdp.send('Accessibility.getFullAXTree');
     check(tree.nodes.some(n=>!n.ignored && n.role?.value==='columnheader' && /^surplus \/ shortfall$/i.test(n.name?.value || '') && /higher LVR, likely with LMI/.test(n.description?.value || '')), 'folded funding explanation is missing from the accessibility tree');
     await cdp.detach();
+    await goPurchaseFunding(page);
     const help = funding.locator(':scope > [data-help-toggle]');
     await help.tap();
     check(/save more first, borrow a larger share/.test(await funding.innerText()), 'funding-gap wording was lost');
@@ -4587,6 +4600,7 @@ const JOURNEYS = {
       const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];s.state.debts=[];s.state.accounts=[];
       (await import('/src/components/networth.js')).renderNetWorthPage();
     });
+    await go(page, 'networth');
     check(await page.locator('#netWorthBody .empty-state').isVisible(), 'an empty Net worth lost its guidance');
   },
   async incomehelp(page){
@@ -6966,7 +6980,7 @@ const JOURNEYS = {
     const trendTable=page.locator('.trend-full-table .table-scroll');await trendTable.focus();await page.keyboard.press('ArrowRight');await until(page,e=>e.scrollLeft>0,await trendTable.elementHandle());
     check(!await page.locator('.trend-month-reading').isVisible(),'spending table exposes duplicate summary');
     await page.locator('[data-trend-full-toggle]').uncheck();
-    await goNetWorthMore(page);
+    await goPurchaseFunding(page);
     const funding=page.locator('#netWorthPanel'),scenario=page.locator('[data-funding-scenario]');
     const choices=await scenario.locator('option').evaluateAll(os=>os.map(o=>o.value));
     check(choices.length>0,'sample needs a purchase comparison');
@@ -7000,7 +7014,7 @@ const JOURNEYS = {
       await go(page,'expenses','data-expenses-sub','spending');
       check(await page.locator('.trend-month-reading').isVisible()===(width<768),'wrong spending numbers mode at '+width);
       check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'comparison creates page overflow at '+width);
-      await goNetWorthMore(page);
+      await goPurchaseFunding(page);
     }
     await page.emulateMedia({media:'print'});
     check(await page.locator('.funding-full-table').isVisible()&&!await page.locator('.funding-mobile').isVisible(),'print lost funding comparison');

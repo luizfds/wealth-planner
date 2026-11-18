@@ -1137,9 +1137,23 @@ function recentlyUsedLines(){
     .filter(function(item){ return lastByExpense[item.id]; })
     .slice(0, RECENT_LINE_COUNT);
 }
-export function budgetLineOptgroupsHtml(selectedId){
+// v3.298: the same for every row of a list — worked out once per draw of the transaction list (drawTransactions
+// holds it for that draw only), not per row: each row's recently-used lines scanned every transaction.
+var optgroupBase = null;
+function optgroupBaseNow(){
+  if(optgroupBase) return optgroupBase;
   var groups = loggableGroups();
   var total = groups.reduce(function(n, g){ return n + g.items.length; }, 0);
+  return { groups: groups, total: total, recent: total > QUICK_LOG_CHIP_COUNT ? recentlyUsedLines() : [] };
+}
+function withOptgroupBase(fn){
+  optgroupBase = null; optgroupBase = optgroupBaseNow();
+  try { return fn(); } finally { optgroupBase = null; }
+}
+export function budgetLineOptgroupsHtml(selectedId){
+  var base = optgroupBaseNow();
+  var groups = base.groups;
+  var total = base.total;
   var seenSelected = false;
   function optionHtml(item){
     // First copy wins the `selected` attribute. Marking both would leave the browser to pick, and
@@ -1152,7 +1166,7 @@ export function budgetLineOptgroupsHtml(selectedId){
   // Below the chip cap the whole list fits on one screen, and a "Recently used" group repeating
   // half of a six-line budget is noise rather than a shortcut.
   if(total > QUICK_LOG_CHIP_COUNT){
-    var recent = recentlyUsedLines();
+    var recent = base.recent;
     if(recent.length > 1) html += '<optgroup label="Recently used">' + recent.map(optionHtml).join("") + '</optgroup>';
   }
   return html + groups.map(function(g){
@@ -1354,7 +1368,7 @@ export function setTransactionsRange(value){
   transactionsShowAll = false; // a new window is a new list; "show all" was about the old one
   renderTransactions();
 }
-export function renderTransactions(){ return keepUi(drawTransactions); }
+export function renderTransactions(){ return keepUi(function(){ return withOptgroupBase(drawTransactions); }); }
 function drawTransactions(){
   var container = document.getElementById("transactionsTable");
   var totalEl = document.getElementById("totalTransactionsAmount");

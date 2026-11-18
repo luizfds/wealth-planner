@@ -614,11 +614,14 @@ export function showPage(id, opts){
     PAGES.forEach(function(p){
       var section = document.getElementById("page-" + p.id);
       if(section) section.hidden = (p.id !== id);
-      document.querySelectorAll('.nav-item[data-page="' + p.id + '"], .mobile-tab[data-page="' + p.id + '"]').forEach(function(navBtn){
-        var on = p.id === (navBtn.classList.contains("mobile-tab") ? tabId : navId);
-        navBtn.classList.toggle("active", on);
-        if(on) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
-      });
+    });
+    // One query for every menu button, not two whole-document queries per page (v3.298: ~27ms a page change).
+    document.querySelectorAll(".nav-item[data-page], .mobile-tab[data-page]").forEach(function(navBtn){
+      var pid = navBtn.getAttribute("data-page");
+      if(!PAGES.some(function(p){ return p.id === pid; })) return;
+      var on = pid === (navBtn.classList.contains("mobile-tab") ? tabId : navId);
+      navBtn.classList.toggle("active", on);
+      if(on) navBtn.setAttribute("aria-current", "page"); else navBtn.removeAttribute("aria-current");
     });
     var page = PAGES.find(function(p){ return p.id === id; });
     // v3.138.0: styles can tell which page is showing (Home hides the header's net worth pill — its

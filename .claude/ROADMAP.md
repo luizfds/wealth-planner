@@ -5489,3 +5489,11 @@ where it is managed ("Manage on Investments →" opens Shares with its winners a
 Recorded under #267, not fixed: `emptystates` failed once on main after #432 ("the budget lines did not clear the sticky
 header after scrolling": they stopped 48px high, the height of their section's sticky summary) and passed on its one
 re-run; 8 of 8 locally at 6× CPU with four at once.
+
+## "Your first month" finishes (November 2026)
+
+`[x]` Reported: Today still said "Your first month · step 4 of 4" for a household that had used the app for months. Its
+budget step ("Check the budget your spending suggests") never finished — every new statement can suggest more lines.
+Two months after the first statement (lib/setup.js `settledHousehold`) the step counts as done; later suggestions are
+a To do ("N budget lines suggested from your spending", opening Money → Budget), never alongside the checklist. The step
+count names the next step's place in the list ("step 3 of 4" for the budget step), not the steps done plus one.

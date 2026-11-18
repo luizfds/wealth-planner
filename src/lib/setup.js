@@ -16,10 +16,22 @@
 // housing rows used to be steps too; the first-run setup asks about housing now, and a comparison is
 // planning, not setting up. opts.budget is proposeBudget()'s answer ({ ready, months, proposals }),
 // passed in so this stays pure.
+// Once the household's first statement is this many days old, the first month is behind it: budget lines spending
+// suggests after that are a To do (lib/notifications.js), not a setup step that never finishes — every new statement
+// can suggest more, so a household using the app for years still saw "Your first month".
+import { isoDayNumber } from "../calc/ledger.js";
+export var SETTLED_DAYS = 60;
+export function settledHousehold(s, today){
+  if(!today) return false;
+  var first = null;
+  (s && s.transactions || []).forEach(function(t){ if(t && t.date && (!first || t.date < first)) first = t.date; });
+  return !!first && isoDayNumber(today) - isoDayNumber(first) >= SETTLED_DAYS;
+}
 export function setupSteps(s, opts){
   s = s || {};
   opts = opts || {};
   var hasStatement = (s.transactions || []).length > 0;
+  var settled = settledHousehold(s, opts.today);
   var b = opts.budget || null;
   var pending = b && b.ready ? (b.proposals || []).length : null;
   var monthsShort = b && !b.ready ? Math.max(1, 3 - (b.months || 0)) : 0;
@@ -39,7 +51,7 @@ export function setupSteps(s, opts){
       hint: monthsShort ? "Import " + monthsShort + " more month" + (monthsShort === 1 ? "" : "s") + " of statements and a budget is proposed from them."
         : pending ? pending + " line" + (pending === 1 ? "" : "s") + " suggested from what you actually spend — keep, change or skip each."
         : "Nothing left to suggest.",
-      done: hasStatement && pending === 0
+      done: hasStatement && (pending === 0 || settled)
     },
     {
       key: "assets", label: "Add what you own", page: "networth",
@@ -59,7 +71,9 @@ export function setupProgress(s, opts){
     done: done,
     total: steps.length,
     complete: done === steps.length,
-    next: steps.find(function(x){ return !x.done; }) || null
+    next: steps.find(function(x){ return !x.done; }) || null,
+    // The next step's place in the list — "step 3 of 4" for the third, whichever others are done.
+    nextIndex: steps.findIndex(function(x){ return !x.done; })
   };
 }
 

@@ -19,6 +19,9 @@ import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscrip
 import { cashRateMove } from "../calc/cashrate.js";
 import { reviewYear, yearHasData } from "../calc/yearreview.js";
 import { planProgress } from "../calc/planprogress.js";
+import { proposeBudget } from "../calc/budgetfromhistory.js";
+import { currentScenario } from "../calc/engine.js";
+import { shouldShowSetup } from "./setup.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -401,6 +404,26 @@ function monthReviewNotification(){
     detail: "Money in, card statements, checks and the month against the plan — Today → Monthly review.", date: today, page: "dashboard", sub: "review" }];
 }
 
+// ---------------- Budget lines your spending suggests ----------------
+// "Your first month" asks for them while the household is new. After that (lib/setup.js settledHousehold) new
+// suggestions — a new merchant, a habit that's grown — are a To do opening Budget, where they're kept, changed or
+// skipped. Never both: while the first month shows, it asks. Read is dismissed until the suggestions change.
+function budgetSuggestionNotification(){
+  if(!hasRealUserData() || !(state.transactions || []).length) return [];
+  var today = todayStr();
+  var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
+  var b = null;
+  try { b = proposeBudget(state.transactions || [], lines, today); } catch(e){ return []; }
+  if(!b || !b.ready || !(b.proposals || []).length) return [];
+  if(shouldShowSetup(state, { budget: b, today: today })) return [];
+  var n = b.proposals.length;
+  var key = b.proposals.map(function(p){ return p.key; }).sort().join("|");
+  var hash = 0; for(var i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  return [{ id: "budgetsuggest:" + n + ":" + (hash >>> 0).toString(36), type: "budgetsuggest", severity: "info",
+    title: n + " budget line" + (n === 1 ? "" : "s") + " suggested from your spending",
+    detail: "Keep, change or skip each — Money → Budget → Budget from history.", date: today, page: "expenses", sub: "budget" }];
+}
+
 // ---------------- The year in review is ready (#396) ----------------
 // For the first three months after a household year ends (financial or calendar, state.yearBasis), when something
 // was logged in it: one To do opening Reports → Year in review. Read is dismissed, like the rest.
@@ -725,6 +748,7 @@ function computeLocalNotifications(){
     staleAccountNotifications(),
     propertyDateNotifications(),
     monthReviewNotification(),
+    budgetSuggestionNotification(),
     yearReviewNotification(),
     planProgressNotification(),
     weekRecapNotification(),

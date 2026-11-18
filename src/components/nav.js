@@ -197,12 +197,21 @@ function entryTitle(pageId){
   var named = SUB_TITLES[pageId] && SUB_TITLES[pageId][sub];
   if(named) return named;
   var btn = document.querySelector('[data-' + (pageId === "settings" ? "accounts" : pageId) + '-sub="' + sub + '"]');
-  return (btn && btn.textContent.trim()) || label;
+  var name = btn && (btn.querySelector(".inv-pill-name") || btn);   // #422: a pill carries its total after its name
+  return (name && name.textContent.trim()) || label;
 }
 // Pages with no tab of their own and no other way out get the header's back link. The rest have the menu or
-// tab bar; the scenario editor keeps its own (it asks before leaving) and Investments its "‹ Net worth".
+// tab bar; the scenario editor keeps its own (it asks before leaving).
 var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc", "tax"];   // #412: Tax too, now under More
+// #422: on a phone Investments has no Net worth rail (two rails don't fit), so its way up is the header's back link,
+// "‹ Net worth" — always Net worth, the page it lives under, wherever it was opened from. A desktop shows the rail, so
+// the link is marked data-phone-only and CSS hides it there (a resize needs no redraw).
+function upToNetWorth(){ return currentPage === "assets"; }
 function backTarget(){
+  if(upToNetWorth()){
+    var cur = entryState();
+    return { history: !!(cur && cur.depth > 0 && cur.from === "Net worth"), title: "Net worth", up: "networth" };
+  }
   var st = entryState();
   if(st && st.depth > 0) return { history: true, title: st.from || "Back" };
   return { history: false, title: "Today" };
@@ -212,18 +221,21 @@ export function renderBackLink(){
   if(st) lastEntry = { depth: st.depth, title: st.title, from: st.from };
   var btn = document.getElementById("pageBack");
   if(!btn) return;
-  var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1 || (currentPage === "dashboard" && currentDashboardSub !== "overview");
+  var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1 || (currentPage === "dashboard" && currentDashboardSub !== "overview") || upToNetWorth();
   btn.hidden = !show;
   if(!show) return;
   var to = backTarget();
   var label = btn.querySelector(".page-back-label");
   if(label) label.textContent = to.title;
   btn.setAttribute("aria-label", to.history && to.title === "Back" ? "Back" : "Back to " + to.title);
+  btn.toggleAttribute("data-phone-only", !!to.up);
 }
 // The header's back link, and any Back button inside a page: the screen before when it is the app's own,
 // else Home — never out of the app (history.length counts other sites' entries in the tab too).
 export function goBackInApp(){
-  if(backTarget().history){ history.back(); return true; }
+  var to = backTarget();
+  if(to.history){ history.back(); return true; }
+  if(to.up) return showPage(to.up);
   if(currentPage === "dashboard") return showDashboardSubpage("overview", { replace: true });
   return showPage("dashboard", { replace: true });
 }

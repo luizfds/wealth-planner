@@ -60,6 +60,7 @@ const VIEWS = [
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
   ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
+  ".inv-strip",                            // Investments' sections as pills with totals, never a dropdown (the owner's choice, #422)
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
   ".scenario-tradeoffs [role=region]",     // Home's scenario comparison table, every column a figure (#266)
@@ -151,8 +152,8 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         // exempt (WCAG 2.5.8), and so is anything inside a closed row's editor (not on screen).
         const small = [];
         // #259: document overflow alone misses sideways navigation inside a rail.
-        // Financial range strips deliberately scroll on narrow screens (the owner's Shares preference).
-        const navigationOverflow = [...pageEl.querySelectorAll('.subnav, .time-range-control:not(.range-strip)')]
+        // Financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
+        const navigationOverflow = [...pageEl.querySelectorAll('.subnav:not(.inv-strip), .time-range-control:not(.range-strip)')]
           .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1)
           .map(el => el.getAttribute('aria-label') || el.id);
         if(w < 880){

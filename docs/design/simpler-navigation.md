@@ -49,7 +49,8 @@ Each step is its own PR.
    (`/reports/budget`) included. Inner pages with no other way out (Details, Reports, Settings, Calculators) get one
    back link in the header, named for where it goes: the screen you came from when you came from inside the app, else
    the page's parent. A deep link to anything but Home puts Home beneath it, so Back reaches Home before it leaves the
-   app. The scenario editor keeps its "← Scenarios" (it has a leave guard) and Investments its "‹ Net worth".
+   app. The scenario editor keeps its "← Scenarios" (it has a leave guard). Investments' own "‹ Net worth" button became
+   the header's back link on a phone in #422 — always up to Net worth.
 2. **One + for adding and importing.** The + sheet gains "Import a file", which works out the kind (bank, payslip,
    broker trades, a manager's statement); page buttons open the same chooser preset. Reports and Calculators sit in the
    same place on a phone and a desktop.

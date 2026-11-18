@@ -357,3 +357,18 @@
 .tr-new{ grid-column:1 / -1; text-align:left; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
 .tr-problem, [data-tr-review], [data-tr-status]{ overflow-wrap:anywhere; }
 [data-tr-status]:empty{ display:none; }
+
+/* #422: Investments' sections as pills with their totals — like Net worth's chips (.nw-chip), one row that scrolls
+   sideways where it doesn't fit (the rail's edge fade says so), never the section picker's dropdown. Apart from the
+   page tabs above it on a desktop: a filled pill, not a second underline. */
+.inv-strip{ gap:8px; border-bottom:0; padding:2px 0; margin:0; }
+.inv-strip .inv-pill{
+  display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0 16px; margin:0;
+  border:1px solid var(--border); border-radius:100px; background: var(--paper); color: var(--ink);
+}
+.inv-strip .inv-pill:hover{ background: var(--paper-sunken); }
+.inv-strip .inv-pill.active{ background: var(--brass-wash); border-color: var(--brass-strong); color: var(--brass-strong); }
+.inv-strip .inv-pill:focus-visible{ box-shadow: var(--focus-ring); border-radius:100px; }
+.inv-pill-total{ font-family: var(--font-num); font-weight:400; color: var(--ink-soft); }
+.inv-pill-total:empty{ display:none; }
+.inv-pill.active .inv-pill-total{ color: inherit; }

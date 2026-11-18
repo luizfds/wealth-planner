@@ -472,10 +472,8 @@ export function wireAssets(){
           if(state.assets.indexOf(asset) === -1 || asset.category !== category) return;
           renderAssets();
           var saved = persist();
-          // A resize can still be waiting for its animation frame. Focus the control that
-          // is visible now; the responsive picker transfers focus to the tab when it unfolds.
-          var picker = document.querySelector("#assetsSubnav .section-picker");
-          var target = picker && picker.getClientRects().length ? picker : document.querySelector("#assetsSubnav .subnav-item.active");
+          // Focus goes to the section's pill — at every width the one control for it (#422: no picker).
+          var target = document.querySelector("#assetsSubnav .subnav-item.active");
           if(target && document.body.getAttribute("data-current-page") === "assets" && !document.querySelector("dialog[open]")) target.focus();
           if(saved) showToast("Moved to " + category);
         });

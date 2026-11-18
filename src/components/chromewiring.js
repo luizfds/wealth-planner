@@ -221,9 +221,6 @@ export function wireNavigation(){
     var pageBtn = e.target.closest(".mobile-tab[data-page]");
     if(pageBtn) goPage(pageBtn.getAttribute("data-page"));
   });
-  document.querySelector(".investments-back").addEventListener("click", function(){
-    showPage("networth");
-  });
   // #411: the + button — the round one on a phone, the header's on a desktop — always opens one sheet: this page's own
   // action first (nav.js updateQuickFab finds it), then logging, importing and adding.
   document.getElementById("quickFab").addEventListener("click", openQuickActions);

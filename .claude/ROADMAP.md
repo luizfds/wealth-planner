@@ -5438,7 +5438,7 @@ CPU: 39–43% of a full redraw. Journey `tabviews`.
 
 ## Investments: pills with totals — issue #422
 
-`[~]` Reported: Net worth → Investments looks poor; the Cash/Shares/Super… selector is bad UX. On a phone the six
+`[x]` Reported: Net worth → Investments looks poor; the Cash/Shares/Super… selector is bad UX. On a phone the six
 sections became a native dropdown under a loose "‹ Net worth" button; on a desktop two identical underlined rails were
 stacked. The owner chose **pills with totals** (`Cash $87k`, like Net worth's chips, scrolling sideways where they
 don't fit, never a dropdown) and **the header's back link** for "‹ Net worth" on a phone.

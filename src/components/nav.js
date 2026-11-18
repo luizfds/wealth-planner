@@ -24,6 +24,7 @@ import { renderNetWorthPage } from "./networth.js";
 import { renderShowMore } from "./showmore.js";
 import { hideShownAgain } from "../lib/mode.js";
 import { state } from "../state.js";
+import { parentOf, ancestorsOf, sectionOf } from "../lib/parents.js";
 
 // #262: a subtab says which one is showing to a screen reader too (aria-current), not only by its colour. The rails are
 // choosers that navigate (each has its own address), not ARIA tabs: buttons in a named group.
@@ -148,6 +149,17 @@ function entryState(){
   return st && typeof st.depth === "number" ? st : null;
 }
 var pendingPageWrite = null;
+var leavingScroll = null;
+// #425: Back to an entry that kept its scroll puts it back once its page is on screen (the page change itself scrolls
+// to the top, inside a view transition — so this waits for the page, then a frame for its drawing).
+export function restoreScroll(pageId, y){
+  if(!(y > 0)) return;
+  var tries = 0;
+  (function wait(){
+    if(document.body.getAttribute("data-current-page") === pageId) return requestAnimationFrame(function(){ window.scrollTo(0, y); });
+    if(++tries < 90) requestAnimationFrame(wait);
+  })();
+}
 function syncUrl(pageId, replace, asTab){
   var path = buildRoutePath(pageId);
   if(location.pathname === path){
@@ -158,6 +170,10 @@ function syncUrl(pageId, replace, asTab){
     return;
   }
   var cur = entryState();
+  if(!replace && cur && leavingScroll && leavingScroll.path === location.pathname){
+    try{ history.replaceState(Object.assign({}, cur, { scroll: leavingScroll.y }), "", location.href); cur = entryState(); }catch(e){}
+  }
+  leavingScroll = null;
   // showPage() applies inside a view transition, so a tab chosen just after it ("open Spending") writes the address
   // before the page does. That write is the page's: it pushes or replaces as the page asked, never replacing the
   // entry of the page being left (which a tab's own "replace" would, taking it out of Back).
@@ -166,7 +182,7 @@ function syncUrl(pageId, replace, asTab){
     settingsSub: currentSettingsSub, title: entryTitle(pageId)};
   // Replacing a page's own entry keeps its place. Replacing a sheet's (search opening a result) is a step on from
   // the page under the sheet, like a push.
-  if(replace && cur){ next.depth = cur.depth; next.from = cur.from || null; }
+  if(replace && cur){ next.depth = cur.depth; next.from = cur.from || null; if(cur.seeded) next.seeded = true; }
   else if(replace && !history.state){ next.depth = 0; next.from = null; }
   else { var base = cur || lastEntry; next.depth = base.depth + 1; next.from = base.title || null; }
   history[replace ? "replaceState" : "pushState"](next, "", path + location.search);
@@ -207,18 +223,64 @@ var BACK_LINK_PAGES = ["detail", "reports", "settings", "calc", "tax"];   // #41
 // "‹ Net worth" — always Net worth, the page it lives under, wherever it was opened from. A desktop shows the rail, so
 // the link is marked data-phone-only and CSS hides it there (a resize needs no redraw).
 function upToNetWorth(){ return currentPage === "assets"; }
+// #425: the screen on show, as lib/parents.js names a view.
+function viewHere(){
+  var v = currentView();
+  if(currentPage === "dashboard") v.sub = currentDashboardSub;
+  if(currentPage === "detail") v.detail = { kind: detailTarget.kind, id: detailTarget.id };
+  return v;
+}
 function backTarget(){
   if(upToNetWorth()){
     var cur = entryState();
-    return { history: !!(cur && cur.depth > 0 && cur.from === "Net worth"), title: "Net worth", up: "networth" };
+    return { history: !!(cur && cur.depth > 0 && !cur.seeded && cur.from === "Net worth"), title: "Net worth", up: "networth" };
   }
+  // The way you came, when it's the app's own. Otherwise (a deep link, a reopened tab: the entry beneath is the Today
+  // seedHomeBeneath put there) the screen's parent — "‹ Shares" from a holding — and only then Today.
   var st = entryState();
-  if(st && st.depth > 0) return { history: true, title: st.from || "Back" };
+  if(st && st.depth > 0 && !st.seeded) return { history: true, title: st.from || "Back" };
+  var up = parentOf(viewHere(), state);
+  if(up) return { history: false, title: up.title, parent: up };
   return { history: false, title: "Today" };
+}
+// Opens a view lib/parents.js named, in place of the screen on show (it's that screen's way up, not a step on).
+function openView(v, opts){
+  if(v.page === "dashboard"){ if(currentPage !== "dashboard") showPage("dashboard", opts); return showDashboardSubpage(v.sub || "overview", { replace: true }); }
+  showPage(v.page, opts);
+  var tab = { replace: true };
+  if(v.page === "assets") showAssetsSubpage(v.sub || "Cash", tab);
+  else if(v.page === "expenses" && v.sub) showExpensesSubpage(v.sub, tab);
+  else if(v.page === "tax" && v.sub) showTaxSubpage(v.sub, tab);
+  else if(v.page === "plan" && v.sub) showPlanSubpage(v.sub, tab);
+  return true;
+}
+// #425: on a desktop, an inner screen says where it lives under its title — "Net worth › Shares › VAS" — each part a
+// link up. More is left out: a desktop's sidebar lists its pages itself. Net worth's own pages have the rail instead.
+var CRUMB_PAGES = ["detail", "dashboard"];
+export function renderCrumbs(){
+  var nav = document.getElementById("pageCrumbs");
+  if(!nav) return;
+  var here = viewHere();
+  var chain = CRUMB_PAGES.indexOf(currentPage) === -1 ? [] : ancestorsOf(here, state).filter(function(v){ return v.page !== "more"; });
+  nav.hidden = !chain.length;
+  crumbViews = chain;
+  if(!chain.length){ nav.innerHTML = ""; return null; }
+  var current = currentPage === "detail" ? entryTitle("detail") : titleFor(currentPage);
+  nav.innerHTML = '<ol>' + chain.map(function(v, i){
+    return '<li><button type="button" class="link-btn page-crumb" data-crumb="' + i + '">' + escapeAttr(v.title) + '</button></li>';
+  }).join("") + '<li><span aria-current="page">' + escapeAttr(current) + '</span></li></ol>';
+  return chain.map(function(v){ return v.title; });
+}
+var crumbViews = [];
+export function goCrumb(i){
+  var v = crumbViews[Number(i)];
+  if(!v) return false;
+  return openView(v, {});
 }
 export function renderBackLink(){
   var st = entryState();
   if(st) lastEntry = { depth: st.depth, title: st.title, from: st.from };
+  var crumbs = renderCrumbs();
   var btn = document.getElementById("pageBack");
   if(!btn) return;
   var show = BACK_LINK_PAGES.indexOf(currentPage) !== -1 || (currentPage === "dashboard" && currentDashboardSub !== "overview") || upToNetWorth();
@@ -228,7 +290,9 @@ export function renderBackLink(){
   var label = btn.querySelector(".page-back-label");
   if(label) label.textContent = to.title;
   btn.setAttribute("aria-label", to.history && to.title === "Back" ? "Back" : "Back to " + to.title);
-  btn.toggleAttribute("data-phone-only", !!to.up);
+  // A desktop shows Investments' rail, and the breadcrumb where there is one: there the back link is the phone's, unless
+  // it goes somewhere the breadcrumb doesn't name (back to Spending, from a holding opened from a search there).
+  btn.toggleAttribute("data-phone-only", !!to.up || !!(crumbs && (!to.history || crumbs.indexOf(to.title) !== -1)));
 }
 // The header's back link, and any Back button inside a page: the screen before when it is the app's own,
 // else Home — never out of the app (history.length counts other sites' entries in the tab too).
@@ -236,6 +300,7 @@ export function goBackInApp(){
   var to = backTarget();
   if(to.history){ history.back(); return true; }
   if(to.up) return showPage(to.up);
+  if(to.parent) return openView(to.parent, { replace: true });
   if(currentPage === "dashboard") return showDashboardSubpage("overview", { replace: true });
   return showPage("dashboard", { replace: true });
 }
@@ -248,7 +313,7 @@ export function seedHomeBeneath(pageId, sub){
   var here = location.pathname + location.search + location.hash;
   try{
     history.replaceState({ page: "dashboard", depth: 0, title: "Today" }, "", BASE_PATH + "/dashboard" + location.search);
-    history.pushState({ page: pageId, depth: 1, from: "Today", title: null }, "", here);
+    history.pushState({ page: pageId, depth: 1, from: "Today", title: null, seeded: true }, "", here);
   }catch(e){ return false; }
   return true;
 }
@@ -479,6 +544,10 @@ function afterPendingPage(page, next){
 export function setLeaveGuard(fn){ leaveGuard = fn; }
 export function showPage(id, opts){
   opts = opts || {};
+  // #425: where the page being left was scrolled to, kept on its history entry when the next one is pushed (syncUrl),
+  // so Back returns to the same place in a long list. Read now: the page change scrolls to the top before it writes.
+  // Not on Back (skipUrl): the address has already changed to the entry being returned to.
+  if(!opts.skipUrl && currentPage && id !== currentPage) leavingScroll = { path: location.pathname, y: window.scrollY || 0 };
   if(ALIASES[id]){
     var to = ALIASES[id];
     return afterNavigation(showPage(to[0], opts), function(){
@@ -525,8 +594,10 @@ export function showPage(id, opts){
     if(overlayCleanup && closesOverlay) overlayCleanup();
     // #414: what "Show more on this page" brought back was for that visit.
     hideShownAgain();
-    var navId = NETWORTH_GROUP.indexOf(id) !== -1 ? "networth" : id;
-    var tabId = MORE_GROUP.indexOf(id) !== -1 ? "more" : navId;
+    // #425: a Details page and the scenario editor light the section they belong to (a holding's, Net worth).
+    var section = id === "detail" || id === "scenario" ? sectionOf({ page: id, detail: { kind: detailTarget.kind, id: detailTarget.id } }, state) : id;
+    var navId = NETWORTH_GROUP.indexOf(section) !== -1 ? "networth" : section;
+    var tabId = MORE_GROUP.indexOf(navId) !== -1 ? "more" : navId;
     // v3.205.0 (item 236a): what a full redraw left for later, drawn before the page shows.
     drawStale(id);
     PAGES.forEach(function(p){

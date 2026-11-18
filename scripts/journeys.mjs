@@ -3378,6 +3378,50 @@ const JOURNEYS = {
     await page.goto(base + '/index.html'); await quiet(page);
     check(await page.evaluate(() => document.body.dataset.currentPage === 'assets' && !document.getElementById('assetsSub-Cash').hidden), 'an old /assets/summary link does not open Investments on Cash');
   },
+  // #425: a screen with nothing of the app's own behind it goes up to its parent, a desktop names where it lives, and
+  // Back to a list puts you back where you were in it, with its filter.
+  async returnwhereyouwere(page){
+    await quiet(page);
+    const holding = await stored(page, 'state.assets.find(a => a.category === "Shares").id');
+    const name = await stored(page, 'state.assets.find(a => a.category === "Shares").what');
+    const deep = async path => { await page.evaluate(p => sessionStorage.setItem('wealthPlanner.redirectPath', p), path); await page.goto(base + '/index.html'); await quiet(page);
+      await page.waitForFunction(p => location.pathname === p, path); };
+    const here = () => page.evaluate(() => ({ path: location.pathname, back: document.getElementById('pageBack').checkVisibility() ? document.querySelector('#pageBack .page-back-label').textContent : null,
+      crumbs: document.getElementById('pageCrumbs').checkVisibility() ? document.getElementById('pageCrumbs').innerText.replace(/\s+/g, ' ').trim() : null,
+      lit: [...document.querySelectorAll('.mobile-tab.active, .nav-item.active')].filter(e => e.checkVisibility()).map(e => e.getAttribute('data-page')).join() }));
+    for(const width of [320, 390]){
+      await page.setViewportSize({ width, height: 844 });
+      await deep('/detail/asset/' + holding);
+      let s = await here();
+      check(s.back === 'Shares' && s.lit === 'networth' && !s.crumbs, width + ': a holding opened by link does not go up to Shares: ' + JSON.stringify(s));
+      await page.locator('#pageBack').click();
+      await page.waitForFunction(() => location.pathname === '/assets/shares');
+      await page.goBack(); await page.waitForFunction(() => location.pathname === '/dashboard');
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await deep('/detail/asset/' + holding);
+    const s = await here();
+    const parts = await page.locator('#pageCrumbs li').allInnerTexts();
+    check(parts.join(' › ') === 'Net worth › Shares › ' + name && !s.back && s.lit === 'networth', 'a desktop does not say where a holding lives: ' + JSON.stringify({ parts, s }));
+    await page.locator('#pageCrumbs [data-crumb="1"]').click();
+    await page.waitForFunction(() => location.pathname === '/assets/shares');
+    for(const width of [390, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      await go(page, 'networth');
+      await page.locator('#netWorthBody [data-nw-filter]').nth(1).click();
+      const filter = await page.locator('#netWorthBody .nw-chip.is-on').textContent();
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      const link = page.locator('#netWorthBody [data-detail]').last();
+      await link.scrollIntoViewIfNeeded();
+      const y = await page.evaluate(() => scrollY);
+      check(y > 50, width + ': the list is too short to scroll (' + y + ')');
+      await link.click(); await page.waitForFunction(() => document.body.dataset.currentPage === 'detail');
+      await page.goBack(); await page.waitForFunction(() => document.body.dataset.currentPage === 'networth');
+      await page.waitForFunction(want => Math.abs(scrollY - want) < 30, y, { timeout: 5000 }).catch(() => {});
+      const back = await page.evaluate(() => ({ y: scrollY, filter: document.querySelector('#netWorthBody .nw-chip.is-on').textContent }));
+      check(Math.abs(back.y - y) < 30 && back.filter === filter, width + ': Back did not return to the same place in the list: ' + JSON.stringify({ was: { y, filter }, now: back }));
+    }
+  },
   async todaymore(page){
     await quiet(page);
     const shown = () => page.evaluate(() => ({ path: location.pathname, title: document.getElementById('pageTitle').textContent,
@@ -3394,7 +3438,13 @@ const JOURNEYS = {
         await page.waitForFunction(p => location.pathname === p, '/dashboard/' + sub);
         s = await shown();
         check(s.title === title && s.back === 'Today' && s.lit.join() === 'Today', width + ': ' + sub + ' reads ' + JSON.stringify(s));
-        await page.locator('#pageBack').click(); await page.waitForFunction(() => location.pathname === '/dashboard');
+        // #425: a desktop names where it is in the breadcrumb ("Today › Insights") instead of a back link.
+        if(width > 900){
+          check(await page.locator('#pageCrumbs').innerText().then(t => t.replace(/\s+/g, ' ').trim()) === 'Today › ' + title || (await page.locator('#pageCrumbs').innerText()).includes(title), width + ': ' + sub + ' has no breadcrumb');
+          check(!await page.locator('#pageBack').isVisible(), 'a desktop shows a back link beside the breadcrumb');
+          await page.locator('#pageCrumbs [data-crumb="0"]').click();
+        } else await page.locator('#pageBack').click();
+        await page.waitForFunction(() => location.pathname === '/dashboard');
       }
       // The Today tab, chosen on Insights, is Today again.
       await page.locator('.today-more [data-dashboard-sub="insights"]').click(); await page.waitForFunction(() => location.pathname === '/dashboard/insights');
@@ -3503,6 +3553,9 @@ const JOURNEYS = {
       await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
       await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
       await go(page, 'dashboard', 'data-dashboard-sub', 'insights'); await at('/dashboard/insights');
+      // Budget, then Spending: two entries whatever the timing (go() chooses a tab 50ms after the page, and a tab chosen
+      // while the page's transition runs writes the page's own entry — one entry or two, by how fast the machine is).
+      await go(page, 'expenses', 'data-expenses-sub', 'budget'); await at('/expenses/budget');
       await go(page, 'expenses', 'data-expenses-sub', 'spending'); await at('/expenses/spending');
       check(await backLabel() === null, 'a page in the menu has a header back link');
       // Reports opens on the report last shown (the first pass leaves it on Budget vs actual): choose the other one.
@@ -3517,11 +3570,17 @@ const JOURNEYS = {
       await go(page, 'networth'); await at('/networth');
       await page.locator('#page-networth [data-detail]:visible').first().click();
       await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
-      check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
       check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');
-      const target = await page.locator('#pageBack').boundingBox();
-      check(target.height >= 36 && target.width >= 44, 'the back link is too small to tap: ' + JSON.stringify(target));
-      await page.locator('#pageBack').click(); await at('/networth');
+      if(width > 900){
+        // #425: a desktop's breadcrumb already names Net worth, so it shows no back link to it beside it.
+        check((await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Net worth' && await backLabel() === null, 'Details on a desktop does not say it is under Net worth: ' + await backLabel());
+        await page.goBack(); await at('/networth');
+      } else {
+        check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
+        const target = await page.locator('#pageBack').boundingBox();
+        check(target.height >= 36 && target.width >= 44, 'the back link is too small to tap: ' + JSON.stringify(target));
+        await page.locator('#pageBack').click(); await at('/networth');
+      }
       for(const p of ['/reports/' + second, '/reports/' + first, '/expenses/spending', '/expenses/budget', '/dashboard/insights', '/dashboard']){
         await page.goBack(); await at(p);
       }
@@ -3536,7 +3595,8 @@ const JOURNEYS = {
       await page.evaluate(() => sessionStorage.setItem('wealthPlanner.redirectPath', '/reports/budget'));
       await page.goto(base + '/index.html'); await quiet(page); await at('/reports/budget');
       check(await page.evaluate(() => document.querySelector('[data-current-report="budget"]') !== null), 'a report link did not open that report');
-      check(await backLabel() === 'Today', 'a shared report link does not offer Today: ' + await backLabel());
+      // #425: with nothing of the app's own behind it, its way back is its parent (More), and Today is beneath that.
+      check(await backLabel() === 'More', 'a shared report link does not offer its parent, More: ' + await backLabel());
       await page.goBack(); await at('/dashboard');
       check(await page.evaluate(() => document.body.dataset.currentPage === 'dashboard'), 'Back from a shared link did not show Home');
     }

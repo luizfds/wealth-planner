@@ -23,7 +23,7 @@ import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
 import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, goCrumb, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
 import { isSimple, setStoredMode, applyMode } from "../lib/mode.js";
 import { renderShowMore, showMoreHere } from "./showmore.js";
 import { closeAllOverflowMenus } from "./overlays.js";
@@ -167,6 +167,9 @@ export function wireNavigation(){
   // Simpler navigation step 1: the header's way back from an inner page (nav.js renderBackLink names it).
   var pageBack = document.getElementById("pageBack");
   if(pageBack) pageBack.addEventListener("click", function(){ goBackInApp(); });
+  // #425: a desktop's breadcrumb — each part opens that screen.
+  var crumbs = document.getElementById("pageCrumbs");
+  if(crumbs) crumbs.addEventListener("click", function(e){ var c = e.target.closest("[data-crumb]"); if(c) goCrumb(c.getAttribute("data-crumb")); });
   // #255 step 3: an empty state's next step (lib/empty.js) — to another page and its tab, or the page's own add.
   document.addEventListener("click", function(e){
     var add = e.target.closest && e.target.closest("[data-empty-add]");

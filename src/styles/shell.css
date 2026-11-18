@@ -472,6 +472,16 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
   font-size:var(--fs-md); white-space:nowrap; max-width:16em; overflow:hidden; text-overflow:ellipsis; }
 .page-back[hidden]{ display:none; }
 @media (min-width:881px){ .page-back[data-phone-only]{ display:none; } }
+/* #425: the breadcrumb, a desktop's — under the title, each part a link up. A phone has the back link instead. */
+.page-crumbs{ flex-basis:100%; order:10; font-size:var(--fs-sm); color: var(--ink-soft); margin-top:-2px; }
+.page-crumbs[hidden]{ display:none; }
+.page-crumbs ol{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; list-style:none; margin:0; padding:0; }
+.page-crumbs li{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
+.page-crumbs li + li::before{ content:"›"; color: var(--ink-soft); }
+.page-crumb{ color: var(--ink-soft); font-size:inherit; padding:2px 0; }
+.page-crumb:hover{ color: var(--ink); text-decoration:underline; }
+.page-crumbs [aria-current="page"]{ color: var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:32em; }
+@media (max-width:880px){ .page-crumbs{ display:none; } }
 .page-back:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
 .page-back-chevron{ font-size:1.25em; line-height:1; }
 .page-back-label{ overflow:hidden; text-overflow:ellipsis; }

@@ -62,3 +62,23 @@ test("setupSteps survives a state missing every array it reads", function(){
   assert.equal(bare.total, 4);
   assert.equal(typeof bare.next.label, "string");
 });
+
+// A household using the app for months still saw "Your first month": every new statement can suggest more budget lines,
+// so the budget step never finished. Two months after the first statement, the first month is behind it.
+test("suggestions don't hold the first month open once the household is two months in", function(){
+  var s = stateWith({ income: [{ id: "i1" }], assets: [{ id: "a1" }], transactions: [{ date: "2026-01-05", amount: 10 }] });
+  var pending = { budget: { ready: true, months: 3, proposals: [{ key: "x" }, { key: "y" }] } };
+  assert.equal(keys(s, Object.assign({ today: "2026-02-20" }, pending)).budget, false, "a new household is still asked");
+  assert.equal(shouldShowSetup(s, Object.assign({ today: "2026-02-20" }, pending)), true);
+  assert.equal(keys(s, Object.assign({ today: "2026-03-10" }, pending)).budget, true, "two months in: done");
+  assert.equal(shouldShowSetup(s, Object.assign({ today: "2026-03-10" }, pending)), false);
+  assert.equal(keys(s, pending).budget, false, "with no today it doesn't guess");
+});
+
+test("the step count says where the next step sits, whichever others are done", function(){
+  var s = stateWith({ income: [{ id: "i1" }], assets: [{ id: "a1" }], transactions: [{ date: "2026-01-05", amount: 10 }] });
+  var p = setupProgress(s, { today: "2026-01-20", budget: { ready: true, months: 3, proposals: [{ key: "x" }] } });
+  assert.equal(p.done, 3);
+  assert.equal(p.next.key, "budget");
+  assert.equal(p.nextIndex, 2, "the budget step is the third, not the fourth");
+});

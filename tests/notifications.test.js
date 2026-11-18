@@ -186,3 +186,26 @@ test("a bill that fell due with nothing logged is a To do that opens the confirm
     Object.assign(state, prev);
   }
 });
+
+test("budget lines spending suggests are a To do once the first month is behind the household, never both", async () => {
+  const keep = { income: state.income, assets: state.assets, transactions: state.transactions, shared: state.shared, setupDismissed: state.setupDismissed };
+  try {
+    // Three months of a payee that has no budget line: a suggestion.
+    state.income = [{ id: "i1", what: "Pay", amount: 5000, freq: "Monthly", person: "Alex", incomeType: "Net" }];
+    state.assets = [{ id: "a1", what: "Savings", category: "Cash", amount: 1000 }];
+    state.shared = [];
+    state.setupDismissed = false;
+    const today = new Date(), iso = d => d.toISOString().slice(0, 10), ago = n => { const d = new Date(today); d.setDate(d.getDate() - n); return iso(d); };
+    state.transactions = [];
+    for(let m = 0; m < 6; m++) for(let k = 0; k < 4; k++) state.transactions.push({ id: "t" + m + k, date: ago(m * 30 + k * 7 + 2), what: "Fern Café", amount: 12 });
+    const todo = () => (changed(), getLocalNotifications()).filter(n => n.type === "budgetsuggest");
+    const shown = todo();
+    assert.equal(shown.length, 1, "a household months in gets the To do");
+    assert.match(shown[0].title, /budget line.*suggested from your spending/);
+    assert.equal(shown[0].page, "expenses"); assert.equal(shown[0].sub, "budget");
+    // A household in its first month: the checklist asks instead.
+    state.transactions = state.transactions.filter(t => t.date >= ago(40)).map(t => t);
+    const first = state.transactions.reduce((a, t) => t.date < a ? t.date : a, "9999");
+    if(first >= ago(59)) assert.equal(todo().length, 0, "while the first month shows, it asks — not a To do as well");
+  } finally { Object.assign(state, keep); changed(); }
+});

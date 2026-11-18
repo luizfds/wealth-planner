@@ -161,7 +161,7 @@ export function setupOpts(){
   var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var budget = null;
   try { budget = proposeBudget(state.transactions || [], lines, localDateStr()); } catch(e){ budget = null; }
-  return { budget: budget };
+  return { budget: budget, today: localDateStr() };
 }
 // v3.162.0 (item 192): "Your first month" — the household's own month as the setup has it so far, and
 // one next step. The list of everything left is gone: one step is a next move, five are a chore.
@@ -177,7 +177,7 @@ export function firstMonthHtml(st, p, nothingEntered){
     : '';
   var n = p.next;
   return '<div class="setup-head">' +
-      '<div><b>Your first month</b> <span class="setup-count">step ' + (p.done + 1) + ' of ' + p.total + '</span></div>' +
+      '<div><b>Your first month</b> <span class="setup-count">step ' + ((p.nextIndex >= 0 ? p.nextIndex : p.done) + 1) + ' of ' + p.total + '</span></div>' +
       '<button type="button" class="icon-btn" data-setup-dismiss aria-label="Hide your first month" title="Hide this — every page stays in the menu">✕</button>' +
     '</div>' + figures +
     '<p class="setup-next"><b>' + escapeAttr(n.label) + '</b><br><span>' + escapeAttr(n.hint) + '</span></p>' +

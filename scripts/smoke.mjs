@@ -452,6 +452,7 @@ if(!SHOTS){
   }
   await ctx.close();
 }
+const SIMPLE_CONTROL_CAP = 55;
 // #414: Simple mode, on the sample household at 390px. On every view nothing marked advanced shows; where a page has
 // some put away, it ends with "Show more on this page", and that brings every one of them back. Only data-level hides
 // anything, so the views themselves are the Advanced ones above.
@@ -485,18 +486,24 @@ if(!SHOTS){
         const advanced = () => [...document.querySelectorAll('[data-level="advanced"]')].filter(vis).map(e => (e.id || e.getAttribute("data-page") || e.textContent.trim()).slice(0, 30));
         const shownNow = advanced();
         const away = [...pageEl.querySelectorAll('[data-level="advanced"]')].filter(e => !e.parentElement.closest("[hidden]")).length;
+        // #414: what's on screen to operate, counted as a person sees it — checkVisibility, since a closed <details>'s
+        // contents keep a layout box (Categories' folded pickers once read as 591 controls; it is 51).
+        const controls = [...pageEl.querySelectorAll('button, a[href], input:not([type=hidden]), select, summary, textarea')]
+          .filter(e => e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && e.getBoundingClientRect().width > 0 && !e.closest("#showMoreHere")).length;
         const more = document.getElementById("showMoreHere");
         const offered = !!more && !more.hidden && more.parentElement === pageEl;
         let after = null;
         // The picker re-measures in the next frame (lib/sectionpicker.js); two frames, then read.
         if(offered){ more.querySelector("[data-show-more]").click(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); await new Promise(r => setTimeout(r, 50));
           after = [...pageEl.querySelectorAll('[data-level="advanced"]')].filter(e => !e.parentElement.closest("[hidden]") && !vis(e)).length; }
-        return { shownNow, away, offered, after };
+        return { shownNow, away, offered, after, controls };
       });
       if(r.shownNow.length) failures.push(where + ": advanced parts show: " + r.shownNow.join(", "));
       if(r.away && !r.offered) failures.push(where + ": " + r.away + " part(s) put away and no Show more on this page");
       if(!r.away && r.offered) failures.push(where + ": Show more on this page with nothing put away");
       if(r.offered && r.after) failures.push(where + ": Show more left " + r.after + " part(s) hidden");
+      // Before Show more: the page as Simple shows it. The busiest today is Settings → Categories, at 51.
+      if(r.controls > SIMPLE_CONTROL_CAP) failures.push(where + ": " + r.controls + " controls on screen in Simple (at most " + SIMPLE_CONTROL_CAP + ")");
     }
   }
   errors.forEach(e => failures.push("simple mode: " + e));

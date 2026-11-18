@@ -19,9 +19,15 @@ them. Only two views had a visible back link (a Details page, and Investments on
 `history.back()` whenever `history.length > 1` — which leaves the app when the tab was on another site first. On a phone,
 Back from Home closed the app; a deep link to any other page had nothing in the app below it.
 
-**Density.** About 40 views and 21 reports. Visible controls per view, default state: Budget 55, Tax → Returns 53,
-Projections 51, Bills 44, Insights 43; Settings → Categories 591 (every category's editor drawn open). Spending is 5.6
-phone screens long. Reports, Calculators and Backup sit in different places on a phone and a desktop.
+**Density.** About 40 views and 21 reports. Spending is 5.6 phone screens long. Reports, Calculators and Backup sit in
+different places on a phone and a desktop.
+
+*Corrected after step 5:* the control counts this review first gave (Budget 55, Tax → Returns 53, Projections 51,
+Bills 44, Insights 43, Settings → Categories 591) were wrong. They counted every control with a layout box, and current
+Chromium gives a closed `<details>`'s contents one though nothing of it shows — Categories' 591 were its 15 folded
+colour-and-icon pickers. Counted with `checkVisibility()`, at 390px on the demo household: Budget 27, Tax → Returns 31,
+Projections 31, Bills 23, Insights 27, Categories 51; no view shows more than 51. The duplication, the places and Back
+above don't rest on those counts and stand.
 
 ## How often each thing is used
 
@@ -130,8 +136,10 @@ balance, last year's tax estimate, get back to where you started.
   tiles and the projections link; Spending over time; Net worth's folded extras; Plan's Scenarios, Projections and
   Retirement tabs (Plan opens on Goals); Calculators (sidebar and More); Settings → Import rules; all but five reports in
   the chooser (Monthly cash flow, Month in detail, Spending, Budget vs actual, Net worth statement), with "Show all".
-- Measured at 390px on the demo household, controls per view, Advanced → Simple: Today 27 → 24, Spending 39 → 34, Net
-  worth 34 → 22, Plan 16 → 14. Budget (52), Bills (44), Tax → Returns (53) and Settings → Categories (591) are unchanged:
-  nothing on them was marked. Not done here, and left as the next item: Categories as collapsed rows, the Tax return
-  worksheet's detail and the per-view control cap in Simple (Categories would fail it until it collapses).
+- Measured at 390px on the demo household, controls really on screen (`checkVisibility()`), Advanced → Simple: Today
+  21 → 18, Spending 29 → 26, Net worth 25 → 22, Plan → Goals 16 → 14; nothing on Budget (27), Bills (23), Tax → Returns
+  (31) or Categories (51) is marked. Categories needs no collapsing: it is 15 compact rows, its pickers folded (the 591
+  first reported counted them). The smoke run's Simple pass caps a view at 55 controls on screen, against today's most of
+  51, so a page can't quietly grow. The Tax return worksheet's detail stays as it is: 31 controls, all of them the
+  return's.
 

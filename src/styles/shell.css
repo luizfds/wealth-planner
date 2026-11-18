@@ -474,6 +474,13 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .page-crumbs[hidden]{ display:none; }
 /* With a breadcrumb row under the title, the header's actions stay level with the title, not halfway down. */
 @media (min-width:881px){ .app-topbar:has(.page-crumbs:not([hidden])){ align-items:flex-start; } }
+/* A short desktop window (a laptop split in two, a zoomed page) keeps its height for the page: the back link, on the
+   title's own row, says the way up instead of a breadcrumb row under it (#428; errorsummarybounds at 1280×190). */
+@media (min-width:881px) and (max-height:500px){
+  .page-crumbs{ display:none; }
+  .page-back[data-phone-only]:not([hidden]){ display:inline-flex; }
+  .app-topbar:has(.page-crumbs:not([hidden])){ align-items:center; }
+}
 .page-crumbs ol{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 6px; list-style:none; margin:0; padding:0; }
 .page-crumbs li{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .page-crumbs li + li::before{ content:"›"; color: var(--ink-soft); }

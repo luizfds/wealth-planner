@@ -477,7 +477,10 @@ if(!SHOTS){
       await page.waitForTimeout(300);
       const where = "simple mode 390px " + pg + (sub ? "/" + sub : "");
       const r = await page.evaluate(async () => {
-        const vis = e => e.getClientRects().length > 0;
+        // A tab in a rail too narrow for its tabs shows as an option of the rail's section picker, not as a box.
+        const inPicker = e => { const rail = e.closest(".has-section-picker"); const sel = rail && rail.getClientRects().length && rail.querySelector(":scope > .section-picker");
+          return !!sel && [...sel.options].some(o => o.textContent === e.textContent.trim()); };
+        const vis = e => e.getClientRects().length > 0 || inPicker(e);
         const pageEl = document.querySelector(".app-page:not([hidden])");
         const advanced = () => [...document.querySelectorAll('[data-level="advanced"]')].filter(vis).map(e => (e.id || e.getAttribute("data-page") || e.textContent.trim()).slice(0, 30));
         const shownNow = advanced();
@@ -485,7 +488,8 @@ if(!SHOTS){
         const more = document.getElementById("showMoreHere");
         const offered = !!more && !more.hidden && more.parentElement === pageEl;
         let after = null;
-        if(offered){ more.querySelector("[data-show-more]").click(); await new Promise(r => setTimeout(r, 50));
+        // The picker re-measures in the next frame (lib/sectionpicker.js); two frames, then read.
+        if(offered){ more.querySelector("[data-show-more]").click(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); await new Promise(r => setTimeout(r, 50));
           after = [...pageEl.querySelectorAll('[data-level="advanced"]')].filter(e => !e.parentElement.closest("[hidden]") && !vis(e)).length; }
         return { shownNow, away, offered, after };
       });

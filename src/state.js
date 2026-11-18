@@ -872,7 +872,11 @@ try{
 // v3.171.0: told when the whole copy is replaced (sync, a backup, sample data) — not an edit anyone made here.
 var replaced = [];
 export function onStateReplaced(fn){ replaced.push(fn); }
+// v3.298: counts every save and every replacement of the household, so what's worked out from it (the notifications, the
+// advice) can be kept while nothing has changed instead of being worked out again on every page change.
+export var stateVersion = 0;
 export function setState(newState){
+  stateVersion++;
   state = newState;
   replaced.forEach(function(fn){ try { fn(); } catch(e){} });
 }
@@ -971,6 +975,7 @@ export function onSaved(fn){ afterSave.push(fn); }
 // { background: true }: a save nobody asked for (startup, a refresh). It never overwrites another tab's save and
 // never raises the conflict — it catches up with the saved copy instead, when nothing here is pending.
 export function persist(opts){
+  stateVersion++;
   if(!storageAvailable){
     setStatus(false, "Not saved — storage unavailable");
     return false;

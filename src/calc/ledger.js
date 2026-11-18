@@ -596,10 +596,28 @@ export function budgetCycleFor(item, transactions, todayStr){
 // shave an hour off and round a day away. Tax apportionment (a deduction that stopped partway
 // through the year, borrowing costs spread over five years) is counted in days, and the ATO's own
 // calculators count them exactly — so these have to as well.
+// Performance (v3.298): every bills calendar, notice and forecast turns the same few thousand date strings into day
+// numbers, over and over — on a household with years of spending it was the largest cost of a page change. Worked out
+// with integer arithmetic (days from civil, proleptic Gregorian: the same day count Date.UTC gives) and remembered.
+var dayCache = new Map();
 export function isoDayNumber(iso){
-  var p = String(iso || "").split("-");
-  if(p.length !== 3) return NaN;
-  return Math.round(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])) / 86400000);
+  var key = typeof iso === "string" ? iso : String(iso || "");
+  var hit = dayCache.get(key);
+  if(hit !== undefined) return hit;
+  var p = key.split("-"), out;
+  if(p.length !== 3) out = NaN;
+  else {
+    var y = Number(p[0]), m = Number(p[1]), d = Number(p[2]);
+    if(!isFinite(y) || !isFinite(m) || !isFinite(d)) out = NaN;
+    else if(y >= 100 && m >= 1 && m <= 12 && d >= 1 && d <= 31 && Math.floor(y) === y && Math.floor(m) === m && Math.floor(d) === d){
+      y -= m <= 2 ? 1 : 0;
+      var era = Math.floor(y / 400), yoe = y - era * 400, mp = (m + 9) % 12, doy = Math.floor((153 * mp + 2) / 5) + d - 1;
+      out = era * 146097 + yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy - 719468;
+    } else out = Math.round(Date.UTC(y, m - 1, d) / 86400000);   // out-of-range parts roll over, and years 0–99 mean 19xx, as Date does
+  }
+  if(dayCache.size > 50000) dayCache.clear();
+  dayCache.set(key, out);
+  return out;
 }
 // Days shared by two inclusive date ranges, 0 when they don't meet. A blank bound means open-ended.
 export function overlapDaysInclusive(aStart, aEnd, bStart, bEnd){

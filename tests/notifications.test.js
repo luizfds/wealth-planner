@@ -1,7 +1,10 @@
 import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { state } from "../src/state.js";
+import { state, setState } from "../src/state.js";
+// v3.298: notifications and advice are kept until the household changes (state.js stateVersion: every save and
+// replacement). These tests change it in place, so each read first says so, as a save would.
+const changed = () => setState(state);
 import { staleAssetNamesList, getLocalNotifications } from "../src/lib/notifications.js";
 
 function findStaleAssetNotification(notifications){
@@ -24,7 +27,7 @@ test("staleAssetNamesList formats never-logged and days-ago entries and joins th
 test("getLocalNotifications emits one stale-asset notification per asset when there's just one", function(){
   var prevAssets = state.assets;
   state.assets = [{ what: "Cash Savings", category: "Cash", amount: 1000, history: [] }];
-  var stale = findStaleAssetNotification(getLocalNotifications());
+  var stale = findStaleAssetNotification((changed(), getLocalNotifications()));
   assert.ok(stale);
   assert.equal(stale.title, "Cash Savings hasn't been logged recently");
   assert.equal(stale.detail, "Never logged a value");
@@ -38,7 +41,7 @@ test("getLocalNotifications groups multiple stale assets into one notification, 
     { what: "Super", category: "Super", amount: 200000, history: [] },
     { what: "Toyota Corolla", category: "Vehicle", amount: 20000, history: [] }
   ];
-  var notifications = getLocalNotifications();
+  var notifications = (changed(), getLocalNotifications());
   var staleOnes = notifications.filter(function(n){ return n.type === "stale-asset"; });
   assert.equal(staleOnes.length, 1);
   assert.equal(staleOnes[0].title, "3 assets haven't been logged recently");
@@ -52,7 +55,7 @@ test("getLocalNotifications caps the grouped stale-asset detail at 3 names, plus
   state.assets = ["A", "B", "C", "D", "E"].map(function(name){
     return { what: name, category: "Other", amount: 100, history: [] };
   });
-  var stale = findStaleAssetNotification(getLocalNotifications());
+  var stale = findStaleAssetNotification((changed(), getLocalNotifications()));
   assert.equal(stale.title, "5 assets haven't been logged recently");
   assert.ok(stale.detail.indexOf("and 2 more") !== -1);
   assert.equal(stale.detail.split(",").length, 3); // exactly A, B, C named before "and 2 more"
@@ -63,7 +66,7 @@ test("getLocalNotifications skips the 'needs a fresh entry' review nudge for an 
   var prevShared = state.shared, prevTx = state.transactions;
   state.shared = [{ id: "exp1", what: "Extras / Misc", amount: 100, freq: "Monthly", irregular: true }];
   state.transactions = [];
-  assert.equal(findReviewNotification(getLocalNotifications()), undefined);
+  assert.equal(findReviewNotification((changed(), getLocalNotifications())), undefined);
   state.shared = prevShared;
   state.transactions = prevTx;
 });
@@ -72,7 +75,7 @@ test("getLocalNotifications still nudges a non-irregular item with the same neve
   var prevShared = state.shared, prevTx = state.transactions;
   state.shared = [{ id: "exp1", what: "Groceries", amount: 100, freq: "Monthly", irregular: false }];
   state.transactions = [];
-  var review = findReviewNotification(getLocalNotifications());
+  var review = findReviewNotification((changed(), getLocalNotifications()));
   assert.ok(review);
   assert.equal(review.title, "Groceries needs a fresh entry");
   state.shared = prevShared;
@@ -107,7 +110,7 @@ test("a line that is both due soon and behind gets one notification, not two", f
     [{ id: "exp1", what: "Transport", amount: 50, freq: "Weekly", irregular: false }],
     [{ id: "t1", date: daysAgo(13), amount: 50, linkedExpenseId: "exp1" }],
     function(){
-      var all = getLocalNotifications();
+      var all = (changed(), getLocalNotifications());
       var bills = all.filter(function(n){ return n.type === "duebill"; });
       assert.equal(bills.length, 1);
       assert.equal(findReviewNotification(all), undefined, "must not also sit in the review group");
@@ -122,7 +125,7 @@ test("a line due soon but logged on time says nothing about being behind", funct
     [{ id: "exp1", what: "Transport", amount: 50, freq: "Weekly", irregular: false }],
     [{ id: "t1", date: daysAgo(3), amount: 50, linkedExpenseId: "exp1" }],
     function(){
-      var bills = getLocalNotifications().filter(function(n){ return n.type === "duebill"; });
+      var bills = (changed(), getLocalNotifications()).filter(function(n){ return n.type === "duebill"; });
       assert.equal(bills.length, 1);
       assert.equal(bills[0].severity, "warn");
       assert.ok(!/still isn't logged/.test(bills[0].detail), bills[0].detail);
@@ -136,7 +139,7 @@ test("a line behind but not yet due soon stays in the review group", function(){
     [{ id: "exp1", what: "Council Rates", amount: 300, freq: "Monthly", irregular: false }],
     [{ id: "t1", date: daysAgo(40), amount: 300, linkedExpenseId: "exp1" }],
     function(){
-      var all = getLocalNotifications();
+      var all = (changed(), getLocalNotifications());
       assert.equal(all.filter(function(n){ return n.type === "duebill"; }).length, 0);
       var review = findReviewNotification(all);
       assert.ok(review, "the group is the only thing that can report this line");
@@ -153,7 +156,7 @@ test("a bill paid from a card isn't nagged for an entry — Review expenses does
       [{ id: "exp1", what: "Streaming", amount: 20, freq: "Monthly", irregular: false, account: "Card One" }],
       [{ id: "t1", date: daysAgo(45), amount: 20, linkedExpenseId: "exp1", account: "Card One" }],
       function(){
-        assert.equal(findReviewNotification(getLocalNotifications()), undefined);
+        assert.equal(findReviewNotification((changed(), getLocalNotifications())), undefined);
       });
   } finally { state.accounts = prevAcc; }
 });
@@ -172,7 +175,7 @@ test("a bill that fell due with nothing logged is a To do that opens the confirm
   ];
   state.transactions = [{ id: "t1", linkedExpenseId: "power", what: "Power", date: lastPaid, amount: 150, account: "Everyday" }];
   try {
-    var all = getLocalNotifications();
+    var all = (changed(), getLocalNotifications());
     var power = all.filter(function(n){ return /Power|bills? to confirm/.test(n.title); });
     assert.ok(power.length, "Power is asked about");
     assert.ok(power.every(function(n){ return n.action === "catchup"; }), "every notice about Power opens the confirm sheet: " + JSON.stringify(power));

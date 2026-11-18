@@ -5461,3 +5461,22 @@ each, in this order (Net worth → Accounts last: Net worth already has an "Acco
 3. `[x]` **Cash flow becomes Money, in three tabs** (#427) — shipped (PR #431).
 4. `[x]` **Accounts as one list; Net worth becomes Accounts** (#428). The owner chose one list with the editing pages
    behind it (Bank accounts, Investments, Property: Details → Manage, + and search), not moving every tool onto item pages.
+
+## Faster with years of history (November 2026)
+
+`[x]` Reported: the app is getting slower. Profiled on the speed budget's large invented household (about 3,200
+transactions) at 4× CPU, main against this change, median of three runs: startup to settled 6.8s → 3.5s, a full
+redraw 756ms → 211ms, fifteen page changes 9.4s → 4.0s (Today 724 → 168ms, Budget 1345 → 590ms). Every figure is
+unchanged (tests/perf-equivalence.test.js holds each path to what it replaced).
+
+- `isoDayNumber` (calc/ledger.js) is integer arithmetic, remembered per date string; the bills calendar uses it, and
+  asks "paid within six days?" with a binary search over the line's payments instead of years of Date pairs. That
+  was the largest single cost: 1.6s of startup.
+- `rolledBalances` (calc/accounts.js) rolls every account forward in one pass over what's logged; the projections did
+  it once per account per scenario.
+- The notifications and the advice are kept while the household is unchanged (`stateVersion` in state.js, bumped by
+  every save and replacement), on the same day, for at most 30s. Every page change worked them all out again for
+  its line. Code that changes the household in place and reads them before saving must say so (`setState(state)`).
+- A page change lights the menu with one query, not two whole-document queries per page.
+
+Left: Investments → Shares (about 0.85s at 4× CPU) and Plan → Scenarios (about 0.47s).

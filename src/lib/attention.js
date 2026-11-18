@@ -9,7 +9,7 @@
 import { getNotifications } from "./notifications.js";
 import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
-import { state } from "../state.js";
+import { state, stateVersion } from "../state.js";
 import { localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
 
@@ -17,14 +17,15 @@ import { escapeAttr } from "./html.js";
 // each asked calc/advice.js afresh — the scenario comparisons three times over. The speed budget's transfer step
 // went from about 40% of a full redraw to 57% (its limit is 60%) when the line was added. The answer is kept for
 // the rest of the current task and dropped before the next, so nothing reads a stale one.
+// v3.298: and kept past the task while the household is unchanged (state.js stateVersion), on the same day, for at most
+// half a minute — a page change worked all of it out again to draw that page's line.
 var adviceMemo = null;
 export function adviceNow(today){
-  var day = today || localDateStr();
-  if(adviceMemo && adviceMemo.day === day) return adviceMemo.items;
+  var day = today || localDateStr(), now = Date.now();
+  if(adviceMemo && adviceMemo.day === day && adviceMemo.version === stateVersion && adviceMemo.state === state && now - adviceMemo.at < 30000) return adviceMemo.items;
   var items;
   try { items = adviceFor({ today: day }); } catch(e){ items = []; }
-  adviceMemo = { day: day, items: items };
-  if(typeof setTimeout === "function") setTimeout(function(){ adviceMemo = null; }, 0);
+  adviceMemo = { day: day, items: items, version: stateVersion, state: state, at: now };
   return items;
 }
 

@@ -4675,6 +4675,9 @@ const JOURNEYS = {
     await page.keyboard.press('Escape');
     check(await stored(page,'state.income.find(i=>i.id==="example-extra-pay").amount') === 2000, 'income editor stopped saving');
     check(JSON.stringify(await figures.evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(beforeLabel), 'live edit left composition labels stale');
+    // Escape closes the row through history.back(): it shuts on the later popstate, and putting focus back on the
+    // row scrolls it into view. Scrolling to the top before then is undone, and the header stays compact.
+    await waited(page,()=>!document.querySelector('#expensesSub-income .m-row.open'),'the income row closed');
     await page.evaluate(()=>window.scrollTo(0,0));
     await page.waitForFunction(()=>!document.querySelector('.app-topbar.is-compact'));
     // #427: Money in's explanation is behind the ⓘ beside its heading (it was the Income tab's page help).

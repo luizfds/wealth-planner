@@ -19,7 +19,7 @@ const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch(process.env.CHROME_PATH ? {executablePath:process.env.CHROME_PATH} : {});
 const axe=fs.readFileSync(createRequire(import.meta.url).resolve('axe-core/axe.min.js'),'utf8');
 const results=[];
-const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['plan','plan-sub','projections'],['assets','assets-sub','summary'],['assets','assets-sub','Cash'],['assets','assets-sub','Offsets'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
+const views=[['dashboard','dashboard-sub','overview'],['dashboard','dashboard-sub','insights'],['expenses','expenses-sub','budget'],['expenses','expenses-sub','income'],['expenses','expenses-sub','spending'],['plan','plan-sub','scenarios'],['plan','plan-sub','projections'],['networth',null,null],['assets','assets-sub','Cash'],['assets','assets-sub','Offsets'],['assets','assets-sub','Super'],['assets','assets-sub','Vehicle'],['tax','tax-sub','year'],['tax','tax-sub','returns'],['tax','tax-sub','people'],['plan','plan-sub','goals'],['reports','report','cashflow'],['reports','report','networth']];
 views.push(['assets','assets-sub','Shares'], ['properties',null,null], ['reports','report','invest'], ['reports','report','property']);
 const widths=process.env.A11Y_WIDTHS ? process.env.A11Y_WIDTHS.split(',').map(Number) : [390,1280];
 const schemes=process.env.A11Y_SCHEMES ? process.env.A11Y_SCHEMES.split(',') : ['light','dark'];
@@ -97,18 +97,15 @@ for(const width of widths)for(const scheme of schemes){
     if(width<768){await page.locator('[data-trend-full-toggle]').check();await page.locator('[data-trend-full-toggle]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));await scan('spending-numbers/full-table', '.trend-number-reading');await page.locator('[data-trend-full-toggle]').uncheck();}
    }
   }
-  if(pg==='assets' && sub==='summary'){
-   const summaryHelp=page.locator('#assetsSummaryHelp [data-help-toggle]');
-   const fundingHelp=page.locator('#assetsSub-summary details:has(#netWorthPanel) > [data-help-toggle]');
-   // Scope expanded explanations separately: scrolling here can clip an unrelated debt action at the header.
-   await summaryHelp.click();
-   await scan('investment-summary/figure-help','#assetsSummaryHelp');
-   await summaryHelp.click();
+  // #413: Investments → Summary's purchase funding is under Net worth's list, folded; its four figures went.
+  if(pg==='networth'){
+   await page.locator('#netWorthMore > details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
+   const fundingHelp=page.locator('#netWorthMore details:has(#netWorthPanel) > [data-help-toggle]');
    await fundingHelp.click();
    await scan('investment-summary/funding-help','#purchaseFundingHelp');
    await fundingHelp.click();
   }
-  if(pg==='assets' && sub==='summary' && width<768){
+  if(pg==='networth' && width<768){
    await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
    await scan('purchase-funding/details', '#netWorthPanel');

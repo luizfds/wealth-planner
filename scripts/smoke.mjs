@@ -47,7 +47,7 @@ const VIEWS = [
   ["expenses", "expenses-sub", ["budget", "income", "spending", "bills"]],
   ["networth", null, [null]],
   ["accounts", null, [null]],
-  ["assets", "assets-sub", ["summary", "Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],
+  ["assets", "assets-sub", ["Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],   // #413: no Summary
   ["properties", null, [null]],
   ["tax", "tax-sub", ["year", "returns", "documents", "people"]],
   ["plan", "plan-sub", ["scenarios", "projections", "goals", "retirement"]],

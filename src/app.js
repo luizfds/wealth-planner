@@ -121,7 +121,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
 
   var routeFromUrl = parseRouteFromLocation();
   var initialPage = "dashboard";
-  var initialAssetsSub = "summary";
+  var initialAssetsSub = "Cash";
   var initialExpensesSub = "budget";
   var initialTaxSub = null;
   var initialPlanSub = "scenarios";
@@ -158,7 +158,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
     if(route.page === "detail" && route.detail){ detailTarget.kind = route.detail.kind; detailTarget.id = route.detail.id; }
     if(route.page === "reports" && route.sub) reportShown.key = route.sub;
     showPage(route.page, { skipUrl: true });
-    if(route.page === "assets") showAssetsSubpage(route.sub || "summary", { skipUrl: true });
+    if(route.page === "assets") showAssetsSubpage(route.sub || "Cash", { skipUrl: true });
     if(route.page === "expenses") showExpensesSubpage(route.sub || "budget", { skipUrl: true });
     if(route.page === "tax") showTaxSubpage(route.sub || taxSubpage(), { skipUrl: true });
     if(route.page === "plan") showPlanSubpage(route.sub || "scenarios", { skipUrl: true });

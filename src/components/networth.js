@@ -33,13 +33,23 @@ export function netWorthPageHtml(){
     '<ul class="nw-legend" aria-hidden="true">' + parts.map(function(g, i){ return '<li><i class="nw-dot series-color-' + i + '"></i>' + escapeAttr(g.label) + ' <b>' + pct(g) + '</b></li>'; }).join("") + '</ul>' : '';
   // Each group's dot is its colour in the bar above.
   var shown = l.groups.filter(function(g){ return g.key !== "debts" && g.total > 0; }).map(function(g){ return g.key; });
-  return head + bar + l.groups.map(function(g){
+  // #413: one list, filtered by kind — All, then each group there is. The figures above stay the whole picture.
+  if(nwFilter !== "all" && !l.groups.some(function(g){ return g.key === nwFilter; })) nwFilter = "all";
+  var chips = l.groups.length > 1 ? '<div class="nw-chips" role="group" aria-label="Show">' + [{ key: "all", label: "All" }].concat(l.groups).map(function(g){
+    var on = nwFilter === g.key;
+    return '<button type="button" class="nw-chip' + (on ? ' is-on' : '') + '" data-nw-filter="' + escapeAttr(g.key) + '" aria-pressed="' + on + '">' + escapeAttr(g.label) + '</button>';
+  }).join("") + '</div>' : '';
+  var groups = nwFilter === "all" ? l.groups : l.groups.filter(function(g){ return g.key === nwFilter; });
+  return head + bar + chips + groups.map(function(g){
     var ci = shown.indexOf(g.key);
     return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2><ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
   }).join("") + hiddenPartsLineHtml();
 }
+// The kind the list shows, for this visit (not saved): "all" or a group's key.
+var nwFilter = "all";
+export function setNetWorthFilter(key){ nwFilter = key || "all"; renderNetWorthPage(); }
 export function renderNetWorthPage(){
   var el = typeof document !== "undefined" && document.getElementById("netWorthBody");
   if(el) el.innerHTML = netWorthPageHtml();

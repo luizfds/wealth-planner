@@ -109,3 +109,15 @@ balance, last year's tax estimate, get back to where you started.
 - Home is named Today. Its tab rail goes: Insights, Benchmarks and the monthly Review open from links on Today, each with
   the header's back link, at the addresses step 1 gave them.
 
+## Step 4 decisions (#413)
+
+- The owner chose "dedupe + chips". Net worth's overview, already one list, gets chips by kind (All, then each group
+  there is); the figures above stay the whole picture, and the choice lasts the visit.
+- Investments → Summary goes. Its four figures (net worth, liquid, illiquid, property equity) repeated the overview's
+  own; its allocation, "Net worth if you buy", net worth over time and where your wealth sits move under the overview's
+  list, folded so the list leads (2.3 phone screens, against the overview's 1.8 and Summary's 3.7 before); its debts
+  move to Accounts, beside the cards and loans. Investments opens on Cash; an old `/assets/summary` lands there, and
+  search and a debt's Details page send debts to Accounts.
+- Accounts, Investments and Property stay as the editing pages behind the rail; moving editing onto each thing's
+  Details page was the larger option, not taken.
+

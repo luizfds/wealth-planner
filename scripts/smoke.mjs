@@ -472,6 +472,8 @@ if(!SHOTS){
     await page.waitForTimeout(300);
     for (const sub of subs) {
       if(sub) await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return; } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); }, [attr, sub]);
+      // What Show more brought back on this page's last tab stays for the visit; each view starts put away again.
+      await page.evaluate(async () => { (await import('/src/lib/mode.js')).hideShownAgain(); (await import('/src/components/showmore.js')).renderShowMore(); });
       await page.waitForTimeout(300);
       const where = "simple mode 390px " + pg + (sub ? "/" + sub : "");
       const r = await page.evaluate(async () => {

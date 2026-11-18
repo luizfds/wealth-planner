@@ -350,7 +350,7 @@ export function planningReadinessHtml(s, today){
       return '<li>' + (x.done ? 'Entered: ' : 'Not entered: ') + escapeAttr(x.label) + (x.optional ? ' (optional)' : '') + ' <button type="button" class="btn btn-sm" data-setup-go="' + escapeAttr(x.page) + '"' + (x.sub ? ' data-setup-sub="' + escapeAttr(x.sub) + '"' : '') + '>Review ' + escapeAttr(x.label) + '</button></li>';
     }).join('') + '</ul>' +
     (r.stale ? '<p>Some saved inputs may be stale (last saved more than 90 days ago).</p>' : '') +
-    (missing.length ? '<p>Continue setup from the Income, Budget, Net worth and Goals areas. You can still use reports with a partial profile.</p>' : '<p>All tracked setup sections have entries. Review values periodically.</p>') +
+    (missing.length ? '<p>Continue setup from Money, Accounts and Goals. You can still use reports with a partial profile.</p>' : '<p>All tracked setup sections have entries. Review values periodically.</p>') +
     '</details></section>';
 }
 export function reportDisclosureHtml(info, expanded){

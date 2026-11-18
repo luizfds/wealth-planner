@@ -75,7 +75,7 @@ for(const width of widths)for(const scheme of schemes){
   console.log(JSON.stringify({name,scope:selector || "document",width,scheme,violations:result.violations.map(v=>({id:v.id,count:v.nodes.length,nodes:v.nodes})),contrastFailures:result.contrastChecks.filter(c=>c.ratio<4.5)}));
  }
  for(const [pg,attr,sub]of views){
-  await page.evaluate(p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');b.click();},pg);
+  await page.evaluate(async p=>{const b=document.querySelector('.mobile-tab[data-page="'+p+'"]')||document.querySelector('[data-page="'+p+'"]')||document.querySelector('[data-avatar-go="'+p+'"]');if(b)b.click();else (await import('/src/components/nav.js')).showPage(p);},pg);
   await page.waitForTimeout(300);
   if(attr) await page.evaluate(async([a,s])=>{if(a==='dashboard-sub'){(await import('/src/components/nav.js')).showDashboardSubpage(s);return;}if(a==='expenses-sub'&&s==='income'){(await import('/src/components/nav.js')).showExpensesSubpage(s);return;}if(a==='report')document.querySelector('[data-report-choose]').click();document.querySelector('[data-'+a+'="'+s+'"]').click();},[attr,sub]);await page.waitForTimeout(500);
   if(attr==='report') await page.waitForFunction(key=>!!document.querySelector('[data-current-report="'+key+'"]')&&!document.querySelector('.report-chooser'),sub);

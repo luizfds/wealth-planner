@@ -64,7 +64,7 @@ export async function openStatementForm(p, filled, options){
 // Choose a live destination after the modal's history entry has actually closed.
 export function chooseInvestmentProperty(title, then){
   var ips = investmentProperties(), household = state, people = getTaxPeople();
-  if(!ips.length){ showToast("Add the investment property first (Net worth → Property), then log its statements there"); return; }
+  if(!ips.length){ showToast("Add the investment property first (Accounts → Property), then log its statements there"); return; }
   if(ips.length === 1){ then(ips[0]); return; }
   // #426: the dialog is lib/chooser.js's, shared with the + sheet's "Update a balance".
   chooseOne({ title: title, help: "Choose the investment property. You will review the statement before logging it.", cls: "property-picker", attr: "ipp",

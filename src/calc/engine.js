@@ -613,7 +613,7 @@ export function recalcComputedItems(){
   state.properties.filter(function(p){ return p.kind === "IP"; }).forEach(function(p){
     var monthlyRent = Math.round(sumField(p.income, "monthly") * 100) / 100;
     var existingRent = state.income.find(function(i){ return i.syntheticRentForProperty === p.id; });
-    var note = "auto: rent for " + p.what + " — edit in Net worth → Property";
+    var note = "auto: rent for " + p.what + " — edit in Accounts → Property";
     if(existingRent){
       existingRent.amount = monthlyRent;
       existingRent.freq = "Monthly";

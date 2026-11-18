@@ -53,7 +53,7 @@ function run(st, name, today, idFactory, apply){
       var lines = ownRows.filter(function(r){ return r.id !== "homeLoanRow" && Number(r.amount) > 0; }).map(function(r){ return { what: r.what, amount: Number(r.amount) || 0, freq: r.freq || "Monthly" }; });
       lines.unshift({ what: "Home loan repayment", amount: Math.round(out.repaymentMonthly * 100) / 100, freq: "Monthly" });
       replaceHome(lines, "you'll own the home you live in");
-      actions.push("Add " + name + " to Net worth → Property: a home worth " + money(out.price) + " with a " + money(out.loanBalance) + " loan");
+      actions.push("Add " + name + " to Accounts → Property: a home worth " + money(out.price) + " with a " + money(out.loanBalance) + " loan");
       if(apply) st.properties.push({ id: id("p"), what: name, kind: "PPOR", value: out.price, purchasePrice: out.price, purchaseDate: today,
         acquisitionCosts: [{ what: "Stamp duty", amount: Math.round(out.stampDutyForTotal || 0) }], history: [], ownership: {}, pmFee: { percent: 0, flat: 0 }, incomePaidFreq: "Monthly",
         loans: [{ id: id("loan"), what: "Home loan", balance: Math.round(out.loanBalance), rate: Number(cfg.repaymentType === "IO" ? cfg.ioRate : cfg.rate) || 0, termYears: Number(cfg.termYears) || 30, repaymentType: cfg.repaymentType || "PI" }],
@@ -84,7 +84,7 @@ function run(st, name, today, idFactory, apply){
     }
     if(c.kind === "ip"){
       var f = ipFigures(c, {});
-      actions.push("Add " + (c.what || "the investment property") + " to Net worth → Property: " + money(f.price) + ", a " + money(f.loan) + " loan, rent " + money(Number(c.rentWeekly) || 0) + " a week");
+      actions.push("Add " + (c.what || "the investment property") + " to Accounts → Property: " + money(f.price) + ", a " + money(f.loan) + " loan, rent " + money(Number(c.rentWeekly) || 0) + " a week");
       if(apply){
         var weeksLet = Math.max(0, 52 - (Number(c.vacancyWeeks) || 0)) / 52;
         st.properties.push({ id: id("p"), what: c.what || "Investment property", kind: "IP", state: c.state || "", value: f.price, purchasePrice: f.price, purchaseDate: today,
@@ -97,10 +97,10 @@ function run(st, name, today, idFactory, apply){
       }
       return;
     }
-    if(c.kind === "sell"){ skipped.push({ text: changeText(c), why: "record the sale under Net worth → Property when it settles" }); return; }
+    if(c.kind === "sell"){ skipped.push({ text: changeText(c), why: "record the sale under Accounts → Property when it settles" }); return; }
     if(c.kind === "extra"){ skipped.push({ text: changeText(c), why: "set the extra repayment with your lender; the loan's balance updates as you log it" }); return; }
   });
-  if(inv && inv.enabled) skipped.push({ text: "Invest instead", why: "move the money into the investment under Net worth → Investments" });
+  if(inv && inv.enabled) skipped.push({ text: "Invest instead", why: "move the money into the investment under Accounts → Investments" });
   if(!actions.length && !skipped.length) skipped.push({ text: "Nothing in this scenario differs from today", why: "there's nothing to make real" });
   return { actions: actions, skipped: skipped };
 }

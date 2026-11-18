@@ -65,7 +65,7 @@ export function dataHealthChecks(opts){
     detail: names(dupAccounts) + " — transactions name their account, so two accounts with one name can't be told apart. Rename one on Accounts.",
     where: { page: "accounts", sub: "accounts" } });
   if(dupOther.length) add({ id: "dup-names", severity: "info", title: plural(dupOther.length, "name") + " shared by two things",
-    detail: names(dupOther) + " — they read as one in Net worth and the reports. A name that says which is which helps.",
+    detail: names(dupOther) + " — they read as one in Accounts and the reports. A name that says which is which helps.",
     where: { page: "networth" } });
 
   // v3.144.0: a card repayment logged from a loan or another card — usually the wrong account picked.

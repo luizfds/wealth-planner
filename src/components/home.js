@@ -92,7 +92,7 @@ export function homeSummaryHtml(today, opts){
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
   if(nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length)
     nwCard = '<div class="home-card home-nw is-empty" data-home-card="nw"><span class="home-k">Net worth</span>' +
-      emptyStateHtml("Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.", { go: "networth", label: "Go to Net worth →", className: "home-note" }) + '</div>';
+      emptyStateHtml("Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.", { go: "networth", label: "Go to Accounts →", className: "home-note" }) + '</div>';
 
   var ym = selectedMonth(today);
   // Planned against the household as it is (Current situation), not whichever scenario is selected.

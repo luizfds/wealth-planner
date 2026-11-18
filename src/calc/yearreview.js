@@ -70,16 +70,16 @@ export function yearReviewSections(y, f, today){
   var s = f.start, e = f.end;
   // Nothing recorded at either end reads as $0 to $0 — that's a missing year, not a flat one.
   if(s && e && !s.total && !e.total && !s.partial.length && !e.partial.length){
-    out.push({ key: "networth", title: "Net worth", tone: "empty", empty: "No balances were recorded for " + label + " — accounts, assets and loans with their balances fill this in.", go: "networth", label: "Go to Net worth →" });
+    out.push({ key: "networth", title: "Net worth", tone: "empty", empty: "No balances were recorded for " + label + " — accounts, assets and loans with their balances fill this in.", go: "networth", label: "Go to Accounts →" });
   } else if(s && e && !s.partial.length && !e.partial.length){
     var d = e.total - s.total;
     out.push({ key: "networth", title: "Net worth", tone: d >= 0 ? "good" : "warn",
-      verdict: "From " + money(s.total) + " to " + money(e.total) + " — " + (d >= 0 ? "up " : "down ") + money(Math.abs(d)) + ".", go: "networth", label: "Go to Net worth →" });
+      verdict: "From " + money(s.total) + " to " + money(e.total) + " — " + (d >= 0 ? "up " : "down ") + money(Math.abs(d)) + ".", go: "networth", label: "Go to Accounts →" });
   } else {
     var missing = [].concat((s && s.partial) || [], (e && e.partial) || []).filter(function(n, i, a){ return n && a.indexOf(n) === i; });
     out.push({ key: "networth", title: "Net worth", tone: "empty",
       empty: "Not every balance was recorded at the start and end of " + label + (missing.length ? " (" + missing.slice(0, 4).join(", ") + (missing.length > 4 ? " and " + (missing.length - 4) + " more" : "") + ")" : "") + ", so the change isn't worked out. Recording balances as the year goes fills this in.",
-      go: "networth", label: "Go to Net worth →" });
+      go: "networth", label: "Go to Accounts →" });
   }
   // 3. Quiet money leaks — as things stand today.
   var trim = null, subs = [];

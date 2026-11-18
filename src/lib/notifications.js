@@ -278,7 +278,7 @@ function staleAssetNotifications(){
     type: "stale-asset",
     severity: "info",
     title: stale.length + " assets haven't been logged recently",
-    detail: staleAssetNamesList(stale.slice(0, 3)) + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — log a fresh value in Net worth → Investments.",
+    detail: staleAssetNamesList(stale.slice(0, 3)) + (extraCount > 0 ? " and " + extraCount + " more" : "") + " — log a fresh value in Accounts → Investments.",
     date: todayStr(),
     page: "assets"
   }];

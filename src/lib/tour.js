@@ -37,7 +37,7 @@ export var TOUR_STEPS = [
     text: "Your money at a glance: how this month is going against your plan, bills coming up, what you're worth, and anything that needs doing." },
   { key: "cashflow", title: "Money", page: "expenses", targets: navTargets("expenses"),
     text: "Your budget, your pay after tax, what you actually spent — brought in from bank statements — and the bills coming up." },
-  { key: "networth", title: "Net worth", page: "networth", targets: navTargets("networth"),
+  { key: "networth", title: "Accounts", page: "networth", targets: navTargets("networth"),
     text: "Everything you own and owe: accounts, investments and super, and property with its loans." },
   { key: "plan", title: "Plan", page: "plan", targets: navTargets("plan"),
     text: "Looking ahead: how your net worth could grow, savings goals and retirement — built on the same numbers as every other page." },

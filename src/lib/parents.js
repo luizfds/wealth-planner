@@ -6,20 +6,13 @@
 //
 // Pure: a view ({ page, sub, detail: { kind, id } }) and the household in, a view out. No DOM, no history.
 
-var ASSET_SUBS = ["Cash", "Shares", "Super", "Vehicle", "Other"];
-
 function detailParent(detail, st){
-  var kind = detail && detail.kind, id = detail && detail.id;
+  var kind = detail && detail.kind;
   if(kind === "transaction" || kind === "merchant") return { page: "expenses", sub: "spending", title: "Transactions" };
   if(kind === "income") return { page: "expenses", sub: "income", title: "Money in" };   // #427: the top of Budget
   if(kind === "line") return { page: "expenses", sub: "budget", title: "Budget" };
-  if(kind === "account" || kind === "debt") return { page: "accounts", sub: null, title: "Accounts" };
-  if(kind === "asset"){
-    var a = ((st && st.assets) || []).find(function(x){ return x.id === id; });
-    var cat = a && ASSET_SUBS.indexOf(a.category) !== -1 ? a.category : a ? "Other" : "Cash";
-    return { page: "assets", sub: cat, title: cat };
-  }
-  if(kind === "property" || kind === "loan") return { page: "properties", sub: null, title: "Property" };
+  // #428: everything you own or owe is in the one Accounts list; its editing pages are behind it (Details → Manage).
+  if(kind === "account" || kind === "debt" || kind === "asset" || kind === "property" || kind === "loan") return { page: "networth", sub: null, title: "Accounts" };
   if(kind === "person") return { page: "tax", sub: "people", title: "People" };
   if(kind === "scenario") return { page: "plan", sub: "scenarios", title: "Scenarios" };
   return null;
@@ -29,7 +22,7 @@ export function parentOf(view, st){
   if(!view) return null;
   var p = view.page, sub = view.sub;
   if(p === "dashboard") return sub && sub !== "overview" ? { page: "dashboard", sub: "overview", title: "Today" } : null;
-  if(p === "accounts" || p === "assets" || p === "properties") return { page: "networth", sub: null, title: "Net worth" };
+  if(p === "accounts" || p === "assets" || p === "properties") return { page: "networth", sub: null, title: "Accounts" };
   if(p === "tax" || p === "reports" || p === "calc" || p === "settings") return { page: "more", sub: null, title: "More" };
   if(p === "scenario") return { page: "plan", sub: "scenarios", title: "Scenarios" };
   if(p === "detail") return detailParent(view.detail, st);

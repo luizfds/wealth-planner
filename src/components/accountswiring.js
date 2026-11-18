@@ -187,10 +187,8 @@ export function wireAccounts(){  // ---------------- Accounts: named money sourc
   document.getElementById("planSubnav").addEventListener("click", function(e){
     var b = e.target.closest("[data-plan-sub]");
     if(b){ showPlanSubpage(b.getAttribute("data-plan-sub")); if(b.getAttribute("data-plan-sub") === "goals") renderGoalsTab(); }
-  });  // The rail over Net worth, Accounts, Investments and Property.
+  });
   document.addEventListener("click", function(e){
-    var r = e.target.closest && e.target.closest(".nw-rail-item");
-    if(r) showPage(r.getAttribute("data-page"));
     var pg = e.target.closest && e.target.closest("[data-plan-sub-go]");
     if(pg){ showPage("plan"); showPlanSubpage(pg.getAttribute("data-plan-sub-go"), { replace: true }); if(pg.getAttribute("data-plan-sub-go") === "retirement") renderRetirement(); }
   });  // v3.109.0: "Show all" / "Show fewer" under a capped list (Actual vs. planned, This year so far).

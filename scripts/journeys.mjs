@@ -308,7 +308,11 @@ async function go(page, pageId, subAttr, sub){
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     return;
   }
-  await page.evaluate(([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]'); b.click(); if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
+  // #428: Bank accounts, Investments and Property have no button of their own (they're behind Accounts' list), so
+  // they're opened through nav.js as Details → Manage, + and search do.
+  await page.evaluate(async ([p, a, s]) => { const b = document.querySelector('.mobile-tab[data-page="' + p + '"]') || document.querySelector('[data-page="' + p + '"]');
+    if(b) b.click(); else (await import('/src/components/nav.js')).showPage(p);
+    if(a) setTimeout(() => document.querySelector("[" + a + '="' + s + '"]').click(), 50); }, [pageId, subAttr, sub]);
   // The page, and its subtab, showing — then a frame for what they draw.
   await page.waitForFunction(([p, a, s]) => document.body.getAttribute("data-current-page") === p &&
     (!a || !!document.querySelector("[" + a + '="' + s + '"]:is(.active, [aria-selected="true"], [aria-current="page"], [aria-current="true"])')),
@@ -1231,7 +1235,7 @@ const JOURNEYS = {
     check(await page.evaluate(()=>window.__propertyPickerCalls.length)===1&&!await page.locator('[data-ipp]').count(),'one-property shortcut changed');
     await page.evaluate(async()=>{const m=await import('/src/state.js');m.state.properties=[];window.__propertyPickerCalls=[];(await import('/src/components/rentstatement.js')).chooseInvestmentProperty('No properties',p=>window.__propertyPickerCalls.push({id:p.id}));});
     check(!await page.evaluate(()=>window.__propertyPickerCalls.length)&&!await page.locator('[data-ipp]').count(),'empty household selected a property');
-    await page.locator('#toastWrap').getByText('Add the investment property first (Net worth → Property), then log its statements there',{exact:true}).waitFor();
+    await page.locator('#toastWrap').getByText('Add the investment property first (Accounts → Property), then log its statements there',{exact:true}).waitFor();
     const touch=await fresh({touch:true});
     try{await quiet(touch.page);await go(touch.page,'expenses','data-expenses-sub','spending');await setup(touch.page);await open(touch.page);await touch.page.locator('[data-ipp="example-property-b"]').tap();await closed(touch.page);await waited(touch.page,()=>window.__propertyPickerCalls.length===1,'touch property choice');check(await touch.page.evaluate(()=>window.__propertyPickerCalls[0].id)==='example-property-b','touch selected wrong property');await open(touch.page);await touch.page.locator('[data-ipp-close]').tap();await closed(touch.page);check(!await touch.page.evaluate(()=>window.__propertyPickerCalls.length),'touch cancellation chose property');check(!touch.errors.length,'touch picker errors: '+touch.errors.join('; '));}
     finally{await touch.ctx.close();}
@@ -2185,7 +2189,7 @@ const JOURNEYS = {
     check(!s.offer && await page.locator('#tourOffer').isHidden(), 'the offer stayed on screen under the tour');
     // The five places, each named as its own tab names it, ringed, with the card beside it.
     // #412: Today, and More (with Tax inside) in place of Tax.
-    const places = [['Today', 'dashboard'], ['Money', 'expenses'], ['Net worth', 'networth'], ['Plan', 'plan'], ['More', 'more']];
+    const places = [['Today', 'dashboard'], ['Money', 'expenses'], ['Accounts', 'networth'], ['Plan', 'plan'], ['More', 'more']];
     for(let i = 0; i < places.length; i++){
       await onStep(i + 1);
       // The ring slides to its place; wait for it to arrive around this step's own tab, not for a length of time.
@@ -3184,13 +3188,14 @@ const JOURNEYS = {
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     const enter = async () => {
       await settle(page);
-      const rail = page.locator('#page-networth .nw-rail select');
-      if(await rail.isVisible()) await rail.selectOption({ label: "Investments" });
-      else await page.locator('#page-networth [data-page="assets"]').tap();
+      // #428: Investments is behind Accounts' list — a holding's Details → Manage on Investments.
+      await page.locator('#netWorthBody [data-detail="asset"]').first().tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "detail");
+      await page.locator('[data-detail-edit]').tap();
       await page.waitForFunction(() => document.body.dataset.currentPage === "assets");
     };
     await enter();
-    // #422: Investments' sections are pills with totals, never a dropdown; the way up is the header's "‹ Net worth".
+    // #422: Investments' sections are pills with totals, never a dropdown; the way up is the header's "‹ Accounts" (#428).
     check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
     await settle(page);
     await page.evaluate(() => {
@@ -3210,7 +3215,7 @@ const JOURNEYS = {
         return b.left >= strip.left - 1 && b.right <= strip.right + 1; }, label), "the " + label + " pill is not scrolled into view");
     }
     const back = page.locator('#pageBack');
-    check(await back.isVisible() && (await back.textContent()).includes("Net worth"), "Investments has no header link up to Net worth");
+    check(await back.isVisible() && (await back.textContent()).includes("Accounts"), "Investments has no header link up to Accounts");
     await back.tap();
     await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     await enter();
@@ -3405,18 +3410,19 @@ const JOURNEYS = {
       await page.setViewportSize({ width, height: 844 });
       await deep('/detail/asset/' + holding);
       let s = await here();
-      check(s.back === 'Shares' && s.lit === 'networth' && !s.crumbs, width + ': a holding opened by link does not go up to Shares: ' + JSON.stringify(s));
+      // #428: a holding is in Accounts' one list.
+      check(s.back === 'Accounts' && s.lit === 'networth' && !s.crumbs, width + ': a holding opened by link does not go up to Accounts: ' + JSON.stringify(s));
       await page.locator('#pageBack').click();
-      await page.waitForFunction(() => location.pathname === '/assets/shares');
+      await page.waitForFunction(() => location.pathname === '/networth');
       await page.goBack(); await page.waitForFunction(() => location.pathname === '/dashboard');
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await deep('/detail/asset/' + holding);
     const s = await here();
     const parts = await page.locator('#pageCrumbs li').allInnerTexts();
-    check(parts.join(' › ') === 'Net worth › Shares › ' + name && !s.back && s.lit === 'networth', 'a desktop does not say where a holding lives: ' + JSON.stringify({ parts, s }));
-    await page.locator('#pageCrumbs [data-crumb="1"]').click();
-    await page.waitForFunction(() => location.pathname === '/assets/shares');
+    check(parts.join(' › ') === 'Accounts › ' + name && !s.back && s.lit === 'networth', 'a desktop does not say where a holding lives: ' + JSON.stringify({ parts, s }));
+    await page.locator('#pageCrumbs [data-crumb="0"]').click();
+    await page.waitForFunction(() => location.pathname === '/networth');
     for(const width of [390, 1280]){
       await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
       await go(page, 'networth');
@@ -3518,7 +3524,7 @@ const JOURNEYS = {
       await page.waitForFunction(() => location.pathname === '/dashboard' && !document.getElementById('dashboardSub-overview').hidden);
       if(width < 900){
         const tabs = await page.locator('.mobile-tab .mobile-tab-label').allInnerTexts();
-        check(tabs.join() === 'Today,Money,Net worth,Plan,More', 'the tab bar reads ' + tabs.join());
+        check(tabs.join() === 'Today,Money,Accounts,Plan,More', 'the tab bar reads ' + tabs.join());
         await page.locator('.mobile-tab[data-page="more"]').click(); await page.waitForFunction(() => location.pathname === '/more');
         const rows = await page.locator('#moreList .more-item-label').allInnerTexts();
         check(rows.map(r => r.split('\n')[0].replace(/Lodge by.*/, '').trim()).join() === 'Tax,Reports,Calculators,Settings,Backup & sync', 'More lists ' + JSON.stringify(rows));
@@ -3533,8 +3539,8 @@ const JOURNEYS = {
         await page.waitForFunction(() => location.pathname === '/settings/preferences');
       } else {
         const side = await page.locator('.app-nav > .nav-item, .nav-group, .nav-group-items .nav-item').allInnerTexts();
-        check(side.map(t => t.trim()).join() === 'Today,Money,Net worth,Plan,MORE,Tax,Reports,Calculators,Settings,Backup & sync' ||
-          side.map(t => t.trim()).join() === 'Today,Money,Net worth,Plan,More,Tax,Reports,Calculators,Settings,Backup & sync', 'the sidebar reads ' + side.join());
+        check(side.map(t => t.trim()).join() === 'Today,Money,Accounts,Plan,MORE,Tax,Reports,Calculators,Settings,Backup & sync' ||
+          side.map(t => t.trim()).join() === 'Today,Money,Accounts,Plan,More,Tax,Reports,Calculators,Settings,Backup & sync', 'the sidebar reads ' + side.join());
         await page.locator('.nav-item[data-page="tax"]').click(); await page.waitForFunction(() => location.pathname.indexOf('/tax/') === 0);
         check((await shown()).lit.join() === 'Tax', 'the sidebar does not light Tax');
       }
@@ -3638,11 +3644,11 @@ const JOURNEYS = {
       await page.waitForFunction(() => location.pathname.indexOf('/detail/') === 0); await settle(page);
       check(await page.locator('#detailBody .dt-back').count() === 0, 'Details shows two back links');
       if(width > 900){
-        // #425: a desktop's breadcrumb already names Net worth, so it shows no back link to it beside it.
-        check((await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Net worth' && await backLabel() === null, 'Details on a desktop does not say it is under Net worth: ' + await backLabel());
+        // #425: a desktop's breadcrumb already names Accounts (#428), so it shows no back link to it beside it.
+        check((await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts' && await backLabel() === null, 'Details on a desktop does not say it is under Accounts: ' + await backLabel());
         await page.goBack(); await at('/networth');
       } else {
-        check(await backLabel() === 'Net worth', 'Details does not name Net worth: ' + await backLabel());
+        check(await backLabel() === 'Accounts', 'Details does not name Accounts: ' + await backLabel());
         const target = await page.locator('#pageBack').boundingBox();
         check(target.height >= 36 && target.width >= 44, 'the back link is too small to tap: ' + JSON.stringify(target));
         await page.locator('#pageBack').click(); await at('/networth');
@@ -3677,8 +3683,8 @@ const JOURNEYS = {
       await pill("Shares").waitFor({ state: "visible" });
       check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
       check(await pill("Shares").getAttribute("aria-current") === "page", "deep-linked Shares is not the selected section");
-      check(!await page.locator('#page-assets > .nw-rail').isVisible(), "Investments still has two rails on a phone");
-      check(await page.locator('#pageBack').isVisible() && (await page.locator('#pageBack').textContent()).includes("Net worth"), "Investments has no Net worth back link");
+      check(!await page.locator('.nw-rail').count(), "a Net worth rail is back");
+      check(await page.locator('#pageBack').isVisible() && (await page.locator('#pageBack').textContent()).includes("Accounts"), "Investments has no Accounts back link");
       const range = page.locator('#sharesChangeWindow [data-shares-change-window="1w"]');
       await range.click();
       check(!await page.locator('#sharesChangeWindow select').count(), "Shares range strip became a section picker");
@@ -3693,8 +3699,8 @@ const JOURNEYS = {
       await settle(page);
       check(await pill("Offsets").getAttribute("aria-current") === "page", "Back did not restore the selected pill");
       await page.setViewportSize({ width: 1280, height: 800 });
-      await page.waitForFunction(() => !document.getElementById('pageBack').checkVisibility());
-      check(await pill("Offsets").isVisible() && await page.locator('#page-assets > .nw-rail').isVisible(), "desktop did not show the rail and pills");
+      // #428: no rail on a desktop either — the pills, and the header's way up to Accounts.
+      check(await pill("Offsets").isVisible() && await page.locator('#pageBack').isVisible(), "desktop did not show the pills and the way up");
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
       const prop = page.locator('#propertiesBody .prop-tabs').first();

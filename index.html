@@ -240,6 +240,15 @@
              Overview tab rather than sitting above all four, so Insights, Benchmarks and Review
              open on their own content instead of below the cards. -->
         <div class="dashboard-subpage" id="dashboardSub-overview">
+          <!-- #426: offered once to a household that started in Advanced (lib/mode.js simpleOfferDue). -->
+          <section class="mode-offer" id="modeOffer" aria-labelledby="modeOfferTitle" hidden>
+            <h2 class="mode-offer-title" id="modeOfferTitle">Want a simpler view?</h2>
+            <p class="mode-offer-text">Simple puts away the tools most households use a few times a year. Nothing is deleted, every total still counts everything, and you can switch back in More.</p>
+            <div class="mode-offer-actions">
+              <button type="button" class="btn btn-sm" data-mode-offer="simple">Try Simple</button>
+              <button type="button" class="btn btn-sm btn-ghost" data-mode-offer="no">No thanks</button>
+            </div>
+          </section>
           <div id="homeSummary"></div>
           <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
           <nav class="today-more" aria-label="More on Today">
@@ -788,6 +797,17 @@
               <p class="ledger-note" style="margin-left:0;margin-top:8px">Off (Simple), the tools most households use now and then — scenarios, projections, retirement, calculators, import rules, the deeper charts and most reports — stay out of the way; "Show more on this page" brings a page's back for a visit. Every figure counts everything either way. Remembered on this device only.</p>
               <label class="pref-check" style="margin-top:12px"><input type="checkbox" id="showHelpToggle"> Show every section's explanation</label>
               <p class="ledger-note" style="margin-left:0;margin-top:8px">Off, each section keeps its explanation behind the ⓘ next to its title. This is remembered on this device only.</p>
+            </div>
+          </details>
+          <!-- #426: which screens get opened, counted on this device only (lib/pageuse.js). -->
+          <details class="ledger" data-level="advanced">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Screens you rarely open</h2></div>
+            </summary>
+            <div class="ledger-body">
+              <div id="pageUseBody"></div>
+              <p class="ledger-note" style="margin-left:0;margin-top:8px">Counted on this device only. It is never synced, put in a backup or sent anywhere.</p>
+              <button type="button" class="btn btn-sm btn-danger" id="pageUseClear">Forget these counts</button>
             </div>
           </details>
         </div>

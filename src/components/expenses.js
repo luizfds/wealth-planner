@@ -1771,11 +1771,16 @@ function categoryRowHtml(name, idx){
   // — through aria-labelledby on hidden "Delete" plus the name field, so a rename keeps it right as it's typed. The name
   // field is described by its usage: what a rename retargets.
   var nameInput = '<input type="text" class="cat-mgmt-name" id="cat-name-' + idx + '" data-cat-index="' + idx + '" value="' + escapeAttr(name) + '" placeholder="Category name" aria-label="Category name" aria-describedby="cat-used-' + idx + '">';
-  var usage = '<span class="cat-mgmt-count" id="cat-used-' + idx + '">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
+  var usage = '<span class="cat-mgmt-count visually-hidden" id="cat-used-' + idx + '">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
   var delBtn = '<span class="visually-hidden" id="cat-del-' + idx + '-lbl">Delete</span><button type="button" class="btn btn-danger btn-sm row-del cat-mgmt-delete" data-cat-del="' + idx + '" aria-labelledby="cat-del-' + idx + '-lbl cat-name-' + idx + '">✕</button>';
-  return '<div class="m-row acct-mgmt-row" data-cat-index="' + idx + '">' +
-    '<div class="m-row-summary" style="cursor:default;flex-wrap:wrap;gap:8px">' + categoryLookPickerHtml(name, idx) + nameInput + usage + delBtn + '</div>' +
-  '</div>';
+  // #426: folded — the row is its icon, name and use; open, it renames, recolours and deletes. 15 rows of three
+  // controls each made this the busiest view in the app for something set up once. A new (blank) category opens.
+  var label = '<span class="cat-fold-name">' + (name ? escapeAttr(name) : '<em>New category</em>') + '</span>';
+  var usageShort = '<span class="cat-mgmt-count">' + (usedBy ? usedBy + (usedBy === 1 ? " line" : " lines") : "unused") + '</span>';
+  return '<details class="m-row acct-mgmt-row cat-fold" data-cat-index="' + idx + '"' + (name ? '' : ' open') + '>' +
+    '<summary class="cat-fold-summary">' + categoryIconHtml(name) + label + usageShort + '</summary>' +
+    '<div class="m-row-summary cat-fold-body" style="cursor:default;flex-wrap:wrap;gap:8px">' + categoryLookPickerHtml(name, idx) + nameInput + usage + delBtn + '</div>' +
+  '</details>';
 }
 // v3.157.0 (item 187): the category's colour and icon — its badge opens a choice of both. Which one
 // is open lives here, by name, so a re-render after a pick keeps it open.

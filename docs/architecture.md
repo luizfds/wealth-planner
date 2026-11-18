@@ -114,6 +114,11 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   `skipUrl`, so the address bar still names the page it started from and closing puts that page back; it has its own
   history entry (`pushModalOverlay`), so a phone's Back closes it. A step whose target isn't on screen is shown
   without a ring. The test scripts start as someone who has answered it.
+- **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
+  Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
+  `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts
+  start with the offer answered. A dialog that asks which one of a few things (a property, an account) is
+  `lib/chooser.js`'s `chooseOne`.
 - **Scenario editor**: two columns with results pinned beside, a Save bar on a phone, a leave guard (`setLeaveGuard`),
   one "+ Add a change" sheet, saved-vs-draft marks, a timeline, `state.scenarioNotes`; Side by side adds the odds
   (`cashLastsOdds`), a bad first year (`badStartSeries`) and a lender check (`lenderCheck`).

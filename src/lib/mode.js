@@ -30,6 +30,17 @@ export function setStoredMode(mode, store){
   var s = store || storage();
   try { if(s) s.setItem(MODE_KEY, mode); } catch(e){}
 }
+// #426: a household that started in Advanced (it had something in it when this shipped) was never told Simple exists.
+// Today offers it once: "Try Simple" or "No thanks" ends the offer, and so does choosing a mode anywhere else.
+export var OFFER_KEY = "wealthPlanner.modeOffer";
+export function simpleOfferDue(store){
+  var s = store || storage();
+  try { return storedMode(s) === "advanced" && !(s && s.getItem(OFFER_KEY)); } catch(e){ return false; }
+}
+export function endSimpleOffer(store){
+  var s = store || storage();
+  try { if(s) s.setItem(OFFER_KEY, "done"); } catch(e){}
+}
 export function isSimple(){
   return typeof document !== "undefined" && !!document.documentElement && document.documentElement.getAttribute("data-mode") === "simple";
 }

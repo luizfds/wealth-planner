@@ -661,3 +661,10 @@
 .today-more{ display:flex; flex-wrap:wrap; gap:4px 18px; margin:14px 0 4px; }
 .today-more .link-btn{ min-height:44px; display:inline-flex; align-items:center; font-size:var(--fs-md); }
 
+
+/* #426: Today's one-time offer of Simple — a quiet card above the figures, gone once answered. */
+.mode-offer{ border:1px solid var(--brass-strong); background: var(--brass-wash); border-radius:12px; padding:14px 16px; margin:0 0 16px; }
+.mode-offer[hidden]{ display:none; }
+.mode-offer-title{ margin:0 0 4px; font-size:var(--fs-md); font-weight:600; color: var(--ink); }
+.mode-offer-text{ margin:0 0 10px; font-size:var(--fs-sm); color: var(--ink-soft); }
+.mode-offer-actions{ display:flex; flex-wrap:wrap; gap:8px; }

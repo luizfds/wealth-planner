@@ -138,7 +138,7 @@ async function fresh(opts){
     // #339: a journey is someone who has been here before; the tour's own journey clears this to be asked.
     localStorage.setItem("wealthPlanner.tour", "skipped");
     // #414: everything on screen, as before Simple mode; the simplemode journey switches.
-    localStorage.setItem("wealthPlanner.mode", "advanced");
+    localStorage.setItem("wealthPlanner.mode", "advanced"); localStorage.setItem("wealthPlanner.modeOffer", "done");
     if(stored) localStorage.setItem("wealthPlanner.v1", stored);
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
@@ -2711,6 +2711,8 @@ const JOURNEYS = {
   async categorycolours(page){
     await quiet(page);
     await go(page, 'settings', 'data-accounts-sub', 'categories');
+    // #426: rows are folded; open the first to reach its delete.
+    await page.locator('#categoriesTable .cat-fold-summary').first().click();
     const button = page.locator('#categoriesTable [data-cat-del]').first();
     const colourMatches = token => button.evaluate((e,token) => {
       const probe = document.createElement('span'); probe.style.color = 'var(' + token + ')'; e.append(probe);
@@ -2747,6 +2749,10 @@ const JOURNEYS = {
     const before = await stored(page, "({ cat: state.shared[0].category, other: state.shared[1].category, i: state.categories.indexOf(state.shared[0].category), n: state.categories.length })");
     await go(page, "settings", "data-accounts-sub", "categories");
     const field = '#categoriesTable .cat-mgmt-name[data-cat-index="' + before.i + '"]';
+    // #426: folded until opened — each row its icon, name and use.
+    check(!await page.locator(field).isVisible(), "category rows are not folded");
+    check(await page.locator('#categoriesTable .cat-fold-summary').nth(before.i).innerText().then(t => t.includes(before.cat)), "a folded row does not name its category");
+    await page.locator('#categoriesTable .cat-fold-summary').nth(before.i).click();
     await page.locator(field).waitFor({ state: "visible" });
     check(await page.getByRole("button", { name: "Delete " + before.cat, exact: true }).count() === 1, "a category's delete isn't named for it");
     check(await page.getByRole("button", { name: "Delete category", exact: true }).count() === 0, "deletes are still all named alike");
@@ -3422,6 +3428,60 @@ const JOURNEYS = {
       check(Math.abs(back.y - y) < 30 && back.filter === filter, width + ': Back did not return to the same place in the list: ' + JSON.stringify({ was: { y, filter }, now: back }));
     }
   },
+  // #426: Simple offered once; "Update a balance" in +; Categories folded; the device's count of screens opened.
+  async smallpolish(page){
+    await quiet(page);
+    const offer = page.locator('#modeOffer');
+    // Offered once, to a household in Advanced that hasn't answered.
+    await page.evaluate(() => localStorage.removeItem('wealthPlanner.modeOffer'));
+    await page.goto(base + '/index.html'); await quiet(page);
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    check(await offer.isVisible(), 'a household in Advanced is not offered Simple');
+    await offer.locator('[data-mode-offer="no"]').click();
+    check(!await offer.isVisible() && await page.evaluate(() => document.documentElement.dataset.mode) === 'advanced', 'No thanks did not end the offer in Advanced');
+    await page.goto(base + '/index.html'); await quiet(page);
+    check(!await offer.isVisible(), 'the offer came back after No thanks');
+    await page.evaluate(() => localStorage.removeItem('wealthPlanner.modeOffer'));
+    await page.goto(base + '/index.html'); await quiet(page);
+    await offer.locator('[data-mode-offer="simple"]').click();
+    check(await page.evaluate(() => document.documentElement.dataset.mode === 'simple' && localStorage.getItem('wealthPlanner.mode') === 'simple'), 'Try Simple did not switch to Simple');
+    check(!await offer.isVisible(), 'the offer stayed after Try Simple');
+    await page.evaluate(async () => { (await import('/src/lib/mode.js')).setStoredMode('advanced'); (await import('/src/lib/mode.js')).applyMode('advanced'); });
+    // Update a balance: which account, then its own form.
+    for(const width of [320, 1280]){
+      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+      await page.evaluate(() => [document.getElementById('headerAddBtn'), document.getElementById('quickFab')].find(b => b.getClientRects().length).click());
+      await page.locator('.qfab-panel [data-quick-action]', { hasText: 'Update a balance' }).click();
+      const chooser = page.getByRole('dialog', { name: 'Update which balance?' });
+      await chooser.waitFor();
+      const choice = chooser.locator('[data-bal-choice]').first();
+      const id = await choice.getAttribute('data-bal-choice');
+      await choice.click();
+      await page.waitForFunction(id => { const i = document.activeElement; return document.body.dataset.currentPage === 'accounts' && i && i.matches('.acct-bal-input') && i.closest('[data-acct-index]'); }, id, { timeout: 5000 });
+      check(await page.evaluate(id => { const i = document.activeElement, card = i.closest('.acct-card'); return !!card && !!card.querySelector('[data-acct-bal-save]') && JSON.stringify(window.__wp || null) !== 'x'; }, id), width + ': Update a balance did not open that account\'s balance form');
+      await page.locator('[data-acct-bal-cancel]').first().click();
+    }
+    // Categories, folded: fewer controls than one per name, delete and look each.
+    await go(page, 'settings', 'data-accounts-sub', 'categories');
+    const counts = await page.evaluate(() => ({ rows: document.querySelectorAll('#categoriesTable .cat-fold').length,
+      shown: [...document.querySelectorAll('#categoriesTable button, #categoriesTable input, #categoriesTable summary')].filter(e => e.checkVisibility()).length }));
+    check(counts.rows > 3 && counts.shown === counts.rows, 'Categories is not folded to one control a row: ' + JSON.stringify(counts));
+    // The count of screens opened: on this device, never in the household, forgotten on request.
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    await go(page, 'tax', 'data-tax-sub', 'returns');
+    const use = await page.evaluate(() => JSON.parse(localStorage.getItem('wealthPlanner.pageUse') || '{}'));
+    check(use.views && use.views['expenses/spending'] >= 1 && use.views['tax/returns'] >= 1, 'screens opened were not counted: ' + JSON.stringify(use));
+    check(!(await stored(page, 'JSON.stringify(state)')).includes('pageUse'), 'the count of screens opened is in the household');
+    await page.evaluate(() => { const v = { 'expenses/spending': 40, 'dashboard/insights': 20 }; localStorage.setItem('wealthPlanner.pageUse', JSON.stringify({ since: '2026-01-01', views: v })); });
+    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    const fold = page.locator('#pageUseBody').locator('xpath=ancestor::details[1]');
+    await fold.evaluate(d => { d.open = true; });
+    const listed = await page.locator('#pageUseBody li').allInnerTexts();
+    check(listed.includes('Tax → Returns') && listed.includes('Plan → Retirement') && !listed.includes('Cash flow → Spending') && !listed.includes('Today → Insights'), 'rarely opened lists ' + JSON.stringify(listed));
+    await page.locator('#pageUseClear').click();
+    check(await page.evaluate(() => localStorage.getItem('wealthPlanner.pageUse') === null || !JSON.parse(localStorage.getItem('wealthPlanner.pageUse')).views['expenses/spending']), 'Forget did not clear the count');
+  },
   async todaymore(page){
     await quiet(page);
     const shown = () => page.evaluate(() => ({ path: location.pathname, title: document.getElementById('pageTitle').textContent,
@@ -3490,7 +3550,7 @@ const JOURNEYS = {
         const groups = await sheet.locator('.qfab-group').allInnerTexts();
         check(JSON.stringify(groups.map(g => g.toUpperCase())) === JSON.stringify((own ? ['ON THIS PAGE'] : []).concat(['LOG', 'IMPORT', 'ADD SOMETHING NEW'])), pg + '/' + sub + ': sheet groups ' + JSON.stringify(groups));
         if(own) check((await sheet.locator('[data-quick-page] .qfab-action-label').innerText()).startsWith(own), pg + '/' + sub + ': first row is not ' + own);
-        check(await sheet.evaluate(e => { const r = e.getBoundingClientRect(); return e.scrollHeight <= e.clientHeight + 1 && r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1; }), pg + '/' + sub + ' at ' + width + 'px: the sheet scrolls or leaves the screen');
+        check(await sheet.evaluate(e => { const r = e.getBoundingClientRect(); return e.scrollHeight <= e.clientHeight + 1 && r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1; }), pg + '/' + sub + ' at ' + width + 'px: the sheet scrolls or leaves the screen ' + await sheet.evaluate(e => JSON.stringify({ sh: e.scrollHeight, ch: e.clientHeight, rows: [...e.querySelectorAll('.qfab-action')].map(b => Math.round(b.getBoundingClientRect().height) + ' ' + b.innerText.split('\n')[0]) })));
         await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'detached' });
       }
     }

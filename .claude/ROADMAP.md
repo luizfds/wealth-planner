@@ -5442,3 +5442,11 @@ CPU: 39–43% of a full redraw. Journey `tabviews`.
 sections became a native dropdown under a loose "‹ Net worth" button; on a desktop two identical underlined rails were
 stacked. The owner chose **pills with totals** (`Cash $87k`, like Net worth's chips, scrolling sideways where they
 don't fit, never a dropdown) and **the header's back link** for "‹ Net worth" on a phone.
+
+Found while verifying: `lib/help.js`'s `updatePageHelp()` rewrote the moved page actions' `hidden` and the ⓘ's
+`aria-expanded` on every pass, and its own observer watches `hidden` — so it ran every animation frame on every page,
+for as long as the app was open (541 attribute writes in 1.5s idle, now 1). It writes only what changed.
+
+Recorded under #267, not fixed: `taxhelp` fails about 1 run in 20 at 6× CPU with four at once, on main as on this
+branch (2 of 40 on main with the same journey). At 390px the tap on the sacrifice field lands on it (pointerdown on the
+input) but focus goes to nothing and the page jumps up about 640px, just after help opened above it.

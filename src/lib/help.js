@@ -88,14 +88,18 @@ function updateHeaderAction(){
   var own = !!page && Array.prototype.some.call(page.querySelectorAll(".btn-primary"), function(b){ return b.getClientRects().length > 0; });
   add.classList.toggle("btn-primary", add.hasAttribute("data-page-action") && !own);
 }
+function setIfChanged(el, hidden){ if(el.hidden !== hidden) el.hidden = hidden; }
 export function updatePageHelp(){
   updateHeaderAction();
-  movedActions.forEach(function(m){ m.el.hidden = !onScreen(m.home); });
+  // Only what changed is written: this runs from an observer of `hidden`, so writing the same value again was a
+  // mutation that scheduled the next pass — every animation frame, on every page, for as long as the app was open.
+  movedActions.forEach(function(m){ setIfChanged(m.el, !onScreen(m.home)); });
   var btn = document.getElementById("pageHelpBtn");
   if(!btn) return;
   var intros = introsOnScreen();
-  btn.hidden = !intros.length;
-  btn.setAttribute("aria-expanded", String(intros.length > 0 && intros.every(function(el){ return el.classList.contains("help-open"); })));
+  setIfChanged(btn, !intros.length);
+  var expanded = String(intros.length > 0 && intros.every(function(el){ return el.classList.contains("help-open"); }));
+  if(btn.getAttribute("aria-expanded") !== expanded) btn.setAttribute("aria-expanded", expanded);
 }
 function addPageHelpButton(){
   var title = document.getElementById("pageTitle");

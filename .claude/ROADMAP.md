@@ -18,9 +18,9 @@ The first two items are **corrections** — the app currently states things that
 rest are **capability**. Correct numbers first, because a wrong headline erodes trust in every
 other figure on the page, and because items 3–6 all feed the same screens.
 
-Every number quoted below was measured by driving the app against a real exported backup
-(30 shared lines, 3 scenarios, 1 investment property, 53 transactions) at v2.75.0 — not inferred
-from reading the code.
+Every finding below was measured by driving the app against a household's exported backup at v2.75.0 — not
+inferred from reading the code. The figures quoted are invented, round stand-ins that keep each finding's
+proportions; the measured ones stay outside the repo (decision 0004).
 
 ---
 
@@ -29,15 +29,15 @@ from reading the code.
 **Problem.** `renderFireProgress()` (`components/dashboard.js`) measures progress as
 `totalNetWorthValue()` against a 4%-rule target. That net worth is *everything you own*:
 
-| Component | Real data | Can it fund early retirement? |
+| Component | Example | Can it fund early retirement? |
 |---|---:|---|
-| Super | $142,300 | Not until preservation age (60) |
-| Vehicle | $8,540 | No |
-| Shares + Cash | $19,840 | Yes |
+| Super | $140,000 | Not until preservation age (60) |
+| Vehicle | $10,000 | No |
+| Shares + Cash | $20,000 | Yes |
 | Property equity | balance | Only investment property |
-| **Reported progress** | **20.3%** | overstated |
+| **Reported progress** | **20%** | overstated |
 
-Super alone is 32% of the figure driving that percentage. Worse, `propertiesTotalEquityToday()`
+Super alone is about a third of the figure driving that percentage. Worse, `propertiesTotalEquityToday()`
 (`calc/property.js`) sums **every** property regardless of `kind`, so switching to a Buy scenario
 folds the equity in the home you live in into a number you'd supposedly live off.
 
@@ -57,12 +57,12 @@ saving years and the bridge years, coloured by whether the bridge survives.
 
 | | Old panel | Now |
 |---|---:|---:|
-| Figure driving the headline | $446,200 (total net worth) | $294,800 accessible |
-| Super | counted in it | $142,300, shown separately as locked until 60 |
-| Vehicle + home equity | counted in it | $8,530, shown as excluded |
+| Figure driving the headline | $450,000 (total net worth) | $300,000 accessible |
+| Super | counted in it | $140,000, shown separately as locked until 60 |
+| Vehicle + home equity | counted in it | $10,000, shown as excluded |
 
-At 41 targeting 52: passes, with an 8-year bridge costing $880,400. At 41 targeting 44: fails the
-bridge, and the panel names 52 as the earliest age that works.
+At 40 targeting 50: passes, with a 10-year bridge costing $900,000. At 40 targeting 43: fails the
+bridge, and the panel names 50 as the earliest age that works.
 
 **A trap if you touch this:** `propertyEquityToday()` already folds in the offset balance and
 `liquidAssetsValue()` counts offsets too, so combining them double-counts every offset dollar.
@@ -95,8 +95,8 @@ reference series against real logged net worth, which is nominal by nature.
 ### 2b. `[x]` Add an income growth rate
 
 `incomeMonthly` was read **once, before the year loop**, and held flat for the whole horizon while
-expenses inflated. Real data: income $18,600/mo at 0%/yr against expenses $11,580/mo at 3%/yr —
-the model had the $7,020/mo surplus **going negative around year 16**, then spent four years of a
+expenses inflated. For example: income $15,000/mo at 0%/yr against expenses $10,000/mo at 3%/yr —
+the model had the $5,000/mo surplus **going negative around year 14**, then spent four years of a
 20-year horizon assuming a drawdown.
 
 `state.projection.incomeGrowthRate`, defaulting to 3 (matching the inflation default), with its
@@ -124,7 +124,7 @@ Not in the audit, found while verifying 2c — ending the rent row changed the p
 `scenarioInflatableMonthly()` dropped the `homeLoanRow` because with the purchase leg **on** that
 row is the mortgage, which the model replaces with its own amortised repayment (counting both
 would charge the same housing cost twice). But with the purchase leg **off**, the very same row is
-the rent, and nothing else was paying it. On a test backup the projection assumed **$2,780/mo
+the rent, and nothing else was paying it. On a test backup the projection assumed **$2,500/mo
 more savings** than the Dashboard's own net-savings tile showed for the same scenario.
 
 The decision now lives in one place, `scenarioInflatableHomeItems()` in `calc/property.js`, with
@@ -136,16 +136,16 @@ has an uncharged `homeLoanRow`, so only Renting moves:
 
 | today's dollars | before rent fix | after |
 |---|---:|---:|
-| Renting | $5,081,200 | $4,061,700 |
-| Buy Sydney | $4,243,300 | $4,243,300 |
-| Buy Melbourne | $4,444,900 | $4,444,900 |
+| Renting | $5,000,000 | $4,000,000 |
+| Buy a house | $4,200,000 | $4,200,000 |
+| Buy a unit | $4,400,000 | $4,400,000 |
 
-That **changes the headline's winner** from Renting to Buy Melbourne. "Renting comes out ahead"
+That **changes the headline's winner** from Renting to Buy a unit. "Renting comes out ahead"
 was an artefact of not charging it rent.
 
-On Renting, what v2.76.0 showed against what this ships: $6,379,600 (nominal, income flat) against
-$4,061,700 (today's dollars, income growing 3%, rent counted) — the same figure in future dollars
-is $7,335,800. 2a is optimistic and 2b pessimistic, so they partly cancel; the rent fix is what
+On Renting, what v2.76.0 showed against what this ships: $6,300,000 (nominal, income flat) against
+$4,000,000 (today's dollars, income growing 3%, rent counted) — the same figure in future dollars
+is $7,200,000. 2a is optimistic and 2b pessimistic, so they partly cancel; the rent fix is what
 actually moves the ranking.
 
 ---
@@ -180,8 +180,8 @@ rather than a fixed dollar figure ("typical" is $600 for one person and $12,000 
 time — useless for three weeks of every month. *Scaling the partial month up to a full one looks
 like the fix and is worse*: household spending is front-loaded (rent, power, insurance all land in
 week one) and this app's own "Catch up on overdue" flow actively encourages logging in bulk.
-Eleven days into September on the test data, that projection turned **$2,440 actually spent** into
-a confident **"on track for $6,655"** — a 611% rise that never happened.
+A third of the way into a month, that projection turned **$2,000 actually spent** into
+a confident **"on track for $6,000"** — a rise that never happened.
 
 Every comparison now runs on a **month-to-date** series: this month so far against the *same days*
 of earlier months. It never extrapolates, so there's no model of how spending is distributed to
@@ -248,8 +248,8 @@ amount goes through `resolveSharedAmount` — and `personSuperRows` / `personInc
 `computePersonTax` all take an optional `opts` (`{scenario, includeRow}`). Omitted, each behaves
 exactly as before, which is what leaves the Income page, `calc/fire.js` and the tax panels alone.
 
-Measured: halving a $11,583.33/mo gross salary drops that scenario's income by **$3,620/mo, not the
-naive $5,792** — the brackets doing their job, which a net-side override could not have expressed.
+Measured: halving a $12,000/mo gross salary drops that scenario's income by **about $3,800/mo, not the
+naive $6,000** — the brackets doing their job, which a net-side override could not have expressed.
 
 `scenarioIncomeRows()` is the single definition of "what does this scenario earn", used by
 `scenarioTotals`, `computeNetWorthSeries` and `calc/cashflow.js` alike. Storing a synthetic net row
@@ -282,9 +282,9 @@ anything but `shared`/`income` **by construction** rather than by a check someon
 housing rows already belong to one scenario, property costs are global. Computed rows get no button
 at all, which matters more on Income (most of that list is computed) than it did on shared.
 
-A collapsed row that varies carries a **"⇄ $5,791.67 in Buy Sydney"** pill naming the active
+A collapsed row that varies carries a **"⇄ $6,000 in Buy a house"** pill naming the active
 scenario's own figure. The list shows the *default* amount, so without it the Income page could read
-$11,583 while the scenario on screen used half that.
+$12,000 while the scenario on screen used half that.
 
 ---
 
@@ -328,13 +328,13 @@ resolved through the linked budget line — most transactions carry none of thei
 
 - **`householdYearWindow` relabels the calendar basis** from `"this year"` to the year number.
   `"this year"` reads correctly in the sentence `reserveYearWindow` was written for (a row's "$X
-  actual / $Y planned this year") but as a household year it lands in "$3,950 logged in ___" and in
+  actual / $Y planned this year") but as a household year it lands in "$4,000 logged in ___" and in
   an export filename. The per-line label is untouched.
 - **A reserve line's explicit basis is never overwritten.** Migration blanks only lines stamped with
   the old *implicit* `calendar` default, so a deliberate choice survives a household change.
 
-**Measured on a test backup:** FY26/27 so far is $3,385 across 47 transactions (20% through);
-the same data on a calendar basis is $3,950 across 50.
+**Measured on a test backup:** a financial year so far and the same data on a calendar basis gave
+different totals and counts, each naming its own period (figures kept outside the repo).
 
 One bug caught by a test written first: `householdYearProgress` guarded with `nowMs <= startMs`, so
 1 July — day one of 365 — reported 0% through the year for the whole of its first day.
@@ -456,7 +456,7 @@ month rollup both move *down*. For (c), re-measure the same two numbers rather t
 
 | | Before | After |
 |---|---:|---:|
-| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, $1,890 / $240 / $138.70 per month |
+| Empty-app import, rows placed | 0 of 11 | 3 budget lines created, one per merchant, each a monthly average |
 | Tax & super card | 1,863px | **1,514px** |
 | Expenses page | 4,958px | **2,100px** collapsed (4,973px expanded, one tap) |
 | A refunded $420 booking | unrepresentable | line nets $200 |
@@ -526,16 +526,16 @@ but each chart's own subset needs `--pairs all`).
 **What shipped, and the three things that only driving it caught.** All four charts were built,
 run against a test backup, found to be lying, and rebuilt. The arithmetic was never wrong.
 
-1. **"Kept $17,240/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
-   averaged $615/mo against a $11,580/mo budget (5%), so it was measuring how little had been
-   typed in and calling it thrift. The household keeps $6,610. `spendCoverage()` now gates the
+1. **"Kept $14,500/mo"** — the cash-flow panel subtracted *logged* spending from income. Logged
+   averaged $500/mo against a $10,000/mo budget (5%), so it was measuring how little had been
+   typed in and calling it thrift. The household keeps $5,000. `spendCoverage()` now gates the
    savings claim at 80% coverage; below that the panel says what it has.
-2. **"$231,900 of growth"** — super and cash were logged from July 2025, shares and the property
-   only from August 2026, so ~$301,000 of that was assets that merely began being tracked.
+2. **"$230,000 of growth"** — super and cash were logged from a year earlier, shares and the property
+   only from the latest month, so most of that was assets that merely began being tracked.
    `fullCoverageFrom()` opens the window only where every asset tracked now was already tracked,
    and the panel names what it set aside.
 3. **A property acquired over twelve months** — the stacked bands were linearly interpolated, so
-   an asset first logged in August 2026 ramped smoothly from July 2025. Stepped now, which is
+   an asset first logged in the latest month ramped smoothly from a year before. Stepped now, which is
    what `valueOn()` always meant. The x labels were also picked by array position and, because
    observation dates cluster, overprinted four labels into a smear; they're spaced by time with a
    56px minimum gap.
@@ -565,8 +565,8 @@ first pass had only ever been looked at in light mode.
    composition only exists in its last fortnight: one flat blue slab, and the actual mix crushed
    into a 20px sliver at the right edge.
 4. **Three different net-worth numbers on one screen.** "Net worth over time" and "Saved vs grown"
-   both label their total *net worth* while omitting `state.debts` — $459,800 against the
-   $446,200 in the page header, a $13,600 credit-card limit apart.
+   both label their total *net worth* while omitting `state.debts` — $460,000 against the
+   $450,000 in the page header, a credit-card limit apart.
 5. **"Today" wasn't today.** `categorySeries()` took the last logged snapshot over the amount
    currently typed in the app whenever any history existed, contradicting its own docstring.
 
@@ -585,23 +585,23 @@ time", every asset category's history, the shares history, total property value 
 1. **Every label renders 6px tall.** A nominal 720-unit viewBox scaled uniformly into a 316px box
    paints an 11px font at 6px. Unreadable on a phone.
 2. **It interpolates straight across gaps nobody logged.** On a test household's data the observations
-   are Jul 2025, Aug 2025, then nothing until Aug 2026 — and the line draws net worth climbing
-   smoothly from $132k to $517k across that year. What happened was flat super for twelve months
+   are two months a year ago, then nothing until this month — and the line draws net worth climbing
+   smoothly from $130k to $500k across that year. What happened was flat super for twelve months
    and a jump in one week, when the property and shares were first entered. This is the same
    fabrication stepped geometry was introduced to stop in the stacked chart, and it is the same
-   class of error as the "$231,900 of growth" and "kept $17,240/mo" claims already gated: the app
+   class of error as the "$230,000 of growth" and "kept $14,500/mo" claims already gated: the app
    asserting a shape that is an artifact of when logging started.
    Stepping is right for *logged history* and wrong for *projections*, which are a continuous
    model — so it is per-call, not global.
 3. **No time-range control**, so the same 95%-empty framing with no escape hatch.
 
-Plus, on the panel item 10 touched: **"Markets took $72,800"** is, on a test household's data, the
-household's own revaluation of the house from $720k to $647k, over 0.4 months. The arithmetic is
+Plus, on the panel item 10 touched: **"Markets took $70,000"** is, on a test household's data, the
+household's own revaluation of the house by about a tenth, within a fortnight. The arithmetic is
 right; the word "markets" makes a manual valuation edit read as a crash.
 
 **How to verify.** Assets → Summary at 390px in both schemes: measure `getBoundingClientRect()` on
-the axis labels rather than looking at them, and check the line's shape between Aug 2025 and Aug
-2026 against what was actually logged.
+the axis labels rather than looking at them, and check the line's shape across the unlogged year
+against what was actually logged.
 
 ---
 
@@ -796,8 +796,8 @@ Three areas had never been driven: backup/restore round-trip, PWA offline, and k
 
 **Also, found while verifying the round trip:** `recalcComputedItems()` rewrites the derived rows
 (a vehicle's declining-balance value, the synthetic net-income rows) against today on every render,
-and the result was never persisted. On a test household's data the Income page showed **$9,415.20/mo**
-while localStorage still held **$9,612.75** for the same row. The screen was right and the stored
+and the result was never persisted. On a test household's data the Income page showed **$9,400/mo**
+while localStorage still held **$9,600** for the same row. The screen was right and the stored
 copy was behind it — harmless day to day, since it self-corrects on the next edit, but it meant an
 exported backup and the browser's own copy could disagree, which is a bad property for the one file
 standing between this app and losing everything. Now persisted, but only when the recalc actually
@@ -990,7 +990,7 @@ Measured by renaming "Bank One" → "Bank One Savings" through the UI on a test 
 | transactions | Bank One ×4 | Bank One Savings ×4 |
 | **housing rows** | **Bank One ×10** | **Bank One ×10 — dangling** |
 
-Ten rows across Buy Sydney and Buy Melbourne left pointing at a name that no longer existed, with
+Ten rows across two Buy scenarios left pointing at a name that no longer existed, with
 no error and nothing on screen to show it.
 
 ### b. Deleting an account orphaned everything, silently
@@ -1038,7 +1038,7 @@ All three were listed as "left open" on item 20 and then asked for together.
 ### a. One line, one notification
 
 The bell showed the same budget line twice — inside "N budget lines need a fresh entry" *and* as
-its own "Due 2026-09-22 · $50". On a test household's data that was 2 of 7 notifications being
+its own "Due <date> · $50". On a test household's data that was 2 of 7 notifications being
 repeats.
 
 They were never independent facts: not having logged the last one is *why* `nextDueDate()` has
@@ -1282,7 +1282,7 @@ Typed by hand the same merchant arrives as "Fern café", "Fern Cafe" and "fern c
 there is nothing to fold. They fill the note and return focus to the amount rather than submitting
 — a chip that logged on one tap would be an easy way to record a $0 spend by accident. Scoped to
 the chosen line, so "Eating Out" offers places you eat. Capped at 150px: a real recent description
-was "Booking.com (Trip to buy house in Melbourne)", which uncapped takes a whole phone row.
+was "Fern Travel (Weekend away booking, two nights)", which uncapped takes a whole phone row.
 
 ---
 
@@ -1675,7 +1675,7 @@ selector even with `!important`, since `input[type="number"]` is more specific t
 
 Asked for directly: a way to copy a scenario rather than rebuilding its home costs, purchase
 calculator and invest leg by hand every time a what-if is a small variation on one already set up
-("what if Buy Sydney but with a 15% deposit instead of 20%").
+("what if Buy a house but with a 15% deposit instead of 20%").
 
 **What shipped.** `cloneScenario(sourceName)` in `scenarios.js` prompts for the copy's name
 (defaulting to "`<source>` copy"), then deep-copies `state.home`/`purchase`/`invest` for that
@@ -4648,7 +4648,7 @@ Done: change kind `once` (`legsInYear` lump in its year; `legsMonthly` upfront),
 
 ## 251. `[x]` Changes in a given month
 Do: a change starts in a month from now, not only at the start of a year; rent and costs can stop in a month; the
-scenario's purchase can happen in a month from now — so "rent in Melbourne for six months, then buy" is one scenario.
+scenario's purchase can happen in a month from now — so "rent for six months, then buy" is one scenario.
 Done when: the projection counts part-years; the editor sets months; tested.
 
 Done: "In a set month" (`fromMonth`), "Until" (`untilMonth`) on rent and costs, "When you buy" (`buyMonth`) on the
@@ -5497,3 +5497,13 @@ budget step ("Check the budget your spending suggests") never finished — every
 Two months after the first statement (lib/setup.js `settledHousehold`) the step counts as done; later suggestions are
 a To do ("N budget lines suggested from your spending", opening Money → Budget), never alongside the checklist. The step
 count names the next step's place in the list ("step 3 of 4" for the budget step), not the steps done plus one.
+
+## Housekeeping: real figures out, focus after setup, two intermittent journeys, the Year in review epic
+
+`[~]` One PR, four parts:
+1. The early audit items quoted figures measured on a real backup (balances, salary, ages, scenario cities, a
+   merchant description), here and in a few code comments and tests. They are invented round stand-ins now, keeping
+   each finding's proportions (decision 0004). Git history still holds the old text; removing it is the owner's call.
+2. Issue #282: setup closing with focus left on the page body.
+3. The intermittent `taxhelp` and `emptystates` journeys (recorded under #267): find each cause.
+4. Issue #390: check the epic's seven parts against what shipped, then close it or file what's left.

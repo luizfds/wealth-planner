@@ -315,7 +315,7 @@ export var MIGRATION_STEPS = [
     // carried an id before (it's found by a fixed "homeLoanRow" id, above); the rest were addressed
     // purely by array position, which no transaction can hold onto.
     //
-    // Ids are per scenario, deliberately: "Council Rates" under Buy Sydney and under Buy Melbourne
+    // Ids are per scenario, deliberately: "Council Rates" under two Buy scenarios
     // are different amounts for different hypothetical houses, so sharing an id would let a
     // transaction logged against one silently count towards the other.
     s.scenarios.forEach(function(name){

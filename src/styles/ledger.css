@@ -891,7 +891,7 @@
   .trend-table td, .trend-table th{ font-size:var(--fs-xs); }
   .trend-total-row td{ font-weight:600; border-top:1px solid var(--border); }
 
-  /* "⇄ $5,792 in Buy Sydney" on a collapsed row whose amount differs by scenario. Same pill
+  /* "⇄ $6,000 in Buy a house" on a collapsed row whose amount differs by scenario. Same pill
      vocabulary as .row-end-note above; brass rather than red, because varying by scenario is a
      deliberate modelling choice, not a problem to fix. */
   .row-vary-note{
@@ -1063,7 +1063,7 @@
     background: var(--paper-sunken); color: var(--ink-soft);
     font-size:var(--fs-sm); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     /* Capped so several chips share a row. A recent description can be a whole sentence
-       ("Booking.com (Trip to buy house in Melbourne)") which, uncapped, takes the full width of a
+       ("Fern Travel (Weekend away booking, two nights)") which, uncapped, takes the full width of a
        phone and turns a chip row into a list. Truncated text is fine here — the full string is on
        the title attribute, and the chip only has to be recognisable, not complete. */
     max-width:min(100%, 150px);

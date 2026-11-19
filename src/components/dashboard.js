@@ -572,7 +572,7 @@ export function renderDetail(){
 // Financial independence, as two questions rather than one — see calc/fire.js for why.
 //
 // The old version of this panel reported a single "progress %" of total net worth against a 4%
-// target. On a test household's data that counted $142,300 of super (32% of the figure) and a car, and would
+// target. On a test household's data that counted $140,000 of super (about a third of the figure) and a car, and would
 // have counted the family home the moment a Buy scenario was active. It answered "will the pot be
 // big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
 // question that actually decides whether an early retirement is possible.
@@ -799,9 +799,9 @@ export function renderMonthlyCashFlow(){
   var avgIn = loggedRows.reduce(function(sm, r){ return sm + (Number(r.income) || 0); }, 0) / loggedRows.length;
   var unlogged = rows.length - loggedRows.length;
   // Logged spending is not total spending, and the gap is not small: on a test household's data it was
-  // $615/mo logged against a $11,580/mo budget. Subtracting the logged figure from income and
-  // calling the remainder savings announced that this household kept $17,240/mo when it keeps
-  // $6,610 — a confident claim, wrong by $10,600 a month. So the savings line is earned rather
+  // $500/mo logged against a $10,000/mo budget. Subtracting the logged figure from income and
+  // calling the remainder savings announced that this household kept $14,500/mo when it keeps
+  // $5,000 — a confident claim, wrong by $9,500 a month. So the savings line is earned rather
   // than assumed: it appears only once logging actually covers the budget.
   var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
   var verdict = coverage.enough

@@ -173,21 +173,23 @@ function shortcutsDialog(){
   return d;
 }
 
-// After a smooth scroll to `el`: once the page has moved (or 20 frames passed — it may already have been in place) and
-// then stood still for 8 frames (at most ~2s in all), if `el` starts under the page header or its section's sticky
-// header, scroll it just clear.
+// After a smooth scroll to `el`: each time a scroll ends for the next 2s (the browser's scrollend, so a pause partway —
+// a slow device can hold a smooth scroll still for several frames — isn't taken for the end), and once more when the 2s
+// are up, if `el` starts under the page header or its section's sticky header, scroll it just clear. On CI a check made
+// at a pause found it clear, the scroll went on, and it ended under the section header.
 function settleBelowHeaders(el){
-  var start = window.scrollY, last = start, still = 0, frames = 0;
-  (function check(){
-    if(++frames > 120) return;
-    if(window.scrollY === last) still++; else { still = 0; last = window.scrollY; }
-    if(still < 8 || (last === start && frames < 20)) return requestAnimationFrame(check);
+  function clear(){
     if(!el.isConnected) return;
     var bar = document.querySelector(".app-topbar"), section = el.closest("details.ledger"), summary = section && section.querySelector(":scope > summary");
-    var below = Math.max(bar ? bar.getBoundingClientRect().bottom : 0, summary && getComputedStyle(summary).position === "sticky" ? summary.getBoundingClientRect().bottom : 0);
-    var short = below + 12 - el.getBoundingClientRect().top;
+    var barBottom = bar ? bar.getBoundingClientRect().bottom : 0, s = summary && summary.getBoundingClientRect();
+    // The section's header covers it only while stuck under the page header — once it's back in its place above `el`,
+    // counting it would move the page again at every scrollend (each move ending in one).
+    var stuck = !!s && getComputedStyle(summary).position === "sticky" && s.top <= barBottom + 1;
+    var short = Math.max(barBottom, stuck ? s.bottom : 0) + 12 - el.getBoundingClientRect().top;
     if(short > 1) window.scrollBy({ top: -short, behavior: "instant" });
-  })();
+  }
+  window.addEventListener("scrollend", clear);
+  setTimeout(function(){ window.removeEventListener("scrollend", clear); clear(); }, 2000);
 }
 export function wireNavigation(){
   initSectionPickers(document.body);

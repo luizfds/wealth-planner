@@ -584,12 +584,60 @@
 .ai-paste-open{ font-size:var(--fs-sm); }
 .ai-claude{ margin-top:6px; }
 .ai-claude > summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; margin-top:8px; }
-.home-nw-mover{ font-size:var(--fs-xs); color: var(--ink-soft); }
-/* v3.146.0: the change in two parts. */
-.home-nw-mover b{ white-space:nowrap; }
-.home-nw-mover b{ font-family: var(--font-num); font-weight:600; }
+/* v3.146.0: the change in two parts — as two chips (the owner: Today had too much text). */
+.home-nw-mover{ display:flex; flex-wrap:wrap; gap:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.home-nw-mover .nw-part{ display:inline-flex; gap:4px; align-items:baseline; padding:3px 8px; border-radius:100px; background: var(--paper-sunken); }
+.home-nw-mover b{ white-space:nowrap; font-family: var(--font-num); font-weight:600; }
 .home-nw-mover b.up{ color: var(--good-ink); }
 .home-nw-mover b.down{ color: var(--bad-ink); }
+
+/* Today's cards lead with a picture. */
+.home-chip{ display:inline-flex; align-items:baseline; gap:4px; padding:3px 9px; border-radius:100px; background: var(--paper-sunken); font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; }
+.home-chip b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
+.home-chip.up{ background: var(--good-wash); color: var(--good-ink); }
+.home-chip.down{ background: var(--bad-wash); color: var(--bad-ink); }
+.home-chip.up b, .home-chip.down b{ color: inherit; }
+.home-nw-head{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
+.home-nw-head .home-chip{ font-family: var(--font-num); font-weight:600; }
+.home-area{ display:block; width:100%; height:64px; margin:2px 0; overflow:visible; }
+.home-area-fill{ fill: var(--brass); opacity:.14; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .home-area-fill{ opacity:.26; } }
+:root[data-theme="dark"] .home-area-fill{ opacity:.26; }
+.home-area-line{ fill:none; stroke: var(--brass-strong); stroke-width:2px; stroke-linejoin:round; stroke-linecap:round; }
+.home-area-dot{ fill: var(--brass-strong); stroke: var(--paper-raised); stroke-width:2px; }
+.home-asof .warn{ color: var(--warn-ink); font-weight:600; }
+.home-left{ display:flex; flex-direction:column; gap:1px; }
+.home-left small{ font-weight:600; }
+.home-left b{ font-family: var(--font-num); }
+.home-left b.up{ color: var(--good-ink); }
+.home-left b.down{ color: var(--bad-ink); }
+.home-left em{ font-style:normal; font-size:var(--fs-xs); color: var(--ink-soft); }
+.home-meter{ display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+.home-meter-head{ display:flex; align-items:baseline; gap:6px; font-size:var(--fs-sm); }
+.home-meter-head span{ font-weight:600; flex:1; min-width:0; }
+.home-meter-head b{ font-family: var(--font-num); font-weight:600; }
+.home-meter-head em{ font-style:normal; font-size:var(--fs-xs); color: var(--ink-soft); font-family: var(--font-num); }
+.home-meter-track{ position:relative; height:10px; border-radius:100px; background: var(--paper-sunken); overflow:visible; }
+.home-meter-fill{ position:absolute; left:0; top:0; bottom:0; border-radius:100px; min-width:4px; }
+.home-meter-fill.good{ background: var(--good); }
+.home-meter-fill.warn{ background: var(--warn-ink); }
+.home-meter-fill.bad{ background: var(--bad); }
+.home-meter-fill.in{ background: var(--brass); }
+.home-meter-over{ position:absolute; right:-2px; top:-3px; bottom:-3px; width:4px; border-radius:2px; background: var(--bad); }
+/* Where today falls in the month: spending to the left of it is on pace. */
+.home-meter-mark{ position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; border-radius:1px; background: var(--ink); }
+.home-plan-context{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+/* Bills: a date chip each, tinted by how soon; the date in words stays for screen readers. */
+.home-bills .home-list li{ grid-template-columns: auto minmax(0,1fr) auto; align-items:center; }
+.home-bills .home-list li > em{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.home-date{ display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-width:44px; height:38px; padding:0 6px; border-radius:10px;
+  background: var(--paper-sunken); line-height:1.05; }
+.home-date b{ font-family: var(--font-num); font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
+.home-date small{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.home-date.warn{ background: color-mix(in srgb, var(--warn-ink) 16%, transparent); }
+.home-date.warn b, .home-date.warn small{ color: var(--warn-ink); }
+.home-date.bad{ background: var(--bad-wash); }
+.home-date.bad b, .home-date.bad small{ color: var(--bad-ink); }
 .fr-shortcut{ margin:14px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
 
 /* ---------------- Arrange Home (v3.165.0, item 195) ----------------

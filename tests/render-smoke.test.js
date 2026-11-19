@@ -1139,6 +1139,11 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     assert.match(html, /Recorded balances · as of 14 Oct(?: 2026)?/);
     assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
+    // Today leads with pictures: each bar says in words what it draws; each bill has a date chip.
+    assert.match(html, /class="home-meter-track" role="img" aria-label="Spent \$\d[\d,]* of \$80 planned, \d+%(; \d+% of the month gone)?"/);
+    assert.match(html, /aria-label="Received \$0 of \$0 planned"/);
+    assert.match(html, /<span class="home-date " aria-hidden="true"><b>20<\/b><small>Oct<\/small><\/span>/);
+    assert.match(html, /<svg class="home-area"/);
     // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
     assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review">Review September 2026/);
     // More than four: the first four, and a way to the rest.

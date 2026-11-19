@@ -10,9 +10,8 @@ import { goalsOverview } from "../calc/savegoals.js";
 import { goalCardHtml } from "./savegoals.js";
 import { monthReview } from "../calc/monthreview.js";
 import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
-import { sparklineHtml } from "../lib/charts.js";
 import { trendToToday } from "../calc/history.js";
-import { fmtCurrency0, localDateStr, fmtDate } from "../lib/format.js";
+import { fmtCurrency0, fmtCompact, localDateStr, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { netWorthOn } from "../calc/nwhistory.js";
@@ -36,6 +35,39 @@ function shortDate(iso, today){
   return Number(iso.slice(8, 10)) + " " + MONTHS[Number(iso.slice(5, 7)) - 1] + (iso.slice(0, 4) !== thisYear ? " " + iso.slice(0, 4) : "");
 }
 function money(n){ return fmtCurrency0.format(Number(n) || 0); }
+// Today's cards lead with a picture (the owner: "too much text"): a bar for so-far-against-planned, a filled line for
+// net worth, a date chip per bill. The words that said the same thing are each a label on the picture.
+// A bar of `value` against `of`, its fill tinted by `tone`; `mark` (0–1) is where today falls in the period.
+function meterHtml(label, value, of, tone, mark){
+  var frac = of > 0 ? Math.max(0, value) / of : 0, w = Math.min(1, frac) * 100;
+  var said = label + " " + money(value) + " of " + money(of) + " planned" + (of > 0 ? ", " + Math.round(frac * 100) + "%" : "") +
+    (mark != null ? "; " + Math.round(mark * 100) + "% of the month gone" : "");
+  return '<div class="home-meter"><div class="home-meter-head"><span>' + label + '</span><b>' + money(value) + '</b><em>of ' + money(of) + '</em></div>' +
+    '<div class="home-meter-track" role="img" aria-label="' + escapeAttr(said) + '"><span class="home-meter-fill ' + tone + '" style="width:' + w.toFixed(1) + '%"></span>' +
+    (frac > 1 ? '<span class="home-meter-over" title="Over plan"></span>' : '') +
+    (mark != null ? '<span class="home-meter-mark" style="left:' + (Math.min(1, Math.max(0, mark)) * 100).toFixed(1) + '%"></span>' : '') + '</div></div>';
+}
+// The month's share gone, when the month shown is the one we're in.
+function monthGone(ym, today){
+  if(String(today).slice(0, 7) !== ym) return null;
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Number(String(today).slice(8, 10)) / days;
+}
+// A filled line for net worth: the line in the brass ink, the area under it a wash of it.
+function areaHtml(points){
+  if(!points || points.length < 2) return "";
+  var w = 300, h = 64, vals = points.map(function(p){ return Number(p.value) || 0; });
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  if(min === max){ min -= 1; max += 1; }
+  var pad = (max - min) * 0.08; min -= pad; max += pad;
+  var xy = vals.map(function(v, i){ return [(i / (vals.length - 1)) * w, h - ((v - min) / (max - min)) * h]; });
+  var line = xy.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
+  var last = xy[xy.length - 1];
+  return '<svg class="home-area" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path class="home-area-fill" d="' + line + ' L' + w + ',' + h + ' L0,' + h + ' Z"/>' +
+    '<path class="home-area-line" d="' + line + '" vector-effect="non-scaling-stroke"/>' +
+    '<circle class="home-area-dot" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>';
+}
 function signed(n){ return (n < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(n)); }
 
 // Bills expected in the next `days` days (and unpaid ones from the last week) — v3.94.1: the bills
@@ -67,14 +99,14 @@ function moverHtml(fromDate, today, change){
   // revaluation doesn't read as a month of overspending.
   var sp = netWorthSplit(netWorthMovers(a.parts, b.parts));
   if(Math.abs(sp.money) < 100 && Math.abs(sp.values) < 100) return "";
-  var part = function(label, v, cls){ return '<span class="' + cls + '">' + label + ' <b class="' + (v >= 0 ? "up" : "down") + '">' + signed(v) + '</b></span>'; };
+  var part = function(label, v, cls){ return '<span class="' + cls + '">' + label + ' <b class="' + (v >= 0 ? "up" : "down") + '">' + (v < 0 ? "−" : "+") + fmtCompact(Math.abs(v)) + '</b></span>'; };
   // The headline's change runs from the figure logged back then; the parts from that day rebuilt from
   // today's records. A balance updated or back-dated since makes the two differ — said, not hidden,
   // so the parts always add up to the headline.
   var revised = change != null ? Math.round(change - sp.money - sp.values) : 0;
-  return '<small class="home-nw-mover">' + part("Cash &amp; loans", sp.money, "nw-part") + ' · ' +
-    part("Property &amp; investments", sp.values, "nw-part") + (sp.top ? ' <span class="nw-top">(mostly ' + escapeAttr(sp.top.label.toLowerCase()) + ')</span>' : '') +
-    (Math.abs(revised) >= Math.max(500, Math.abs(change) * 0.05) ? ' · ' + part("Records updated since", revised, "nw-part nw-revised") : '') + '</small>';
+  return '<div class="home-nw-mover">' + part("Cash &amp; loans", sp.money, "nw-part") +
+    part("Property &amp; investments", sp.values, "nw-part") +
+    (Math.abs(revised) >= Math.max(500, Math.abs(change) * 0.05) ? part("Records updated", revised, "nw-part nw-revised") : '') + '</div>';
 }
 export function homeSummaryHtml(today, opts){
   today = today || localDateStr();
@@ -84,10 +116,11 @@ export function homeSummaryHtml(today, opts){
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
   var stale = staleAssets().length;
-  var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span><b class="home-big">' + money(nw) + '</b>' +
-    (trend ? '<small class="' + (trend.change >= 0 ? "up" : "down") + '">' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</small>' + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
-    '<small>Recorded balances · as of ' + escapeAttr(fmtDate(today)) + (stale ? ' · ' + stale + ' values need updating' : '') + '</small>' +
-    '<span class="home-spark">' + (trend ? sparklineHtml(trend.points, { width: 120, height: 28 }) : "") + '</span>' +
+  var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span>' +
+    '<div class="home-nw-head"><b class="home-big">' + money(nw) + '</b>' +
+    (trend ? '<span class="home-chip ' + (trend.change >= 0 ? "up" : "down") + '"><span aria-hidden="true">' + (trend.change >= 0 ? "▲" : "▼") + '</span> ' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</span>' : '') + '</div>' +
+    (trend ? areaHtml(trend.points) + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
+    '<small class="home-asof">Recorded balances · as of ' + escapeAttr(fmtDate(today)) + (stale ? ' · <span class="warn">' + stale + ' values need updating</span>' : '') + '</small>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
   if(nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length)
@@ -99,15 +132,18 @@ export function homeSummaryHtml(today, opts){
   var r = monthReview(ym, { accountOf: transactionAccount, categoryOf: transactionCategory, today: today, items: opts.items || budgetLineItems(currentScenario()) });
   var saved = r.incomeReceived - r.spent;
   var mp = monthPhrase(ym);
-  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span><small>Logged activity · ' + escapeAttr(r.label) + '</small>' +
-    '<div class="home-io"><div><small>Received</small><b>' + money(r.incomeReceived) + '</b><em>of ' + money(r.incomePlanned) + ' planned</em></div>' +
-    '<div><small>Spent</small><b>' + money(r.spent) + '</b><em>of ' + money(r.plannedSpend) + ' planned</em></div>' +
+  // Spent against planned, tinted by pace: within the month's share gone is on track, a little over is a warning.
+  var gone = monthGone(ym, today), pace = r.plannedSpend > 0 ? r.spent / r.plannedSpend : 0;
+  var spendTone = r.spent > r.plannedSpend && r.plannedSpend > 0 ? "bad" : pace <= (gone != null ? gone : 1) + 0.05 ? "good" : pace <= (gone != null ? gone : 1) + 0.2 ? "warn" : "bad";
+  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
     // With nothing logged as received, "kept" is just spending with a minus sign — say what's missing instead.
     (r.incomeReceived === 0 && r.income.length
-      ? '<div><small>Left from received</small><b>—</b><em>log money in to see it</em></div></div>'
-      : '<div><small>Left from received</small><b class="' + (saved >= 0 ? "up" : "down") + '">' + (saved < 0 ? "−" : "") + money(Math.abs(saved)) + '</b><em>' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + '</em></div></div>') +
-    (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '') +
-    '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button>';
+      ? '<div class="home-left"><small>Left from received</small><b>—</b><em>log money in to see it</em></div>'
+      : '<div class="home-left"><small>Left from received</small><b class="home-big ' + (saved >= 0 ? "up" : "down") + '">' + (saved < 0 ? "−" : "") + money(Math.abs(saved)) + '</b><em>' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + ' logged</em></div>') +
+    meterHtml("Spent", r.spent, r.plannedSpend, spendTone, gone) +
+    meterHtml("Received", r.incomeReceived, r.incomePlanned, "in", null) +
+    (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '');
+  var monthLink = '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button>';
 
   var planned = scenarioTotals(currentScenario());
   var reserve = emergencyFund();
@@ -115,14 +151,19 @@ export function homeSummaryHtml(today, opts){
   var monthEmpty = !r.income.length && !r.incomePlanned && !r.plannedSpend && !r.transactions && !r.spent && !r.incomeReceived;
   if(monthEmpty) monthCard = '<div class="home-card home-month is-empty" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
     emptyStateHtml("Nothing planned or logged yet — the month fills in from your pay and your budget.", { go: "expenses/income", label: "Go to Income →", className: "home-note" }) + '</div>';
-  else monthCard += '<p class="home-plan-context">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) +
-    '</b> · estimate from your budget' + (reserve.coveredMonths != null ? '<br>Cash and offsets cover <b>' + reserve.coveredMonths.toFixed(1) + ' months</b> of essential costs' : '<br>Add essential costs to assess your reserve') + '</p></div>';
+  // The plan, and the reserve, as two chips: planned (not logged) money, said as such.
+  else monthCard += '<div class="home-plan-context"><span class="home-chip" title="An estimate from your budget, not what was logged">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) + '</b></span>' +
+    (reserve.coveredMonths != null ? '<span class="home-chip ' + (reserve.coveredMonths >= 6 ? "up" : reserve.coveredMonths >= 3 ? "" : "down") + '" title="Cash and offsets against your essential costs">Reserve <b>' + reserve.coveredMonths.toFixed(1) + ' months</b></span>'
+      : '<span class="home-chip">Add essential costs to see your reserve</span>') + '</div>' + monthLink + '</div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
   var billsCard = '<div class="home-card home-bills" data-home-card="bills"><span class="home-k">Bills — next 2 weeks</span>' +
     (bills.length ? '<ul class="home-list">' + bills.slice(0, 5).map(function(b){
       var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
-      return '<li><span title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + (b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "") + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
+      // A date chip, tinted by how soon: overdue, within three days, later.
+      var tone = b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "";
+      var chip = b.days < 0 ? '<b>' + Math.abs(b.days) + 'd</b><small>late</small>' : b.days === 0 ? '<b>Today</b>' : b.days === 1 ? '<b>Tmrw</b>' : '<b>' + Number(b.due.slice(8, 10)) + '</b><small>' + MONTHS[Number(b.due.slice(5, 7)) - 1] + '</small>';
+      return '<li><span class="home-date ' + tone + '" aria-hidden="true">' + chip + '</span><span class="home-bill-name" title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + tone + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
     }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
     : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Transactions →", className: "home-note" })) + '</div>';
 

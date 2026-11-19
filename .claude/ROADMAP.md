@@ -5667,3 +5667,8 @@ colour (and icon) it has in Spending's donut wherever it's drawn.
 - Reports grouped by category: each bar of the chart in its colour (`chartOf`, `reportcharts.js` writes only a
   `cat-c-N` class), each row its icon.
 Not changed: Your month, planned (grouped by need/want, not category). Tests in render-smoke.test.js.
+
+## What needs you, in colour (November 2026)
+
+`[~]` The owner: more colour, without making the app too much — the second and third parts: Today's Needs you tinted
+while something waits, and an icon for each item's kind in Needs you and the bell, in its label's colour.

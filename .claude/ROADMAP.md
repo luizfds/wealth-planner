@@ -5588,3 +5588,13 @@ at every `scrollend` for 2s and once more at the end (a timeout, so the fixed te
 counts the section's header only while it's stuck under the page header — counting it in its own place, just above the
 list, moved the page 12px again at every scrollend. The journey forces a 40px shrink above the list after the scroll
 has ended: main's code left the list 28px under the header, this passes (3 of 3 at 6× CPU, three at once).
+
+## Today: pictures before words (November 2026)
+
+`[x]` The owner: Today's first cards were too much text — more charts and colour, with See more links for the detail.
+Chosen: bars and a bigger chart. This month leads with what's left (green or red), then Spent and Received as bars
+against planned — Spent tinted by pace (green on pace, amber a little ahead of the month, red ahead or over) with a
+mark where today falls in the month — and the planned surplus and the reserve as chips. Net worth: the figure with a
+coloured change chip, a filled line full width, and its two parts as chips. Bills: a date chip each, tinted by how
+soon (the date in words stays for screen readers). Each bar's accessible name says what it draws. Kept, shortened:
+"Planned monthly surplus" (planned isn't logged) and "Recorded balances · as of" (assessment follow-up).

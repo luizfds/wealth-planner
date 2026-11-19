@@ -636,7 +636,8 @@
   background: var(--paper-sunken); line-height:1.05; }
 .home-date b{ font-family: var(--font-num); font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
 .home-date small{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-.home-date.warn{ background: color-mix(in srgb, var(--warn-ink) 16%, transparent); }
+/* Opaque (mixed with the card, not see-through), so a tinted Needs you card under it keeps its text at 4.5:1. */
+.home-date.warn{ background: color-mix(in srgb, var(--warn-ink) 16%, var(--paper-raised)); }
 .home-date.warn b, .home-date.warn small{ color: var(--warn-ink); }
 .home-date.bad{ background: var(--bad-wash); }
 .home-date.bad b, .home-date.bad small{ color: var(--bad-ink); }

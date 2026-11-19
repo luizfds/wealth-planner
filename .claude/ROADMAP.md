@@ -5500,10 +5500,21 @@ count names the next step's place in the list ("step 3 of 4" for the budget step
 
 ## Housekeeping: real figures out, focus after setup, two intermittent journeys, the Year in review epic
 
-`[~]` One PR, four parts:
-1. The early audit items quoted figures measured on a real backup (balances, salary, ages, scenario cities, a
+`[x]` One PR, four parts:
+1. The early audit items quoted figures measured on a real backup (balances, a salary, ages, scenario cities, a
    merchant description), here and in a few code comments and tests. They are invented round stand-ins now, keeping
    each finding's proportions (decision 0004). Git history still holds the old text; removing it is the owner's call.
-2. Issue #282: setup closing with focus left on the page body.
-3. The intermittent `taxhelp` and `emptystates` journeys (recorded under #267): find each cause.
-4. Issue #390: check the epic's seven parts against what shipped, then close it or file what's left.
+2. Issue #282, setup closing with focus left on the page body. Two causes, each forced by `setupfocusrace` (which fails
+   without the fix): the restore tried once, and a Guided setup that wasn't showing yet couldn't take focus; and
+   `renderDashboardStats()` called on its own replaced the focused button. The restore now tries each frame for a
+   second while focus is nowhere, and `renderDashboardStats()` keeps focus through `keepUi`.
+3. The intermittent journeys recorded under #267:
+   - `taxhelp`: the sacrifice field was tapped straight after Playwright scrolled it in beside the sticky headers, and
+     the page moved between the touch and its click (incomehelp's cause). A shared `steadyTap()` centres and waits for
+     stillness.
+   - `emptystates`: "done" was the next `scrollend`, which can be the trim card's own instant scroll arriving late.
+     Forced, the journey measured before the list moved. Done is now: this scroll moved, then stood still.
+   - Both passed 4 of 4 at 6× CPU with four suites at once.
+4. Issue #390: all of it shipped, as the owner's five slices (#396–#400). The guided review with a Home card,
+   reconciliation, savings account vs offset, the next-year plan and monthly progress each have a journey.
+   Benefits are links only, and provider switching was dropped (owner's decision on the issue). Closed by this PR.

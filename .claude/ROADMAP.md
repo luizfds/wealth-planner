@@ -5676,3 +5676,9 @@ Not changed: Your month, planned (grouped by need/want, not category). Tests in 
 - Each item in Needs you and the bell has an icon for its kind — a bill a calendar, a month to review a tick, a loan a
   house, a property its building (`attentionIconHtml`, lib/attention.js) — in its label's colour: Urgent and Watch red,
   To do amber, Opportunity green, the rest quiet. Decorative (aria-hidden): the label and title say it.
+
+## Today opens in colour (November 2026)
+
+`[~]` The owner, after the colour PRs: still "meh". Three directions mocked on Today side by side (a bold hero, soft
+tints, a teal theme); the owner chose the bold one — net worth as a gradient hero with its line, then three solid
+tiles.

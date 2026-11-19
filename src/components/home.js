@@ -163,7 +163,9 @@ export function homeSummaryHtml(today, opts){
       // A date chip, tinted by how soon: overdue, within three days, later.
       var tone = b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "";
       var chip = b.days < 0 ? '<b>' + Math.abs(b.days) + 'd</b><small>late</small>' : b.days === 0 ? '<b>Today</b>' : b.days === 1 ? '<b>Tmrw</b>' : '<b>' + Number(b.due.slice(8, 10)) + '</b><small>' + MONTHS[Number(b.due.slice(5, 7)) - 1] + '</small>';
-      return '<li><span class="home-date ' + tone + '" aria-hidden="true">' + chip + '</span><span class="home-bill-name" title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + tone + '">' + when + '</em><b>' + money(b.amount) + '</b></li>';
+      // Paid: log it from here, pre-filled (a card's repayment and what the property manager pays come with their statements).
+      var paid = b.card || b.agent ? '' : '<button type="button" class="home-bill-paid" data-bill-paid="' + escapeAttr(b.id) + '" data-bill-due="' + escapeAttr(b.due) + '" data-bill-amount="' + escapeAttr(String(b.amount)) + '" aria-label="Log ' + escapeAttr(b.what) + ' as paid">Paid</button>';
+      return '<li><span class="home-date ' + tone + '" aria-hidden="true">' + chip + '</span><span class="home-bill-name" title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + tone + '">' + when + '</em><b>' + money(b.amount) + '</b>' + paid + '</li>';
     }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
     : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Transactions →", className: "home-note" })) + '</div>';
 

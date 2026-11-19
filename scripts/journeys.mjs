@@ -25,6 +25,7 @@
 //   basicinvestmenthelp — described recording actions, Super/Vehicle method help, chart names and saved snapshots
 //   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
 //   pagehelpstays — opening a page's help from the header ⓘ a little way down leaves the page where it was
+//   billpaid — Paid on a bill: pre-filled with today, its amount and its account; logged against its line, off the list
 //   setupfocusrace — closing setup returns focus to Guided setup when its replacement shows late or is redrawn (#282)
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
@@ -6863,6 +6864,42 @@ const JOURNEYS = {
       await page.evaluate(() => document.getElementById('pageHelpBtn').click());
       await page.evaluate(() => window.scrollTo(0, 0));
     }
+  },
+  // "Paid" on a bill (the owner: logging the investment property's council rates meant hunting through Log spend's
+  // line picker). From Today's Bills card: the bill, pre-filled — today, its amount, the account it's paid from — Save,
+  // and it's logged against the property's line, on its Activity, and off the list. Money → Bills offers it too.
+  async billpaid(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); const p = s.state.properties.find(x => x.kind === 'IP');
+      p.expenses = p.expenses || []; p.expenses.push({ id: 'example-rates', what: 'Council rates', amount: 480, freq: 'Quarterly', category: 'Utilities' });
+      const d = new Date(Date.now() - 88 * 86400000).toISOString().slice(0, 10);
+      s.state.transactions.push({ id: 'example-rates-paid', date: d, amount: 480, linkedExpenseId: 'example-rates', account: 'Everyday Account' });
+      s.commit(['properties', 'transactions']);
+    });
+    await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    const paid = page.locator('#homeSummary [data-bill-paid="example-rates"]');
+    await paid.waitFor({ state: 'visible' });
+    check((await paid.getAttribute('aria-label')) === 'Log Council rates as paid', 'the Paid button is not named for its bill');
+    await paid.click();
+    const sheet = page.locator('#expenseReviewRoot [role="dialog"]');
+    await sheet.waitFor({ state: 'visible' });
+    check(await sheet.getAttribute('aria-label') === 'Log a payment', 'Paid did not open the payment sheet');
+    check(await sheet.locator('.bc-confirm-amount').inputValue() === '480', 'the amount is not the bill\'s');
+    check(await sheet.locator('.bc-confirm-date').inputValue() === await page.evaluate(async () => (await import('/src/lib/format.js')).localDateStr()), 'the date paid is not today');
+    check(await sheet.locator('[data-review-account]').inputValue() === 'Everyday Account', 'Paid from is not where it was paid from last time');
+    check(!await sheet.locator('.bc-confirm-check').isVisible(), 'a single bill shows a tick box');
+    const before = await st(page, 'state.transactions.length');
+    await sheet.locator('[data-review-confirm]').click();
+    await page.waitForFunction(() => !document.querySelector('#expenseReviewRoot [role="dialog"]'));
+    check(await st(page, 'state.transactions.length') === before + 1, 'Save did not log one payment');
+    const t = await st(page, 'state.transactions[state.transactions.length - 1]');
+    check(t.linkedExpenseId === 'example-rates' && t.amount === 480 && t.account === 'Everyday Account', 'the payment is not against the property line: ' + JSON.stringify(t));
+    await page.waitForFunction(() => !document.querySelector('#homeSummary [data-bill-paid="example-rates"]'), null, { timeout: 5000 });
+    check(await page.evaluate(async () => { const pa = await import('/src/components/propertyactivity.js'), s = await import('/src/state.js');
+      return pa.propertyActivityHtml(s.state.properties.find(x => x.kind === 'IP')).includes('Council rates'); }), 'the payment is not on the property\'s Activity');
+    await go(page, 'expenses', 'data-expenses-sub', 'bills');
+    check(await page.locator('#expensesSub-bills [data-bill-paid]').count() > 0, 'Money → Bills offers no Paid');
   },
   async keyboardaudit(page){
     page.setDefaultTimeout(10000);

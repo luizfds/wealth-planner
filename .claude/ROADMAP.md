@@ -5617,3 +5617,17 @@ What shipped (`lib/bars.js`: `stackBarHtml`, a stacked bar with its legend; `pro
 - Money → Transactions: a thin bar under In/Out/Net — out, then what's left. No legend (both are named with their figure
   just above): a legend by category pushed the first record past the half-screen line (records before tools).
 - With a green part in a bar, the palette's two greens sit out, so nothing else reads as "left".
+
+## "Paid" on a bill (November 2026)
+
+`[x]` The owner: logging a council rates bill for the investment property meant + → Log spend and hunting through the
+budget-line picker for the property's line — too complicated. Chosen: a "Paid" button wherever a bill shows as due
+(Today's Bills card, Money → Bills), opening the bills-to-confirm panel for that one bill — amount, date and the
+account it was paid from filled in, check and Save. Not on a bill paid with a card's repayment or by the property
+manager (they come in with their statements).
+
+What shipped: `openBillPaid` (expenses.js) opens the bills-to-confirm panel for one bill — "Log a payment": the bill's
+due date shown, Date paid today, its amount, and Paid from the account it was paid from last time (else its line's,
+else the everyday account); no tick box. Save commits `transactions` (Today's card, Money → Bills and the property's
+Activity redraw from it), closes and says "<bill> logged as paid". The buttons are 44px pills (the phone tap-target
+floor). Journey `billpaid`.

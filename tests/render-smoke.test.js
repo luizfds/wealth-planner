@@ -1144,6 +1144,8 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     assert.match(html, /aria-label="Received \$0 of \$0 planned"/);
     assert.match(html, /<span class="home-date " aria-hidden="true"><b>20<\/b><small>Oct<\/small><\/span>/);
     assert.match(html, /<svg class="home-area"/);
+    // "Paid": log the bill from where it's listed, pre-filled.
+    assert.match(html, /data-bill-paid="e1" data-bill-due="2026-10-20" data-bill-amount="80" aria-label="Log Phone as paid">Paid<\/button>/);
     // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
     assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review">Review September 2026/);
     // More than four: the first four, and a way to the rest.

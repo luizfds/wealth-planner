@@ -1468,7 +1468,7 @@
   .bc-dots i{ width:6px; height:6px; border-radius:50%; background: var(--brass); }
   .bc-dots i.paid{ background: var(--good); } .bc-dots i.overdue{ background: var(--bad); }
   .bc-list{ list-style:none; margin:12px 0 0; padding:0; }
-  .bc-list li{ display:grid; grid-template-columns: 52px minmax(0,1fr) auto auto; gap:8px; align-items:baseline; font-size:var(--fs-sm); padding:6px 0; border-bottom:1px dashed var(--border); }
+  .bc-list li{ display:grid; grid-template-columns: 52px minmax(0,1fr) auto auto auto; gap:8px; align-items:baseline; font-size:var(--fs-sm); padding:6px 0; border-bottom:1px dashed var(--border); }
   .bc-list-date{ font-size:var(--fs-xs); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .bc-list-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bc-list-state{ font-size:var(--fs-xs); color: var(--ink-soft); }

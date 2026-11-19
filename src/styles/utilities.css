@@ -253,3 +253,11 @@ html[data-mode="simple"] [data-level="advanced"]:not([data-shown]){ display:none
 .vprog-labels{ position:absolute; left:0; right:0; bottom:0; height:14px; font-size:var(--fs-xs); color: var(--ink-soft); }
 .vprog-labels span{ position:absolute; transform:translateX(-50%); white-space:nowrap; font-family: var(--font-num); }
 .vprog-labels span:last-child{ transform:translateX(-100%); }
+
+/* "Paid" on a bill (Today's Bills card, Money → Bills): log it, pre-filled. */
+.home-bill-paid, .bc-list-paid{ min-height:44px; min-width:52px; padding:0 12px; border-radius:100px; border:1px solid var(--border); background: var(--paper);
+  color: var(--brass-strong); font:inherit; font-size:var(--fs-xs); font-weight:600; cursor:pointer; align-self:center; }
+.home-bill-paid:hover, .bc-list-paid:hover{ background: var(--brass-wash); }
+.home-bill-paid:focus-visible, .bc-list-paid:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+.bc-confirm-account{ display:flex; flex-direction:column; gap:4px; margin:10px 0 0; font-size:var(--fs-sm); }
+.bc-confirm-list.is-single .bc-confirm-check{ display:none; }

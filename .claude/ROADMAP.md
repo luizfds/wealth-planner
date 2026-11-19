@@ -5639,3 +5639,20 @@ household's ("Council rates — 1 Example St", "Due … · $480 · quarterly"; n
 quarterly or yearly bill two weeks ahead (`billLeadDays`; monthly and more often stay at a week), and a bill due
 within three days opens its "Paid" sheet from the bell or the To do (action `billpaid`). Tests in
 notifications.test.js; `billpaid` follows the reminder.
+
+## Today, glance first (November 2026)
+
+`[x]` The owner: Today should be the place to know where your finances stand, quickly — clear and easy to navigate.
+Found: ~3.5 phone screens, no answer at the top, To do ~1,100px down, the planned surplus and the reserve said twice
+(the reserve as 21.1 and 17.7 months — two measures, unsaid), and six mismatched tiles and loose links at the bottom.
+Chosen: glance, then what needs you.
+- The glance (`data-home-card="glance"`): Net worth, Left this month, Next bill, Needs you — each a way to its card
+  (scrolled to and focused). Hidden for a household with nothing in it (its cards say what to enter).
+- Needs you (`needs`): the bills due this week, each with Paid, and the to-dos, in one card — it was "Bills — next 2
+  weeks" and "To do". A saved Arrange order's bills/todo become needs in their place; hidden only if both were. A card
+  new to a saved order goes in its own place, not at the end (`normaliseLayout`).
+- Then This month and Net worth; Goals, the year in review and the week's recap after.
+- The month card's surplus and reserve chips went: Plans & insights says each once. Runway is Reserve — months of
+  essentials on cash and offsets (Plan → Goals' figure), all spending under it.
+- Plans & insights: a heading, the tiles, and every way further in (Insights, Monthly review, How you compare,
+  Projection, Scenarios side by side) as one row of chips.

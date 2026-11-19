@@ -282,6 +282,17 @@ export function wireHomeSummary(){
   // ---------------- Home (v3.58.0): the summary's links and to-dos ----------------
   document.getElementById("homeSummary").addEventListener("click", function(e){
     if(e.target.closest("[data-goal-go]")){ showPage("accounts"); return; }
+    // The glance: each figure is a way to its card — scrolled to, and focus on it so a keyboard carries on from there.
+    var glance = e.target.closest("[data-glance-go]");
+    if(glance){
+      var card = document.querySelector('#homeSummary [data-home-card="' + glance.getAttribute("data-glance-go") + '"]');
+      if(card && !card.hidden){
+        if(!card.hasAttribute("tabindex")) card.setAttribute("tabindex", "-1");
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+        card.focus({ preventScroll: true });
+      }
+      return;
+    }
     // v3.166.0: Your week — step back through the last four, or put this week's away (synced).
     var step = e.target.closest("[data-wk-step]");
     if(step){

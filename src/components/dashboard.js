@@ -393,8 +393,10 @@ function drawDashboardStats(){
   var runway = runwayMonths(t.expensesMonthly);
   var emergency = emergencyFund({ scenario: active });
   var riskHtml = dashboardRiskSignalsHtml(dashboardRiskSignals(t, emergency, nothingEntered));
-  var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Liquid assets (cash + shares + property offset) ÷ ' + escapeAttr(active) + '\'s monthly expenses — how long you could cover costs with zero income. A common rule of thumb targets 3-6 months."><span>Runway</span><b>' +
-    (runway == null ? "—" : fmtRunway.format(runway) + " mo") + '</b><small>All spending · liquid assets</small><small>Essential costs · cash + offsets: ' + (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</small><details><summary>Cash-flow and reserve risks</summary>' + riskHtml + '</details></div>';
+  // One reserve figure (Today showed it twice — 21.1 months here, 17.7 there — measuring different things unsaid): months
+  // of essential costs your cash and offsets cover, as Plan → Goals' emergency fund counts them; all spending under it.
+  var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Cash and offsets ÷ a month of essential costs (as Plan → Goals counts them). Under it: cash, shares and offsets ÷ all of ' + escapeAttr(active) + '\'s monthly spending. A common rule of thumb is 3–6 months."><span>Reserve</span><b>' +
+    (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</b><small>of essential costs · cash + offsets</small><small>' + (runway == null ? "" : fmtRunway.format(runway) + " mo of all spending · with shares") + '</small><details><summary>Cash-flow and reserve risks</summary>' + riskHtml + '</details></div>';
   // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
   // The tiles earn their space once they have values in them.

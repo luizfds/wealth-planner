@@ -1,4 +1,3 @@
-import { emergencyFund } from "../calc/emergency.js";
 import { homeTodoItems } from "../lib/attention.js";
 import { getNotifications } from "../lib/notifications.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
@@ -124,7 +123,8 @@ export function homeSummaryHtml(today, opts){
     '<small class="home-asof">Recorded balances · as of ' + escapeAttr(fmtDate(today)) + (stale ? ' · <span class="warn">' + stale + ' values need updating</span>' : '') + '</small>' +
     '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
-  if(nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length)
+  var nwEmpty = nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length;
+  if(nwEmpty)
     nwCard = '<div class="home-card home-nw is-empty" data-home-card="nw"><span class="home-k">Net worth</span>' +
       emptyStateHtml("Nothing you own or owe is entered yet — accounts, super, a car, a home and its loan.", { go: "networth", label: "Go to Accounts →", className: "home-note" }) + '</div>';
 
@@ -146,43 +146,60 @@ export function homeSummaryHtml(today, opts){
     (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '');
   var monthLink = '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button>';
 
-  var planned = scenarioTotals(currentScenario());
-  var reserve = emergencyFund();
   // #309 (pages.md §4): a month with no pay, no budget and nothing logged says so, with the first step — not six $0s.
   var monthEmpty = !r.income.length && !r.incomePlanned && !r.plannedSpend && !r.transactions && !r.spent && !r.incomeReceived;
   if(monthEmpty) monthCard = '<div class="home-card home-month is-empty" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
     emptyStateHtml("Nothing planned or logged yet — the month fills in from your pay and your budget.", { go: "expenses/income", label: "Go to Income →", className: "home-note" }) + '</div>';
-  // The plan, and the reserve, as two chips: planned (not logged) money, said as such.
-  else monthCard += '<div class="home-plan-context"><span class="home-chip" title="An estimate from your budget, not what was logged">Planned monthly surplus <b>' + money(planned.regularNetMonthly != null ? planned.regularNetMonthly : planned.netMonthly) + '</b></span>' +
-    (reserve.coveredMonths != null ? '<span class="home-chip ' + (reserve.coveredMonths >= 6 ? "up" : reserve.coveredMonths >= 3 ? "" : "down") + '" title="Cash and offsets against your essential costs">Reserve <b>' + reserve.coveredMonths.toFixed(1) + ' months</b></span>'
-      : '<span class="home-chip">Add essential costs to see your reserve</span>') + '</div>' + monthLink + '</div>';
+  // The planned surplus and the reserve are Plans & insights' (Today's tiles) — said once, not here as well.
+  else monthCard += monthLink + '</div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
-  var billsCard = '<div class="home-card home-bills" data-home-card="bills"><span class="home-k">Bills — next 2 weeks</span>' +
-    (bills.length ? '<ul class="home-list">' + bills.slice(0, 5).map(function(b){
-      var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
-      // A date chip, tinted by how soon: overdue, within three days, later.
-      var tone = b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "";
-      var chip = b.days < 0 ? '<b>' + Math.abs(b.days) + 'd</b><small>late</small>' : b.days === 0 ? '<b>Today</b>' : b.days === 1 ? '<b>Tmrw</b>' : '<b>' + Number(b.due.slice(8, 10)) + '</b><small>' + MONTHS[Number(b.due.slice(5, 7)) - 1] + '</small>';
-      // Paid: log it from here, pre-filled (a card's repayment and what the property manager pays come with their statements).
-      var paid = b.card || b.agent ? '' : '<button type="button" class="home-bill-paid" data-bill-paid="' + escapeAttr(b.id) + '" data-bill-due="' + escapeAttr(b.due) + '" data-bill-amount="' + escapeAttr(String(b.amount)) + '" aria-label="Log ' + escapeAttr(b.what) + ' as paid">Paid</button>';
-      return '<li><span class="home-date ' + tone + '" aria-hidden="true">' + chip + '</span><span class="home-bill-name" title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + tone + '">' + when + '</em><b>' + money(b.amount) + '</b>' + paid + '</li>';
-    }).join("") + '</ul>' + (bills.length > 5 ? '<small>and ' + (bills.length - 5) + ' more</small>' : '')
-    : emptyStateHtml("Nothing expected. Bills appear here once a payment has been logged against their budget line.", { go: "expenses/spending", label: "Go to Transactions →", className: "home-note" })) + '</div>';
-
   var todos = opts.todos || homeTodos();
+  // Needs you (the owner: Today as the place to know where you stand — what needs you first): the bills due this week,
+  // each with Paid, and the to-dos, in one list. Bills further out are a link to the Bills calendar.
+  var soon = bills.filter(function(b){ return b.days <= 7; }), later = bills.length - soon.length;
+  var billRows = soon.slice(0, 5).map(function(b){
+    var when = b.days < 0 ? "overdue " + Math.abs(b.days) + "d" : b.days === 0 ? "today" : b.days === 1 ? "tomorrow" : shortDate(b.due, today);
+    // A date chip, tinted by how soon: overdue, within three days, later.
+    var tone = b.days < 0 ? "bad" : b.days <= 3 ? "warn" : "";
+    var chip = b.days < 0 ? '<b>' + Math.abs(b.days) + 'd</b><small>late</small>' : b.days === 0 ? '<b>Today</b>' : b.days === 1 ? '<b>Tmrw</b>' : '<b>' + Number(b.due.slice(8, 10)) + '</b><small>' + MONTHS[Number(b.due.slice(5, 7)) - 1] + '</small>';
+    // Paid: log it from here, pre-filled (a card's repayment and what the property manager pays come with their statements).
+    var paid = b.card || b.agent ? '' : '<button type="button" class="home-bill-paid" data-bill-paid="' + escapeAttr(b.id) + '" data-bill-due="' + escapeAttr(b.due) + '" data-bill-amount="' + escapeAttr(String(b.amount)) + '" aria-label="Log ' + escapeAttr(b.what) + ' as paid">Paid</button>';
+    return '<li><span class="home-date ' + tone + '" aria-hidden="true">' + chip + '</span><span class="home-bill-name" title="' + escapeAttr(b.what) + '">' + escapeAttr(b.what) + '</span><em class="' + tone + '">' + when + '</em><b>' + money(b.amount) + '</b>' + paid + '</li>';
+  });
   var more = todos.length - HOME_TODO_MAX;
-  var todoCard = '<div class="home-card home-todo" data-home-card="todo"><span class="home-k">To do</span>' +
-    (todos.length ? '<ul class="home-list">' + todos.slice(0, HOME_TODO_MAX).map(function(t){
-      return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + escapeAttr(t.title) + ' <span aria-hidden="true">›</span></button></li>';
-    }).join("") + '</ul>' + (more > 0 ? '<button type="button" class="link-btn home-todo-all" data-open-bell>All ' + todos.length + ' to-dos →</button>' : '')
-    : '<p class="home-note">All done — nothing needs you right now.</p>') + '</div>';
+  var todoRows = todos.slice(0, HOME_TODO_MAX).map(function(t){
+    return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + escapeAttr(t.title) + ' <span aria-hidden="true">›</span></button></li>';
+  });
+  var needsCount = soon.length + todos.length;
+  var needsCard = '<div class="home-card home-needs" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
+    (billRows.length ? '<div class="home-sub">Bills this week</div><ul class="home-list home-bill-list">' + billRows.join("") + '</ul>' : '') +
+    (todoRows.length ? (billRows.length ? '<div class="home-sub">To do</div>' : '') + '<ul class="home-list">' + todoRows.join("") + '</ul>' : '') +
+    (!billRows.length && !todoRows.length ? emptyStateHtml("Nothing due this week and nothing to do — you're up to date.", { done: true, className: "home-note" }) : '') +
+    '<div class="home-needs-links">' + (more > 0 ? '<button type="button" class="link-btn home-todo-all" data-open-bell>All ' + todos.length + ' to-dos →</button>' : '') +
+      '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="bills">' + (later > 0 ? later + ' more bill' + (later === 1 ? '' : 's') + ' in the next fortnight →' : 'Bills calendar →') + '</button></div></div>';
 
+  // The glance (the owner: one look at the top says where things stand): four figures, each a way to its card.
+  var nextBill = bills[0];
+  var glanceTile = function(go, label, value, sub, tone){
+    return '<button type="button" class="home-glance-tile" data-glance-go="' + go + '"><span class="home-glance-k">' + label + '</span><b class="' + (tone || "") + '">' + value + '</b><small>' + sub + '</small></button>';
+  };
+  var glance = '<nav class="home-glance" data-home-card="glance" aria-label="At a glance">' +
+    (nwEmpty ? glanceTile("nw", "Net worth", "—", "") : glanceTile("nw", "Net worth", fmtCompact(nw), trend ? '<span class="' + (trend.change >= 0 ? "up" : "down") + '">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + '</span>' : 'as of today')) +
+    (monthEmpty ? glanceTile("month", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
+      : glanceTile("month", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent", saved >= 0 ? "up" : "down")) +
+    glanceTile("needs", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight", nextBill && nextBill.days <= 1 ? "warn" : "") +
+    glanceTile("needs", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear", needsCount ? "" : "up") +
+  '</nav>';
+
+  // Glance, then what needs you, then the month and net worth; goals, the year in review and the week's recap after.
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
+    // A household with nothing in it has nothing to glance at: its cards below say what to enter, each with where.
+    (opts.glance === false || (nwEmpty && monthEmpty) ? '' : glance) +
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
-    '<div class="home-grid">' + monthCard + nwCard + billsCard + todoCard + '</div>' +
-    (opts.week === false ? '' : weekCardHtml(today)) + (opts.yearReview === false ? '' : yearReviewCardHtml(opts.notifications)) + goalsStripHtml(today);
+    '<div class="home-grid">' + needsCard + monthCard + nwCard + '</div>' +
+    goalsStripHtml(today) + (opts.yearReview === false ? '' : yearReviewCardHtml(opts.notifications)) + (opts.week === false ? '' : weekCardHtml(today));
 }
 
 // #396: once a household year has finished with something logged in it, a card that opens Reports → Year in review —

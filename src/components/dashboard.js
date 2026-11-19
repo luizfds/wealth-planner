@@ -330,7 +330,10 @@ export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
       '<button type="button" class="link-btn" data-dashboard-jump="projections">Plan → Projections</button>.</p>' +
     scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected difference compares each scenario with the baseline at the same horizon, not with today’s net worth. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway and reserve target gap use the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. Reserve target gap is the difference between the scenario’s essential-reserve target and those current balances; it is not the same as an upfront funding gap. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
-export function renderDashboardStats(){
+// #282: also called on its own (opening and closing setup, a click on Home), not only inside the full redraw's keepUi —
+// so it keeps focus itself: replacing the focused "Guided setup" button left keyboard focus on the page body.
+export function renderDashboardStats(){ return keepUi(drawDashboardStats); }
+function drawDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
   var isComparing = state.scenarios.length > 1;

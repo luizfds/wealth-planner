@@ -24,6 +24,7 @@
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   basicinvestmenthelp — described recording actions, Super/Vehicle method help, chart names and saved snapshots
 //   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
+//   setupfocusrace — closing setup returns focus to Guided setup when its replacement shows late or is redrawn (#282)
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
 //   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
@@ -6767,6 +6768,45 @@ const JOURNEYS = {
       });
     });
     check(funding,'Investments settlement table disagrees with the purchase warning');
+  },
+  // #282: closing setup puts focus back on "Guided setup" even when the button drawn in place of the one it was opened
+  // from isn't showing yet, and when a redraw outside the full one replaces it just after. Both left focus on the body.
+  async setupfocusrace(page){
+    for(const race of ['hidden at first', 'replaced after']){
+      await page.evaluate(async () => {
+        const s = await import('/src/state.js'); s.setState(s.defaultState());
+        (await import('/src/calc/engine.js')).recalcComputedItems();
+        (await import('/src/components/redraw.js')).renderAll();
+      });
+      await go(page, 'dashboard');
+      const opener = page.locator('#dashboardSetup [data-firstrun-open]');
+      await opener.focus(); await page.keyboard.press('Enter');
+      await waited(page, () => !!document.querySelector('#firstRunRoot [role="dialog"]'), 'setup open');
+      await page.evaluate(async race => {
+        const card = document.getElementById('dashboardSetup');
+        if(race === 'hidden at first'){
+          // The close draws a new Guided setup; it stays hidden for two frames.
+          const ob = new MutationObserver(() => {
+            if(!card.querySelector('[data-firstrun-open]')) return;
+            ob.disconnect(); card.style.display = 'none';
+            requestAnimationFrame(() => requestAnimationFrame(() => { card.style.display = ''; }));
+          });
+          ob.observe(card, { childList: true, subtree: true });
+        } else {
+          const { renderDashboardStats } = await import('/src/components/dashboard.js');
+          document.addEventListener('focusin', function f(e){
+            if(!e.target.matches('[data-firstrun-open]')) return;
+            document.removeEventListener('focusin', f, true); setTimeout(renderDashboardStats, 20);
+          }, true);
+        }
+      }, race);
+      await page.keyboard.press('Escape');
+      await waited(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'), 'setup closed');
+      await waited(page, () => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]'), 'focus back on Guided setup (' + race + ')');
+      await page.waitForTimeout(100);
+      check(await page.evaluate(() => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')), 'focus left Guided setup after setup closed (' + race + ')');
+      await page.evaluate(() => { document.getElementById('dashboardSetup').style.display = ''; });
+    }
   },
   async keyboardaudit(page){
     page.setDefaultTimeout(10000);

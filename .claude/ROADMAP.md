@@ -4382,7 +4382,7 @@ or a direct write into `state`, and the baseline has to come down when the file'
 became 207; 198 direct writes remain. Moving the rest is part of 236, view by view, as each view is made to redraw
 on what it reads.
 
-## 236. `[~]` Views that follow the data, drawn when seen
+## 236. `[x]` Views that follow the data, drawn when seen
 Two PRs:
 
 ### 236a. `[x]` Pages drawn when seen
@@ -4745,7 +4745,8 @@ and issues #214–216 were closed.
 
 ## Usability and accessibility follow-up — v3.227.1
 
-`[~]` Walk through onboarding, comparisons, recurring rules and reports with synthetic data.
+`[x]` Walk through onboarding, comparisons, recurring rules and reports with synthetic data. (Done: the accessibility
+job runs on every PR; what's left — real screen readers on real devices — is issue #299.)
 Fix confirmed keyboard, landmark, table, mobile layout and contrast defects; add a repeatable
 accessibility CI job and browser regression. Evidence: `docs/audits/usability-accessibility-v3.227.1.md`.
 Draft PR only; physical device and actual screen-reader validation remain separate limitations.
@@ -4778,7 +4779,7 @@ or a small series; no merge or deployment until reviewed. Issue #267 (regression
    tokens, so issue #263 isn't held behind a large redesign.
 4. `[x]` **Issue #263: inline validation before persisting financial inputs** — every family shipped (PRs #274,
    #285–#297); rules and what was left alone in `docs/design/validation.md`.
-   `[~]` Then page migrations: issue #255 (page structure — design pass first, as the issue asks), #261,
+   `[x]` Then page migrations (all closed): issue #255 (page structure — design pass first, as the issue asks), #261,
    #258/#259/#260 (shared mobile patterns) and #266.
 5. `[x]` **Issues #264 (search) and #265 (import)**: a separate design pass each, agreed before implementation. Both done: #264 earlier, #265 with the backup restore slice (`docs/design/imports.md`).
 
@@ -4997,7 +4998,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
    - Final #258 surfaces shipped v3.251.0 (PR #326): month-by-month spending numbers
      and scenario purchase-funding summaries. Existing spending bar strips and report heatmap summaries
      are covered alongside the remaining optional comparisons. Step 4 is complete.
-5. `[~]` **Finish.** Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
+5. `[x]` **Finish.** (Every issue named here is closed.) Issue #254's remaining field families (one skin), #255's steps 3–4 (empty states, tooltip help),
    #301 (error summary), #307 (the period, legible), #308 (visual finish pass), #309 (one first-run path).
    - Investment transaction fields (#254) shipped v3.252.0 (PR #327): shared control skin
      for lots/distributions and shared labelled statement fields. Holdings/sale fields already use the adapter.
@@ -5039,7 +5040,7 @@ Each step is its own reviewable PR or small series, in this order. Issue #267 (r
      the smoke run checks each one in the empty household. Also: a page change no longer closes a sheet opened while it
      waited to apply (on a slow device, startup closed an empty household's setup and marked it skipped). Step 4
      (tooltip help to ⓘ) follows in its own PR.
-   - `[~]` #255 step 4, tooltip help to ⓘ: migrate view by view, starting with Spending. Explanations use
+   - `[x]` #255 step 4, tooltip help to ⓘ (every view below, #255 closed): migrate view by view, starting with Spending. Explanations use
      the existing help controls; chart figures retain hover titles with screen-reader labels. Full charts keep
      their existing tap tooltips. Native figure titles remain hover-only on touch. Spending shipped v3.267.0
      (PR #351), with the smoke check and `spendinghelp` journey, including the fix for sticky phone section headers
@@ -5518,3 +5519,16 @@ count names the next step's place in the list ("step 3 of 4" for the budget step
 4. Issue #390: all of it shipped, as the owner's five slices (#396–#400). The guided review with a Home card,
    reconciliation, savings account vs offset, the next-year plan and monthly progress each have a journey.
    Benefits are links only, and provider switching was dropped (owner's decision on the issue). Closed by this PR.
+
+## Housekeeping: onboardingaudit's stuck backdrop, stale markers, a screen-reader script for #299
+
+`[x]` One PR:
+- `onboardingaudit` on PR #311 (recorded on #282): Guided setup couldn't be clicked for 9s behind the setup sheet's
+  backdrop. Not reproduced: 18 of 18 at 6× CPU with six suites at once. The one cause found that could do it is ruled
+  out by measurement: startup offers setup 300ms on only if the loaded household is empty, and on a journey's `?mock=1`
+  load that timer is never armed (the 300ms timeouts were counted: none). The failure predates v3.266.0 (PR #349), which
+  fixed a page change closing a setup sheet that was waiting to open — the same open/close flow on a slow device.
+  `openSetup()` already reports the dialog, its step, the backdrop, the overlay stack and the history state if it
+  happens again. No code change.
+- Five `[~]` markers whose work had shipped (236, the v3.227.1 follow-up, #253's step 4 and 5, #255 step 4) are `[x]`.
+- `docs/audits/screen-reader-checklist.md`: a script for issue #299, to run on a phone with VoiceOver or TalkBack.

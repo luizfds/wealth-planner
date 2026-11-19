@@ -3,6 +3,7 @@ import { emergencyFund, EMERGENCY_MONTHS } from "../calc/emergency.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { stackBarHtml, progressBarHtml } from "../lib/bars.js";
+import { categoryColorClass } from "../lib/caticons.js";
 
 // ---------------- Accounts → Emergency fund (v3.94.0) — calc/emergency.js ----------------
 export function renderEmergencyFund(){
@@ -25,7 +26,7 @@ export function emergencyHtml(f){
     ? 'Your cash and offsets (' + money(f.available) + ') cover it — about ' + monthsText(f.coveredMonths) + ' of essentials.'
     : 'Your cash and offsets hold ' + money(f.available) + ' — ' + money(f.target - f.available) + ' short, about ' + monthsText(f.coveredMonths) + ' of essentials.';
   // What counts as essential, as one bar of a month's essentials (the list is under "Every line").
-  var groups = stackBarHtml(f.groups.map(function(g){ return { label: g.category, value: g.monthly }; }), { label: "A month of essentials, " + money(f.monthly) });
+  var groups = stackBarHtml(f.groups.map(function(g){ return { label: g.category, value: g.monthly, cat: categoryColorClass(g.category) }; }), { label: "A month of essentials, " + money(f.monthly) });
   var lines = f.lines.map(function(l){
     return '<li><span>' + escapeAttr(l.what) + (l.actual != null && l.actual > l.planned + 0.5 ? ' <small>spent ' + money(l.actual) + ', above the ' + money(l.planned) + ' planned</small>' : '') + '</span><b>' + money(l.counted) + '</b></li>';
   }).join("");

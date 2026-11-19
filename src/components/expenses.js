@@ -2235,9 +2235,10 @@ function drawSpendingTrends(){
   // v3.158.0 (item 188): six small charts before "Show all", not eight.
   var cappedTrend = capList(view.rows.map(function(r){ return { r: r, over: 0, size: r.values.reduce(function(s, v){ return s + (Number(v) || 0); }, 0) }; }), 6, listsShowAll.trend);
   var rowsHtml = cappedTrend.shown.map(function(x){ return x.r; }).map(function(r){
-    return '<div class="trend-row">' +
+    // November 2026: a category is its colour and icon everywhere — the same as its slice of the donut above.
+    return '<div class="trend-row ' + categoryColorClass(r.category) + '">' +
       '<div class="trend-row-head">' +
-        '<span class="trend-row-name">' + escapeAttr(r.category) + '</span>' +
+        '<span class="trend-row-name">' + categoryIconHtml(r.category, { small: true }) + escapeAttr(r.category) + '</span>' +
         // Month-to-date, not the whole-month figure, whenever the month is still running: this
         // number and the delta beside it have to be the same number, and they'd differ for anyone
         // who has logged a bill dated later this month.

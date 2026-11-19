@@ -5532,3 +5532,11 @@ count names the next step's place in the list ("step 3 of 4" for the budget step
   happens again. No code change.
 - Five `[~]` markers whose work had shipped (236, the v3.227.1 follow-up, #253's step 4 and 5, #255 step 4) are `[x]`.
 - `docs/audits/screen-reader-checklist.md`: a script for issue #299, to run on a phone with VoiceOver or TalkBack.
+
+## Accounts: one switcher, a page per kind (November 2026)
+
+`[~]` Reported: Accounts filters by kind (All · Cash · Investments · Super · Property · Other things · Debts), each
+group had a "Manage on X →" link, and the page behind it — Investments — had its own pills (Cash · Shares · Super ·
+Vehicle · Other · Offsets) under different names. Two switchers, one inside the other. The owner chose: Accounts'
+chips are the only switcher; each group's heading opens a page for just that kind, titled with the group's name, with
+no pills; the "Manage on" links go.

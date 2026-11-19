@@ -1404,7 +1404,7 @@ function drawTransactions(){
   var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, TRANSACTIONS_RECENT_COUNT);
   // v3.117.0: the table, on a wide screen when chosen.
   if(txGrid.on && (typeof window === "undefined" || window.innerWidth > 720)){
-    container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length) +
+    container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length, shown) +
       txGridHtml(visible, { transactions: state.transactions, lineOptions: transactionLinkOptionsHtml, accountOptions: transactionAccountOptionsHtml, today: localDateStr(), picking: txSelect.on }) +
       (hasMore ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' + (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) + '</button></div>' : '');
     return;
@@ -1429,7 +1429,7 @@ function drawTransactions(){
         (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +
       '</button></div>'
     : "";
-  container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length) + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length, shown) + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 // The entries currently on screen that are spending rows — what "Select all shown" picks.
 export function visibleSpendingIndices(){

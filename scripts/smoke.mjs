@@ -60,7 +60,6 @@ const VIEWS = [
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
   ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
-  ".inv-strip",                            // Investments' sections as pills with totals, never a dropdown (the owner's choice, #422)
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
   ".scenario-tradeoffs [role=region]",     // Home's scenario comparison table, every column a figure (#266)
@@ -94,7 +93,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
     for (const sub of subs) {
       if(sub) {
         // #412: Today's views open from links, with no tab for its first view — chosen through nav.js.
-        const hasSub = await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return true; } if(a === 'report'){ const chooser = document.querySelector('[data-report-choose]'); if(chooser) chooser.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
+        const hasSub = await page.evaluate(async ([a, s]) => { if(a === 'dashboard-sub'){ (await import('/src/components/nav.js')).showDashboardSubpage(s); return true; } if(a === 'assets-sub'){ (await import('/src/components/nav.js')).showAssetsSubpage(s); return true; } if(a === 'report'){ const chooser = document.querySelector('[data-report-choose]'); if(chooser) chooser.click(); } const b = document.querySelector('[data-' + a + '="' + s + '"]'); if(b) b.click(); return !!b; }, [attr, sub]);
         if(!hasSub && SHOTS) continue;
         if(attr === 'report') await page.waitForFunction(key => !document.querySelector('[data-report-choose]') || (!!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser')), sub);
         await page.waitForTimeout(250);
@@ -155,7 +154,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
         const small = [];
         // #259: document overflow alone misses sideways navigation inside a rail.
         // Financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
-        const navigationOverflow = [...pageEl.querySelectorAll('.subnav:not(.inv-strip), .time-range-control:not(.range-strip)')]
+        const navigationOverflow = [...pageEl.querySelectorAll('.subnav, .time-range-control:not(.range-strip)')]
           .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1)
           .map(el => el.getAttribute('aria-label') || el.id);
         if(w < 880){
@@ -344,8 +343,8 @@ if(!SHOTS){
     await go("networth"); checkPage("networth");
     // #428: no rail — Accounts' list offers a Property chip only once there is a property.
     if(available('#netWorthBody [data-nw-filter="property"]')) out.push("the Property chip shows with no property");
-    await go("assets");
-    if(available('[data-assets-sub="Shares"]')) out.push("the Shares tab shows with no shares");
+    // Accounts' chips are the one switcher: no Investments group (nor its heading to that page) without shares.
+    if(available('#netWorthBody [data-go="assets/Shares"]')) out.push("Investments shows with no shares");
     await go("reports"); checkPage("reports");
     if(/Property P&L|Capital gains/.test(page().innerText)) out.push("property or share reports offered");
     document.querySelector('[data-page="dashboard"]').click(); await wait(400);

@@ -41,7 +41,7 @@ import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js"
 import { readInput } from "../lib/validate.js";
 import { initSectionPickers } from "../lib/sectionpicker.js";
 
-var navMenuToggle, topbar, compact, ASSETS_SUB_ORDER, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
+var navMenuToggle, topbar, compact, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
 
 // ---------------- Quick actions menu (#304: opened from the avatar menu, or by the button on a page with no action of its own) ----------------
 function openQuickActions(){
@@ -139,14 +139,6 @@ function firstVisibleAddButton(pageId){
   return Array.prototype.find.call(section.querySelectorAll("[data-add]"), function(el){
     return el.offsetParent !== null;
   }) || null;
-}
-function stepAssetsSubpage(step){
-  if(!window.matchMedia("(max-width: 880px)").matches) return;
-  var activeBtn = document.querySelector("#assetsSubnav .subnav-item.active");
-  var current = activeBtn ? activeBtn.getAttribute("data-assets-sub") : "Cash";
-  var nextIndex = ASSETS_SUB_ORDER.indexOf(current) + step;
-  if(nextIndex < 0 || nextIndex >= ASSETS_SUB_ORDER.length) return;
-  showAssetsSubpage(ASSETS_SUB_ORDER[nextIndex]);
 }
 function stepExpensesSubpage(step){
   if(!window.matchMedia("(max-width: 880px)").matches) return;
@@ -315,11 +307,6 @@ export function wireNavigation(){
     persist();
   });
   document.getElementById("checkUpdatesLink").addEventListener("click", runManualUpdateCheck);
-  document.getElementById("assetsSubnav").addEventListener("click", function(e){
-    var btn = e.target.closest("[data-assets-sub]");
-    if(!btn) return;
-    showAssetsSubpage(btn.getAttribute("data-assets-sub"));
-  });
   // v3.138.0: Income → Show as — the same figures per year, month, fortnight, week, day or hour.
   document.getElementById("incomeGroups").addEventListener("click", function(e){
     var b = e.target.closest("[data-showas]");
@@ -383,15 +370,7 @@ function goPage(pageId){
   showPage(pageId);
 }
 export function wireSubpages(){
-  // Swipe between Assets' Cash/Shares/Super/Vehicle/Other tabs on mobile — desktop already has
-  // the subnav buttons within easy reach, so this only kicks in below the app's usual mobile
-  // breakpoint. No wraparound (swiping past the last tab does nothing) — a jump from Other back
-  // to Summary would be more disorienting than a swipe that simply stops.
-  ASSETS_SUB_ORDER = ["Cash", "Shares", "Super", "Vehicle", "Other"];
-  onHorizontalSwipe(document.getElementById("page-assets"), {
-    onSwipeLeft: function(){ stepAssetsSubpage(1); },
-    onSwipeRight: function(){ stepAssetsSubpage(-1); }
-  });  // v3.164.0 (item 194): a flexible category rolls what it doesn't spend into next month, from this month on.
+  // No swipe between Investments' sections now: each is its own page, opened from its group on Accounts.  // v3.164.0 (item 194): a flexible category rolls what it doesn't spend into next month, from this month on.
   document.addEventListener("change", function(e){
     var cb = e.target.closest && e.target.closest("[data-rollover]");
     if(!cb) return;

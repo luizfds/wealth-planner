@@ -5535,8 +5535,23 @@ count names the next step's place in the list ("step 3 of 4" for the budget step
 
 ## Accounts: one switcher, a page per kind (November 2026)
 
-`[~]` Reported: Accounts filters by kind (All · Cash · Investments · Super · Property · Other things · Debts), each
+`[x]` Reported: Accounts filters by kind (All · Cash · Investments · Super · Property · Other things · Debts), each
 group had a "Manage on X →" link, and the page behind it — Investments — had its own pills (Cash · Shares · Super ·
 Vehicle · Other · Offsets) under different names. Two switchers, one inside the other. The owner chose: Accounts'
 chips are the only switcher; each group's heading opens a page for just that kind, titled with the group's name, with
 no pills; the "Manage on" links go.
+
+What shipped:
+- Each group's heading on Accounts is a button to its kind's page (`.nw-go`, the whole bar with a chevron): Cash and
+  Debts → Bank accounts, Investments → Shares, Super → Super, Property → Property, Other things → Vehicle and Other
+  together. The "Manage on X →" rows went.
+- Investments (`page-assets`) has no pills (`#assetsSubnav`, its totals and the swipe between sections went). The page
+  is titled with the group it shows (`ASSET_PAGE_TITLES` in constants.js: Shares is "Investments", Vehicle/Other "Other
+  things"), in the header, the breadcrumb (Accounts › Investments) and a holding's Details link ("Manage on Super").
+- Moving a holding to another kind sends focus to the page's heading (it was the pill).
+- Found while checking it: the header's ⓘ, a little way down a page, opened the intros at its top and scroll anchoring
+  jumped the page down past them (202px on Super at 320px). The page stays put now, and comes up only as far as shows
+  the help (journey `pagehelpstays`, which fails without it).
+- An open row's card stops clipping (`.m-card:has(.m-row.open)`): a fixed sheet already escapes it on screen, but axe
+  clipped the open editor to the card's box where they overlapped and read the backdrop (3 states at 1280px light once
+  the Shares card moved up 48px; the pixels were right).

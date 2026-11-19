@@ -18,9 +18,10 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
   Income tab, still `#expensesSub-income`, where `/expenses/income` and every Income link land) then Money out.
   Transactions is the old Spending (`data-expenses-sub="spending"`, `/expenses/spending`).
 - **Accounts** (was Net worth; #428): the page is one list (`page-networth`), and the editing pages are behind it with
-  no rail — Bank accounts (`page-accounts`), Investments (`page-assets`), Property (`page-properties`) — reached from an
-  item's Details (its "Manage on …" link), + and search, each with the header's "‹ Accounts". The list is one list with chips by kind
-  (`setNetWorthFilter`), and under it, folded, the allocation, purchase funding, net worth over time and where wealth
+  no rail — Bank accounts (`page-accounts`), Investments (`page-assets`), Property (`page-properties`) — reached from a
+  group's heading on Accounts, an item's Details (its "Manage on …" link), + and search, each with the header's
+  "‹ Accounts". The list is one list with chips by kind (`setNetWorthFilter`) — the one switcher: `page-assets` has no
+  pills and is titled with the group it shows (`ASSET_PAGE_TITLES`; "Other things" is Vehicle and Other together), and under it, folded, the allocation, purchase funding, net worth over time and where wealth
   sits (`#netWorthMore`, view `netWorthMore`). Debts are edited on Accounts (view `debts`). Investments has no Summary
   since #413: it opens on Cash, and `/assets/summary` lands there.
 - **Tax**: Year / Returns / Documents / People. **Plan** (`page-plan`): Scenarios / Projections / Goals / Retirement;

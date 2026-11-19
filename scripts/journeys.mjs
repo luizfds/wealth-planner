@@ -24,6 +24,7 @@
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   basicinvestmenthelp — described recording actions, Super/Vehicle method help, chart names and saved snapshots
 //   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
+//   pagehelpstays — opening a page's help from the header ⓘ a little way down leaves the page where it was
 //   setupfocusrace — closing setup returns focus to Guided setup when its replacement shows late or is redrawn (#282)
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
@@ -317,6 +318,13 @@ async function go(page, pageId, subAttr, sub){
   if(subAttr === 'data-dashboard-sub'){
     await page.evaluate(async s => { const b = document.querySelector('[data-page="dashboard"]'); b.click(); (await import('/src/components/nav.js')).showDashboardSubpage(s); }, sub);
     await page.waitForFunction(s => document.body.getAttribute("data-current-page") === "dashboard" && !document.getElementById("dashboardSub-" + s).hidden, sub, { timeout: 10000 });
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    return;
+  }
+  // Investments' sections have no buttons: Accounts' chips are the one switcher, and each group's heading opens its page.
+  if(subAttr === 'data-assets-sub'){
+    await page.evaluate(async s => { const n = await import('/src/components/nav.js'); n.showPage('assets'); n.showAssetsSubpage(s); }, sub);
+    await page.waitForFunction(s => document.body.getAttribute("data-current-page") === "assets" && !document.getElementById("assetsSub-" + s).hidden, sub, { timeout: 10000 });
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
     return;
   }
@@ -3207,25 +3215,25 @@ const JOURNEYS = {
       await page.waitForFunction(() => document.body.dataset.currentPage === "assets");
     };
     await enter();
-    // #422: Investments' sections are pills with totals, never a dropdown; the way up is the header's "‹ Accounts" (#428).
-    check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
-    await settle(page);
-    await page.evaluate(() => {
-      window.__pickerChanges = 0;
-      window.__pickerObserver = new MutationObserver(ms => { window.__pickerChanges += ms.length; });
-      window.__pickerObserver.observe(document.getElementById("assetsSubnav"), { attributes: true, subtree: true, childList: true });
-    });
-    await page.waitForTimeout(250);
-    check(await page.evaluate(() => { window.__pickerObserver.disconnect(); return window.__pickerChanges < 10; }),
-      "Investments' pills keep changing while idle");
-    for(const label of ["Offsets", "Shares", "Super", "Cash"]){
-      const pill = page.locator('#assetsSubnav [data-assets-sub="' + label + '"]');
-      await pill.tap();
-      await page.waitForFunction(id => !document.getElementById("assetsSub-" + id).hidden, label);
-      check(await pill.getAttribute("aria-current") === "page", "the " + label + " pill is not marked current");
-      check(await page.evaluate(id => { const strip = document.getElementById("assetsSubnav").getBoundingClientRect(); const b = document.querySelector('#assetsSubnav [data-assets-sub="' + id + '"]').getBoundingClientRect();
-        return b.left >= strip.left - 1 && b.right <= strip.right + 1; }, label), "the " + label + " pill is not scrolled into view");
+    // Accounts' chips are the one switcher: the page behind a group has no pills of its own (and never a dropdown), and
+    // is titled with the group's name — a holding's Details goes to its own kind's page.
+    check(!await page.locator('#page-assets .subnav, #page-assets select.section-picker').count(), "Investments' page has a section switcher of its own");
+    check(await page.evaluate(async () => { const t = (await import('/src/constants.js')).ASSET_PAGE_TITLES, shown = [...document.querySelectorAll('.assets-subpage')].find(e => !e.hidden);
+      return !!shown && document.getElementById('pageTitle').textContent === t[shown.id.replace('assetsSub-', '')]; }), "Manage didn't open a page titled with its holding's kind");
+    await page.locator('#pageBack').tap();
+    await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+    // Each group's heading opens its kind's page, named as the group is; Other things is vehicles and the rest together.
+    for(const [go_, title, shown] of [['assets/Shares', 'Investments', ['Shares']], ['assets/Super', 'Super', ['Super']], ['assets/Other', 'Other things', ['Vehicle', 'Other']]]){
+      const heading = page.locator('#netWorthBody .nw-go[data-go="' + go_ + '"]');
+      await heading.scrollIntoViewIfNeeded(); await heading.tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "assets");
+      check(await page.locator('#pageTitle').innerText() === title, go_ + ' is titled ' + await page.locator('#pageTitle').innerText() + ', not ' + title);
+      check(JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.assets-subpage')].filter(e => !e.hidden).map(e => e.id.replace('assetsSub-', '')))) === JSON.stringify(shown), go_ + ' shows the wrong sections');
+      check(!await page.locator('.nw-manage').count(), 'a "Manage on" link is still on Accounts');
+      await page.locator('#pageBack').tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     }
+    await enter();
     const back = page.locator('#pageBack');
     check(await back.isVisible() && (await back.textContent()).includes("Accounts"), "Investments has no header link up to Accounts");
     await back.tap();
@@ -3436,7 +3444,8 @@ const JOURNEYS = {
     await page.locator('#pageCrumbs [data-crumb="0"]').click();
     await page.waitForFunction(() => location.pathname === '/networth');
     for(const width of [390, 1280]){
-      await page.setViewportSize({ width, height: width > 900 ? 800 : 844 });
+      // A desktop window short enough that one kind's list scrolls (each group lost its "Manage on" row to its heading).
+      await page.setViewportSize({ width, height: width > 900 ? 600 : 844 });
       await go(page, 'networth');
       await page.locator('#netWorthBody [data-nw-filter]').nth(1).click();
       const filter = await page.locator('#netWorthBody .nw-chip.is-on').textContent();
@@ -3690,29 +3699,26 @@ const JOURNEYS = {
     for(const width of [320, 390]){
       await page.setViewportSize({ width, height: 844 });
       await go(page, "assets", "data-assets-sub", "Shares");
-      // #422: Investments keeps its pills at every width — no picker — and goes up to Net worth from the header.
-      const pill = id => page.locator('#assetsSubnav [data-assets-sub="' + id + '"]');
-      await pill("Shares").waitFor({ state: "visible" });
-      check(!await page.locator('#assetsSubnav select').count(), "Investments' sections became a dropdown");
-      check(await pill("Shares").getAttribute("aria-current") === "page", "deep-linked Shares is not the selected section");
+      // Accounts' chips are the one switcher: Investments has no pills or picker of its own, at any width, and goes up
+      // to Accounts from the header.
+      await page.locator('#sharesChangeWindow').waitFor({ state: "visible" });
+      check(!await page.locator('#page-assets .subnav, #page-assets select.section-picker').count(), "Investments has a section switcher of its own");
+      check(await page.locator('#pageTitle').innerText() === 'Investments', "deep-linked Shares is not titled Investments");
       check(!await page.locator('.nw-rail').count(), "a Net worth rail is back");
       check(await page.locator('#pageBack').isVisible() && (await page.locator('#pageBack').textContent()).includes("Accounts"), "Investments has no Accounts back link");
       const range = page.locator('#sharesChangeWindow [data-shares-change-window="1w"]');
       await range.click();
       check(!await page.locator('#sharesChangeWindow select').count(), "Shares range strip became a section picker");
-      await pill("Offsets").focus();
-      await page.keyboard.press('Enter');
-      await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
-      check(await pill("Offsets").getAttribute("aria-current") === "page", "keyboard choice did not select Offsets");
-      await pill("Super").click();
-      await page.waitForFunction(() => !document.getElementById('assetsSub-Super').hidden);
+      // Back from one kind's page to another's (both opened from Accounts) restores the first, title and all.
+      await page.evaluate(async () => (await import('/src/components/nav.js')).showAssetsSubpage('Super'));
+      await page.waitForFunction(() => !document.getElementById('assetsSub-Super').hidden && document.getElementById('pageTitle').textContent === 'Super');
       await page.goBack();
-      await page.waitForFunction(() => !document.getElementById('assetsSub-Offsets').hidden);
+      await page.waitForFunction(() => !document.getElementById('assetsSub-Shares').hidden);
       await settle(page);
-      check(await pill("Offsets").getAttribute("aria-current") === "page", "Back did not restore the selected pill");
+      check(await page.locator('#pageTitle').innerText() === 'Investments', "Back did not restore Investments' title");
       await page.setViewportSize({ width: 1280, height: 800 });
-      // #428: no rail on a desktop either — the pills, and the header's way up to Accounts.
-      check(await pill("Offsets").isVisible() && (await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts', "desktop did not show the pills and the way up (Accounts › Investments)");
+      // #428: no rail on a desktop either — the header's way up: Accounts › Investments.
+      check((await page.locator('#pageCrumbs').innerText()).replace(/\s+/g, ' ').trim() === 'Accounts Investments' && (await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts', "desktop did not show the way up (Accounts › Investments): " + await page.locator('#pageCrumbs').innerText());
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
       const prop = page.locator('#propertiesBody .prop-tabs').first();
@@ -6046,11 +6052,10 @@ const JOURNEYS = {
       const field = document.querySelector('#assetsSub-Cash .m-row.open .a-category');
       field.value = 'Other'; field.dispatchEvent(new Event('change', {bubbles:true}));
     }));
-    await page.waitForFunction(() => document.activeElement.matches('#assetsSubnav .subnav-item.active[data-assets-sub="Cash"]') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
-    // Each pill's total is its section's own Total, so the move shows on both pills straight away.
-    check(await page.evaluate(async () => { const a = await import('/src/components/assets.js'), f = await import('/src/lib/format.js'), t = a.investmentsStripTotals();
-      return ["Cash", "Other"].every(k => document.querySelector('[data-inv-total="' + k + '"]').textContent === f.fmtCompact(t[k])) && t.Other > 0; }),
-      "the Cash and Other pills' totals did not follow the move");
+    // The row has gone to another kind's page: focus goes to this page's heading (there are no pills to go to).
+    await page.waitForFunction(() => document.activeElement.id === 'pageTitle' && document.activeElement.textContent === 'Cash', null, {timeout:5000});
+    // It counts under Other things on Accounts straight away.
+    check(await page.evaluate(async () => (await import('/src/state.js')).state.assets.some(a => a.category === 'Other')), "the moved holding isn't under Other");
   },
   async assetfields(page){
     const indexOf=id=>page.evaluate(async id=>(await import('/src/state.js')).state.assets.findIndex(x=>x.id===id),id);
@@ -6087,7 +6092,7 @@ const JOURNEYS = {
     await row.getByLabel('Category',{exact:true}).selectOption('Other');
     await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     check(await saved('demo-cash-everyday','category')==='Other' && await saved('demo-cash-everyday','amount')===5000,'Moving category changed the stored value');
-    await page.waitForFunction(()=>document.activeElement.matches('#assetsSubnav .subnav-item.active') && !!document.activeElement.getClientRects().length, null, {timeout:5000});
+    await page.waitForFunction(()=>document.activeElement.id==='pageTitle', null, {timeout:5000});
     await go(page,'assets','data-assets-sub','Other');
     const moved=page.locator('#assetsSub-Other .m-row[data-index="'+idx+'"]');
     await moved.locator('[data-row-toggle]').first().click();
@@ -6810,6 +6815,23 @@ const JOURNEYS = {
       await page.waitForTimeout(100);
       check(await page.evaluate(() => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')), 'focus left Guided setup after setup closed (' + race + ')');
       await page.evaluate(() => { document.getElementById('dashboardSetup').style.display = ''; });
+    }
+  },
+  // The header's ⓘ opens the page's intros, at its top. A little way down the page, scroll anchoring kept what was below
+  // them in place as they opened: the page jumped down past the help just asked for (202px at 320px on Super).
+  async pagehelpstays(page){
+    for(const width of [320, 390]){
+      await page.setViewportSize({ width, height: 844 });
+      await go(page, 'assets', 'data-assets-sub', 'Super');
+      await page.evaluate(() => window.scrollTo(0, 40));
+      await page.waitForFunction(() => scrollY === 40);
+      await page.evaluate(() => document.getElementById('pageHelpBtn').click());
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
+      const at = await page.evaluate(() => ({ y: scrollY, intro: document.querySelector('#page-assets .page-intro').getBoundingClientRect().top, header: document.querySelector('.app-topbar').getBoundingClientRect().bottom }));
+      // Never down; up only as far as shows the help that opened (it starts under the taller header at 320px).
+      check(at.y <= 40 && at.intro >= at.header - 1, width + ': opening page help moved the page down, or left it under the header: ' + JSON.stringify(at));
+      await page.evaluate(() => document.getElementById('pageHelpBtn').click());
+      await page.evaluate(() => window.scrollTo(0, 0));
     }
   },
   async keyboardaudit(page){

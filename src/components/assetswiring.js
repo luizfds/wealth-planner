@@ -472,8 +472,9 @@ export function wireAssets(){
           if(state.assets.indexOf(asset) === -1 || asset.category !== category) return;
           renderAssets();
           var saved = persist();
-          // Focus goes to the section's pill — at every width the one control for it (#422: no picker).
-          var target = document.querySelector("#assetsSubnav .subnav-item.active");
+          // Focus goes to the page's heading: the row it was on has moved to another kind's page.
+          var target = document.getElementById("pageTitle");
+          if(target && !target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
           if(target && document.body.getAttribute("data-current-page") === "assets" && !document.querySelector("dialog[open]")) target.focus();
           if(saved) showToast("Moved to " + category);
         });

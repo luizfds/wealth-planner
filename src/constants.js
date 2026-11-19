@@ -32,6 +32,9 @@ export function sacrificeModeToLabel(mode){ return mode === "percent" ? "Sacrifi
 export function sacrificeLabelToMode(label){ return label === "Sacrifice %" ? "percent" : label === "Sacrifice $" ? "amount" : "none"; }
 
 export var ASSET_CATEGORIES = ["Cash", "Shares", "Super", "Vehicle", "Other"];
+// Each Investments section's page title: the name of its group on Accounts, whose chips are the one switcher. Vehicle
+// and Other are one page, Accounts' "Other things".
+export var ASSET_PAGE_TITLES = { Cash: "Cash", Shares: "Investments", Super: "Super", Vehicle: "Other things", Other: "Other things", Offsets: "Offsets" };
 export var LIQUID_CATEGORIES = ["Cash", "Shares"];
 export var SHARE_MARKETS = ["ASX", "US", "Crypto"];
 // What currency a Shares holding's price is actually quoted in, by market — every other figure

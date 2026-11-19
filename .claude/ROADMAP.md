@@ -5598,3 +5598,10 @@ mark where today falls in the month — and the planned surplus and the reserve 
 coloured change chip, a filled line full width, and its two parts as chips. Bills: a date chip each, tinted by how
 soon (the date in words stays for screen readers). Each bar's accessible name says what it draws. Kept, shortened:
 "Planned monthly surplus" (planned isn't logged) and "Recorded balances · as of" (assessment follow-up).
+
+## Pictures before words, beyond Today (November 2026)
+
+`[~]` The owner liked Today's bars and chart and asked for the same, all at once, where pages read as text:
+Money → Budget's "Your month, planned" (in and out as one bar, out by kind), Plan → Goals' emergency fund (one bar
+with the 3/6/12-month marks, "if one income stopped" and the essentials as bars), Plan → Scenarios (a comparison strip
+of monthly savings) and Money → Transactions' header (in and out as a bar, a strip by category).

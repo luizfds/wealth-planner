@@ -3232,7 +3232,17 @@ const JOURNEYS = {
       check(!await page.locator('.nw-manage').count(), 'a "Manage on" link is still on Accounts');
       await page.locator('#pageBack').tap();
       await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+      // Each card ends with a row naming what its page holds, going to the same page as its heading.
+      const foot = page.locator('#netWorthBody .nw-foot-link[data-go="' + go_ + '"]');
+      check(await foot.count() === 1 && (await foot.boundingBox()).height >= 44, go_ + ' card has no row saying what is behind it');
+      await foot.scrollIntoViewIfNeeded(); await foot.tap();
+      await page.waitForFunction(t => document.body.dataset.currentPage === "assets" && document.getElementById('pageTitle').textContent === t, title);
+      await page.locator('#pageBack').tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     }
+    // Cash's offsets and Debts' property loans have their own rows where there are some (the sample household has both).
+    check(await page.locator('#netWorthBody .nw-foot-link[data-go="assets/Offsets"]').count() === 1, 'Cash offers no way to Offsets');
+    check(await page.locator('#netWorthBody .nw-foot-link[data-go="properties"]').count() === 2, 'Property and Debts do not both offer a way to the property page');
     await enter();
     const back = page.locator('#pageBack');
     check(await back.isVisible() && (await back.textContent()).includes("Accounts"), "Investments has no header link up to Accounts");
@@ -5738,7 +5748,16 @@ const JOURNEYS = {
     // list was still moving, even though it ended behind the sticky header (or above the viewport).
     // Done is this scroll moved and then still — not the next scrollend, which can be the trim card's own instant
     // scroll just above arriving late on a loaded machine (forced, it measured before the list had moved).
-    const startY = await page.evaluate(() => { const y = scrollY; document.querySelector('#trimCard .empty-state [data-empty-scroll]').click(); return y; });
+    // Forced: something above the list shrinks by 60px while the page moves (on CI it ended 48px short once). Where it
+    // lands is checked once the page is still, against the headers as they are then.
+    const startY = await page.evaluate(() => {
+      const y = scrollY, list = document.getElementById('sharedGroups'), sec = list.closest('details.ledger'), sum = sec && sec.querySelector(':scope > summary');
+      window.__emptyClick = { open: !!(sec && sec.open), sticky: !!sum && getComputedStyle(sum).position === 'sticky', summary: sum ? Math.round(sum.getBoundingClientRect().height) : 0, header: document.querySelector('.app-topbar').offsetHeight };
+      const spacer = document.createElement('div'); spacer.style.height = '60px'; list.before(spacer);
+      document.querySelector('#trimCard .empty-state [data-empty-scroll]').click();
+      setTimeout(() => spacer.remove(), 60);
+      return y;
+    });
     await page.waitForFunction(y => scrollY !== y, startY, { timeout: 5000 });
     await pageStill(page);
     const position = await page.evaluate(() => {
@@ -5747,7 +5766,7 @@ const JOURNEYS = {
       const sectionBottom = getComputedStyle(summary).position === 'sticky' ? summary.getBoundingClientRect().bottom : 0;
       return { top: r.top, headerBottom: Math.max(h.bottom, sectionBottom), height: innerHeight, y: scrollY };
     });
-    check(position.top >= position.headerBottom && position.top < position.height / 2, 'the budget lines did not clear the sticky header after scrolling: ' + JSON.stringify(position));
+    check(position.top >= position.headerBottom && position.top < position.height / 2, 'the budget lines did not clear the sticky header after scrolling: ' + JSON.stringify(position) + ' — at the click: ' + JSON.stringify(await page.evaluate(() => window.__emptyClick)));
     // A report with nothing to show: what it needs, and the way there — no table of $0.
     await go(page, 'reports', 'data-report', 'cashflow');
     check(!await page.locator('#reportSheet .rp-table').count(), 'an empty Monthly cash flow drew its table');
@@ -6823,8 +6842,10 @@ const JOURNEYS = {
     for(const width of [320, 390]){
       await page.setViewportSize({ width, height: 844 });
       await go(page, 'assets', 'data-assets-sub', 'Super');
+      // The page change scrolls to the top inside its view transition, which can end after go() returns: let it.
+      await pageStill(page);
       await page.evaluate(() => window.scrollTo(0, 40));
-      await page.waitForFunction(() => scrollY === 40);
+      await page.waitForFunction(() => scrollY === 40, null, { timeout: 5000 });
       await page.evaluate(() => document.getElementById('pageHelpBtn').click());
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
       const at = await page.evaluate(() => ({ y: scrollY, intro: document.querySelector('#page-assets .page-intro').getBoundingClientRect().top, header: document.querySelector('.app-topbar').getBoundingClientRect().bottom }));

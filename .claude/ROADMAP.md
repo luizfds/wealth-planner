@@ -5555,3 +5555,26 @@ What shipped:
 - An open row's card stops clipping (`.m-card:has(.m-row.open)`): a fixed sheet already escapes it on screen, but axe
   clipped the open editor to the card's box where they overlapped and read the backdrop (3 states at 1280px light once
   the Shares card moved up 48px; the pixels were right).
+
+## Accounts: each card ends with what's behind it (November 2026)
+
+`[x]` The owner, on #438's headings: nothing said they could be tapped (a small grey ›). Chosen: each group's card ends
+with a row in the link colour naming what its page holds — "Performance, winners and losers ›" for Investments — the
+heading staying a way in too and unchanged. Cash also offers Offsets and cash held outside a bank account (their way in
+since #438), only where there are some; Debts offers Property loans where there are any.
+
+What shipped: `FOOT` in networth.js — Investments "Performance, winners and losers", Super "Contributions and super over
+time", Property "Loans, income and costs", Other things "Each item's value over time", Cash and Debts "All accounts and
+cards"; Cash adds "Offsets" (offset balances) and "Cash not in an account" (a Cash holding no bank account links to),
+Debts "Property loans", each only where there are some. Each label names sections its page has. 48px rows in the link
+colour; the accessible name adds the card ("… (Cash)"). Render test and `mobileinvestments` cover both.
+
+Also in this PR, main's Checks after #438 (two journeys):
+- `emptystates`: the budget lines ended 48px under their section's sticky header — the real end of the scroll now that
+  the journey waits for it (#436). The link works out its margin at the click, and locally every measurement there was
+  right; CI's numbers say something above the list changed size while the page moved. Forced (a 60px spacer above it
+  removed mid-scroll), the same 48px shortfall; the app now checks the destination once the page stands still and moves
+  it up just clear of both headers (`settleBelowHeaders`). The journey keeps the forced shrink, and its failure message
+  says what the click measured.
+- `pagehelpstays` (new in #438): its `scrollTo(0, 40)` was undone by the page change's own scroll to the top, which runs
+  inside the view transition and can end after `go()` returns. It waits for the page to stand still first.

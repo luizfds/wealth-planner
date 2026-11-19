@@ -1413,6 +1413,14 @@
   .nw-go:focus-visible{ outline:none; box-shadow: inset var(--focus-ring); }
   .nw-go > span:first-child{ flex:1; min-width:0; }
   .nw-go-arrow{ color: var(--ink-soft); font-size:var(--fs-lg); line-height:1; }
+  /* The card's last row says what its page holds, in the link colour: the way there, read as one. */
+  .nw-foot{ border-top:1px solid var(--border); }
+  .nw-foot-link{ display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; min-height:48px; margin:0;
+    padding:10px 14px; border:0; background:none; color: var(--brass-strong); font:inherit; font-weight:600; text-align:left; cursor:pointer; }
+  .nw-foot-link + .nw-foot-link{ border-top:1px solid var(--border); }
+  .nw-foot-link:hover{ background: var(--paper-sunken); }
+  .nw-foot-link:focus-visible{ outline:none; box-shadow: inset var(--focus-ring); }
+  .nw-foot-link > span[aria-hidden]{ font-size:var(--fs-lg); line-height:1; }
   .nw-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); margin-right:7px; vertical-align:1px; }
   .nw-group ul{ list-style:none; margin:0; padding:0; }
   .nw-group li{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 14px; border-top:1px solid var(--border); }

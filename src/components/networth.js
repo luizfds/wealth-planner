@@ -18,6 +18,28 @@ function money(v){ return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)
 // and losers, Super, Bank accounts, Property. The chips above are the one switcher: the page behind has none, and is
 // titled with the group's name (ASSET_PAGE_TITLES; "Other things" is Vehicle and Other together).
 var MANAGE = { cash: "accounts", invest: "assets/Shares", super: "assets/Super", property: "properties", other: "assets/Other", debts: "accounts" };
+// What each card ends with: a row in the link colour naming what its page holds, so the way there reads as one — the
+// heading's › alone didn't (the owner, after #438). A row with `when` shows only where the group has such rows: Cash's
+// offsets and its cash held outside a bank account (on Investments' Offsets and Cash, with no other way in from here),
+// Debts' property loans.
+var FOOT = {
+  cash: [{ go: "accounts", label: "All accounts and cards" },
+    { go: "assets/Offsets", label: "Offsets", when: function(r){ return r.kind === "loan"; } },
+    { go: "assets/Cash", label: "Cash not in an account", when: function(r){ return r.kind === "asset" && !(state.accounts || []).some(function(a){ return a && a.link === "asset:" + r.id; }); } }],
+  invest: [{ go: "assets/Shares", label: "Performance, winners and losers" }],
+  super: [{ go: "assets/Super", label: "Contributions and super over time" }],
+  property: [{ go: "properties", label: "Loans, income and costs" }],
+  other: [{ go: "assets/Other", label: "Each item's value over time" }],
+  debts: [{ go: "accounts", label: "All accounts and cards" }, { go: "properties", label: "Property loans", when: function(r){ return r.kind === "loan"; } }]
+};
+function footHtml(g){
+  var rows = (FOOT[g.key] || []).filter(function(f){ return !f.when || g.rows.some(f.when); });
+  if(!rows.length) return "";
+  // The accessible name starts with what it says (WCAG 2.5.3), then which card: Cash and Debts both have "All accounts".
+  return '<div class="nw-foot">' + rows.map(function(f){
+    return '<button type="button" class="nw-foot-link" data-go="' + f.go + '">' + escapeAttr(f.label) + '<span class="visually-hidden"> (' + escapeAttr(g.label) + ')</span><span aria-hidden="true">›</span></button>';
+  }).join("") + '</div>';
+}
 export function netWorthPageHtml(){
   var today = localDateStr();
   var l = netWorthList(state, toAudAmount, loggedSinceRecorded(today).byRecord);
@@ -53,7 +75,7 @@ export function netWorthPageHtml(){
         '<span class="visually-hidden">, open</span><span class="nw-go-arrow" aria-hidden="true">›</span></button>' : title) + '</h2>' +
       '<ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
-    }).join("") + '</ul></section>';
+    }).join("") + '</ul>' + footHtml(g) + '</section>';
   }).join("") + hiddenPartsLineHtml();
 }
 // The kind the list shows, for this visit (not saved): "all" or a group's key.

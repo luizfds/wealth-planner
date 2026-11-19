@@ -173,6 +173,22 @@ function shortcutsDialog(){
   return d;
 }
 
+// After a smooth scroll to `el`: once the page has moved (or 20 frames passed — it may already have been in place) and
+// then stood still for 8 frames (at most ~2s in all), if `el` starts under the page header or its section's sticky
+// header, scroll it just clear.
+function settleBelowHeaders(el){
+  var start = window.scrollY, last = start, still = 0, frames = 0;
+  (function check(){
+    if(++frames > 120) return;
+    if(window.scrollY === last) still++; else { still = 0; last = window.scrollY; }
+    if(still < 8 || (last === start && frames < 20)) return requestAnimationFrame(check);
+    if(!el.isConnected) return;
+    var bar = document.querySelector(".app-topbar"), section = el.closest("details.ledger"), summary = section && section.querySelector(":scope > summary");
+    var below = Math.max(bar ? bar.getBoundingClientRect().bottom : 0, summary && getComputedStyle(summary).position === "sticky" ? summary.getBoundingClientRect().bottom : 0);
+    var short = below + 12 - el.getBoundingClientRect().top;
+    if(short > 1) window.scrollBy({ top: -short, behavior: "instant" });
+  })();
+}
 export function wireNavigation(){
   initSectionPickers(document.body);
   // Simpler navigation step 1: the header's way back from an inner page (nav.js renderBackLink names it).
@@ -195,6 +211,10 @@ export function wireNavigation(){
         where.style.setProperty("--empty-scroll-section-h", sectionHeight + "px");
         where.classList.add("empty-state-scroll-target");
         where.scrollIntoView({ behavior: "smooth", block: "start" });
+        // The margin is worked out at the click. If anything above it changes size while the page moves (on CI the list
+        // ended 48px under its section's sticky header), it lands short — so once the page stands still, it's checked
+        // against both headers as they are then, and moved up just far enough.
+        settleBelowHeaders(where);
       }
       return;
     }

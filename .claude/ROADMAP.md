@@ -5568,3 +5568,13 @@ time", Property "Loans, income and costs", Other things "Each item's value over 
 cards"; Cash adds "Offsets" (offset balances) and "Cash not in an account" (a Cash holding no bank account links to),
 Debts "Property loans", each only where there are some. Each label names sections its page has. 48px rows in the link
 colour; the accessible name adds the card ("… (Cash)"). Render test and `mobileinvestments` cover both.
+
+Also in this PR, main's Checks after #438 (two journeys):
+- `emptystates`: the budget lines ended 48px under their section's sticky header — the real end of the scroll now that
+  the journey waits for it (#436). The link works out its margin at the click, and locally every measurement there was
+  right; CI's numbers say something above the list changed size while the page moved. Forced (a 60px spacer above it
+  removed mid-scroll), the same 48px shortfall; the app now checks the destination once the page stands still and moves
+  it up just clear of both headers (`settleBelowHeaders`). The journey keeps the forced shrink, and its failure message
+  says what the click measured.
+- `pagehelpstays` (new in #438): its `scrollTo(0, 40)` was undone by the page change's own scroll to the top, which runs
+  inside the view transition and can end after `go()` returns. It waits for the page to stand still first.

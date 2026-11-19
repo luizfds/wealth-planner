@@ -289,7 +289,8 @@ The owner answered the four questions this document was waiting on.
    and neither module reads the period.
 2. **Investments' rail: Net worth's rail becomes a back link** ("‹ Net worth") on a phone, and Investments' seven tabs
    are the only rail (item 6, as written). Since #422 that back link is the header's (as on Reports, Settings and
-   Details), and Investments' sections are pills with their totals that scroll sideways — never the section picker.
+   Details), and Investments' sections were pills with their totals. Since November 2026 they have no switcher of their
+   own: Accounts' chips are the one, each group's heading opens its page, titled with the group's name.
 3. **Tax → Returns' primary is the open year's next step.** One primary button that follows the year's state: open the
    worksheet while it is being filled in, then "Mark as lodged" when it is ready. Never two at once.
 4. **"+ Add" always names the thing,** lower case: "+ Add holding", "+ Add goal", "+ Add cash account" (item 3, as

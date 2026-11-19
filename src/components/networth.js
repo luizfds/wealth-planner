@@ -14,10 +14,10 @@ import { emptyStateHtml } from "../lib/empty.js";
 // The overview the rail above Accounts, Investments and Property opens on: everything owned and
 // owed in one list, each row to its own page.
 function money(v){ return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)); }
-// Where each kind is managed: its page behind the list (#428), one tap from its heading — Shares with its winners and
-// losers, Super, Bank accounts, Property — not only from one of its items' Details.
-var MANAGE = { cash: ["accounts", "Bank accounts"], invest: ["assets/Shares", "Investments"], super: ["assets/Super", "Investments"],
-  property: ["properties", "Property"], other: ["assets/Other", "Investments"], debts: ["accounts", "Bank accounts"] };
+// Where each kind is managed: its page behind the list (#428), opened by the group's heading — Shares with its winners
+// and losers, Super, Bank accounts, Property. The chips above are the one switcher: the page behind has none, and is
+// titled with the group's name (ASSET_PAGE_TITLES; "Other things" is Vehicle and Other together).
+var MANAGE = { cash: "accounts", invest: "assets/Shares", super: "assets/Super", property: "properties", other: "assets/Other", debts: "accounts" };
 export function netWorthPageHtml(){
   var today = localDateStr();
   var l = netWorthList(state, toAudAmount, loggedSinceRecorded(today).byRecord);
@@ -47,9 +47,11 @@ export function netWorthPageHtml(){
   return head + bar + chips + groups.map(function(g){
     var ci = shown.indexOf(g.key);
     var manage = MANAGE[g.key];
-    return '<section class="nw-group"><h2><span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b></h2>' +
-      // The accessible name starts with what it says (WCAG 2.5.3), then which group: Cash and Debts both go to Bank accounts.
-      (manage ? '<button type="button" class="link-btn nw-manage" data-go="' + manage[0] + '">Manage on ' + escapeAttr(manage[1]) + ' →<span class="visually-hidden"> (' + escapeAttr(g.label) + ')</span></button>' : '') + '<ul>' + g.rows.map(function(r){
+    var title = '<span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b>';
+    // The accessible name is what shows (WCAG 2.5.3), then where it goes.
+    return '<section class="nw-group"><h2>' + (manage ? '<button type="button" class="nw-go" data-go="' + manage + '">' + title +
+        '<span class="visually-hidden">, open</span><span class="nw-go-arrow" aria-hidden="true">›</span></button>' : title) + '</h2>' +
+      '<ul>' + g.rows.map(function(r){
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul></section>';
   }).join("") + hiddenPartsLineHtml();

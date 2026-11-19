@@ -1,3 +1,4 @@
+import { ASSET_PAGE_TITLES } from "../constants.js";
 import { renderPeriodButton } from "./period.js";
 import { pageTransitionDone } from "../lib/pagetransition.js";
 import { overlayOpen } from "../lib/overlaystack.js";
@@ -103,6 +104,10 @@ var ASSETS_SUB_TO_SLUG = { Cash: "cash", Shares: "shares", Super: "super", Vehic
 // #413: Investments → Summary went (its parts are on Net worth and Accounts); an old /assets/summary opens on Cash.
 var SLUG_TO_ASSETS_SUB = { summary: "Cash", cash: "Cash", shares: "Shares", super: "Super", vehicle: "Vehicle", other: "Other", offsets: "Offsets" };
 var currentAssetsSub = "Cash";
+// Accounts' one switcher (its chips): the page behind a group is titled with the group's name (ASSET_PAGE_TITLES), and
+// Accounts' "Other things" (vehicles and the rest) is one page here — Vehicle and Other together.
+var ASSETS_TITLES = ASSET_PAGE_TITLES;
+function assetsShown(id){ return id === "Vehicle" || id === "Other" ? ["Vehicle", "Other"] : [id]; }
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
@@ -197,7 +202,7 @@ function reportKeyValid(key){ return REPORTS.some(function(r){ return r.key === 
 // What a screen is called where a back link names it: the tab when the tab says more than the page.
 var SUB_TITLES = {
   dashboard: { overview: "Today", insights: "Insights", benchmarks: "How you compare", review: "Monthly review" },
-  assets: { summary: "Investments" },
+  assets: ASSETS_TITLES,
   tax: { year: "Tax", returns: "Tax returns", documents: "Tax documents", people: "People" },
   settings: { categories: "Settings", preferences: "Settings", rules: "Import rules" }
 };
@@ -218,8 +223,7 @@ function entryTitle(pageId){
   var named = SUB_TITLES[pageId] && SUB_TITLES[pageId][sub];
   if(named) return named;
   var btn = document.querySelector('[data-' + (pageId === "settings" ? "accounts" : pageId) + '-sub="' + sub + '"]');
-  var name = btn && (btn.querySelector(".inv-pill-name") || btn);   // #422: a pill carries its total after its name
-  return (name && name.textContent.trim()) || label;
+  return (btn && btn.textContent.trim()) || label;
 }
 // Pages with no tab of their own and no other way out get the header's back link. The rest have the menu or
 // tab bar; the scenario editor keeps its own (it asks before leaving).
@@ -375,6 +379,7 @@ var MORE_GROUP = ["more", "tax", "reports", "calc", "settings"];
 var DASHBOARD_TITLES = { insights: "Insights", benchmarks: "How you compare", review: "Monthly review" };
 function titleFor(id){
   if(id === "dashboard" && DASHBOARD_TITLES[currentDashboardSub]) return DASHBOARD_TITLES[currentDashboardSub];
+  if(id === "assets" && ASSETS_TITLES[currentAssetsSub]) return ASSETS_TITLES[currentAssetsSub];
   var page = PAGES.find(function(p){ return p.id === id; });
   return page ? page.label : "Today";
 }
@@ -693,12 +698,11 @@ export function showAssetsSubpage(id, opts){
   if(leavePending) return afterPendingPage("assets", function(){ return showAssetsSubpage(id, Object.assign({}, opts, { replace: true })); });
   if(id === "summary" || !ASSETS_SUB_TO_SLUG[id]) id = "Cash";   // #413: no Summary tab now
   currentAssetsSub = id;
-  document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = el.id !== "assetsSub-" + id; });
-  document.querySelectorAll("#assetsSubnav .subnav-item").forEach(function(btn){
-    markCurrent(btn, btn.getAttribute("data-assets-sub") === id);
-  });
+  var shown = assetsShown(id);
+  document.querySelectorAll(".assets-subpage").forEach(function(el){ el.hidden = shown.indexOf(el.id.replace("assetsSub-", "")) === -1; });
+  // No pills here now: Accounts' chips are the switcher, and this page is titled with the kind it shows.
+  if(currentPage === "assets"){ document.getElementById("pageTitle").textContent = titleFor("assets"); renderCrumbs(); }
   updateQuickFab("assets");
-  scrollActiveSubnavIntoView("assetsSubnav");
   if(!opts.skipUrl) syncUrl("assets", !!opts.replace, true);
   renderShowMore();
 }

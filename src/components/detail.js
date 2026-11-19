@@ -1,3 +1,4 @@
+import { ASSET_PAGE_TITLES } from "../constants.js";
 import { balanceForecastHtml, renderBalanceForecastChart } from "./dailyforecast.js";
 import { state } from "../state.js";
 import { budgetLineItems, transactionCategory, transactionAccount } from "./expenses.js";
@@ -122,7 +123,7 @@ export function detailView(kind, id, today){
       if(cg.realised.length) html += section("Sales", '<ul class="dt-list">' + cg.realised.map(function(y){ return '<li>' + y.label + ': net capital gain <b>' + money(y.net.net) + '</b></li>'; }).join("") + '</ul>');
     }
     return { title: a.what || a.symbol || "Holding", kicker: a.category || "Asset", history: a.history || [], html: html,
-      edit: { label: "Manage on Investments", to: { page: "assets", sub: a.category || "Cash" } } };
+      edit: { label: "Manage on " + (ASSET_PAGE_TITLES[a.category] || "Investments"), to: { page: "assets", sub: a.category || "Cash" } } };
   }
   if(kind === "property"){
     var p = (state.properties || []).find(function(x){ return x.id === id; });

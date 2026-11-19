@@ -50,7 +50,7 @@ for (const [mode, width] of [["demo", 390], ["demo", 1280], ["empty", 390]]) {
     await p.waitForTimeout(450);
     for (const sub of subs) {
       if(sub) {
-        const found = await p.evaluate(([a, s]) => { if(a === 'report') document.querySelector('[data-report-choose]').click(); const el = document.querySelector('[data-' + a + '="' + s + '"]'); if(el) el.click(); return !!el; }, [attr, sub]);
+        const found = await p.evaluate(async ([a, s]) => { if(a === 'assets-sub'){ (await import('/src/components/nav.js')).showAssetsSubpage(s); return true; } if(a === 'report') document.querySelector('[data-report-choose]').click(); const el = document.querySelector('[data-' + a + '="' + s + '"]'); if(el) el.click(); return !!el; }, [attr, sub]);
         if(attr === 'report'){
           if(!found){ await p.keyboard.press('Escape'); await p.waitForFunction(() => !document.querySelector('.report-chooser')); continue; }
           await p.waitForFunction(key => !!document.querySelector('[data-current-report="' + key + '"]') && !document.querySelector('.report-chooser'), sub);

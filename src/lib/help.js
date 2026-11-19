@@ -131,7 +131,19 @@ export function initHelp(){
     var page = e.target.closest("[data-page-help]");
     if(page){
       var intros = introsOnScreen(), openAll = page.getAttribute("aria-expanded") !== "true";
+      // The intros are at the top of the page. A little way down it, the browser's scroll anchoring kept what was
+      // below them in place as they opened — jumping the page down past the help just asked for (and the header went
+      // slim). The page stays where it is while they open or close.
+      var root = document.documentElement;
+      root.style.overflowAnchor = "none";
       intros.forEach(function(el){ el.classList.toggle("help-open", openAll); });
+      // Opened, the first is shown: if it starts under the header, the page comes up just enough — never down.
+      var bar = document.querySelector(".app-topbar"), first = intros[0];
+      if(openAll && first && bar){
+        var under = bar.getBoundingClientRect().bottom + 8 - first.getBoundingClientRect().top;
+        if(under > 0) window.scrollBy(0, -Math.min(under, window.scrollY));
+      }
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){ root.style.overflowAnchor = ""; }); });
       page.setAttribute("aria-expanded", String(openAll));
       return;
     }

@@ -6,7 +6,7 @@ import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
 import { ASSET_CATEGORIES, SHARE_MARKETS, MARKET_CURRENCY } from "../constants.js";
 import { propertiesOffsetTotal, propertiesIlliquidEquityToday, recalcPurchase, loanBalance } from "../calc/property.js";
 import { totalNetWorthValue, totalDebtsValue, toAudAmount } from "../calc/engine.js";
-import { fmtCompact, fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2For, localDateStr, fmtDate, fmtQtyDisplay } from "../lib/format.js";
 import { escapeAttr, segLabel, figureAttrs } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
@@ -437,29 +437,6 @@ export function patchSharesGlance(){
   var el = document.getElementById("sharesGlance");
   if(!el) return;
   el.innerHTML = sharesCompactGlanceHtml(assetCategoryItems("Shares").items);
-  renderInvestmentsStrip();
-}
-
-// #422: each Investments pill carries its section's total — the same figure the section's own Total shows, so it
-// follows the person filter too (Offsets have no person; theirs is the household's). Compact, read at a glance — the
-// accessible name is what shows (WCAG 2.5.3), and the exact figure is the pill's hover title.
-export function investmentsStripTotals(){
-  var out = {};
-  ASSET_CATEGORIES.forEach(function(cat){
-    out[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
-  });
-  out.Offsets = propertiesOffsetTotal();
-  return out;
-}
-export function renderInvestmentsStrip(){
-  if(typeof document === "undefined") return;
-  var totals = investmentsStripTotals();
-  document.querySelectorAll("#assetsSubnav [data-inv-total]").forEach(function(el){
-    var key = el.getAttribute("data-inv-total"), v = totals[key] || 0;
-    el.textContent = fmtCompact(v);
-    var btn = el.closest("button");
-    if(btn) btn.title = key + ": " + fmtCurrency0.format(v);
-  });
 }
 
 // Session-only (not persisted) — which person's assets every category subpage is filtered to.
@@ -1249,7 +1226,6 @@ export function patchAssetCategoryTotals(){
     var barWrap = container && container.querySelector("#assetsComp-" + cat + " [data-comp-bar]");
     if(barWrap) barWrap.outerHTML = modernAssetCompBarHtml(assetRowMeta(data));
   });
-  renderInvestmentsStrip();
   renderAssetsSummary();
 }
 
@@ -1697,7 +1673,6 @@ function drawAssets(){
   renderAssetCategoryPage("Other");
   // #413: the summary's parts are Net worth's (netWorthMore) and Accounts' (debts) views now.
   renderOffsetsSubpage();
-  renderInvestmentsStrip();
   renderProjectionOutputs();
 }
 
@@ -1759,7 +1734,6 @@ export function patchOffsetsRow(propertyId, loanIdx, offsetBalance){
   if(input && document.activeElement !== input) input.value = offsetBalance;
   var totalEl = document.getElementById("totalOffsetsAmount");
   if(totalEl) totalEl.textContent = fmtCurrency0.format(propertiesOffsetTotal());
-  renderInvestmentsStrip();
 }
 
 // Deliberately not built on the generic ledger-table.js machinery — debts have a different

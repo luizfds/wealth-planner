@@ -330,6 +330,10 @@
   /* Item 247: the Budget's investment loan repayments — a group of their own under the lines, spaced like one. */
   .budget-loans{ margin-top:14px; }
   .m-card{ border:1px solid var(--border); border-radius:var(--inner-radius); background: var(--paper-sunken); overflow:hidden; }
+  /* An open row is a fixed sheet over the page: not inside a clipping box. A fixed element already escapes it on screen,
+     but axe clipped the open editor to the card's box wherever the two overlapped and read the backdrop behind the
+     part outside it (the Shares card one 48px higher once Investments lost its pills). */
+  .m-card:has(.m-row.open){ overflow:visible; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:600; font-size:var(--fs-md); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .m-card-total{ font-family:var(--font-num); font-weight:600; font-size:var(--fs-md); white-space:nowrap; }
@@ -1400,8 +1404,15 @@
   .nw-group{ margin:0 0 16px; border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); overflow:hidden; box-shadow: var(--shadow); }
   .nw-group h2{ display:flex; justify-content:space-between; margin:0; padding:10px 14px; font-size:var(--fs-sm); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); border-bottom:1px solid var(--border); }
   .nw-group h2 b{ font-family: var(--font-num); color: var(--ink); font-size:var(--fs-lg); letter-spacing:0; }
-  /* Where the kind is managed, under its heading (Shares' winners and losers, Bank accounts, Property). */
-  .nw-group > .nw-manage{ display:flex; align-items:center; width:100%; min-height:40px; padding:6px 14px; box-sizing:border-box; font-size:var(--fs-sm); text-align:left; border-bottom:1px solid var(--border); }
+  /* The heading is the way to the kind's own page (Shares' winners and losers, Super, Bank accounts, Property): the
+     whole bar, with a chevron, as a row is. */
+  .nw-group h2:has(> .nw-go){ padding:0; }
+  .nw-go{ display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; min-height:48px; margin:0; padding:10px 14px;
+    border:0; background:none; color:inherit; font:inherit; letter-spacing:inherit; text-transform:inherit; text-align:left; cursor:pointer; }
+  .nw-go:hover{ background: var(--paper-sunken); }
+  .nw-go:focus-visible{ outline:none; box-shadow: inset var(--focus-ring); }
+  .nw-go > span:first-child{ flex:1; min-width:0; }
+  .nw-go-arrow{ color: var(--ink-soft); font-size:var(--fs-lg); line-height:1; }
   .nw-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); margin-right:7px; vertical-align:1px; }
   .nw-group ul{ list-style:none; margin:0; padding:0; }
   .nw-group li{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:9px 14px; border-top:1px solid var(--border); }

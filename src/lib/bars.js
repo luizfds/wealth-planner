@@ -6,8 +6,8 @@ import { fmtCurrency0, fmtCompact } from "./format.js";
 var MAX = 6;   // series beyond this fold into "Other", never a ninth generated colour
 
 // One bar made of parts that add up to a whole, with a legend under it (every part named — identity is never colour
-// alone). parts: [{ label, value, tone? ("good"|"warn"|"bad"|"in"|"muted") }] — a part with a tone takes it, the rest
-// take series colours in order. opts: { label (what the bar is, for the accessible name), total? (the whole; the sum by
+// alone). parts: [{ label, value, tone? ("good"|"warn"|"bad"|"in"|"muted"), cat? }] — a part with a tone takes it, one
+// with `cat` (a category's `cat-c-N`, from categoryColorClass) its category's colour, the rest series colours in order. opts: { label (what the bar is, for the accessible name), total? (the whole; the sum by
 // default), keep? (labels never folded into Other), legend? (false when every part is already named, with its figure,
 // right beside the bar) }.
 export function stackBarHtml(parts, opts){
@@ -21,7 +21,10 @@ export function stackBarHtml(parts, opts){
     var otherTotal = folded.reduce(function(s, p){ return s + p.value; }, 0);
     list = list.filter(function(p){ return folded.indexOf(p) === -1; });
     var at = list.findIndex(function(p){ return p.tone; });
-    list.splice(at === -1 ? list.length : at, 0, { label: "Other", value: otherTotal });
+    // Categories folded together are no one category: Other takes the neutral one categories use for "Other".
+    var other = { label: "Other", value: otherTotal };
+    if(folded.some(function(p){ return p.cat; })) other.cat = "cat-c-9";
+    list.splice(at === -1 ? list.length : at, 0, other);
   }
   var total = opts.total != null ? opts.total : list.reduce(function(s, p){ return s + p.value; }, 0);
   if(!(total > 0) || !list.length) return "";
@@ -29,7 +32,7 @@ export function stackBarHtml(parts, opts){
   // reads as it — the order stays fixed otherwise.
   var order = list.some(function(p){ return p.tone === "good"; }) ? [0, 1, 3, 4, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
   var i = 0;
-  list = list.map(function(p){ return Object.assign({}, p, { cls: p.tone ? "tone-" + p.tone : "series-color-" + order[i++ % order.length] }); });
+  list = list.map(function(p){ return Object.assign({}, p, { cls: p.tone ? "tone-" + p.tone : p.cat ? p.cat + " is-cat" : "series-color-" + order[i++ % order.length] }); });
   var pct = function(v){ return Math.round(v / total * 100); };
   var said = (opts.label ? opts.label + ": " : "") + list.map(function(p){ return p.label + " " + fmtCurrency0.format(p.value) + " (" + pct(p.value) + "%)"; }).join(", ");
   return '<div class="vbar-wrap' + (opts.legend === false ? ' is-thin' : '') + '"><div class="vbar" role="img" aria-label="' + escapeAttr(said) + '">' + list.map(function(p){

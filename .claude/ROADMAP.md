@@ -5656,3 +5656,14 @@ Chosen: glance, then what needs you.
   essentials on cash and offsets (Plan → Goals' figure), all spending under it.
 - Plans & insights: a heading, the tiles, and every way further in (Insights, Monthly review, How you compare,
   Projection, Scenarios side by side) as one row of chips.
+
+## A category is one colour everywhere (November 2026)
+
+`[x]` The owner: more colour, without making the app too much. Colour that means something: a category keeps the
+colour (and icon) it has in Spending's donut wherever it's drawn.
+- Spending over time: each row's bars in its category's colour (the running month striped in it), its icon by the name.
+- Plan → Goals → Emergency fund: "What counts as essential" — `stackBarHtml` parts take `cat` (a `cat-c-N`); several
+  folded into Other take the neutral `cat-c-9`.
+- Reports grouped by category: each bar of the chart in its colour (`chartOf`, `reportcharts.js` writes only a
+  `cat-c-N` class), each row its icon.
+Not changed: Your month, planned (grouped by need/want, not category). Tests in render-smoke.test.js.

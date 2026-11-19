@@ -2893,6 +2893,21 @@ test("pictures before words: a stacked bar names every part, folds the many into
   assert.equal((p.match(/vprog-mark is-met/g) || []).length, 2, "the marks passed are marked as met");
 });
 
+test("a category is one colour everywhere: a bar's category part, a report's category bar and a trend row take its colour", async () => {
+  const { categoryColorClass } = await import("../src/lib/caticons.js");
+  const groceries = categoryColorClass("Groceries");
+  const h = stackBarHtml([{ label: "Groceries", value: 600, cat: groceries }, { label: "Housing", value: 2000, cat: categoryColorClass("Housing") }], { label: "Essentials" });
+  assert.match(h, new RegExp('class="vbar-seg ' + groceries + ' is-cat"'), "the segment takes the category's colour");
+  assert.match(h, new RegExp('class="vbar-dot ' + groceries + ' is-cat"'), "and so does its legend dot");
+  assert.doesNotMatch(h, /series-color-/, "no series colour where every part is a category");
+  const many = stackBarHtml([1, 2, 3, 4, 5, 6, 7, 8].map(i => ({ label: "C" + i, value: i * 10, cat: "cat-c-" + i })), {});
+  assert.match(many, /title="Other[^"]*"/); assert.match(many, /vbar-seg cat-c-9 is-cat[^>]*title="Other/, "categories folded together take the neutral colour");
+  const { reportChartHtml } = await import("../src/lib/reportcharts.js");
+  const chart = reportChartHtml({ type: "bars", items: [{ label: "Groceries", value: 500, cat: groceries }, { label: "Odd", value: 100, cat: "x\" onload=\"" }] });
+  assert.match(chart, new RegExp('class="rc-bar is-cat ' + groceries + '"'));
+  assert.match(chart, /<rect[^>]*class="rc-bar"><title>Odd/, "only a cat-c-N class is ever written");
+});
+
 test("Plan → Scenarios compares every scenario's normal month on one scale", async () => {
   const { scenarioCompareHtml } = await import("../src/components/dashboard.js");
   const h = scenarioCompareHtml();

@@ -23,7 +23,7 @@ export function reportChartHtml(chart, width){
       var y = i * rowH + 3, w = max > 0 ? Math.max(1, x.value / max * barW) : 0;
       var tick = x.compare != null && max > 0 ? '<line x1="' + (labelW + x.compare / max * barW) + '" x2="' + (labelW + x.compare / max * barW) + '" y1="' + (y + 1) + '" y2="' + (y + rowH - 7) + '" class="rc-tick"><title>' + escapeAttr((chart.compareLabel || "Compared") + ": " + fmtCurrency0.format(x.compare)) + '</title></line>' : "";
       return '<text x="' + (labelW - 8) + '" y="' + (y + 13) + '" text-anchor="end" class="rc-label">' + escapeAttr(String(x.label).length > maxLabelChars ? String(x.label).slice(0, maxLabelChars - 1) + "…" : x.label) + '</text>' +
-        '<rect x="' + labelW + '" y="' + (y + 3) + '" width="' + w + '" height="' + (rowH - 12) + '" rx="3" class="rc-bar"><title>' + escapeAttr(x.label + ": " + fmtCurrency0.format(x.value)) + '</title></rect>' + tick +
+        '<rect x="' + labelW + '" y="' + (y + 3) + '" width="' + w + '" height="' + (rowH - 12) + '" rx="3" class="rc-bar' + (/^cat-c-\d+$/.test(x.cat || "") ? " is-cat " + x.cat : "") + '"><title>' + escapeAttr(x.label + ": " + fmtCurrency0.format(x.value)) + '</title></rect>' + tick +
         '<text x="' + (W - 4) + '" y="' + (y + 13) + '" text-anchor="end" class="rc-val">' + compact(x.value) + '</text>';
     }).join("");
     return reportFigureHtml(chart, '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Chart of the report">' + body + '</svg>' +

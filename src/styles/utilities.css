@@ -239,6 +239,8 @@ html[data-mode="simple"] [data-level="advanced"]:not([data-shown]){ display:none
 .vbar-legend li{ display:inline-flex; align-items:center; gap:5px; }
 .vbar-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
 .vbar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); }
+/* A category's part takes its category's colour (lib/caticons.js), the same as its slice of Spending's donut. */
+.vbar-seg.is-cat, .vbar-dot.is-cat{ background: var(--cat); }
 .tone-good{ --series-color: var(--good); }
 .tone-warn{ --series-color: var(--warn-ink); }
 .tone-bad{ --series-color: var(--bad); }

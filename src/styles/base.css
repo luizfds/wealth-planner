@@ -341,7 +341,7 @@
     color: var(--cat, var(--ink-soft)); background: color-mix(in srgb, var(--cat, var(--ink-soft)) 15%, transparent);
   }
   .cat-icon-sm{ width:24px; height:24px; }
-  .acct-name .cat-icon-sm{ display:inline-flex; vertical-align:-7px; margin-right:6px; }
+  .acct-name .cat-icon-sm, .trend-row-name .cat-icon-sm, .rp-table th .cat-icon-sm{ display:inline-flex; vertical-align:-7px; margin-right:6px; }
   /* Settings → Categories: the badge opens a choice of colour and icon. */
   .cat-look{ position:relative; flex:none; }
   .cat-look > summary{ list-style:none; cursor:pointer; border-radius:50%; display:flex; }

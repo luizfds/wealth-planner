@@ -866,7 +866,7 @@
      ceiling — flex on the bars alone would let a tall neighbour stretch the row. */
   .trend-bar-track{ height:44px; display:flex; align-items:flex-end; }
   .trend-bar-fill{
-    width:100%; border-radius:3px 3px 0 0; background: var(--brass); opacity:.45;
+    width:100%; border-radius:3px 3px 0 0; background: var(--cat, var(--brass)); opacity:.45;
     transition: opacity .18s ease;
   }
   .trend-bar:hover .trend-bar-fill{ opacity:.75; }
@@ -878,7 +878,7 @@
   /* The current month is still filling. Striped rather than merely faded, so it doesn't read as
      a genuinely small month next to five whole ones. */
   .trend-bar.partial .trend-bar-fill{
-    background: repeating-linear-gradient(135deg, var(--brass) 0 4px, transparent 4px 8px), var(--brass-wash);
+    background: repeating-linear-gradient(135deg, var(--cat, var(--brass)) 0 4px, transparent 4px 8px), color-mix(in srgb, var(--cat, var(--brass)) 15%, transparent);
   }
   .trend-bar-label{
     font-size:var(--fs-xs); color: var(--ink-soft); text-align:center; letter-spacing:.01em;
@@ -1296,6 +1296,7 @@
   .rc-label{ fill: var(--ink-soft); font-size:var(--fs-xs); font-family: var(--font-num); }
   .rc-val{ fill: var(--ink); font-size:var(--fs-xs); font-family: var(--font-num); font-weight:600; }
   .rc-bar, .rc-a{ fill: var(--brass); }
+  .rc-bar.is-cat{ fill: var(--cat); }   /* a category's bar in its category's colour (components/reports.js) */
   .rc-b{ fill: #e07a5f; }
   .rc-tick{ stroke: var(--ink); stroke-width:2; }
   .rc-axis{ stroke: var(--border); }

@@ -14,6 +14,7 @@ import { yearEndHtml } from "./yearend.js";
 import { monthDetailHtml } from "./monthdetail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { categoryIconHtml, categoryColorClass } from "../lib/caticons.js";
 import { keepUi } from "../lib/keepui.js";
 import { emptyStateHtml } from "../lib/empty.js";
 import { nextYearPlanHtml } from "./nextyearplan.js";
@@ -115,10 +116,18 @@ function reportValue(r, c){
   var v = r.cells[c.key];
   return (r.cls === 'pct' || c.pct) && c.num ? pctCell(v) : cell(v, c.num);
 }
+// November 2026: a report grouped by category draws each bar in its category's colour, as Spending's donut does.
+function chartOf(rep){
+  var c = rep.chart;
+  if(!c || c.type !== "bars" || reportFrame.group !== "category" || !(rep.rows || []).some(function(r){ return r.drill; })) return c;
+  return Object.assign({}, c, { items: c.items.map(function(x){ return Object.assign({}, x, { cat: x.label === "Uncategorised" ? "cat-c-9" : categoryColorClass(x.label) }); }) });
+}
 function reportRowName(r, c){
   var name = reportValue(r, c);
   return r.ym ? '<button type="button" class="rp-month-link" data-md-open="' + escapeAttr(r.ym) + '">' + name + '</button>'
-    : r.drill ? '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '">' + name + '</button>' : name;
+    // November 2026: grouped by category, each row carries its category's icon and colour, as Spending draws it.
+    : r.drill ? (reportFrame.group === "category" ? categoryIconHtml(r.drill === "Uncategorised" ? "" : r.drill, { small: true }) : '') +
+      '<button type="button" class="rp-month-link" data-rf-drill="' + escapeAttr(r.drill) + '" aria-expanded="' + !!reportFrame.open[r.drill] + '">' + name + '</button>' : name;
 }
 function summaryFields(r, columns){
   return '<dl class="rp-summary-fields">' + columns.map(function(c){
@@ -403,7 +412,7 @@ export function reportsPageHtml(opts){
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(reportSubtitle(rep, opts)) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
       (rep.sections ? yearReviewSectionsHtml(rep.sections, false, nextYearPlanHtml(opts)) + (reportIsEmpty(rep) ? '' : '<details class="yr-figures"><summary>The year in figures</summary>' + storyHtml(rep) + reportPresentationHtml(rep) + '</details>')
-        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(rep.chart) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
+        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");
@@ -419,7 +428,7 @@ export function renderReports(){
 export function reportPrintHtml(){
   var opts = reportOpts();
   var rep = buildReport(reportShown.key, opts);
-  return '<div class="pr-page pr-report">' + printTitleHtml(rep, opts) + (rep.sections ? yearReviewSectionsHtml(rep.sections, true) : "") + storyHtml(rep) + reportChartHtml(rep.chart) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep), true) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
+  return '<div class="pr-page pr-report">' + printTitleHtml(rep, opts) + (rep.sections ? yearReviewSectionsHtml(rep.sections, true) : "") + storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportTableHtml(rep) + drillHtml(rep, opts) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), rep), true) + (rep.note ? '<p>' + escapeAttr(rep.note) + '</p>' : '') + '</div>';
 }
 export function reportCsv(){
   var rep = buildReport(reportShown.key, reportOpts());

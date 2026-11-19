@@ -12,6 +12,7 @@ import { partAllows } from "../calc/parts.js";
 import { state, stateVersion } from "../state.js";
 import { localDateStr } from "./format.js";
 import { escapeAttr } from "./html.js";
+import { iconSvg } from "./caticons.js";
 
 // The observations, worked out once per pass. One save redraws Insights, a page's line and the bell's badge, and
 // each asked calc/advice.js afresh — the scenario comparisons three times over. The speed budget's transfer step
@@ -34,6 +35,19 @@ export function adviceNow(today){
 // week's recap, a rate change recorded, a return that isn't due for months).
 export var ATTENTION_LABEL = { urgent: "Urgent", todo: "To do", reminder: "Reminder", risk: "Watch", opportunity: "Opportunity", info: "Worth knowing" };
 var SEVERITY_ORDER = { bad: 0, warn: 1, info: 2 };
+
+// What an item is about, at a glance (the owner: more colour, where it means something): an icon for its kind — a
+// bill a calendar, a return a receipt, a property its building — in its label's colour: Urgent and Watch red, To do
+// amber, Opportunity green, the rest quiet. Decorative: the label and the title say it in words.
+var KIND_ICON = { bill: "calendar", duebill: "calendar", budget: "bag", budgetsuggest: "piggy", review: "check", txreview: "check",
+  tax: "receipt", loan: "house", property: "building", account: "piggy", accounts: "piggy", income: "chart", investments: "chart",
+  planprogress: "chart", week: "chart", yearreview: "chart", plan: "chart", cashflow: "bag", backup: "shield", data: "shield" };
+var TONE_CLASS = { urgent: "att-bad", risk: "att-bad", todo: "att-warn", opportunity: "att-good" };
+export function attentionIconHtml(n){
+  var tone = n.tone || (n.severity === "bad" ? "urgent" : n.severity === "warn" ? "todo" : "reminder");
+  var icon = KIND_ICON[n.type] || KIND_ICON[n.area] || (TONE_CLASS[tone] === "att-bad" ? "alert" : "dot");
+  return '<span class="att-icon ' + (TONE_CLASS[tone] || "att-quiet") + '" aria-hidden="true">' + iconSvg(icon, 14) + '</span>';
+}
 
 export function todoItems(){
   // getNotifications() puts unread first, then by date; within each, the most pressing leads.

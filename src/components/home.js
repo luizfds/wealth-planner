@@ -1,4 +1,4 @@
-import { homeTodoItems } from "../lib/attention.js";
+import { homeTodoItems, attentionIconHtml } from "../lib/attention.js";
 import { getNotifications } from "../lib/notifications.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
@@ -169,10 +169,12 @@ export function homeSummaryHtml(today, opts){
   });
   var more = todos.length - HOME_TODO_MAX;
   var todoRows = todos.slice(0, HOME_TODO_MAX).map(function(t){
-    return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + escapeAttr(t.title) + ' <span aria-hidden="true">›</span></button></li>';
+    return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + attentionIconHtml(t) + '<span class="home-todo-title">' + escapeAttr(t.title) + '</span><span aria-hidden="true">›</span></button></li>';
   });
   var needsCount = soon.length + todos.length;
-  var needsCard = '<div class="home-card home-needs" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
+  // Tinted when something is waiting: red with a bill overdue or an urgent to-do, amber with anything else, plain when clear.
+  var needsTone = soon.some(function(b){ return b.days < 0; }) || todos.some(function(t){ return t.severity === "bad"; }) ? " attn-bad" : needsCount ? " attn-warn" : "";
+  var needsCard = '<div class="home-card home-needs' + needsTone + '" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
     (billRows.length ? '<div class="home-sub">Bills this week</div><ul class="home-list home-bill-list">' + billRows.join("") + '</ul>' : '') +
     (todoRows.length ? (billRows.length ? '<div class="home-sub">To do</div>' : '') + '<ul class="home-list">' + todoRows.join("") + '</ul>' : '') +
     (!billRows.length && !todoRows.length ? emptyStateHtml("Nothing due this week and nothing to do — you're up to date.", { done: true, className: "home-note" }) : '') +
@@ -181,15 +183,15 @@ export function homeSummaryHtml(today, opts){
 
   // The glance (the owner: one look at the top says where things stand): four figures, each a way to its card.
   var nextBill = bills[0];
-  var glanceTile = function(go, label, value, sub, tone){
-    return '<button type="button" class="home-glance-tile" data-glance-go="' + go + '"><span class="home-glance-k">' + label + '</span><b class="' + (tone || "") + '">' + value + '</b><small>' + sub + '</small></button>';
+  var glanceTile = function(go, label, value, sub, tone, attn){
+    return '<button type="button" class="home-glance-tile' + (attn || "") + '" data-glance-go="' + go + '"><span class="home-glance-k">' + label + '</span><b class="' + (tone || "") + '">' + value + '</b><small>' + sub + '</small></button>';
   };
   var glance = '<nav class="home-glance" data-home-card="glance" aria-label="At a glance">' +
     (nwEmpty ? glanceTile("nw", "Net worth", "—", "") : glanceTile("nw", "Net worth", fmtCompact(nw), trend ? '<span class="' + (trend.change >= 0 ? "up" : "down") + '">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + '</span>' : 'as of today')) +
     (monthEmpty ? glanceTile("month", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
       : glanceTile("month", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent", saved >= 0 ? "up" : "down")) +
     glanceTile("needs", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight", nextBill && nextBill.days <= 1 ? "warn" : "") +
-    glanceTile("needs", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear", needsCount ? "" : "up") +
+    glanceTile("needs", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear", needsCount ? "" : "up", needsTone) +
   '</nav>';
 
   // Glance, then what needs you, then the month and net worth; goals, the year in review and the week's recap after.

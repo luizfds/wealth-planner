@@ -477,6 +477,8 @@
 .home-todo-btn:focus-visible{ box-shadow:var(--focus-ring); }
 .home-todo-all{ margin-top:6px; font-size:var(--fs-xs); }
 .home-todo-btn.warn{ border-left-color:#d99a00; } .home-todo-btn.bad{ border-left-color:var(--bad); }
+.home-todo-btn .att-icon{ margin-right:-2px; }
+.home-todo-title{ flex:1 1 auto; min-width:0; }
 .home-period-note{ margin:0 0 8px; font-size:var(--fs-sm); color:var(--brass-strong); }
 @media (max-width: 640px){ .home-grid{ grid-template-columns: 1fr; } }
 
@@ -756,6 +758,11 @@
 .home-glance-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-glance-tile small .up{ color: var(--good-ink); font-weight:600; }
 .home-glance-tile small .down{ color: var(--bad-ink); font-weight:600; }
+/* What needs you, tinted (the owner: colour where it means something): amber while something waits, red with a bill
+   overdue or something urgent. A wash of the card, the words unchanged. */
+.home-card.attn-warn, .home-glance-tile.attn-warn{ background: color-mix(in srgb, var(--warn-ink) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--warn-ink) 35%, var(--border)); }
+.home-card.attn-bad, .home-glance-tile.attn-bad{ background: color-mix(in srgb, var(--bad) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
+.home-glance-tile.attn-warn:hover, .home-glance-tile.attn-bad:hover{ background: var(--paper-sunken); }
 .home-glance[hidden]{ display:none; }
 .home-card[data-home-card]{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
 .home-card[data-home-card]:focus{ outline:none; }

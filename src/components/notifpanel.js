@@ -4,7 +4,7 @@
 // where its listeners used to be added.
 import { escapeAttr } from "../lib/html.js";
 import { getNotifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead } from "../lib/notifications.js";
-import { attentionItems, viewItems, canDismiss } from "../lib/attention.js";
+import { attentionItems, viewItems, canDismiss, attentionIconHtml } from "../lib/attention.js";
 import { renderHealth } from "./health.js";
 import { renderMonthReview, showPlanStep } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
@@ -53,7 +53,7 @@ function notifItemHtml(n){
   return rowButtonHtml(n);
 }
 function rowButtonHtml(n){
-  return '<button type="button" class="notif-item' + (n.group === "todo" && !n.read ? " is-unread" : "") + '"' + goAttrs(n) + '>' +
+  return '<button type="button" class="notif-item' + (n.group === "todo" && !n.read ? " is-unread" : "") + '"' + goAttrs(n) + '>' + attentionIconHtml(n) +
     '<span class="notif-item-body"><span class="notif-label ' + escapeAttr(n.tone) + '">' + escapeAttr(n.label) + '</span>' +
     '<span class="notif-item-title">' + escapeAttr(n.title) + '</span><span class="notif-item-detail">' + escapeAttr(n.detail) + '</span></span>' +
   '</button>';

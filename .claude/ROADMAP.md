@@ -5670,5 +5670,9 @@ Not changed: Your month, planned (grouped by need/want, not category). Tests in 
 
 ## What needs you, in colour (November 2026)
 
-`[~]` The owner: more colour, without making the app too much — the second and third parts: Today's Needs you tinted
-while something waits, and an icon for each item's kind in Needs you and the bell, in its label's colour.
+`[x]` The owner: more colour, without making the app too much — the second and third parts.
+- Today's Needs you card and its glance tile are tinted while something waits: amber, red with a bill overdue or an
+  urgent to-do, plain when all clear (`attn-warn`/`attn-bad`, a 7% wash; the words unchanged).
+- Each item in Needs you and the bell has an icon for its kind — a bill a calendar, a month to review a tick, a loan a
+  house, a property its building (`attentionIconHtml`, lib/attention.js) — in its label's colour: Urgent and Watch red,
+  To do amber, Opportunity green, the rest quiet. Decorative (aria-hidden): the label and title say it.

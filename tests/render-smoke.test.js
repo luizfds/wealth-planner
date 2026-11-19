@@ -1147,7 +1147,7 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     // "Paid": log the bill from where it's listed, pre-filled.
     assert.match(html, /data-bill-paid="e1" data-bill-due="2026-10-20" data-bill-amount="80" aria-label="Log Phone as paid">Paid<\/button>/);
     // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
-    assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review">Review September 2026/);
+    assert.match(html, /class="home-todo-btn warn" data-notif-id="review:2026-09" data-notif-page="dashboard" data-notif-sub="review"><span class="att-icon att-warn" aria-hidden="true"><svg[^>]*><path d="[^"]*"\/><\/svg><\/span><span class="home-todo-title">Review September 2026<\/span>/);
     // More than four: the first four, and a way to the rest.
     var many = [1, 2, 3, 4, 5, 6].map(function(i){ return { id: "t" + i, title: "Thing " + i, page: "accounts", severity: "info" }; });
     var html2 = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: many });

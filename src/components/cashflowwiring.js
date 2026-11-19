@@ -319,6 +319,8 @@ export function openBillsToConfirm(){
 function openBillPaidSheet(btn){
   if(openBillPaid(btn.getAttribute("data-bill-paid"), btn.getAttribute("data-bill-due"), btn.getAttribute("data-bill-amount"))) pushActiveOverlay(closeExpenseReview);
 }
+// The same, from a To do or the bell (a bill that's due): its line's own amount.
+export function openBillPaidFor(lineId, due){ if(openBillPaid(lineId, due)) pushActiveOverlay(closeExpenseReview); }
 export function wireCashflowSheets(){
   document.addEventListener("click", function(e){
     var paid = e.target.closest && e.target.closest("[data-bill-paid]");

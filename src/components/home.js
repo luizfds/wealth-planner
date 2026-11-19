@@ -86,7 +86,8 @@ export function homeTodos(){
 }
 function todoAttrs(n){
   return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +
-    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '');
+    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '') +
+    (n.line ? ' data-notif-line="' + escapeAttr(n.line) + '" data-notif-due="' + escapeAttr(n.due || "") + '"' : '');
 }
 
 // v3.139.0 (item 171): what moved it most since the line began — the same rules both ends

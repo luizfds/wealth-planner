@@ -94,15 +94,31 @@ export function markAllNotificationsRead(notifications){
 // Split out from dueBillNotifications() so reviewDueNotifications() can be told which lines are
 // already spoken for without re-deriving the predicate — two copies of "is this due soon" is
 // exactly how the two sources would drift back into disagreeing about the same line.
+// How far ahead a bill is said, by how often it comes: a week for one that comes monthly or more often, two weeks for a
+// quarterly or yearly one — the big, easy-to-forget bills (council rates, insurance) need the notice most.
+export function billLeadDays(freq){
+  return /week|fortnight|month/i.test(String(freq || "")) ? DUE_SOON_DAYS : 14;
+}
+// The bills an investment property's own cost lines make (council rates, strata, landlord insurance) — paid by you,
+// so said like the household's. One its property manager pays comes in with their statement and isn't (calc/bills.js).
+function propertyBillLines(){
+  var out = [];
+  (state.properties || []).forEach(function(p){
+    if(!p || p.kind !== "IP") return;
+    (p.expenses || []).forEach(function(x){ if(x && x.id && Number(x.amount) > 0) out.push(Object.assign({}, x, { propertyName: p.what || "Property" })); });
+  });
+  return out;
+}
 function dueBillPairs(){
   // v3.94.1: the bills calendar's reading (calc/bills.js upcomingBills), so a cancelled line, a
   // spending budget or a bill on a card is never "due" here. Card repayments have their own
   // reminder (cardPaymentReminders) and are left to it.
   var today = todayStr();
   var byId = {};
-  state.shared.forEach(function(i){ if(i.id) byId[i.id] = i; });
-  return upcomingBills(state.shared, state.transactions, today, DUE_SOON_DAYS, { accounts: state.accounts, transfers: state.transfers })
-    .filter(function(b){ return !b.card && byId[b.id] && b.days >= -7; })
+  var lines = state.shared.concat(propertyBillLines());
+  lines.forEach(function(i){ if(i.id) byId[i.id] = i; });
+  return upcomingBills(lines, state.transactions, today, 14, { accounts: state.accounts, transfers: state.transfers })
+    .filter(function(b){ return !b.card && !b.agent && byId[b.id] && b.days >= -7 && b.days <= billLeadDays(byId[b.id].freq); })
     // One per line: the next date it's due, and whether an earlier one went unlogged.
     .reduce(function(acc, b){
       var x = acc.find(function(y){ return y.item.id === b.id; });
@@ -123,10 +139,10 @@ function dueBillNotifications(pairs, toConfirm){
         id: "duebill:" + x.item.id + ":" + x.due,
         type: "duebill",
         severity: x.behind ? "bad" : "warn",
-        title: x.item.what,
+        title: x.item.what + (x.item.propertyName ? " — " + x.item.propertyName : ""),
         // Carrying "and you haven't logged the last one" here is what lets reviewDueNotifications()
         // stay quiet about this line without the app losing that fact — see its comment.
-        detail: "Due " + fmtDate(x.due) + " · " + fmtCurrency0.format(x.item.amount) +
+        detail: "Due " + fmtDate(x.due) + " · " + fmtCurrency0.format(x.item.amount) + (x.item.freq ? " · " + String(x.item.freq).toLowerCase() : "") +
           (x.behind ? " — the one before this still isn't logged" : ""),
         date: x.due,
         page: "expenses", sub: "bills"
@@ -135,6 +151,9 @@ function dueBillNotifications(pairs, toConfirm){
       // that payment waits, and counts on Spending's line, where payments are logged (the header button it replaces
       // showed there). One still to come goes to the Bills calendar, as before.
       if(toConfirm[x.item.id]){ n.action = "catchup"; n.sub = "spending"; }
+      // Due within three days (or past it) and not in the confirm sheet: the "Paid" sheet for it, filled in — a bill is
+      // often paid a day or two early. Further out, it opens the Bills calendar.
+      else if(x.days <= 3){ n.action = "billpaid"; n.line = x.item.id; n.due = x.due; }
       return n;
     });
 }

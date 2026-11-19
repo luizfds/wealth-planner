@@ -209,3 +209,45 @@ test("budget lines spending suggests are a To do once the first month is behind 
     if(first >= ago(59)) assert.equal(todo().length, 0, "while the first month shows, it asks — not a To do as well");
   } finally { Object.assign(state, keep); changed(); }
 });
+
+// The owner: council rates come once a quarter and the app said nothing about them — an investment property's own cost
+// lines weren't read at all, and a week's notice is short for a big bill that comes a few times a year.
+function withProperty(expenses, transactions, fn){
+  var keep = { shared: state.shared, tx: state.transactions, props: state.properties, assets: state.assets, accounts: state.accounts };
+  state.shared = []; state.assets = []; state.transactions = transactions; state.accounts = [{ name: "Everyday Account", type: "everyday" }];
+  state.properties = [{ id: "p1", what: "1 Example St", kind: "IP", value: 600000, loans: [], expenses: expenses }];
+  try { fn(); } finally { Object.assign(state, { shared: keep.shared, transactions: keep.tx, properties: keep.props, assets: keep.assets, accounts: keep.accounts }); }
+}
+test("a property's quarterly council rates are said two weeks ahead, named with the property", function(){
+  withProperty([{ id: "cr", what: "Council rates", amount: 480, freq: "Quarterly" }],
+    [{ id: "t1", date: daysAgo(79), amount: 480, linkedExpenseId: "cr", account: "Everyday Account" }],
+    function(){
+      var bills = (changed(), getLocalNotifications()).filter(function(n){ return n.type === "duebill"; });
+      assert.equal(bills.length, 1, "due in about 12 days: inside a quarterly bill's two weeks");
+      assert.equal(bills[0].title, "Council rates — 1 Example St");
+      assert.match(bills[0].detail, /\$480 · quarterly/);
+      assert.ok(!bills[0].action, "not due yet: it opens the Bills calendar, not the Paid sheet");
+    });
+});
+test("a monthly bill twelve days out isn't said yet — a week's notice is enough for it", function(){
+  withProperty([{ id: "st", what: "Strata", amount: 300, freq: "Monthly" }],
+    [{ id: "t1", date: daysAgo(18), amount: 300, linkedExpenseId: "st", account: "Everyday Account" }],
+    function(){
+      assert.equal((changed(), getLocalNotifications()).filter(function(n){ return n.type === "duebill"; }).length, 0);
+    });
+});
+test("a property bill due within three days opens its Paid sheet; one the property manager pays isn't said", function(){
+  withProperty([{ id: "cr", what: "Council rates", amount: 480, freq: "Quarterly" }],
+    [{ id: "t1", date: daysAgo(91), amount: 480, linkedExpenseId: "cr", account: "Everyday Account" }],
+    function(){
+      var n = (changed(), getLocalNotifications()).find(function(x){ return x.type === "duebill"; });
+      assert.ok(n, "due about now");
+      assert.equal(n.action, "billpaid"); assert.equal(n.line, "cr"); assert.ok(n.due);
+    });
+  withProperty([{ id: "cr", what: "Council rates", amount: 480, freq: "Quarterly" }],
+    [{ id: "t1", date: daysAgo(85), amount: 480, linkedExpenseId: "cr", account: "Agent Co" }],
+    function(){
+      state.accounts.push({ name: "Agent Co", type: "agent" });
+      assert.equal((changed(), getLocalNotifications()).filter(function(x){ return x.type === "duebill"; }).length, 0);
+    });
+});

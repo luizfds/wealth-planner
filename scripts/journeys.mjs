@@ -6873,11 +6873,21 @@ const JOURNEYS = {
     await page.evaluate(async () => {
       const s = await import('/src/state.js'); const p = s.state.properties.find(x => x.kind === 'IP');
       p.expenses = p.expenses || []; p.expenses.push({ id: 'example-rates', what: 'Council rates', amount: 480, freq: 'Quarterly', category: 'Utilities' });
-      const d = new Date(Date.now() - 88 * 86400000).toISOString().slice(0, 10);
+      const d = new Date(Date.now() - 89 * 86400000).toISOString().slice(0, 10);   // a quarter on: due in about two days
       s.state.transactions.push({ id: 'example-rates-paid', date: d, amount: 480, linkedExpenseId: 'example-rates', account: 'Everyday Account' });
       s.commit(['properties', 'transactions']);
     });
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+    // The bell says it — a quarterly property bill, named with its property — and following it opens the same sheet.
+    await page.locator('#notifBellBtn').click();
+    const remind = page.locator('[data-notif-id^="duebill:example-rates:"]').first();
+    await remind.waitFor({ state: 'visible' });
+    check(/Council rates — /.test(await remind.innerText()) && /quarterly/.test(await remind.innerText()), 'the reminder does not name the property bill: ' + await remind.innerText());
+    check(await remind.getAttribute('data-notif-action') === 'billpaid', 'a property bill due in days does not open its Paid sheet');
+    await remind.click();
+    await page.locator('#expenseReviewRoot [role="dialog"][aria-label="Log a payment"]').waitFor({ state: 'visible' });
+    await page.locator('#expenseReviewRoot [data-review-close]').first().click();
+    await page.waitForFunction(() => !document.querySelector('#expenseReviewRoot [role="dialog"]'));
     const paid = page.locator('#homeSummary [data-bill-paid="example-rates"]');
     await paid.waitFor({ state: 'visible' });
     check((await paid.getAttribute('aria-label')) === 'Log Council rates as paid', 'the Paid button is not named for its bill');

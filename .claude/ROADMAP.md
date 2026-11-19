@@ -5631,3 +5631,11 @@ due date shown, Date paid today, its amount, and Paid from the account it was pa
 else the everyday account); no tick box. Save commits `transactions` (Today's card, Money → Bills and the property's
 Activity redraw from it), closes and says "<bill> logged as paid". The buttons are 44px pills (the phone tap-target
 floor). Journey `billpaid`.
+
+And reminders (same PR): the owner — "council rates are every quarter, the app should tell me about those bills". An
+investment property's own cost lines weren't read for reminders at all (`dueBillPairs` read `state.shared` only), and a
+week's notice is short for a big bill that comes a few times a year. Now: an IP's cost lines are said like the
+household's ("Council rates — 1 Example St", "Due … · $480 · quarterly"; not one the property manager pays), a
+quarterly or yearly bill two weeks ahead (`billLeadDays`; monthly and more often stay at a week), and a bill due
+within three days opens its "Paid" sheet from the bell or the To do (action `billpaid`). Tests in
+notifications.test.js; `billpaid` follows the reminder.

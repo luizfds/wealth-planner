@@ -10,7 +10,7 @@ import { renderMonthReview, showPlanStep } from "./monthreview.js";
 import { showPage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, currentView } from "./nav.js";
 import { openTxReview } from "./spendingwiring.js";
 import { openCashRateDialog } from "./cashrate.js";
-import { openBillsToConfirm } from "./cashflowwiring.js";
+import { openBillsToConfirm, openBillPaidFor } from "./cashflowwiring.js";
 import { renderTaxYear, setTaxYearSelected } from "./taxyear.js";
 import { reportShown, rememberReport, renderReports } from "./reports.js";
 
@@ -43,7 +43,8 @@ function goAttrs(n){
     return n.go ? ' data-adv-go="' + escapeAttr(n.go.page) + '"' + (n.go.sub ? ' data-adv-sub="' + escapeAttr(n.go.sub) + '"' : '') : '';
   }
   return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +
-    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '');
+    (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '') +
+    (n.line ? ' data-notif-line="' + escapeAttr(n.line) + '" data-notif-due="' + escapeAttr(n.due || "") + '"' : '');
 }
 function notifItemHtml(n){
   // An observation that can be put away gets a second button beside its row (a button can't hold a button).
@@ -100,7 +101,7 @@ export function refreshNotifPanel(){ if(notifPanelOpen) renderNotifPanelContent(
 // Where a To do is done. One function for the bell's rows and Home's To do, which carry the same attributes.
 export function followNotification(el){
   followItem({ id: el.getAttribute("data-notif-id"), page: el.getAttribute("data-notif-page"), sub: el.getAttribute("data-notif-sub"),
-    action: el.getAttribute("data-notif-action"), fy: el.getAttribute("data-notif-fy") });
+    action: el.getAttribute("data-notif-action"), fy: el.getAttribute("data-notif-fy"), line: el.getAttribute("data-notif-line"), due: el.getAttribute("data-notif-due") });
 }
 function followItem(n){
   var page = n.page, sub = n.sub, action = n.action, fy = n.fy;
@@ -111,6 +112,8 @@ function followItem(n){
   if(action === "txreview"){ openTxReview(); return; }
   // #415: bills that fell due with nothing logged — the confirm sheet, over whatever page is showing.
   if(action === "catchup"){ openBillsToConfirm(); return; }
+  // A bill that's due: the "Paid" sheet for it, filled in — over whatever page is showing.
+  if(action === "billpaid" && n.line){ openBillPaidFor(n.line, n.due); return; }
   // The cash-rate form is a dialog over whatever page is showing — no navigation, which would close it again.
   if(action === "cashrate"){ openCashRateDialog(); return; }
   // #400: next year's plan — the month review, at its plan step.

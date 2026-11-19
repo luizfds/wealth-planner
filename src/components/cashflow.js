@@ -295,11 +295,13 @@ export function billsCalendarHtml(data, ym, today){
   var head = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(function(n){ return '<div class="bc-head">' + n + '</div>'; }).join("");
   var all = [];
   Object.keys(data.days).sort().forEach(function(k){ data.days[k].forEach(function(b){ all.push(b); }); });
-  function row(date, name, sub, st, amount){
+  // `pay`: a bill paid from your own account, not yet logged — "Paid" logs it, pre-filled (Today's Bills card has it too).
+  function row(date, name, sub, st, amount, pay){
     return '<li class="' + st + '"><span class="bc-list-date">' + short(date) + '</span><span class="bc-list-name">' + name + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
-      '<span class="bc-list-state">' + (st === "paid" ? "paid ✓" : st === "overdue" ? "not logged" : date === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(amount) + '</b></li>';
+      '<span class="bc-list-state">' + (st === "paid" ? "paid ✓" : st === "overdue" ? "not logged" : date === today ? "today" : "due") + '</span><b>' + fmtCurrency0.format(amount) + '</b>' +
+      (pay && st !== "paid" ? '<button type="button" class="bc-list-paid" data-bill-paid="' + escapeAttr(pay.id) + '" data-bill-due="' + escapeAttr(date) + '" data-bill-amount="' + escapeAttr(String(amount)) + '" aria-label="Log ' + escapeAttr(pay.what) + ' as paid">Paid</button>' : '') + '</li>';
   }
-  var direct = all.filter(function(b){ return !b.card && !b.agent; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount) }; })
+  var direct = all.filter(function(b){ return !b.card && !b.agent; }).map(function(b){ return { date: b.date, html: row(b.date, escapeAttr(b.what), "", st(b), b.amount, b.id ? b : null) }; })
     .concat(pays.map(function(p){
       var parts = [];
       if(p.split){

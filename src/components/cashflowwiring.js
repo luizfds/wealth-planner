@@ -18,7 +18,7 @@ import { state, persist, commit, genId } from "../state.js";
 import { renderAssets } from "./assets.js";
 import { autoPayView } from "./autopay.js";
 import { renderDetailPage } from "./detail.js";
-import { closeScenarioOverridePanel, renderScenarioOverridePanel, setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll, openExpenseReview, closeExpenseReview, renderExpenseReviewPanel, confirmReviewBills, renderTransactions, renderActualVsPlannedPanel, loggableBudgetLineItems, renderBillsCalendar, openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen, setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog, renderAccounts, budgetLineItems } from "./expenses.js";
+import { closeScenarioOverridePanel, renderScenarioOverridePanel, setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll, openExpenseReview, closeExpenseReview, renderExpenseReviewPanel, confirmReviewBills, openBillPaid, isSingleBillReview, singleBillName, renderTransactions, renderActualVsPlannedPanel, loggableBudgetLineItems, renderBillsCalendar, openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen, setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog, renderAccounts, budgetLineItems } from "./expenses.js";
 import { renderHomeSummary } from "./home.js";
 import { renderTaxSuper } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
@@ -148,7 +148,14 @@ function performReviewConfirm(){
     return { key: Number(row.getAttribute("data-confirm-key")), checked: row.querySelector(".bc-confirm-check").checked,
       amount: parseFloat(row.querySelector(".bc-confirm-amount").value), date: row.querySelector(".bc-confirm-date").value };
   });
+  var account = document.querySelector("#expenseReviewRoot [data-review-account]");
+  if(account) values.forEach(function(v){ v.account = account.value; });
+  var single = isSingleBillReview();
+  var what = single ? singleBillName() : "";
   var n = confirmReviewBills(values);
+  // One bill marked paid: a payment, saved — its commit redraws what reads payments (Today's Bills card, Money → Bills,
+  // the property's Activity). Then close and say so, rather than a "Done" panel to close as well.
+  if(single){ if(n) commit(["transactions"]); requestCloseActiveOverlay(); if(n) showToast(what + " logged as paid"); return; }
   if(n) refreshAfterLedgerChange("shared");
   renderExpenseReviewPanel();
 }
@@ -308,7 +315,17 @@ export function openBillsToConfirm(){
   // early-return toasts), so check the panel actually rendered before claiming a history entry.
   if(document.querySelector("[data-review-backdrop]")) pushActiveOverlay(closeExpenseReview);
 }
+// "Paid" on a bill anywhere it's listed (Today's Bills card, Money → Bills): the payment, pre-filled, to check and save.
+function openBillPaidSheet(btn){
+  if(openBillPaid(btn.getAttribute("data-bill-paid"), btn.getAttribute("data-bill-due"), btn.getAttribute("data-bill-amount"))) pushActiveOverlay(closeExpenseReview);
+}
+// The same, from a To do or the bell (a bill that's due): its line's own amount.
+export function openBillPaidFor(lineId, due){ if(openBillPaid(lineId, due)) pushActiveOverlay(closeExpenseReview); }
 export function wireCashflowSheets(){
+  document.addEventListener("click", function(e){
+    var paid = e.target.closest && e.target.closest("[data-bill-paid]");
+    if(paid){ e.preventDefault(); openBillPaidSheet(paid); }
+  });
   document.getElementById("expenseReviewRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-review-close]") || e.target === e.target.closest("[data-review-backdrop]")){
       requestCloseActiveOverlay();

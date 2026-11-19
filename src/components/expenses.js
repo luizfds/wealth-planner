@@ -619,6 +619,22 @@ export function openExpenseReview(){
   expenseReview = { bills: due.map(function(b, i){ return Object.assign({ key: i, checked: true }, b); }), confirmed: null };
   renderExpenseReviewPanel();
 }
+// "Paid" on one bill (Today's Bills card, Money → Bills): the same panel for just that bill, with where it was paid
+// from — logging a property's council rates was a hunt through Log spend's line picker (the owner, November 2026).
+export function openBillPaid(lineId, due, amount){
+  var item = budgetLineItems(currentScenario()).find(function(i){ return i.id === lineId; });
+  if(!item){ showToast("That bill's budget line isn't there any more."); return false; }
+  // Dated today — "Paid" is tapped as it's paid (the date is there to change); `due` says which payment it is. Paid from
+  // where it was paid from last time, else the line's own account, else the everyday account.
+  var last = state.transactions.filter(function(t){ return t.linkedExpenseId === item.id && t.account; }).sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0];
+  var everyday = (state.accounts || []).find(function(a){ return a && a.type === "everyday"; });
+  var from = (last && last.account) || item.account || (everyday ? everyday.name : "");
+  expenseReview = { single: true, account: from, bills: [{ key: 0, checked: true, id: item.id, what: item.what, due: due || localDateStr(), paidOn: localDateStr(), amount: Number(amount) || Number(item.amount) || 0 }], confirmed: null };
+  renderExpenseReviewPanel();
+  return true;
+}
+export function isSingleBillReview(){ return !!(expenseReview && expenseReview.single); }
+export function singleBillName(){ var b = expenseReview && expenseReview.bills[0]; return b ? (b.what || "Bill") : ""; }
 export function closeExpenseReview(){
   expenseReview = null;
   var root = document.getElementById("expenseReviewRoot");
@@ -635,7 +651,8 @@ export function confirmReviewBills(values){
     var item = b && items.find(function(i){ return i.id === b.id; });
     if(!b || !item || !v.checked) return;
     var amount = Number(v.amount);
-    logExpenseTransaction(item, amount > 0 ? amount : b.amount, v.date || b.due);
+    var t = logExpenseTransaction(item, amount > 0 ? amount : b.amount, v.date || b.due);
+    if(v.account != null) t.account = v.account;
     n++;
   });
   expenseReview.confirmed = n;
@@ -655,7 +672,7 @@ export function expenseReviewRowsHtml(bills, items){
         '<span class="bc-confirm-name">' + escapeAttr(name) + '<small>Due ' + escapeAttr(due) + (b.estimated ? ' · expected' : '') + '</small>' +
         (context ? '<small>' + escapeAttr(context) + '</small>' : '') +
         (generic ? '<small>This is the name saved in Budget. Rename that line to identify the bill.</small>' : '') + '</span></label>' +
-      '<label class="bc-confirm-date-field"><span>Date paid</span><input type="date" class="bc-confirm-date field-control" value="' + escapeAttr(b.due) + '" aria-label="Date paid for ' + escapeAttr(identity) + '"></label>' +
+      '<label class="bc-confirm-date-field"><span>Date paid</span><input type="date" class="bc-confirm-date field-control" value="' + escapeAttr(b.paidOn || b.due) + '" aria-label="Date paid for ' + escapeAttr(identity) + '"></label>' +
       '<label class="bc-confirm-amount-field"><span>Amount paid</span><span class="bc-confirm-amt"><span aria-hidden="true">$</span><input type="number" step="0.01" min="0" class="bc-confirm-amount field-control" value="' + b.amount + '" aria-label="Amount paid for ' + escapeAttr(identity) + '"></span></label>' +
     '</div>';
   }).join("");
@@ -673,6 +690,14 @@ export function renderExpenseReviewPanel(){
   }
   var bills = expenseReview.bills;
   var rows = expenseReviewRowsHtml(bills, budgetLineItems(currentScenario()));
+  if(expenseReview.single){
+    var one = bills[0];
+    root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel" role="dialog" aria-label="Log a payment">' + head("Log a payment") +
+      '<div class="bc-confirm-list is-single">' + rows + '</div>' +
+      '<label class="bc-confirm-account"><span>Paid from</span><select class="field-control" data-review-account aria-label="Paid from, for ' + escapeAttr(one.what || "this bill") + '">' + transactionAccountOptionsHtml(expenseReview.account) + '</select></label>' +
+      '<div class="review-actions"><button type="button" class="btn btn-primary" data-review-confirm>Save</button></div></div></div>';
+    return;
+  }
   var repeated = bills.some(function(b, index){ return bills.findIndex(function(other){ return other.id === b.id; }) !== index; });
   root.innerHTML = '<div class="review-backdrop" data-review-backdrop><div class="review-panel review-panel-wide" role="dialog" aria-label="Bills to confirm">' +
     head(bills.length + " bill payment" + (bills.length === 1 ? "" : "s") + " to confirm") +

@@ -628,7 +628,7 @@
 .home-meter-mark{ position:absolute; top:-4px; bottom:-4px; width:2px; margin-left:-1px; border-radius:1px; background: var(--ink); }
 .home-plan-context{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
 /* Bills: a date chip each, tinted by how soon; the date in words stays for screen readers. */
-.home-bills .home-list li{ grid-template-columns: auto minmax(0,1fr) auto; align-items:center; }
+.home-bills .home-list li{ grid-template-columns: auto minmax(0,1fr) auto auto; align-items:center; }
 .home-bills .home-list li > em{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .home-date{ display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-width:44px; height:38px; padding:0 6px; border-radius:10px;
   background: var(--paper-sunken); line-height:1.05; }

@@ -67,6 +67,18 @@ function areaHtml(points){
     '<path class="home-area-line" d="' + line + '" vector-effect="non-scaling-stroke"/>' +
     '<circle class="home-area-dot" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>';
 }
+// The hero's line: net worth over the same months as its change, drawn faintly behind the figure. Decorative — the
+// change is written beside it, and Net worth's card below has the chart.
+function sparkHtml(points){
+  if(!points || points.length < 2) return "";
+  var w = 240, h = 80, vals = points.map(function(p){ return Number(p.value) || 0; });
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  if(min === max){ min -= 1; max += 1; }
+  var xy = vals.map(function(v, i){ return [(i / (vals.length - 1)) * w, 8 + (1 - (v - min) / (max - min)) * (h - 16)]; });
+  var line = xy.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
+  return '<svg class="home-glance-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
+    '<path class="fill" d="' + line + ' L' + w + ',' + h + ' L0,' + h + ' Z"/><path class="line" d="' + line + '" vector-effect="non-scaling-stroke"/></svg>';
+}
 function signed(n){ return (n < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(n)); }
 
 // Bills expected in the next `days` days (and unpaid ones from the last week) — v3.94.1: the bills
@@ -182,16 +194,20 @@ export function homeSummaryHtml(today, opts){
       '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="bills">' + (later > 0 ? later + ' more bill' + (later === 1 ? '' : 's') + ' in the next fortnight →' : 'Bills calendar →') + '</button></div></div>';
 
   // The glance (the owner: one look at the top says where things stand): four figures, each a way to its card.
+  // November 2026, "Today opens in colour" (the owner chose it from three mock-ups): net worth is the hero — a gradient
+  // with its own line behind it — and the three under it are solid tiles whose colour is what they say: the month green
+  // while money is left (red once it isn't), the next bill amber, Needs you rose while something waits (green when clear).
   var nextBill = bills[0];
-  var glanceTile = function(go, label, value, sub, tone, attn){
-    return '<button type="button" class="home-glance-tile' + (attn || "") + '" data-glance-go="' + go + '"><span class="home-glance-k">' + label + '</span><b class="' + (tone || "") + '">' + value + '</b><small>' + sub + '</small></button>';
+  var glanceTile = function(go, look, label, value, sub, extra){
+    return '<button type="button" class="home-glance-tile ' + look + '" data-glance-go="' + go + '">' + (extra || '') + '<span class="home-glance-k">' + label + '</span><b>' + value + '</b><small>' + sub + '</small></button>';
   };
   var glance = '<nav class="home-glance" data-home-card="glance" aria-label="At a glance">' +
-    (nwEmpty ? glanceTile("nw", "Net worth", "—", "") : glanceTile("nw", "Net worth", fmtCompact(nw), trend ? '<span class="' + (trend.change >= 0 ? "up" : "down") + '">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + '</span>' : 'as of today')) +
-    (monthEmpty ? glanceTile("month", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
-      : glanceTile("month", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent", saved >= 0 ? "up" : "down")) +
-    glanceTile("needs", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight", nextBill && nextBill.days <= 1 ? "warn" : "") +
-    glanceTile("needs", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear", needsCount ? "" : "up", needsTone) +
+    (nwEmpty ? glanceTile("nw", "is-hero", "Net worth", "—", "")
+      : glanceTile("nw", "is-hero", "Net worth", fmtCompact(nw), trend ? '<span class="home-glance-chip">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + ' since ' + shortDate(trend.from.date, today) + '</span>' : 'as of today', trend ? sparkHtml(trend.points) : '')) +
+    (monthEmpty ? glanceTile("month", "is-quiet", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
+      : glanceTile("month", saved >= 0 ? "is-good" : "is-bad", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent")) +
+    glanceTile("needs", nextBill ? "is-warn" : "is-quiet", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight") +
+    glanceTile("needs", needsCount ? "is-alert" : "is-good", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear") +
   '</nav>';
 
   // Glance, then what needs you, then the month and net worth; goals, the year in review and the week's recap after.

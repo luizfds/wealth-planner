@@ -745,25 +745,36 @@
 
 /* Today, glance first (the owner: Today as the place to know where you stand at a look): four figures, each a way to
    its card; then Needs you — the bills due this week, each with Paid, and the to-dos. */
-.home-glance{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin:0 0 14px; }
-@media (min-width: 900px){ .home-glance{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
-.home-glance-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:84px; padding:12px 14px; text-align:left;
-  border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); box-shadow: var(--shadow); color: var(--ink); font:inherit; cursor:pointer; min-width:0; }
-.home-glance-tile:hover{ background: var(--paper-sunken); }
-.home-glance-tile:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
-.home-glance-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
-.home-glance-tile b{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.home-glance-tile b.up{ color: var(--good-ink); }
-.home-glance-tile b.down{ color: var(--bad-ink); }
-.home-glance-tile b.warn{ color: var(--warn-ink); }
-.home-glance-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.home-glance-tile small .up{ color: var(--good-ink); font-weight:600; }
-.home-glance-tile small .down{ color: var(--bad-ink); font-weight:600; }
+/* Today opens in colour (the owner chose it from three mock-ups, November 2026): net worth is the hero, a gradient with
+   its line behind it; the three under it are solid tiles whose colour is what they say. White on each of them is 5:1
+   or better, both themes (the tiles are the same colour in each). */
+.home-glance{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; margin:0 0 14px; }
+.home-glance-tile{ position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:92px; padding:12px; text-align:left;
+  border:0; border-radius:var(--card-radius); background: var(--tile-bg); box-shadow: var(--shadow); color: #fff; font:inherit; cursor:pointer; min-width:0; }
+.home-glance-tile:hover{ filter: brightness(1.07); }
+.home-glance-tile:focus-visible{ outline:none; box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--brass); }
+.home-glance-k{ position:relative; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.home-glance-tile b{ position:relative; font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-glance-tile small{ position:relative; font-size:var(--fs-xs); max-width:100%; overflow-wrap:anywhere; }
+.home-glance-tile.is-hero{ grid-column: 1 / -1; min-height:140px; padding:18px 20px; gap:4px; background: linear-gradient(135deg, #1e40af 0%, #0e7490 60%, #0f766e 100%);
+  box-shadow: 0 10px 24px -12px rgba(14,116,144,.7); }
+.home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
+.home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }
+.home-glance-spark{ position:absolute; right:0; bottom:0; width:58%; height:62%; pointer-events:none; }
+.home-glance-spark .fill{ fill: rgba(255,255,255,.12); }
+.home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.55); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.home-glance-tile.is-good{ --tile-bg: linear-gradient(160deg, #047857, #065f46); }
+.home-glance-tile.is-bad, .home-glance-tile.is-alert{ --tile-bg: linear-gradient(160deg, #be123c, #9f1239); }
+.home-glance-tile.is-warn{ --tile-bg: linear-gradient(160deg, #b45309, #92400e); }
+.home-glance-tile.is-quiet{ --tile-bg: linear-gradient(160deg, #475569, #334155); }
+/* A wide screen: the hero beside the three, one row. */
+@media (min-width: 900px){ .home-glance{ grid-template-columns: 2fr repeat(3, minmax(0,1fr)); } .home-glance-tile.is-hero{ grid-column:auto; } }
+/* The narrowest phones: two to a row, Needs you across both. */
+@media (max-width: 359px){ .home-glance{ grid-template-columns: repeat(2, minmax(0,1fr)); } .home-glance-tile:last-child{ grid-column: 1 / -1; min-height:0; } }
 /* What needs you, tinted (the owner: colour where it means something): amber while something waits, red with a bill
    overdue or something urgent. A wash of the card, the words unchanged. */
-.home-card.attn-warn, .home-glance-tile.attn-warn{ background: color-mix(in srgb, var(--warn-ink) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--warn-ink) 35%, var(--border)); }
-.home-card.attn-bad, .home-glance-tile.attn-bad{ background: color-mix(in srgb, var(--bad) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
-.home-glance-tile.attn-warn:hover, .home-glance-tile.attn-bad:hover{ background: var(--paper-sunken); }
+.home-card.attn-warn{ background: color-mix(in srgb, var(--warn-ink) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--warn-ink) 35%, var(--border)); }
+.home-card.attn-bad{ background: color-mix(in srgb, var(--bad) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
 .home-glance[hidden]{ display:none; }
 .home-card[data-home-card]{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
 .home-card[data-home-card]:focus{ outline:none; }

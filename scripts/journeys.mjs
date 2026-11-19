@@ -3232,7 +3232,17 @@ const JOURNEYS = {
       check(!await page.locator('.nw-manage').count(), 'a "Manage on" link is still on Accounts');
       await page.locator('#pageBack').tap();
       await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
+      // Each card ends with a row naming what its page holds, going to the same page as its heading.
+      const foot = page.locator('#netWorthBody .nw-foot-link[data-go="' + go_ + '"]');
+      check(await foot.count() === 1 && (await foot.boundingBox()).height >= 44, go_ + ' card has no row saying what is behind it');
+      await foot.scrollIntoViewIfNeeded(); await foot.tap();
+      await page.waitForFunction(t => document.body.dataset.currentPage === "assets" && document.getElementById('pageTitle').textContent === t, title);
+      await page.locator('#pageBack').tap();
+      await page.waitForFunction(() => document.body.dataset.currentPage === "networth");
     }
+    // Cash's offsets and Debts' property loans have their own rows where there are some (the sample household has both).
+    check(await page.locator('#netWorthBody .nw-foot-link[data-go="assets/Offsets"]').count() === 1, 'Cash offers no way to Offsets');
+    check(await page.locator('#netWorthBody .nw-foot-link[data-go="properties"]').count() === 2, 'Property and Debts do not both offer a way to the property page');
     await enter();
     const back = page.locator('#pageBack');
     check(await back.isVisible() && (await back.textContent()).includes("Accounts"), "Investments has no header link up to Accounts");

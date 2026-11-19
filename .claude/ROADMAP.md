@@ -5558,7 +5558,13 @@ What shipped:
 
 ## Accounts: each card ends with what's behind it (November 2026)
 
-`[~]` The owner, on #438's headings: nothing said they could be tapped (a small grey ›). Chosen: each group's card ends
+`[x]` The owner, on #438's headings: nothing said they could be tapped (a small grey ›). Chosen: each group's card ends
 with a row in the link colour naming what its page holds — "Performance, winners and losers ›" for Investments — the
 heading staying a way in too and unchanged. Cash also offers Offsets and cash held outside a bank account (their way in
 since #438), only where there are some; Debts offers Property loans where there are any.
+
+What shipped: `FOOT` in networth.js — Investments "Performance, winners and losers", Super "Contributions and super over
+time", Property "Loans, income and costs", Other things "Each item's value over time", Cash and Debts "All accounts and
+cards"; Cash adds "Offsets" (offset balances) and "Cash not in an account" (a Cash holding no bank account links to),
+Debts "Property loans", each only where there are some. Each label names sections its page has. 48px rows in the link
+colour; the accessible name adds the card ("… (Cash)"). Render test and `mobileinvestments` cover both.

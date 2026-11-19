@@ -1519,6 +1519,29 @@ test("net worth page: groups with their totals, each row to its detail page", ()
   } finally { state.assets = keep.a; state.properties = keep.p; state.debts = keep.d; }
 });
 
+test("each net worth card ends with what its page holds; Cash and Debts add rows only where they have such things", () => {
+  const keep = { a: state.assets, p: state.properties, d: state.debts, ac: state.accounts };
+  try {
+    // Cash held in a bank account (linked) and Shares; a card, no property.
+    state.accounts = [{ id: "x1", name: "Bank One", type: "everyday", link: "asset:a1" }];
+    state.assets = [{ id: "a1", what: "Everyday", category: "Cash", amount: 2000 }, { id: "s1", what: "ABC", category: "Shares", amount: 5000, quantity: 10 }];
+    state.properties = []; state.debts = [{ id: "d1", what: "Card", balance: 500 }];
+    let h = netWorthPageHtml();
+    assert.match(h, /class="nw-foot-link" data-go="assets\/Shares">Performance, winners and losers/);
+    assert.equal((h.match(/data-go="accounts">All accounts and cards/g) || []).length, 2, "Cash and Debts both go to Bank accounts");
+    assert.doesNotMatch(h, /Cash not in an account|data-go="assets\/Offsets"|Property loans/, "nothing to show, no row for it");
+    assert.match(h, /All accounts and cards<span class="visually-hidden"> \(Cash\)<\/span>/, "the name says which card");
+    // Cash outside any bank account, and a property loan with an offset.
+    state.assets.push({ id: "a2", what: "Cash at home", category: "Cash", amount: 300 });
+    state.properties = [{ id: "p1", what: "1 Example St", kind: "IP", value: 600000, loans: [{ id: "l1", what: "Loan", balance: 400000, offsetBalance: 10000 }] }];
+    h = netWorthPageHtml();
+    assert.match(h, /data-go="assets\/Cash">Cash not in an account/);
+    assert.match(h, /data-go="assets\/Offsets">Offsets/);
+    assert.match(h, /data-go="properties">Property loans/);
+    assert.match(h, /data-go="properties">Loans, income and costs/);
+  } finally { state.assets = keep.a; state.properties = keep.p; state.debts = keep.d; state.accounts = keep.ac; }
+});
+
 import { autoPricesCardHtml, autoPricesResultText } from "../src/components/autoprices.js";
 test("the automatic prices card, before and after a read", () => {
   const keep = state.autoPrices;

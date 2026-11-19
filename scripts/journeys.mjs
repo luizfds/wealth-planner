@@ -5748,17 +5748,26 @@ const JOURNEYS = {
     // list was still moving, even though it ended behind the sticky header (or above the viewport).
     // Done is this scroll moved and then still — not the next scrollend, which can be the trim card's own instant
     // scroll just above arriving late on a loaded machine (forced, it measured before the list had moved).
-    // Forced: something above the list shrinks by 60px while the page moves (on CI it ended 48px short once). Where it
-    // lands is checked once the page is still, against the headers as they are then.
-    const startY = await page.evaluate(() => {
+    // Forced: something above the list shrinks by 60px while the page moves, and 40px more after it has stopped (on CI
+    // it ended short twice). Where it lands is checked against the headers as they are then.
+    await page.evaluate(() => {
       const y = scrollY, list = document.getElementById('sharedGroups'), sec = list.closest('details.ledger'), sum = sec && sec.querySelector(':scope > summary');
       window.__emptyClick = { open: !!(sec && sec.open), sticky: !!sum && getComputedStyle(sum).position === 'sticky', summary: sum ? Math.round(sum.getBoundingClientRect().height) : 0, header: document.querySelector('.app-topbar').offsetHeight };
       const spacer = document.createElement('div'); spacer.style.height = '60px'; list.before(spacer);
+      // Done is a scrollend from this scroll (it has moved), then still — a pause partway isn't the end on a slow runner.
+      window.__emptyEnded = false;
+      const ended = () => { if(scrollY !== y){ window.__emptyEnded = true; removeEventListener('scrollend', ended); } };
+      addEventListener('scrollend', ended);
       document.querySelector('#trimCard .empty-state [data-empty-scroll]').click();
+      // ...and again after the scroll has ended (as on CI: right at the click, ended normally, short afterwards).
       setTimeout(() => spacer.remove(), 60);
-      return y;
+      const late = document.createElement('div'); late.style.height = '40px'; list.before(late);
+      setTimeout(() => late.remove(), 700);
     });
-    await page.waitForFunction(y => scrollY !== y, startY, { timeout: 5000 });
+    const clickedAt = performance.now();
+    await page.waitForFunction(() => window.__emptyEnded, null, { timeout: 5000 });
+    // The app looks again for 2s after the click; measure what it leaves. (Real time: the page's clock is fixed.)
+    await page.waitForTimeout(Math.max(0, 2300 - (performance.now() - clickedAt)));
     await pageStill(page);
     const position = await page.evaluate(() => {
       const target = document.getElementById('sharedGroups'), r = target.getBoundingClientRect(), h = document.querySelector('.app-topbar').getBoundingClientRect();

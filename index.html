@@ -250,12 +250,6 @@
             </div>
           </section>
           <div id="homeSummary"></div>
-          <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
-          <nav class="today-more" aria-label="More on Today">
-            <button type="button" class="link-btn" data-dashboard-sub="insights" data-level="advanced">Insights</button>
-            <button type="button" class="link-btn" data-dashboard-sub="benchmarks" data-level="advanced">How you compare</button>
-            <button type="button" class="link-btn" data-dashboard-sub="review">Monthly review</button>
-          </nav>
           <div id="staleAssetsBanner"></div>
           <div class="page-intro-row">
             <p class="page-intro help" style="margin-top:0">Where you stand under the scenario you're looking at — switch scenarios, or compare them, in Plan.</p>
@@ -263,12 +257,21 @@
               <button type="button" class="btn btn-sm btn-ghost" id="homeArrangeBtn" data-ha-open title="Reorder and hide Today's cards, or bring Insights panels onto Home">Arrange</button>
             </div>
           </div>
+          <!-- Plans & insights: the planned figures as one grid, then every way further in as one row (they were a row of
+               links above the tiles and two more under them). -->
+          <h2 class="home-section-title">Plans &amp; insights</h2>
           <div class="stat-row" id="dashboardStats"></div>
           <div class="savings-why" id="savingsBreakdown" hidden></div>
           <!-- v3.165.0: Insights panels brought onto Home are moved in here (lib/homelayout.js). -->
           <div class="detail-grid home-pinned" id="homePinned" hidden></div>
-          <button type="button" class="calc-hint-link" id="dashboardProjectionsLink" data-level="advanced" style="display:block;margin:4px 0 12px">See your long-term projection (all scenarios, 20 years out) →</button>
-          <button type="button" class="calc-hint-link" data-adv-go="plan" data-adv-sub="scenarios" style="display:block;margin:0 0 12px">Compare scenarios side by side in Plan →</button>
+          <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
+          <nav class="today-more" aria-label="More on Today">
+            <button type="button" class="today-more-link" data-dashboard-sub="insights" data-level="advanced">Insights</button>
+            <button type="button" class="today-more-link" data-dashboard-sub="review">Monthly review</button>
+            <button type="button" class="today-more-link" data-dashboard-sub="benchmarks" data-level="advanced">How you compare</button>
+            <button type="button" class="today-more-link" id="dashboardProjectionsLink" data-level="advanced">Projection</button>
+            <button type="button" class="today-more-link" data-adv-go="plan" data-adv-sub="scenarios">Scenarios side by side</button>
+          </nav>
         </div>
 
         <div class="dashboard-subpage" id="dashboardSub-review" hidden>

@@ -11,18 +11,19 @@
 var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
-  { key: "week", label: "Your week (expandable recap)", group: "strip" },
-  { key: "yearreview", label: "Year in review (once a year has finished)", group: "strip" },
+  { key: "glance", label: "At a glance (the four figures at the top)", group: "strip" },
   { key: "autopay", label: "Automatic payments to confirm (on the day)", group: "strip" },
   { key: "lowbal", label: "Balance ahead (when an account nears its buffer)", group: "strip" },
+  // Needs you is the bills due this week and the to-dos in one card (it was "Bills — next 2 weeks" and "To do").
+  { key: "needs", label: "Needs you — bills this week and to-dos", group: "cards" },
   { key: "month", label: "This month", group: "cards" },
   { key: "nw", label: "Net worth", group: "cards" },
-  { key: "bills", label: "Bills — next 2 weeks", group: "cards" },
-  { key: "todo", label: "To do", group: "cards" },
   { key: "goals", label: "Goals (under the cards)", group: "strip" },
+  { key: "yearreview", label: "Year in review (once a year has finished)", group: "strip" },
+  { key: "week", label: "Your week (expandable recap)", group: "strip" },
   { key: "savings", label: "Planned monthly surplus", group: "figures" },
   { key: "projected", label: "Projected net worth", group: "figures" },
-  { key: "runway", label: "Runway", group: "figures" },
+  { key: "runway", label: "Reserve", group: "figures" },
   { key: "fi", label: "Financial independence", group: "figures" },
   { key: "tax", label: "Tax return", group: "figures" },
   { key: "scenarios", label: "Scenarios", group: "figures" }
@@ -51,10 +52,20 @@ export function saveHomeLayout(l){
 export function normaliseLayout(l){
   l = l || {};
   var known = HOME_CARDS.map(function(c){ return c.key; });
-  var order = (Array.isArray(l.order) ? l.order : []).filter(function(k, i, a){ return known.indexOf(k) !== -1 && a.indexOf(k) === i; });
-  known.forEach(function(k){ if(order.indexOf(k) === -1) order.push(k); });
+  // A saved order from before Needs you held "bills" and "todo": it takes the place the first of them had.
+  var saved = (Array.isArray(l.order) ? l.order : []).map(function(k){ return k === "bills" || k === "todo" ? "needs" : k; });
+  var order = saved.filter(function(k, i, a){ return known.indexOf(k) !== -1 && a.indexOf(k) === i; });
+  // A card the saved order doesn't know goes in its own place — before the next card the default order puts after it —
+  // not at the end (Needs you, new, at the bottom of a household's arranged Today).
+  known.forEach(function(k, ki){
+    if(order.indexOf(k) !== -1) return;
+    var next = known.slice(ki + 1).find(function(n){ return order.indexOf(n) !== -1; });
+    order.splice(next ? order.indexOf(next) : order.length, 0, k);
+  });
   var hidden = {};
   Object.keys(l.hidden || {}).forEach(function(k){ if(l.hidden[k] && known.indexOf(k) !== -1) hidden[k] = true; });
+  // Hidden bills and to-dos: Needs you is hidden only if both were.
+  if(l.hidden && l.hidden.bills && l.hidden.todo) hidden.needs = true;
   var ids = INSIGHT_PANELS.map(function(p){ return p.id; });
   var pinned = (Array.isArray(l.pinned) ? l.pinned : []).filter(function(id, i, a){ return ids.indexOf(id) !== -1 && a.indexOf(id) === i; });
   return { order: order, hidden: hidden, pinned: pinned };

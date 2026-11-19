@@ -706,8 +706,14 @@
 .card-diff-link:hover{ text-decoration:underline; }
 
 /* #412: Today's other views — no tab rail; quiet links under its cards, each 44px to tap. */
-.today-more{ display:flex; flex-wrap:wrap; gap:4px 18px; margin:14px 0 4px; }
-.today-more .link-btn{ min-height:44px; display:inline-flex; align-items:center; font-size:var(--fs-md); }
+/* Every way further in from Today, as one row of chips under Plans & insights. */
+.today-more{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 4px; }
+.today-more-link{ min-height:44px; display:inline-flex; align-items:center; gap:6px; padding:0 14px; border:1px solid var(--border); border-radius:100px;
+  background: var(--paper-raised); color: var(--brass-strong); font:inherit; font-size:var(--fs-sm); font-weight:600; cursor:pointer; }
+.today-more-link::after{ content:"›"; font-size:var(--fs-lg); line-height:1; }
+.today-more-link:hover{ background: var(--brass-wash); }
+.today-more-link:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+.home-section-title{ margin:18px 0 8px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
 
 
 /* #426: Today's one-time offer of Simple — a quiet card above the figures, gone once answered. */
@@ -733,3 +739,32 @@
 .sc-compare-list b{ font-family: var(--font-num); font-weight:600; min-width:4.5ch; text-align:right; }
 .sc-compare-list b.neg{ color: var(--bad-ink); }
 @media (max-width: 420px){ .sc-compare-list li{ grid-template-columns: minmax(0, 7em) minmax(0, 1fr) auto; } }
+
+/* Today, glance first (the owner: Today as the place to know where you stand at a look): four figures, each a way to
+   its card; then Needs you — the bills due this week, each with Paid, and the to-dos. */
+.home-glance{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin:0 0 14px; }
+@media (min-width: 900px){ .home-glance{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
+.home-glance-tile{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-height:84px; padding:12px 14px; text-align:left;
+  border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); box-shadow: var(--shadow); color: var(--ink); font:inherit; cursor:pointer; min-width:0; }
+.home-glance-tile:hover{ background: var(--paper-sunken); }
+.home-glance-tile:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+.home-glance-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.home-glance-tile b{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-glance-tile b.up{ color: var(--good-ink); }
+.home-glance-tile b.down{ color: var(--bad-ink); }
+.home-glance-tile b.warn{ color: var(--warn-ink); }
+.home-glance-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-glance-tile small .up{ color: var(--good-ink); font-weight:600; }
+.home-glance-tile small .down{ color: var(--bad-ink); font-weight:600; }
+.home-glance[hidden]{ display:none; }
+.home-card[data-home-card]{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
+.home-card[data-home-card]:focus{ outline:none; }
+.home-card[data-home-card]:focus-visible{ box-shadow: var(--focus-ring); }
+.home-count{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; margin-left:4px; border-radius:100px;
+  background: var(--brass-wash); color: var(--brass-strong); font-family: var(--font-num); font-size:var(--fs-xs); letter-spacing:0; vertical-align:1px; }
+.home-sub{ margin:6px 0 0; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
+.home-needs .home-bill-list li{ display:grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap:8px; align-items:center; font-size:var(--fs-sm); padding:5px 0; border-bottom:1px dashed var(--border); }
+.home-needs .home-bill-list li:last-child{ border-bottom:0; }
+.home-needs .home-bill-list li > em{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.home-needs .home-bill-list li span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-needs-links{ display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:auto; }

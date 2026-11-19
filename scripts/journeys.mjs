@@ -519,7 +519,7 @@ const JOURNEYS = {
       const card = p.locator('[data-home-card="yearreview"]');
       await card.waitFor();
       check(/Your FY25\/26 in review is ready/.test(await card.textContent()), 'the card does not name the year: ' + await card.textContent());
-      check(!/in review is ready/.test(await p.locator('[data-home-card="todo"]').innerText()), 'the year in review is in Home\'s To do as well as its card');
+      check(!/in review is ready/.test(await p.locator('[data-home-card="needs"]').innerText()), 'the year in review is in Home\'s Needs you as well as its card');
       await card.locator('[data-yr-open]').click();
       await waited(p, () => document.body.dataset.currentPage === 'reports' && !!document.querySelector('[data-current-report="review"]'), 'the review opened from Home');
       await go(p, 'dashboard');
@@ -5641,7 +5641,7 @@ const JOURNEYS = {
     // Nothing entered: no $0 cards and nothing to do.
     const zeros = await page.evaluate(() => [...document.querySelectorAll('[data-home-card]')].filter(c => c.getClientRects().length && /\$0\b/.test(c.innerText)).map(c => c.getAttribute('data-home-card')));
     check(!zeros.length, 'cards showing $0 for an empty household: ' + zeros.join(', '));
-    check(await onScreen('[data-home-card="todo"] .home-todo-btn') === 0, 'an empty household was given to-dos');
+    check(await onScreen('[data-home-card="needs"] .home-todo-btn') === 0, 'an empty household was given to-dos');
     check(await onScreen('[data-home-card="month"] [data-go="expenses/income"]') === 1, "the empty month doesn't offer its next step");
     // Back in, from the one way back: the sheet, and its count alone again; through to a first pay row.
     await click(page, '#dashboardSetup [data-firstrun-open]');
@@ -6770,10 +6770,13 @@ const JOURNEYS = {
     await go(page,'dashboard');
     const home=page.locator('#homeSummary');
     check(await home.locator('.home-grid').evaluate(e => e.previousElementSibling == null || !e.previousElementSibling.classList.contains('home-week')), 'weekly recap still leads Home');
-    check(await home.locator('.home-grid > [data-home-card]').first().getAttribute('data-home-card') === 'month', 'current cash flow is not first');
+    // Today leads with the glance, then what needs you, then the month (the owner's order, November 2026).
+    check(await page.locator('#homeSummary [data-home-card="glance"]').isVisible(), 'Today does not open on the glance');
+    check(JSON.stringify(await home.locator('.home-grid > [data-home-card]').evaluateAll(es => es.slice(0, 2).map(e => e.dataset.homeCard))) === '["needs","month"]', 'what needs you and the month are not first');
     check(!await home.locator('.wk-details').evaluate(e=>e.open), 'weekly recap is not collapsed by default');
     await home.locator('.wk-details summary').click(); check(await home.locator('.wk-details').evaluate(e=>e.open), 'weekly recap cannot be expanded');
-    check((await home.innerText()).includes('Planned monthly surplus'), 'planned and logged cash flow are not distinguished');
+    // Said once, in Plans & insights — planned, not logged.
+    check((await page.locator('#dashboardStats').textContent()).includes('Planned monthly surplus'), 'planned and logged cash flow are not distinguished');
     check((await page.locator('[data-home-card="tax"]').textContent()).includes('estimated annual tax'), 'annual tax still reads as tax so far');
     check((await home.innerText()).includes('Recorded balances'), 'net worth lacks data-quality context');
     // #411: + opens one sheet; Log spend is its first Log row.

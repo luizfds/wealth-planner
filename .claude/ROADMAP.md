@@ -5555,3 +5555,10 @@ What shipped:
 - An open row's card stops clipping (`.m-card:has(.m-row.open)`): a fixed sheet already escapes it on screen, but axe
   clipped the open editor to the card's box where they overlapped and read the backdrop (3 states at 1280px light once
   the Shares card moved up 48px; the pixels were right).
+
+## Accounts: each card ends with what's behind it (November 2026)
+
+`[~]` The owner, on #438's headings: nothing said they could be tapped (a small grey ›). Chosen: each group's card ends
+with a row in the link colour naming what its page holds — "Performance, winners and losers ›" for Investments — the
+heading staying a way in too and unchanged. Cash also offers Offsets and cash held outside a bank account (their way in
+since #438), only where there are some; Debts offers Property loans where there are any.

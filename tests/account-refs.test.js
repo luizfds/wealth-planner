@@ -25,7 +25,7 @@ function seed(){
                         { id: "t2", date: "2026-09-02", amount: 20, account: "Bank Two" }];
   state.home = {
     "Renting":   [{ id: "h1", what: "Rent", account: "Bank Two" }],
-    "Buy Sydney":[{ id: "h2", what: "Rent / Home Loan", account: "Bank One" },
+    "Buy a house":[{ id: "h2", what: "Rent / Home Loan", account: "Bank One" },
                   { id: "h3", what: "Council Rates", account: "Bank One" }]
   };
   state.properties = [{ name: "IP1",
@@ -47,8 +47,8 @@ test("renaming an account retargets housing rows in every scenario", () => {
   assert.equal(countOf("Bank One"), 0, "no row may still point at the old name");
   assert.equal(countOf("Bank One Savings"), 7);
   // The specific rows that used to be missed.
-  assert.equal(state.home["Buy Sydney"][0].account, "Bank One Savings");
-  assert.equal(state.home["Buy Sydney"][1].account, "Bank One Savings");
+  assert.equal(state.home["Buy a house"][0].account, "Bank One Savings");
+  assert.equal(state.home["Buy a house"][1].account, "Bank One Savings");
 });
 
 test("renaming an account leaves other accounts alone", () => {

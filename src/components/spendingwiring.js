@@ -219,11 +219,19 @@ function renderFirstRun(){
     offerTour();
     var opener = firstRunReturnFocus;
     firstRunReturnFocus = null;
-    // A redraw may have replaced the opener while the sheet was open.
-    setTimeout(function(){
+    // A redraw may have replaced the opener while the sheet was open, and the one drawn in its place may not show
+    // yet (#282: one try found it hidden, and focus stayed on the page body). So it tries each frame for a second,
+    // only while focus is still nowhere, and stops as soon as it lands.
+    var tries = 0;
+    setTimeout(function restore(){
       if(firstRun.open) return;
-      var target = opener && opener.isConnected ? opener : Array.from(document.querySelectorAll('[data-firstrun-open]')).find(function(el){ return el.getClientRects().length > 0; });
+      var active = document.activeElement;
+      if(active && active !== document.body && active.isConnected) return;
+      var shown = function(el){ return el.isConnected && el.getClientRects().length > 0 && !el.closest("[inert]"); };
+      var target = opener && shown(opener) ? opener : Array.from(document.querySelectorAll('[data-firstrun-open]')).find(shown);
       if(target) target.focus();
+      if(document.activeElement === target && target) return;
+      if(++tries < 60) requestAnimationFrame(restore);
     }, 0);
   }
 }

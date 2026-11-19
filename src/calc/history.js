@@ -191,8 +191,8 @@ export function monthlyCashFlow(transactions, monthKeys, monthlyIncome){
 // What fraction of the household's actual budget the logged transactions represent.
 //
 // The cash-flow panel's first version computed "saved = income − logged spending" and, on the
-// test household's data, announced that the household kept $17,240/mo. It keeps $6,610. Logged spend
-// averaged $615/mo against a $11,580/mo budget — about 5% — so "income minus what you logged" was
+// test household's data, announced that the household kept $14,500/mo. It keeps $5,000. Logged spend
+// averaged $500/mo against a $10,000/mo budget — about 5% — so "income minus what you logged" was
 // measuring how little had been typed in, and calling it thrift.
 //
 // A savings claim is only honest when logging is close to complete. Below that, the panel can still

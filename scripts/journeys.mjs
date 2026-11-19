@@ -24,6 +24,7 @@
 //                 moving through a goal as it saves; Benchmarks' paste box and prices are named (#261 / #263)
 //   basicinvestmenthelp — described recording actions, Super/Vehicle method help, chart names and saved snapshots
 //   investmentssummaryhelp — accessible summary/funding explanations, allocation values, redraws and empty guidance
+//   setupfocusrace — closing setup returns focus to Guided setup when its replacement shows late or is redrawn (#282)
 //   incomehelp — hourly basis, chart values and live edits, current scenario guidance, CSV exports and import review
 //   propertyremaininghelp — loan/acquisition chart names and live patches, schedule help, descriptions and saves
 //   propertyactionhelp — recording, move-to-loan and CSV help by touch/keyboard; recording, move, Undo and export
@@ -267,6 +268,11 @@ async function quiet(page){
 }
 // A wait named for what the step needs, rather than for its code (nameWaits does that for the rest).
 const waited = (page, fn, what, arg) => page.waitForFunction(fn, arg, { timeout: 30000 }).catch(e => { throw new Error("timed out waiting for " + what + " (" + String(e.message).split("\n")[0] + ")"); });
+// Under emulated touch Chrome can move the page between a tap's touch and its click when the target was only just
+// scrolled into view beside the sticky headers, and the click lands on what moved there (incomehelp, taxhelp). Centred
+// and still first, as a person taps what's in front of them.
+const pageStill = page => page.evaluate(() => new Promise(r => { let last = scrollY, same = 0; (function f(){ if(scrollY === last) same++; else { same = 0; last = scrollY; } if(same >= 30) r(); else requestAnimationFrame(f); })(); }));
+async function steadyTap(page, locator){ await pageStill(page); await locator.evaluate(el => el.scrollIntoView({ block: 'center' })); await pageStill(page); await locator.tap(); }
 // The app loaded and its startup reads finished — after a load, a reload, or in a tab just opened.
 // documentElement is null for a moment while a reload swaps the document: that is "not yet", not a failure.
 const ready = (page, what) => waited(page, () => !!document.documentElement && document.documentElement.hasAttribute("data-wp-ready") && document.documentElement.hasAttribute("data-wp-settled"), what);
@@ -4642,9 +4648,7 @@ const JOURNEYS = {
         // just into view it sat under the sticky header and section bar, and under emulated touch Chrome sometimes moved
         // the page between the touch and its click (38px at 320px: the touch on the ⓘ, the click on what moved there; no
         // script scrolled it). Centred, as a person taps what's in front of them, it didn't (16 of 16 at 6× CPU).
-        const still = () => page.evaluate(() => new Promise(r => { let last = scrollY, same = 0; (function f(){ if(scrollY === last) same++; else { same = 0; last = scrollY; } if(same >= 30) r(); else requestAnimationFrame(f); })(); }));
-        await still(); await help.evaluate(b => b.scrollIntoView({ block: 'center' })); await still();
-        await help.tap();
+        await steadyTap(page, help);
         check(await hourly.isVisible() && /zero working hours/.test(await hourly.innerText()), 'touch did not reveal the hourly basis');
         check(!/⇄ Vary/.test(await ledger.innerText()) && /Changes from today/.test(await ledger.innerText()), 'Income help points to removed scenario controls');
         check(await page.evaluate(w=>document.documentElement.scrollWidth<=w,width), 'Income help overflows at ' + width + ' in ' + scheme);
@@ -4985,7 +4989,9 @@ const JOURNEYS = {
           return note?.hidden && e.getClientRects().length;
         }).length);
         check(!exposed, 'opening help revealed an inapplicable tax note');
-        await panel.locator('.tax-sacrifice').tap();
+        // Off screen before the tap (Playwright scrolled it in beside the sticky headers): the page moved between the
+        // touch and its click, as in incomehelp, and the field never got the click.
+        await steadyTap(page, panel.locator('.tax-sacrifice'));
         check(await panel.locator('.tax-sacrifice').evaluate(e => e === document.activeElement), 'sacrifice field is unreachable with help open');
         await help.tap();
       }
@@ -5724,12 +5730,11 @@ const JOURNEYS = {
     await page.evaluate(async () => { await Promise.all(document.querySelector('.app-topbar').getAnimations({ subtree: true }).map(a => a.finished.catch(() => {}))); });
     // Inspect the completed scroll. Watching for a transient position let the journey pass while the
     // list was still moving, even though it ended behind the sticky header (or above the viewport).
-    await page.evaluate(() => {
-      window.__emptyScrollDone = false;
-      window.addEventListener('scrollend', () => { window.__emptyScrollDone = true; }, { once: true });
-      document.querySelector('#trimCard .empty-state [data-empty-scroll]').click();
-    });
-    await page.waitForFunction(() => window.__emptyScrollDone, null, { timeout: 5000 });
+    // Done is this scroll moved and then still — not the next scrollend, which can be the trim card's own instant
+    // scroll just above arriving late on a loaded machine (forced, it measured before the list had moved).
+    const startY = await page.evaluate(() => { const y = scrollY; document.querySelector('#trimCard .empty-state [data-empty-scroll]').click(); return y; });
+    await page.waitForFunction(y => scrollY !== y, startY, { timeout: 5000 });
+    await pageStill(page);
     const position = await page.evaluate(() => {
       const target = document.getElementById('sharedGroups'), r = target.getBoundingClientRect(), h = document.querySelector('.app-topbar').getBoundingClientRect();
       const summary = target.closest('details.ledger').querySelector(':scope > summary');
@@ -6767,6 +6772,45 @@ const JOURNEYS = {
       });
     });
     check(funding,'Investments settlement table disagrees with the purchase warning');
+  },
+  // #282: closing setup puts focus back on "Guided setup" even when the button drawn in place of the one it was opened
+  // from isn't showing yet, and when a redraw outside the full one replaces it just after. Both left focus on the body.
+  async setupfocusrace(page){
+    for(const race of ['hidden at first', 'replaced after']){
+      await page.evaluate(async () => {
+        const s = await import('/src/state.js'); s.setState(s.defaultState());
+        (await import('/src/calc/engine.js')).recalcComputedItems();
+        (await import('/src/components/redraw.js')).renderAll();
+      });
+      await go(page, 'dashboard');
+      const opener = page.locator('#dashboardSetup [data-firstrun-open]');
+      await opener.focus(); await page.keyboard.press('Enter');
+      await waited(page, () => !!document.querySelector('#firstRunRoot [role="dialog"]'), 'setup open');
+      await page.evaluate(async race => {
+        const card = document.getElementById('dashboardSetup');
+        if(race === 'hidden at first'){
+          // The close draws a new Guided setup; it stays hidden for two frames.
+          const ob = new MutationObserver(() => {
+            if(!card.querySelector('[data-firstrun-open]')) return;
+            ob.disconnect(); card.style.display = 'none';
+            requestAnimationFrame(() => requestAnimationFrame(() => { card.style.display = ''; }));
+          });
+          ob.observe(card, { childList: true, subtree: true });
+        } else {
+          const { renderDashboardStats } = await import('/src/components/dashboard.js');
+          document.addEventListener('focusin', function f(e){
+            if(!e.target.matches('[data-firstrun-open]')) return;
+            document.removeEventListener('focusin', f, true); setTimeout(renderDashboardStats, 20);
+          }, true);
+        }
+      }, race);
+      await page.keyboard.press('Escape');
+      await waited(page, () => !document.querySelector('#firstRunRoot [role="dialog"]'), 'setup closed');
+      await waited(page, () => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]'), 'focus back on Guided setup (' + race + ')');
+      await page.waitForTimeout(100);
+      check(await page.evaluate(() => !!document.activeElement?.matches('#dashboardSetup [data-firstrun-open]')), 'focus left Guided setup after setup closed (' + race + ')');
+      await page.evaluate(() => { document.getElementById('dashboardSetup').style.display = ''; });
+    }
   },
   async keyboardaudit(page){
     page.setDefaultTimeout(10000);

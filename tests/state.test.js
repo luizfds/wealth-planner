@@ -182,15 +182,15 @@ test("migrateState drops junk entries from a category list", function(){
 
 test("migrateState gives every home row a stable id, unique per scenario", function(){
   var s = migrateState({
-    scenarios: ["Renting", "Buy Sydney"],
+    scenarios: ["Renting", "Buy a house"],
     home: {
-      "Renting": [{ what: "Rent", amount: 810, freq: "Weekly" }, { what: "Water", amount: 147, freq: "Quarterly" }],
-      "Buy Sydney": [{ what: "Home Loan", amount: 6257, freq: "Monthly" }, { what: "Council Rates", amount: 185, freq: "Monthly" }]
+      "Renting": [{ what: "Rent", amount: 800, freq: "Weekly" }, { what: "Water", amount: 150, freq: "Quarterly" }],
+      "Buy a house": [{ what: "Home Loan", amount: 4000, freq: "Monthly" }, { what: "Council Rates", amount: 200, freq: "Monthly" }]
     },
     shared: []
   });
   // v3.172.0 (item 207): Renting is today's home, so its rows are budget lines now — under the ids
-  // they had, so transactions logged against the rent stay linked. Buy Sydney keeps its own rows.
+  // they had, so transactions logged against the rent stay linked. Buy a house keeps its own rows.
   var todays = s.shared.filter(function(l){ return l.homeCost; });
   assert.deepEqual(todays.map(function(l){ return l.what; }), ["Rent", "Water"]);
   assert.equal(todays[0].id, "homeLoanRow");
@@ -207,9 +207,9 @@ test("migrateState gives every home row a stable id, unique per scenario", funct
   // "homeLoanRow" id, because engine.js and the purchase calculator look it up by that name
   // within a given scenario's block. Sharing it across scenarios is what makes "the housing
   // payment" resolve to whichever one you're actually living in.
-  assert.equal(s.home["Buy Sydney"][0].id, "homeLoanRow");
-  assert.notEqual(todays[1].id, s.home["Buy Sydney"][1].id,
-    "non-loan rows are per scenario — Renting's Water and Buy Sydney's Council Rates are different lines");
+  assert.equal(s.home["Buy a house"][0].id, "homeLoanRow");
+  assert.notEqual(todays[1].id, s.home["Buy a house"][1].id,
+    "non-loan rows are per scenario — Renting's Water and Buy a house's Council Rates are different lines");
 });
 
 test("migrateState leaves home ids it has already assigned alone", function(){

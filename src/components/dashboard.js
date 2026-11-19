@@ -330,7 +330,10 @@ export function scenarioTradeoffHtml(rows, baseline, notes, horizonYears){
       '<button type="button" class="link-btn" data-dashboard-jump="projections">Plan → Projections</button>.</p>' +
     scenarioComparisonDataNotesHtml(notes || []) + '<p class="ledger-note">Differences use the current situation as reference. Positive cost difference means more spending. Normal months exclude one-off income. Projected difference compares each scenario with the baseline at the same horizon, not with today’s net worth. Projected net worth uses the same scenario projection engine and selected horizon as the Home forecast; it depends on assumed returns, rates and costs and is not a guaranteed outcome. Upfront cash and funding gap come from each scenario’s existing purchase and cash-draw calculation. A funding gap means the modeled cash sources cannot fully cover the upfront cost. Essential runway and reserve target gap use the current recorded cash and offset balances for every scenario, not a forecast of cash left after a future purchase or investment. Reserve target gap is the difference between the scenario’s essential-reserve target and those current balances; it is not the same as an upfront funding gap. A dash means essential spending is missing or zero. These are estimates, not guarantees.</p></details>';
 }
-export function renderDashboardStats(){
+// #282: also called on its own (opening and closing setup, a click on Home), not only inside the full redraw's keepUi —
+// so it keeps focus itself: replacing the focused "Guided setup" button left keyboard focus on the page body.
+export function renderDashboardStats(){ return keepUi(drawDashboardStats); }
+function drawDashboardStats(){
   var el = document.getElementById("dashboardStats");
   if(!el || el.closest(".app-page").hidden) return;
   var isComparing = state.scenarios.length > 1;
@@ -572,7 +575,7 @@ export function renderDetail(){
 // Financial independence, as two questions rather than one — see calc/fire.js for why.
 //
 // The old version of this panel reported a single "progress %" of total net worth against a 4%
-// target. On a test household's data that counted $142,300 of super (32% of the figure) and a car, and would
+// target. On a test household's data that counted $140,000 of super (about a third of the figure) and a car, and would
 // have counted the family home the moment a Buy scenario was active. It answered "will the pot be
 // big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
 // question that actually decides whether an early retirement is possible.
@@ -799,9 +802,9 @@ export function renderMonthlyCashFlow(){
   var avgIn = loggedRows.reduce(function(sm, r){ return sm + (Number(r.income) || 0); }, 0) / loggedRows.length;
   var unlogged = rows.length - loggedRows.length;
   // Logged spending is not total spending, and the gap is not small: on a test household's data it was
-  // $615/mo logged against a $11,580/mo budget. Subtracting the logged figure from income and
-  // calling the remainder savings announced that this household kept $17,240/mo when it keeps
-  // $6,610 — a confident claim, wrong by $10,600 a month. So the savings line is earned rather
+  // $500/mo logged against a $10,000/mo budget. Subtracting the logged figure from income and
+  // calling the remainder savings announced that this household kept $14,500/mo when it keeps
+  // $5,000 — a confident claim, wrong by $9,500 a month. So the savings line is earned rather
   // than assumed: it appears only once logging actually covers the budget.
   var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
   var verdict = coverage.enough

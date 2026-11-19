@@ -201,18 +201,18 @@ test("a window that only reaches full coverage at the very last point reports to
 });
 
 test("spendCoverage refuses a savings claim when barely anything was logged", function(){
-  // The failure: logged spend averaged $615/mo against a $11,580/mo budget, and the panel
-  // announced the household kept $17,240/mo. It keeps $6,610. "Income minus what you logged" was
+  // The failure: logged spend averaged $500/mo against a $10,000/mo budget, and the panel
+  // announced the household kept $14,500/mo. It keeps $5,000. "Income minus what you logged" was
   // measuring how little had been typed in, and calling it thrift.
-  var thin = spendCoverage(615, 11580);
+  var thin = spendCoverage(500, 10000);
   assert.ok(thin.fraction < 0.06);
   assert.equal(thin.enough, false, "no savings claim may be made from this");
 
-  var good = spendCoverage(10300, 11580);
+  var good = spendCoverage(9000, 10000);
   assert.equal(good.enough, true);
   // No budget at all can't be divided by — and must not read as perfect coverage.
   assert.equal(spendCoverage(500, 0).enough, false);
-  assert.equal(spendCoverage(0, 11580).enough, false);
+  assert.equal(spendCoverage(0, 10000).enough, false);
 });
 
 test("trendToToday ends at today's figure and measures the change from where the line starts", function(){

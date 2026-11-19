@@ -224,3 +224,32 @@ html[data-mode="simple"] [data-level="advanced"]:not([data-shown]){ display:none
 .more-mode input{ margin-top:3px; }
 .more-mode span{ display:flex; flex-direction:column; gap:2px; }
 .more-mode small{ font-size:var(--fs-sm); color: var(--ink-soft); }
+
+/* Pictures before words (lib/bars.js): a stacked bar with its legend, and a progress bar with marks along it. */
+.vbar-wrap{ display:flex; flex-direction:column; gap:8px; margin:8px 0; }
+.vbar{ display:flex; gap:2px; height:14px; border-radius:100px; overflow:hidden; background: var(--paper-sunken); }
+.vbar-seg{ display:block; height:100%; min-width:3px; background: var(--series-color); }
+/* Under its own labels (no legend): a thin rule of a bar, so what it sits above stays where it was. */
+.vbar-wrap.is-thin{ margin:2px 0 6px; gap:0; }
+.vbar-wrap.is-thin .vbar{ height:6px; }
+.vbar-seg:first-child{ border-radius:100px 0 0 100px; }
+.vbar-seg:last-child{ border-radius:0 100px 100px 0; }
+.vbar-seg:only-child{ border-radius:100px; }
+.vbar-legend{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:4px 12px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.vbar-legend li{ display:inline-flex; align-items:center; gap:5px; }
+.vbar-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
+.vbar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background: var(--series-color); }
+.tone-good{ --series-color: var(--good); }
+.tone-warn{ --series-color: var(--warn-ink); }
+.tone-bad{ --series-color: var(--bad); }
+.tone-in{ --series-color: var(--brass); }
+.tone-muted{ --series-color: var(--ink-soft); }
+.vprog{ margin:6px 0; }
+.vprog.has-marks{ padding-bottom:16px; position:relative; }
+.vprog-track{ position:relative; height:12px; border-radius:100px; background: var(--paper-sunken); }
+.vprog-fill{ position:absolute; left:0; top:0; bottom:0; border-radius:100px; min-width:4px; background: var(--series-color); }
+.vprog-mark{ position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; border-radius:1px; background: var(--ink-soft); }
+.vprog-mark.is-met{ background: var(--paper-raised); }
+.vprog-labels{ position:absolute; left:0; right:0; bottom:0; height:14px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.vprog-labels span{ position:absolute; transform:translateX(-50%); white-space:nowrap; font-family: var(--font-num); }
+.vprog-labels span:last-child{ transform:translateX(-100%); }

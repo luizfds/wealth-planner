@@ -1182,6 +1182,9 @@
   .budget-row-sv{ display:inline-block; margin:6px 0 2px; font-size:var(--fs-sm); }
   .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .cf-totals{ display:flex; gap:14px; flex-wrap:wrap; font-size:var(--fs-sm); color: var(--ink-soft); margin:6px 0 8px; }
+  /* What came in, as a thin bar under it: in the space the line already had below it, so the list doesn't move. */
+  .cf-totals:has(+ .vbar-wrap){ margin-bottom:4px; }
+  .cf-totals + .vbar-wrap.is-thin{ margin:0 0 4px; }
   .cf-totals b{ color: var(--ink); font-variant-numeric: tabular-nums; }
   .cf-totals b.in{ color: var(--good-ink); } .cf-totals b.out{ color: var(--bad-ink); }
   .cf-count{ margin-left:auto; }

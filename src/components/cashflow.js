@@ -1,3 +1,4 @@
+import { stackBarHtml } from "../lib/bars.js";
 import { budgetPlanData } from "../calc/budgetplan.js";
 import { state } from "../state.js";
 import { filterChoices } from "../calc/cashflowlist.js";
@@ -107,9 +108,15 @@ export function filterBarHtml(entries, lines, options){
   '</div>';
 }
 
-export function totalsLineHtml(t, count){
+// The totals line, and under it what came in as one bar (pictures before words): what went out, then what's left. Both
+// are named with their figures in the line just above, so it has no legend — the list stays in the top half (the
+// records-before-tools rule; a legend by category pushed the first record past it).
+export function totalsLineHtml(t, count, entries){
+  var parts = [{ label: "Out", value: t.out, tone: "in" }];
+  if(t.net > 0 && t.in > 0) parts.push({ label: "Left", value: t.net, tone: "good" });
+  var bar = entries && t.in > 0 ? stackBarHtml(parts, { label: "Money in this period", total: Math.max(t.in, t.out), legend: false }) : "";
   return '<p class="cf-totals"><span>In <b class="in">' + fmtCurrency0.format(t.in) + '</b></span><span>Out <b>' + fmtCurrency0.format(t.out) + '</b></span>' +
-    '<span>Net <b class="' + (t.net >= 0 ? "in" : "out") + '">' + (t.net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(t.net)) + '</b></span><span class="cf-count">' + count + ' entr' + (count === 1 ? "y" : "ies") + '</span></p>';
+    '<span>Net <b class="' + (t.net >= 0 ? "in" : "out") + '">' + (t.net < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(t.net)) + '</b></span><span class="cf-count">' + count + ' entr' + (count === 1 ? "y" : "ies") + '</span></p>' + bar;
 }
 
 var BIN = '<svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2M6 6l1 10h6l1-10"/></svg>';
@@ -237,10 +244,16 @@ export function budgetPlanHtml(opts){
   if(opts.summary){
     var metric = function(label, value){ return '<div><span>' + label + '</span><b>' + (value < 0 ? '−' : '') + fmtCurrency0.format(Math.abs(value)) + '</b></div>'; };
     var fold = function(label, amount, list, cls){ return '<details class="bp-fold" data-bp-section="' + escapeAttr(label) + '"><summary><span>' + label + '</span><b>' + signed(amount) + '</b></summary>' + head + rows(list,cls) + '</details>'; };
+    // Where money in goes, as one bar (the owner: pictures before words): each kind of spending, then what's left.
+    var where = stackBarHtml(data.out.map(function(r){ return { label: r.label, value: -r.amount }; })
+      .concat(data.normal > 0 ? [{ label: "Left over", value: data.normal, tone: "good" }] : []),
+      { label: "Where a normal month's money in goes", total: Math.max(data.moneyIn, data.moneyOut) });
     return '<div class="bp-overview" aria-label="A normal month">' + metric('Money in',data.moneyIn) + metric('Money out',data.moneyOut) + metric('Left over',data.normal) + '</div>' +
-      '<p class="bp-explain">A normal month, after tax. Open a section for the figures and running balance.</p>' +
+      where +
+      '<p class="bp-explain help">A normal month, after tax. Open a section for the figures and running balance.</p>' +
       fold('Money in',data.moneyIn,data.income,'in') + fold('Money out',-data.moneyOut,data.out,'') +
-      (data.annual.length ? fold(annualLabel,data.average-data.normal,data.annual,'in') + '<p class="bp-average">Including annual income and tax adjustments: <b>' + signed(data.average) + '/mo</b> across the year. These amounts do not arrive every month.</p>' : '') + note;
+      (data.annual.length ? fold(annualLabel,data.average-data.normal,data.annual,'in') + '<p class="bp-average"><span class="home-chip">Across the year <b>' + signed(data.average) + '/mo</b></span> <span class="help">Including annual income and tax adjustments. These amounts do not arrive every month.</span></p>' : '') +
+      note.replace('class="bp-explain"', 'class="bp-explain help"');
   }
   var html = note + head + '<div class="bp-sec">Money in</div>' + rows(data.income,'in') + '<div class="bp-sec">Money out</div>' + rows(data.out,'');
   if(!data.annual.length) return html + total('Left over each month',data.average);

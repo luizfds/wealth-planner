@@ -5601,7 +5601,19 @@ soon (the date in words stays for screen readers). Each bar's accessible name sa
 
 ## Pictures before words, beyond Today (November 2026)
 
-`[~]` The owner liked Today's bars and chart and asked for the same, all at once, where pages read as text:
+`[x]` The owner liked Today's bars and chart and asked for the same, all at once, where pages read as text:
 Money → Budget's "Your month, planned" (in and out as one bar, out by kind), Plan → Goals' emergency fund (one bar
 with the 3/6/12-month marks, "if one income stopped" and the essentials as bars), Plan → Scenarios (a comparison strip
 of monthly savings) and Money → Transactions' header (in and out as a bar, a strip by category).
+
+What shipped (`lib/bars.js`: `stackBarHtml`, a stacked bar with its legend; `progressBarHtml`, a bar with marks):
+- Money → Budget: where a normal month's money in goes — each kind of spending, then what's left over in green. Its
+  two notes are behind the section's ⓘ; the year's average is a chip ("Across the year +$…/mo").
+- Plan → Goals, Emergency fund: cash and offsets along a bar marked at 3, 6 and 12 months of essentials; "If one income
+  stopped" a bar each (the other's take-home against a month of essentials, "covered" or "$… short"); what counts as
+  essential as one bar. The status line stays (tested wording).
+- Plan → Scenarios: "Saved in a normal month", every scenario on one scale above the cards (`#scenarioSavingsStrip` —
+  `#scenarioCompare` is Side by side's).
+- Money → Transactions: a thin bar under In/Out/Net — out, then what's left. No legend (both are named with their figure
+  just above): a legend by category pushed the first record past the half-screen line (records before tools).
+- With a green part in a bar, the palette's two greens sit out, so nothing else reads as "left".

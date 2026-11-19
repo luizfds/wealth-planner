@@ -71,6 +71,27 @@ function fillBreakEvensSoon(){
 }
 function regularOf(t){ return t.regularNetMonthly != null ? t.regularNetMonthly : t.netMonthly; }
 
+// Every scenario's normal month of savings on one scale — which comes out ahead, at a glance, before reading a card.
+// Shown with two or more. The Current situation is marked; the one shown on Today is in bold.
+export function scenarioCompareHtml(){
+  if((state.scenarios || []).length < 2) return "";
+  var rows = state.scenarios.map(function(s){ var v = 0; try { v = regularOf(scenarioTotals(s)); } catch(e){ v = 0; } return { name: s, v: v }; });
+  var max = Math.max.apply(null, rows.map(function(r){ return Math.abs(r.v); }).concat([1]));
+  return '<p class="sc-compare-title">Saved in a normal month</p><ul class="sc-compare-list">' + rows.map(function(r){
+    var base = r.name === state.baselineScenario, active = r.name === state.activeScenario;
+    return '<li class="' + (active ? 'is-active' : '') + '"><span class="sc-compare-name">' + escapeAttr(r.name) + (base ? ' <small>today</small>' : '') + '</span>' +
+      '<span class="sc-compare-track" role="img" aria-label="' + escapeAttr(r.name + (base ? " (current situation)" : "") + ": " + fmtCurrency0.format(r.v) + " a month") + '">' +
+        '<span class="sc-compare-fill' + (r.v < 0 ? ' neg' : base ? ' base' : '') + '" style="width:' + (Math.abs(r.v) / max * 100).toFixed(1) + '%"></span></span>' +
+      '<b class="' + (r.v < 0 ? 'neg' : '') + '">' + fmtCompact(r.v) + '</b></li>';
+  }).join("") + '</ul>';
+}
+function renderScenarioCompare(){
+  var el = document.getElementById("scenarioSavingsStrip");
+  if(!el) return;
+  var html = scenarioCompareHtml();
+  el.hidden = !html;
+  el.innerHTML = html;
+}
 export function renderCards(){
   var el = document.getElementById("cards");
   var allRates = state.scenarios.map(function(s){ return scenarioTotals(s).rate; });
@@ -132,6 +153,7 @@ export function renderCards(){
   '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span> <span class="add-label">Add scenario</span></button>';
 
   el.innerHTML = html;
+  renderScenarioCompare();
   fillBreakEvensSoon();
   renderDashboardStats();
 }

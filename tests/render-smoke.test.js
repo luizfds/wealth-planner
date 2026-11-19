@@ -2874,3 +2874,26 @@ test("next year's plan in the month review: each goal against the plan, its fore
   assert.match(empty, /empty-state/); assert.match(empty, /data-go="plan\/goals"/);
   assert.match(planCheckInPrefHtml(), /<input type="checkbox" data-plan-checkin> Check next year's plan each month/);
 });
+
+import { stackBarHtml, progressBarHtml } from "../src/lib/bars.js";
+test("pictures before words: a stacked bar names every part, folds the many into Other, and says itself in words", () => {
+  const h = stackBarHtml([{ label: "Housing", value: 2000 }, { label: "Food <&>", value: 1000 }, { label: "Left over", value: 1000, tone: "good" }], { label: "A month" });
+  assert.match(h, /role="img" aria-label="A month: Housing \$2,000 \(50%\), Food &lt;&amp;> \$1,000 \(25%\), Left over \$1,000 \(25%\)"/);
+  assert.match(h, /class="vbar-seg series-color-0" style="width:50.00%"/);
+  assert.match(h, /class="vbar-seg tone-good"/, "a part with a tone takes it, not a series colour");
+  assert.equal((h.match(/<li>/g) || []).length, 3, "every part is in the legend");
+  const many = stackBarHtml([1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => ({ label: "C" + i, value: i * 10 })).concat([{ label: "Left", value: 5, tone: "good" }]), { keep: ["Left"] });
+  assert.equal((many.match(/series-color-/g) || []).length / 2, 6, "at most six series colours, the rest is Other");
+  assert.match(many, /Other/); assert.match(many, /Left/);
+  assert.equal(stackBarHtml([], {}), "", "nothing to draw, nothing drawn");
+  const p = progressBarHtml(9000, 6000, { label: "Cash", tone: "good", max: 13000, marks: [{ at: 3000, label: "3 mo" }, { at: 6000, label: "6 mo" }, { at: 12000, label: "12 mo" }] });
+  assert.match(p, /aria-label="Cash: \$9,000 of \$6,000; marks at 3 mo, 6 mo, 12 mo"/);
+  assert.equal((p.match(/vprog-mark is-met/g) || []).length, 2, "the marks passed are marked as met");
+});
+
+test("Plan → Scenarios compares every scenario's normal month on one scale", async () => {
+  const { scenarioCompareHtml } = await import("../src/components/dashboard.js");
+  const h = scenarioCompareHtml();
+  if(state.scenarios.length < 2) assert.equal(h, "");
+  else { assert.match(h, /Saved in a normal month/); assert.equal((h.match(/class="sc-compare-track" role="img"/g) || []).length, state.scenarios.length); }
+});

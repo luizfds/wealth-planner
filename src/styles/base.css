@@ -463,6 +463,11 @@
   .notif-group-title{ margin:0; padding:10px 14px 2px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .notif-group-title span{ font-family: var(--font-num); font-weight:400; }
   .notif-item-body{ min-width:0; flex:1 1 auto; text-align:left; }
+  /* An item's kind as an icon, in its label's colour (lib/attention.js). */
+  .att-icon{ flex:none; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+    color: var(--att); background: color-mix(in srgb, var(--att) 14%, transparent); --att: var(--brass); }
+  .att-icon.att-bad{ --att: var(--bad-ink); } .att-icon.att-warn{ --att: var(--warn-ink); } .att-icon.att-good{ --att: var(--good-ink); }
+  .att-icon.att-quiet{ --att: var(--ink-soft); }
   .notif-item-title{ display:block; font-size:var(--fs-sm); font-weight:600; }
   .notif-item-detail{ display:block; font-size:var(--fs-xs); color: var(--ink-soft); margin-top:2px; }
 

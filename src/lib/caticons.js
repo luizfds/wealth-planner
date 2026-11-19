@@ -28,7 +28,12 @@ var PATHS = {
   ticket: "M3 6.5h14V9a1.5 1.5 0 0 0 0 3v2.5H3V12a1.5 1.5 0 0 0 0-3zM11.5 6.5v8",
   receipt: "M5 2.5h10v15l-2-1.3-1.7 1.3-1.6-1.3-1.7 1.3L6.3 16.2 5 17.5zM7.5 6.5h5M7.5 9.5h5M7.5 12.5h3",
   piggy: "M4 10.5c0-3 2.7-5 6-5 2.4 0 4.5 1 5.5 2.7l1.5-.2v3.5l-1.6.7a5.3 5.3 0 0 1-1.9 2V16h-2.5v-1.2a7.6 7.6 0 0 1-2.5 0V16H6v-1.7c-1.2-.9-2-2.2-2-3.8zM12.5 9h.01M8 7.5h3",
-  dot: "M10 13.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"
+  dot: "M10 13.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
+  // Not offered for a category: what needs attention draws these (lib/attention.js).
+  calendar: "M4 5h12v11.5H4zM4 8.5h12M7 3v3.5M13 3v3.5",
+  chart: "M3.5 16.5h13M6 13.5V10M10 13.5V6M14 13.5V8",
+  alert: "M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.5h.01",
+  check: "M4.5 10.5 8 14l7.5-8"
 };
 
 export function iconSvg(icon, size){

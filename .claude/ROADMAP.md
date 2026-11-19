@@ -5656,3 +5656,9 @@ Chosen: glance, then what needs you.
   essentials on cash and offsets (Plan → Goals' figure), all spending under it.
 - Plans & insights: a heading, the tiles, and every way further in (Insights, Monthly review, How you compare,
   Projection, Scenarios side by side) as one row of chips.
+
+## A category is one colour everywhere (November 2026)
+
+`[~]` The owner: more colour, without making the app too much. Colour that means something: a category keeps the
+colour (and icon) it has in Spending's donut wherever it's drawn — Spending trends, the emergency fund's essentials
+bar, Reports → Categories.

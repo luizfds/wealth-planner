@@ -29,6 +29,7 @@ import { wireProjections, wireProjectionCsv, wireWhatIfs, wireRetirement } from 
 import { wireTax, renderPeopleTab } from "./components/taxwiring.js";
 import { wireAssets, wireAssetPersonSheet, wireFxRate, wirePrices, wireMarket, wireTrades } from "./components/assetswiring.js";
 import { wireProperties, wirePropertyExtras } from "./components/propertieswiring.js";
+import { wireBuying } from "./components/buyingwiring.js";
 import { wireOverrides, wireCashflowSheets, wireBillsCalendar, wireForecast, wireAutoPay } from "./components/cashflowwiring.js";
 import { wireImportChooser } from "./components/importchooserwiring.js";
 import { wireSearch } from "./components/searchwiring.js";
@@ -58,6 +59,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   wireCalculators();
   wireAssets();
   wireProperties();
+  wireBuying();
   wireLedgerEdits();
 
   // Every Modern-mode row (Income, Expenses, Transactions, Assets, Properties, Scenarios) used to

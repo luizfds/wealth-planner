@@ -34,6 +34,7 @@ import { applyParts, renderPartsSettings } from "./parts.js";
 import { renderPeriodButton } from "./period.js";
 import { renderLifeEvents, syncProjBasisControl, renderRetirement } from "./planwiring.js";
 import { renderProperties } from "./properties.js";
+import { renderBuying } from "./buying.js";
 import { renderReceived } from "./received.js";
 import { renderReports } from "./reports.js";
 import { goalsFireHtml } from "./retirement.js";
@@ -137,6 +138,8 @@ function defineViews(){
   defineView("bankImportHelp", ["expenses"], renderBankImportHelp, []);
   defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
   defineView("cashRate", ["properties"], renderCashRatePanel, ["cashRate", "properties"]); // item 249
+  // A home being bought (November 2026): its card reads the cash on hand (cash accounts, offsets) too.
+  defineView("buying", ["properties"], renderBuying, ["purchases", "assets", "properties", "accounts", "balances"]);
   // On Cash flow it draws one block, Budget's property expenses (propertyExpensesModern).
   defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"],
     { tabs: { expenses: ["expensesSub-budget"] } });

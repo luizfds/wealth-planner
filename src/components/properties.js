@@ -1115,9 +1115,10 @@ function drawProperties(){
   var helpOpen = Array.from(container.querySelectorAll('[data-property-help] [data-help-toggle][aria-expanded="true"]')).map(function(el){
     return { property: el.closest('[data-property-id]').getAttribute('data-property-id'), section: el.closest('[data-property-help]').getAttribute('data-property-help') };
   });
+  // A home being bought has its own card above (buying.js): with one, there's no "No properties yet" under it.
   container.innerHTML = state.properties.length
     ? state.properties.map(function(p, idx){ return propertyCardHtml(p, idx); }).join("")
-    : emptyStateHtml("No properties yet — add one to start tracking its value, loans, and (for an investment property) rent and expenses.", { add: "#addPropertyBtn", label: "+ Add property" });
+    : (state.purchases || []).length ? "" : emptyStateHtml("No properties yet — add one to start tracking its value, loans, and (for an investment property) rent and expenses.", { add: "#addPropertyBtn", label: "+ Add property" });
   decorateHelp(container);
   helpOpen.forEach(function(open){
     var btn = container.querySelector('[data-property-id="' + CSS.escape(open.property) + '"] [data-property-help="' + CSS.escape(open.section) + '"] [data-help-toggle]');

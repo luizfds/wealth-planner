@@ -219,6 +219,16 @@ export function demoHousehold(today){
       { id: "demo-acct-loan", name: "Investment loan", type: "loan", statementStartDay: 1, link: "loan:" + LOAN_ID }
     ],
     assets: assets,
+    // A home being bought (November 2026): the scenario's house, contract about to be signed — no deposit paid yet, so
+    // nothing's held and net worth is as it was; the building and pest report's paid.
+    purchases: [{ id: "demo-buy", what: "2 Sample Rd", kind: "PPOR", price: 720000, deposit: "", loanAmount: 576000, rate: 6.1,
+      contractDate: "", settlementDate: addDays(today, 60), stateCode: "NSW", firstHome: false,
+      costs: [
+        { id: "demo-pc1", what: "Stamp duty", amount: 0, paid: false, auto: true },
+        { id: "demo-pc2", what: "Conveyancer", amount: 1650, paid: false },
+        { id: "demo-pc3", what: "Building & pest inspection", amount: 550, paid: true },
+        { id: "demo-pc4", what: "Loan fees", amount: 600, paid: false }
+      ] }],
     properties: [{
       id: IP_ID, what: "1 Example St", kind: "IP", state: "QLD", value: last(ipValue), landValue: 310000,
       purchasePrice: 575000, purchaseDate: yearsAgo(today, 4), history: ipValue,

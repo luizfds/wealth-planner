@@ -664,3 +664,67 @@
 .rentp input[type="date"].field-control{ color-scheme:light dark; }
 
 .property-picker-choice{ overflow-wrap:anywhere; }
+
+/* Buying a home (November 2026, components/buying.js): Today's hero style — the price and the days to settlement
+   on a gradient, then what's paid, what's still to find, and the costs ticked off as they're paid. White on the
+   gradient is 7:1 or better; the gradient is the same in both themes. */
+.buying-list{ display:grid; gap:14px; margin:0 0 16px; }
+.buying-list[hidden]{ display:none; }
+.buy-card{ border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); box-shadow: var(--shadow); overflow:hidden; min-width:0; }
+.buy-hero{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:18px 20px; color:#fff;
+  background: linear-gradient(135deg, #6d28d9 0%, #4338ca 55%, #1e40af 100%); }
+.buy-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.buy-name{ margin:0; font-size:var(--fs-lg); font-weight:600; color:#fff; overflow-wrap:anywhere; }
+.buy-price{ font-family: var(--font-num); font-size: var(--fs-3xl); font-weight:600; letter-spacing:-.02em; }
+.buy-body{ display:flex; flex-direction:column; gap:12px; padding: var(--card-py) var(--card-px); }
+.buy-body .vbar-wrap{ margin:0; }
+.buy-tiles{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+.buy-tile{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:10px; background: var(--paper-sunken); min-width:0; }
+.buy-tile span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.buy-tile b{ font-family: var(--font-num); font-size: var(--fs-xl); font-weight:600; }
+.buy-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); overflow-wrap:anywhere; }
+.buy-tile.is-good{ background: var(--good-wash); } .buy-tile.is-good small, .buy-tile.is-good span{ color: var(--good-ink); }
+.buy-tile.is-short{ background: var(--bad-wash); } .buy-tile.is-short small, .buy-tile.is-short span{ color: var(--bad-ink); }
+.buy-fold > summary{ cursor:pointer; font-weight:600; min-height:44px; display:flex; align-items:center; }
+.buy-fields{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:4px 12px; padding-top:4px; }
+.buy-sub{ margin:0 0 6px; font-size:var(--fs-md); font-weight:600; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
+.buy-sub small{ font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); }
+.buy-cost-list{ list-style:none; margin:0 0 8px; padding:0; display:grid; gap:6px; }
+.buy-cost{ display:grid; grid-template-columns: auto minmax(0,1fr) 7.5em auto; gap:6px; align-items:center; }
+.buy-cost-paid{ display:inline-flex; align-items:center; gap:4px; min-height:44px; min-width:44px; font-size:var(--fs-xs); color: var(--ink-soft); cursor:pointer; }
+.buy-cost-paid input{ width:20px; height:20px; margin:0; }
+.buy-cost.is-paid .buy-cost-paid{ color: var(--good-ink); font-weight:600; }
+.buy-cost.is-paid input[data-cost-field="what"]{ color: var(--ink-soft); }
+.buy-cost-amount{ text-align:right; font-family: var(--font-num); }
+.buy-cost .btn-danger{ min-height:44px; min-width:44px; }
+.buy-cost-note{ grid-column: 2 / -1; font-size:var(--fs-xs); color: var(--ink-soft); margin-top:-2px; }
+.buy-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; }
+.buy-actions .btn{ min-height:44px; }
+/* "+ Add property" asks first: two choices as cards, then the name. */
+/* The dialog's own form is a column, and it fits the narrowest phone (the shortcuts dialog it borrows the frame of lays
+   its form in a row, at 300px or wider). */
+.add-prop-dialog{ max-width:min(480px, calc(100vw - 32px)); min-width:0; width:100%; box-sizing:border-box; }
+.add-prop-dialog .add-prop-form{ display:block; }
+.add-prop-form h2{ margin:0 0 10px; font-size:var(--fs-lg); }
+.pick-group{ border:0; padding:0; margin:0 0 12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
+.pick-group legend{ font-size:var(--fs-sm); font-weight:600; margin:0 0 6px; padding:0; }
+.pick-card{ display:flex; gap:8px; align-items:flex-start; padding:10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; min-height:44px; }
+.pick-card:has(input:checked){ border-color: var(--brass); background: var(--brass-wash); }
+.pick-card input{ margin-top:3px; }
+.pick-card span{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.pick-card b{ font-size:var(--fs-sm); font-weight:600; }
+.pick-card small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.add-prop-plan[hidden]{ display:none; }
+@media (max-width: 420px){
+  .buy-fields{ grid-template-columns: 1fr; }
+  /* A phone: the cost's name across the row, then paid, amount and remove under it — names like "Conveyancing / Legal
+     Fees" are read whole. */
+  .buy-cost{ grid-template-columns: auto minmax(0,1fr) auto; grid-template-areas: "what what what" "paid amount del"; padding:6px 0; border-bottom:1px dashed var(--border); }
+  .buy-cost > [data-cost-field="what"]{ grid-area: what; }
+  .buy-cost > .buy-cost-paid{ grid-area: paid; }
+  .buy-cost > .buy-cost-amount{ grid-area: amount; }
+  .buy-cost > .btn-danger{ grid-area: del; }
+  .buy-cost-note{ grid-column: 1 / -1; }
+}
+.add-prop-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+.add-prop-actions .btn{ min-height:44px; }

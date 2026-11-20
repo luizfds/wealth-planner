@@ -4626,7 +4626,7 @@ const JOURNEYS = {
     check(JSON.stringify(await page.locator('#assetsAllocation [role="img"]').evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(labels), 'summary redraw left composition labels stale');
     check(JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents()) !== table, 'funding redraw left cash figures stale');
     await page.evaluate(async()=>{
-      const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];s.state.debts=[];s.state.accounts=[];
+      const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];s.state.debts=[];s.state.accounts=[];s.state.purchases=[];   // nothing owned: a home being bought too
       (await import('/src/components/networth.js')).renderNetWorthPage();
     });
     await go(page, 'networth');

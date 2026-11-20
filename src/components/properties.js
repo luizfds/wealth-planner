@@ -33,6 +33,7 @@ import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
 import { loanInterestCharged, loanFeesCharged, bankRepaymentNudge } from "../calc/loancharges.js";
 import { propertyActivityHtml } from "./propertyactivity.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { fieldHtml, pillsHtml, switchHtml } from "../lib/field.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
 // rent) are only ever weekly, fortnightly, or monthly — unlike income/expense rows elsewhere in
@@ -40,6 +41,8 @@ import { emptyStateHtml } from "../lib/empty.js";
 // shorter list rather
 // than reusing the global FREQS.
 var PAYMENT_FREQS = ["Weekly", "Fortnightly", "Monthly"];
+// A loan's offset or fixed-rate switch turned on before there's a balance or a date to keep it on (this visit only).
+export var loanUi = {};
 var PAYMENT_FREQ_SUFFIX = { Weekly: "/wk", Fortnightly: "/fn", Monthly: "/mo" };
 
 // Which of a property's five sections (value/acquisition/loans/income/expenses) collapse-all/
@@ -65,20 +68,47 @@ export var PROPERTY_SECTION_KEYS = ["value", "acquisition", "ownership", "deprec
 // Only investment properties get it. A principal home is exempt in every state this app covers, so
 // asking for its land value would imply a bill that will never arrive — the note says so instead,
 // because "why is there no land tax on my home?" is a fair question with a real answer.
-function landTaxFieldsHtml(p){
-  if(p.kind !== "IP"){
-    return '<p class="ledger-note" style="margin:6px 0 0">No land tax — your principal home is exempt in NSW, VIC and QLD. That exemption is also why buying a home to live in doesn\'t change the land tax on any investment property you hold.</p>';
-  }
-  var stateOpts = '<option value="">— Not set —</option>' + LAND_TAX_STATES.map(function(code){
-    return '<option value="' + code + '"' + (p.state === code ? " selected" : "") + '>' + code + '</option>';
-  }).join("") + '<option value="Other"' + (p.state === "Other" ? " selected" : "") + '>Other / not listed</option>';
-  return '<div class="calc-grid">' +
-    '<div class="calc-field" title="The state this property is in. Land tax is assessed per state on your combined holdings there, so this decides which scale applies and what it is aggregated with."><label>State</label>' +
-      '<select class="prop-state field-control" aria-label="State">' + stateOpts + '</select></div>' +
-    '<div class="calc-field" title="Land value only — the site value from your council or valuer-general notice, NOT the market value of the property. It excludes the building, so it is usually well below Current value above."><label>Land value</label>' +
-      '<input type="number" step="1000" min="0" class="prop-land-value field-control" aria-label="Land value" value="' + (Number(p.landValue) || 0) + '" placeholder="0"></div>' +
-  '</div>' +
-  landTaxNoteHtml(p);
+// ---- Value & purchase, in the floating-label style (November 2026; the owner chose it from three, docs/design/fields.md) ----
+// What it cost and what it's worth as a picture first, then the fields in the order things happened: when you bought it,
+// what it's worth now, and (an investment's) land tax answered at a glance. Field classes are the ones
+// propertieswiring.js reads, so every change is saved the way it was.
+function storyNowHtml(p){
+  var value = Number(p.value) || 0, paid = p.purchasePrice != null && p.purchasePrice !== "" ? Number(p.purchasePrice) || 0 : null;
+  var change = paid != null && paid > 0 ? value - paid : null;
+  return '<span>Worth today</span><b>' + fmtCompactMoney(value) + '</b><small>' + (change == null ? "add what you paid" : (change >= 0 ? "▲ " : "▼ ") + fmtCompactMoney(Math.abs(change)) + " · " + (Math.round(change / paid * 1000) / 10) + "%") + '</small>';
+}
+function fmtCompactMoney(n){ return n >= 1e6 ? "$" + (Math.round(n / 1e4) / 100) + "M" : n >= 1e4 ? "$" + Math.round(n / 1000) + "k" : fmtCurrency0.format(n); }
+// An investment's land tax in a word or two, for the chip beside its heading.
+function landTaxChip(p){
+  if(p.kind !== "IP" || !p.state || LAND_TAX_STATES.indexOf(p.state) === -1 || !(Number(p.landValue) > 0)) return "";
+  var group = landTaxByState().find(function(g){ return g.state === p.state; });
+  if(!group) return "";
+  var mine = group.properties.find(function(x){ return x.id === p.id; });
+  return group.tax <= 0 ? '<span class="vp-chip good">Nothing owing</span>' : '<span class="vp-chip warn">' + fmtCurrency0.format(mine ? mine.tax : group.tax) + '/yr</span>';
+}
+export function valuePurchaseHtml(p){
+  var id = function(k){ return "pv-" + p.id + "-" + k; };
+  var paid = p.purchasePrice != null && p.purchasePrice !== "" ? Number(p.purchasePrice) || 0 : null;
+  var story = '<div class="vp-story"><div class="vp-then"><span>Bought</span><b>' + (paid != null ? fmtCompactMoney(paid) : "—") + '</b><small>' + (p.purchaseDate ? escapeAttr(fmtDate(p.purchaseDate, { year: true })) : "add the date") + '</small></div>' +
+    '<span class="vp-arrow" aria-hidden="true">→</span><div class="vp-now" data-vp-now>' + storyNowHtml(p) + '</div></div>';
+  var stateOpts = [{ value: "", label: "Not set" }].concat(LAND_TAX_STATES.map(function(c){ return { value: c, label: c }; })).concat([{ value: "Other", label: "Other" }]);
+  var landTax = p.kind === "IP"
+    ? '<div class="vp-group"><div class="fsec">Land tax ' + landTaxChip(p) + '</div><div class="fgrid">' +
+        fieldHtml({ id: id("state"), label: "State", type: "select", box: true, value: p.state || "", options: stateOpts, className: "prop-state" }) +
+        fieldHtml({ id: id("land"), label: "Land value", type: "money", value: Number(p.landValue) || 0, className: "prop-land-value" }) +
+      '</div><p class="field-help">On your council rates notice — the land, not the house.</p>' +
+      '<div class="ledger-note help vp-landtax-note">' + landTaxNoteHtml(p).replace(/^<p[^>]*>|<\/p>$/g, "") + '</div></div>'
+    : '<p class="field-help vp-ppor-note">No land tax on the home you live in.</p>';
+  return story +
+    '<div class="vp-group"><div class="fsec">When you bought it</div><div class="fgrid">' +
+      fieldHtml({ id: id("paid"), label: "Price paid", type: "money", value: paid != null ? paid : "", className: "prop-purchase-price" }) +
+      fieldHtml({ id: id("date"), label: "Settled on", type: "date", box: true, value: p.purchaseDate || "", className: "prop-purchase-date" }) +
+    '</div><p class="field-help">From your contract of sale — it gives the capital gain and the yield on cost.</p></div>' +
+    '<div class="vp-group"><div class="fsec">What it\'s worth now</div>' +
+      fieldHtml({ id: id("value"), label: "Current value", type: "money", value: Number(p.value) || 0, className: "prop-value" }) +
+      '<div class="prop-value-log" data-property-help="record-value"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" aria-describedby="prop-record-help-' + escapeAttr(p.id) + '">Save today\'s value</button>' + historyTrendHtml(p) + '</div>' +
+      '<p class="field-help" id="prop-record-help-' + escapeAttr(p.id) + '">An agent\'s appraisal or a recent sale nearby is enough. Saving it adds a point to the value-over-time chart.</p></div>' +
+    landTax;
 }
 // What this property's land value actually produces, said in full. The apportionment is the part
 // worth spelling out: a share of a joint assessment is not what the property would pay alone, and
@@ -153,34 +183,45 @@ function loanRowModernHtml(loan, li, propId, colorIdx){
     '<span class="m-row-amt" data-computed="amt">' + fmtCurrency2.format(disp.amount) + suffix + '</span>' +
     '<span class="m-row-chev" aria-hidden="true">✕</span>' +
   '</div>';
-  var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +
-    '<div class="m-edit-grid">' +
-      '<div class="m-edit-field span3"><label>What</label><input type="text" class="loan-what field-control" value="' + escapeAttr(loan.what) + '" aria-label="Loan name"></div>' +
-      '<div class="m-edit-field"><label>Balance</label><input type="number" step="1000" min="0" class="loan-balance field-control" value="' + (Number(loan.balance) || 0) + '" aria-label="Loan balance"></div>' +
-      '<div class="m-edit-field"><label>Rate %</label><input type="number" step="0.01" min="0" class="loan-rate field-control" value="' + rateDisplay + '" aria-label="Interest rate percent" title="The rate now. To keep a record of a change (so past years\' interest follows it), use Record change below."></div>' +
-      '<div class="m-edit-field"><label>Term (yrs)</label><input type="number" step="1" min="0" class="loan-term field-control" value="' + (Number(loan.termYears) || 0) + '" aria-label="Term years remaining"></div>' +
-      '<div class="m-edit-field"><label>Type</label><select class="loan-type field-control" aria-label="Repayment type">' + optionsHtml(["PI", "IO"], loan.repaymentType) + '</select></div>' +
-      '<div class="m-edit-field"><label>Paid</label><select class="loan-repay-freq field-control" aria-label="How often this loan is paid" title="For auto repayments this only changes how the amount is displayed (still calculated monthly) — for a manual repayment it\'s the frequency the amount you type in is actually paid at.">' + optionsHtml(PAYMENT_FREQS, disp.freq) + '</select></div>' +
-      '<div class="m-edit-field"><label>Repayment</label><select class="loan-repay-mode field-control" aria-label="Repayment mode">' + optionsHtml(["auto", "manual"], loan.repaymentMode) + '</select></div>' +
-      '<div class="m-edit-field" title="Netted against this loan\'s balance for both equity and interest — this is the one place to enter it. Don\'t also add it as a separate Cash asset in Accounts → Investments, or it\'ll be counted twice."><label>Offset</label><input type="number" step="1000" min="0" class="loan-offset field-control" value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset account balance"></div>' +
-      // Borrowing costs — see calc/property.js. A total, not a list: only the total enters the
-      // five-year rule, and this form is busy enough already.
-      '<div class="m-edit-field span2"><label>Settled on</label><input type="date" class="loan-settled field-control" value="' + escapeAttr(loan.settlementDate || "") + '" title="The day the loan was drawn down. Starts the five-year clock for borrowing costs." aria-label="Loan settlement date"></div>' +
-      '<div class="m-edit-field"><label>Borrowing costs</label><input type="number" step="1" min="0" class="loan-borrowing field-control" value="' + (Number(loan.borrowingCosts) || 0) + '" title="LMI, the lender\'s establishment or settlement fee, mortgage registration, a lender-required valuation, a broker fee — costs of taking out the LOAN. Not stamp duty on the purchase or conveyancing: those go in Acquisition costs. Over $100 is deducted over five years, by days." aria-label="Borrowing costs"></div>' +
-      // v3.85.0: what the money was used for decides the deduction, not the property behind it.
-      '<div class="m-edit-field"><label>Used to invest %</label><input type="number" step="1" min="0" max="100" class="loan-invest-pct field-control" value="' + (loan.investPct != null && loan.investPct !== "" ? loan.investPct : "") + '" placeholder="100" aria-label="Share of this loan used to invest, percent" title="Interest is deductible for what the borrowed money was used for, not the property it\'s secured against. The rental, shares: invest. Your own home\'s deposit, a car, living costs: not. Blank means all of it."></div>' +
-      '<div class="m-edit-field"><label>Original term (yrs)</label><input type="number" step="1" min="0" class="loan-borrowing-term field-control" value="' + (Number(loan.borrowingTermYears) || "") + '" placeholder="30" title="Only matters if the loan was for less than five years — borrowing costs are then spread over the term instead." aria-label="Original loan term in years"></div>' +
-      '<div class="m-edit-field span2"><label>Paid out on</label><input type="date" class="loan-ended field-control" value="' + escapeAttr(loan.endedOn || "") + '" title="If this loan was paid out or refinanced before its borrowing costs were fully deducted, the rest is deducted in that financial year." aria-label="Loan paid out or refinanced on"></div>' +
-      // v3.72.0: a fixed rate's end, and the rate it rolls to.
-      '<div class="m-edit-field span2"><label>Fixed until</label><input type="date" class="loan-fixed-until field-control" value="' + escapeAttr(loan.fixedUntil || "") + '" aria-label="Fixed rate ends on" title="Leave blank for a variable loan."></div>' +
-      '<div class="m-edit-field"><label>Rate after %</label><input type="number" step="0.01" min="0" class="loan-revert-rate field-control" value="' + (loan.revertRate != null ? loan.revertRate : "") + '" placeholder="' + rateDisplay + '" aria-label="Rate after the fixed period" title="What the lender says it reverts to — check your loan statement. Blank uses today\'s rate."></div>' +
-      '<div class="m-edit-field span3"><span class="computed-note" data-computed="borrow">' + borrowingNoteText(loan) + '</span></div>' +
-      rateHistoryHtml(loan) +
-      loanBankHtml(loan) +
-      (loan.repaymentMode === "manual"
-        ? '<div class="m-edit-field span3"><label>Manual repayment amount</label><input type="number" step="1" min="0" class="loan-manual-amount field-control" value="' + (Number(loan.manualRepaymentAmount) || 0) + '" aria-label="Manual repayment amount"></div>'
-        : "") +
+  // November 2026, the floating-label style (docs/design/fields.md): the loan itself, then how it's repaid as pills,
+  // its extras as switches that open their fields, and what only tax needs folded under For tax. Same classes as before,
+  // so propertieswiring.js saves each the way it did; the switches are the three new ones there.
+  var fid = function(k){ return "loan-" + propId + "-" + li + "-" + k; };
+  var ui = loanUi[propId + ":" + li] || {};
+  var hasOffset = (Number(loan.offsetBalance) || 0) > 0 || !!ui.offset;
+  var isFixed = !!loan.fixedUntil || !!ui.fixed;
+  var manual = loan.repaymentMode === "manual";
+  var taxSummary = [loan.settlementDate ? "settled " + fmtDate(loan.settlementDate, { year: true }) : "add when it settled", (Number(loan.borrowingCosts) || 0) > 0 ? "borrowing costs " + fmtCurrency0.format(Number(loan.borrowingCosts)) : null, (loan.investPct != null && loan.investPct !== "" ? loan.investPct : 100) + "% invested"].filter(Boolean).join(" · ");
+  var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad loan-form">' +
+    fieldHtml({ id: fid("what"), label: "Name", box: true, value: loan.what || "", className: "loan-what" }) +
+    '<div class="fgrid">' +
+      fieldHtml({ id: fid("balance"), label: "Balance", type: "money", value: Number(loan.balance) || 0, className: "loan-balance", wide: true }) +
+      fieldHtml({ id: fid("rate"), label: "Rate", type: "number", box: true, unit: "%", value: rateDisplay, className: "loan-rate", attrs: { step: "0.01", min: "0", inputmode: "decimal" } }) +
+      fieldHtml({ id: fid("term"), label: "Years left", type: "number", box: true, unit: "yrs", value: Number(loan.termYears) || 0, className: "loan-term", attrs: { step: "1", min: "0", inputmode: "numeric" } }) +
     '</div>' +
+    rateHistoryHtml(loan) +
+    '<div class="fsec">Repayments</div>' +
+    pillsHtml({ id: fid("type"), label: "Type", name: fid("type"), value: loan.repaymentType || "PI", className: "loan-type", options: [{ value: "PI", label: "Principal & interest" }, { value: "IO", label: "Interest only" }] }) +
+    pillsHtml({ id: fid("freq"), label: "Paid", name: fid("freq"), value: disp.freq, className: "loan-repay-freq", options: PAYMENT_FREQS.map(function(f){ return { value: f, label: f }; }) }) +
+    switchHtml({ id: fid("manual"), label: "I pay a set amount", sub: manual ? "Your own amount, paid " + disp.freq.toLowerCase() : "Off: worked out from the balance, rate and years left", checked: manual, className: "loan-repay-mode-switch" }) +
+    (manual ? fieldHtml({ id: fid("manual-amount"), label: "Amount each time", type: "money", value: Number(loan.manualRepaymentAmount) || 0, className: "loan-manual-amount" }) : "") +
+    '<div class="fsec">Extras</div>' +
+    switchHtml({ id: fid("has-offset"), label: "Offset account", sub: "Counted here — not as cash as well", checked: hasOffset, className: "loan-offset-switch" }) +
+    (hasOffset ? fieldHtml({ id: fid("offset"), label: "Offset balance", type: "money", value: Number(loan.offsetBalance) || 0, className: "loan-offset" }) : "") +
+    switchHtml({ id: fid("fixed"), label: "Fixed rate", sub: isFixed ? (loan.fixedUntil ? "Until " + fmtDate(loan.fixedUntil, { year: true }) : "Add when it ends") : "Off: variable", checked: isFixed, className: "loan-fixed-switch" }) +
+    (isFixed ? '<div class="fgrid">' +
+      fieldHtml({ id: fid("fixed-until"), label: "Fixed until", type: "date", box: true, value: loan.fixedUntil || "", className: "loan-fixed-until" }) +
+      fieldHtml({ id: fid("revert"), label: "Rate after", type: "number", box: true, unit: "%", value: loan.revertRate != null ? loan.revertRate : "", placeholder: String(rateDisplay), className: "loan-revert-rate", attrs: { step: "0.01", min: "0", inputmode: "decimal" } }) +
+    '</div>' : "") +
+    '<details class="loan-tax-fold"><summary><span>For tax<small>' + escapeAttr(taxSummary) + '</small></span><span class="loan-tax-edit" aria-hidden="true">Edit</span></summary><div class="fgrid">' +
+      fieldHtml({ id: fid("settled"), label: "Settled on", type: "date", box: true, value: loan.settlementDate || "", className: "loan-settled", wide: true, help: "Starts the five years borrowing costs are spread over." }) +
+      fieldHtml({ id: fid("borrowing"), label: "Borrowing costs", type: "money", value: Number(loan.borrowingCosts) || 0, className: "loan-borrowing", wide: true, help: "LMI, the lender's fees, mortgage registration — not stamp duty." }) +
+      fieldHtml({ id: fid("invest"), label: "Used to invest", type: "number", box: true, unit: "%", value: loan.investPct != null && loan.investPct !== "" ? loan.investPct : "", placeholder: "100", className: "loan-invest-pct", attrs: { step: "1", min: "0", max: "100", inputmode: "numeric" } }) +
+      fieldHtml({ id: fid("bterm"), label: "Original term", type: "number", box: true, unit: "yrs", value: Number(loan.borrowingTermYears) || "", placeholder: "30", className: "loan-borrowing-term", attrs: { step: "1", min: "0", inputmode: "numeric" } }) +
+      fieldHtml({ id: fid("ended"), label: "Paid out on", type: "date", box: true, value: loan.endedOn || "", className: "loan-ended", wide: true, help: "If it was paid out or refinanced — what's left of its borrowing costs comes off that year." }) +
+      '<p class="computed-note span2" data-computed="borrow">' + borrowingNoteText(loan) + '</p>' +
+    '</div></details>' +
+    loanBankHtml(loan) +
     '<div class="m-edit-actions"><button type="button" class="btn btn-danger btn-sm row-del" data-loan-del="' + li + '">Delete</button></div>' +
   '</div></div></div>';
   return '<div class="m-row' + (isOpen ? " open" : "") + '" data-section="' + escapeAttr(section) + '" data-index="' + li + '" data-loan-index="' + li + '">' + summary + rowEditSlot(isOpen, edit) + '</div>';
@@ -732,9 +773,11 @@ function propPanelId(p, key){ return "proppanel-" + escapeAttr(p.id) + "-" + key
 function propertyTabBarHtml(p, tabs, current){
   // #262: real tabs — one stop in the Tab order (the selected tab), arrow keys between them (lib/tabs.js), each tied to
   // its panel.
-  return '<div class="subnav prop-tabs" role="tablist" aria-label="' + escapeAttr(p.what || "Property") + ' sections">' + tabs.map(function(t){
+  // November 2026 (the owner): chips that wrap, never a dropdown with Done — so not a .subnav, which lib/sectionpicker.js
+  // turns into a select when its labels don't fit on one line.
+  return '<div class="prop-tabs prop-chips" role="tablist" aria-label="' + escapeAttr(p.what || "Property") + ' sections">' + tabs.map(function(t){
     var on = t.key === current;
-    return '<button type="button" class="subnav-item' + (on ? " active" : "") + '" role="tab" id="' + propTabId(p, t.key) + '" aria-controls="' + propPanelId(p, t.key) + '"' +
+    return '<button type="button" class="prop-chip' + (on ? " active" : "") + '" role="tab" id="' + propTabId(p, t.key) + '" aria-controls="' + propPanelId(p, t.key) + '"' +
       ' aria-selected="' + on + '" tabindex="' + (on ? "0" : "-1") + '" data-prop-tab="' + escapeAttr(p.id) + '" data-tab="' + t.key + '">' + t.label + '</button>';
   }).join("") + '</div>';
 }
@@ -909,15 +952,8 @@ function propertyCardBodyHtml(p, colorIdx){
       '<button type="button" class="btn btn-sm" data-prop-edit="' + escapeAttr(p.id) + '">Edit details</button></div>' +
       '<div class="prop-edit"><div class="prop-edit-bar"><button type="button" class="btn btn-sm" data-prop-edit-done="' + escapeAttr(p.id) + '">Done</button></div>' +
       propertySectionHtml(p, "value",
-      '<div class="property-section-title">Property value</div>',
-      '<div class="calc-grid">' +
-        '<div class="calc-field"><label>Current value</label><input type="number" step="1000" min="0" class="prop-value field-control" aria-label="Current value" value="' + (Number(p.value) || 0) + '"></div>' +
-        '<div class="calc-field" title="What you actually paid — separate from Current value above, and from the Log button\'s value-over-time history, which starts whenever this property was first added rather than the real purchase date. Powers Capital gain and the yield-on-cost badge above; leave blank if unknown."><label>Purchase price</label><input type="number" step="1000" min="0" class="prop-purchase-price field-control" value="' + (p.purchasePrice != null ? p.purchasePrice : "") + '" placeholder="Unknown"></div>' +
-        '<div class="calc-field"><label>Purchase date</label><input type="date" class="prop-purchase-date field-control" aria-label="Purchase date" value="' + escapeAttr(p.purchaseDate || "") + '"></div>' +
-      '</div>' +
-      landTaxFieldsHtml(p) +
-      '<div data-property-help="record-value"><p class="ledger-note help" id="prop-record-help-' + escapeAttr(p.id) + '">Snapshot the value above with today\'s date, so it shows up in the portfolio-over-time chart.</p>' +
-      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" aria-describedby="prop-record-help-' + escapeAttr(p.id) + '">Record today\'s value</button>' + historyTrendHtml(p) + '</div></div>') +
+      '<div class="property-section-title">Value &amp; purchase</div>',
+      valuePurchaseHtml(p)) +
     acquisitionCostsSectionHtml(p)  +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") + '</div>') +
     panel("loans", propertySectionHtml(p, "loans",
@@ -1141,6 +1177,8 @@ export function patchPropertyCardComputed(property){
     if(el){ el.textContent = text; if(color) el.style.color = color; }
   };
   setOut("valuation", fmtCurrency0.format(Number(property.value) || 0));
+  var vpNow = card.querySelector("[data-vp-now]");
+  if(vpNow) vpNow.innerHTML = storyNowHtml(property);
   setOut("mortgagebalance", fmtCurrency0.format(mortgageBalance));
   setOut("loanrepayment", fmtCurrency0.format(propertyLoanRepaymentMonthly(property)) + "/mo");
   setOut("netequity", fmtCurrency0.format(equity));

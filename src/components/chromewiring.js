@@ -4,6 +4,7 @@
 // refresh, the period selector and keyboard shortcuts.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
+import { onMoneyBlur } from "../lib/moneyfield.js";
 import { runManualUpdateCheck } from "./updates.js";
 import { cardPaymentsForMonth, usualCardSource } from "../calc/bills.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } from "../calc/ledger.js";
@@ -530,6 +531,12 @@ export function wirePeriod(){
   document.addEventListener("keydown", function(e){
     if(e.key === "Escape" && !periodMenu.hidden){ setPeriodMenuOpen(false); periodBtn.focus(); }
   });
+}
+
+// November 2026: a money field shows "575,000", tidied back to that when it's left (lib/moneyfield.js). Its own
+// handlers read it through readInput, which takes the separators in its stride.
+export function wireMoneyFields(){
+  document.addEventListener("focusout", onMoneyBlur, true);
 }
 
 export function wireShortcuts(){

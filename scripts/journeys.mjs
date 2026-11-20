@@ -3733,16 +3733,15 @@ const JOURNEYS = {
       check((await page.locator('#pageCrumbs').innerText()).replace(/\s+/g, ' ').trim() === 'Accounts Investments' && (await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts', "desktop did not show the way up (Accounts › Investments): " + await page.locator('#pageCrumbs').innerText());
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
+      // November 2026: a property's tabs are chips that wrap (never a dropdown) — the one chosen shows its panel.
       const prop = page.locator('#propertiesBody .prop-tabs').first();
-      const pp = prop.locator('select');
-      await pp.waitFor({ state: 'visible' });
-      await pp.selectOption({ index: 1 });
+      await prop.locator('[role="tab"]').nth(1).click();
       await settle(page);
       check(await prop.evaluate(el => {
         const selected = el.querySelector('[aria-selected="true"]');
-        return el.getAttribute('role') === 'group' && selected && !document.getElementById(selected.getAttribute('aria-controls')).hidden &&
-          el.querySelector('select').selectedOptions[0].textContent === selected.textContent.trim();
-      }), "property picker and panel disagree");
+        return el.getAttribute('role') === 'tablist' && !el.querySelector('select') && selected && !document.getElementById(selected.getAttribute('aria-controls')).hidden &&
+          el.scrollWidth <= el.clientWidth + 1;
+      }), "property tabs and panel disagree, or the tabs became a dropdown");
       const overflow = await page.evaluate(() => [...document.querySelectorAll('.app-page:not([hidden]) .subnav, .app-page:not([hidden]) .time-range-control')]
         .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1).map(el => el.getAttribute('aria-label')));
       check(!overflow.length, "sideways navigation remains: " + overflow.join(', '));
@@ -4054,6 +4053,7 @@ const JOURNEYS = {
     check(await stored(page, P + "loans[0].balance") === bal, "clearing a loan's balance saved " + await stored(page, P + "loans[0].balance"));
     check(await marked(loan + " .loan-balance"), "a cleared loan balance isn't marked with a message");
     const inv = await stored(page, P + "loans[0].investPct");
+    await page.locator(loan + " .loan-tax-fold > summary").click();   // November 2026: under For tax
     await page.fill(loan + " .loan-invest-pct", "150");
     check(await stored(page, P + "loans[0].investPct") === inv, "an investment share of 150% saved " + await stored(page, P + "loans[0].investPct"));
     check(await marked(loan + " .loan-invest-pct"), "an investment share of 150% isn't marked with a message");
@@ -4235,17 +4235,20 @@ const JOURNEYS = {
     await page.locator('.prop-tab-panel:not([hidden]) [data-loan-index="'+loan+'"]').first().locator('[data-row-toggle]').click();
     const row=page.locator('.m-row.open[data-loan-index]');
     await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
-    check(await row.locator('.loan-offset').inputValue()==='1000','Offsets value did not mirror into loan');
-    check(await row.locator('input,select').evaluateAll(es=>es.every(e=>e.classList.contains('field-control'))),'loan still has an independent control skin');
-    const properLabels=await row.locator('.m-edit-field > input,.m-edit-field > select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
+    // November 2026: the loan in the floating-label style — money shown with separators, choices as pills, on/off as switches.
+    check(await row.locator('.loan-offset').inputValue()==='1,000','Offsets value did not mirror into loan');
+    check(await row.locator('input:not([type=radio]):not([type=checkbox]),select').evaluateAll(es=>es.every(e=>e.classList.contains('field-control'))),'loan still has an independent control skin');
+    check(await row.locator('input[type=radio]').evaluateAll(es=>es.length>0&&es.every(e=>e.classList.contains('pill-input')))&&await row.locator('input[type=checkbox]').evaluateAll(es=>es.every(e=>e.classList.contains('switch-input')&&e.getAttribute('role')==='switch')),'loan choices are not pills and switches');
+    const properLabels=await row.locator('.field input:not([type=radio]):not([type=checkbox]),.field select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
     check(properLabels,'loan label/help links lost');
     await row.locator('.loan-offset').fill('2000');check(await saved()===2000,'loan offset did not save');
     check(await page.locator('.offset-balance-input[data-offset-property="'+property+'"][data-offset-loan="'+loan+'"]').inputValue()==='2000','loan edit did not mirror into Offsets');
     const oldBalance=await row.locator('.loan-balance').inputValue();await row.locator('.loan-balance').fill('');
     check(await row.locator('.loan-balance').getAttribute('aria-invalid')==='true','loan blank balance has no error');
     await row.locator('.loan-balance').fill(oldBalance);
-    await row.locator('.loan-repay-mode').focus();await row.locator('.loan-repay-mode').selectOption('manual');
-    check(await row.locator('.loan-repay-mode').evaluate(e=>e===document.activeElement),'repayment mode redraw lost focus');
+    await row.locator('.loan-repay-mode-switch').focus();await page.keyboard.press('Space');
+    await page.waitForFunction(()=>!!document.querySelector('.m-row.open .loan-manual-amount'));
+    check(await page.locator('.m-row.open .loan-repay-mode-switch').evaluate(e=>e===document.activeElement&&e.checked),'repayment switch redraw lost focus');
     await row.locator('.loan-manual-amount').fill('1000');
     check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].manualRepaymentAmount,{property,loan})===1000,'manual repayment did not save');
     await row.locator('.loan-rate-new').fill('5');await row.locator('.loan-rate-date').fill('2026-11-03');
@@ -4253,7 +4256,9 @@ const JOURNEYS = {
     check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].rateHistory.some(h=>h.date==='2026-11-03'&&h.rate===5),{property,loan}),'new rate was not recorded');
     for(const width of [320,390,768,1024,1280]){
       await page.setViewportSize({width,height:844});
-      const bad=await row.locator('input,select').evaluateAll(es=>es.filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.borderRadius!=='6px'||s.padding!=='6px 8px'||r.height+0.01<(innerWidth<=880?44:36);}).map(e=>e.className));
+      // A box (fbox-control) is the new field: 14px corners, 58px tall (52px on a desktop). Anything else on the shared skin keeps its 6px.
+      const bad=await row.locator('input:not([type=radio]):not([type=checkbox]),select').evaluateAll(es=>es.filter(e=>e.getClientRects().length).filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();
+        return e.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px'||s.padding!=='6px 8px'||r.height+0.01<(innerWidth<=880?44:36));}).map(e=>e.className));
       check(!bad.length,'loan shared skin failed at '+width+': '+bad.join(','));
       check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'loan editor creates page overflow at '+width);
     }
@@ -4744,12 +4749,8 @@ const JOURNEYS = {
     await card.locator('[data-prop-edit]').click();
     const tab = async (name, section) => {
       const button = card.locator('[data-prop-tab][data-tab="' + name + '"]');
-      const picker = card.locator('.prop-tabs select');
-      // A card redraw starts with buttons; the next picker pass can hide them. Wait for that
-      // decoration before choosing a control, so an early visibility read cannot select a disappearing tab.
-      await picker.waitFor({state:'attached'});
-      if(await picker.isVisible()) await picker.selectOption({label:(await button.textContent()).trim()});
-      else await button.click();
+      // A property's tabs are chips (November 2026), never a dropdown.
+      await button.click();
       const toggle = card.locator('[data-prop-section-toggle="' + section + '"]');
       if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
     };

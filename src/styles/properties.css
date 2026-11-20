@@ -344,6 +344,41 @@
 
 /* Tabs on a property card (v3.61.0) */
 .prop-tabs{ margin:12px 0 8px; }
+/* November 2026: the tabs as chips that wrap (the owner, after the forms review) — the chosen one dark, like a pill. */
+.prop-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+.prop-chip{ all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; min-height:44px; padding:0 16px; border-radius:100px;
+  background: var(--paper-sunken); color: var(--ink-soft); font-size:var(--fs-sm); font-weight:600; }
+.prop-chip:hover{ color: var(--ink); }
+.prop-chip.active{ background: var(--ink); color: var(--paper-raised); }
+.prop-chip:focus-visible{ box-shadow: var(--focus-ring); }
+
+/* Value & purchase (November 2026, the floating-label style): bought → worth today as a picture, then the fields. */
+.vp-story{ display:flex; align-items:stretch; gap:8px; margin:4px 0 6px; }
+.vp-story > div{ flex:1; min-width:0; border-radius:14px; padding:10px 12px; display:flex; flex-direction:column; gap:1px; }
+.vp-then{ background: var(--paper-sunken); }
+.vp-now{ background: linear-gradient(135deg, #1e40af, #0f766e); color:#fff; }
+.vp-story span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.vp-then span, .vp-then small{ color: var(--ink-soft); }
+.vp-story b{ font-family: var(--font-num); font-size: var(--fs-xl); font-weight:600; }
+.vp-story small{ font-size:var(--fs-xs); }
+.vp-arrow{ align-self:center; color: var(--ink-soft); }
+.vp-group{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+.vp-chip{ margin-left:auto; padding:2px 9px; border-radius:100px; font-size:var(--fs-xs); font-weight:600; }
+.vp-chip.good{ background: var(--good-wash); color: var(--good-ink); }
+.vp-chip.warn{ background: color-mix(in srgb, var(--warn-ink) 14%, transparent); color: var(--warn-ink); }
+.vp-group .prop-value-log{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.vp-ppor-note{ margin-top:10px; }
+/* The loan, in the same style: the loan, its repayments, its extras, and For tax folded. */
+.loan-form{ display:flex; flex-direction:column; gap:10px; }
+.loan-form .rh-wrap, .loan-form .rate-history{ margin:0; }
+.loan-tax-fold > summary{ list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:52px; padding:8px 14px;
+  border-radius:14px; background: var(--paper-sunken); font-weight:600; }
+.loan-tax-fold > summary::-webkit-details-marker{ display:none; }
+.loan-tax-fold > summary small{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+.loan-tax-edit{ color: var(--brass-strong); font-size:var(--fs-sm); }
+.loan-tax-fold[open] > summary .loan-tax-edit{ display:none; }
+.loan-tax-fold[open] > .fgrid{ margin-top:10px; }
+.loan-tax-fold .computed-note{ grid-column: 1 / -1; margin:0; }
 .prop-tab-panel[hidden]{ display:none; }
 .ptx{ border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:12px; background: var(--paper); }
 .ptx-row{ display:grid; grid-template-columns: minmax(0,1fr) auto minmax(0,auto); gap:10px; font-size:var(--fs-sm); padding:4px 0; border-bottom:1px dashed var(--border); align-items:baseline; }

@@ -79,6 +79,48 @@ The control's `aria-describedby` names the help and the error. Everything it's g
   under 16px went from 2 to 0 at 390px and from 194 to 0 at 768 and 1024px. No view started scrolling sideways, and no
   field began clipping its value. Desktops with a mouse are unchanged.
 
+## Floating label, pills and switches (November 2026)
+
+The owner asked for forms that are beautiful and simpler, and said the old ones weren't set in stone. Three styles were
+mocked on a loan: a grouped list, floating labels, and one question at a time. The owner chose **floating labels** for
+editing and **one question at a time** for adding something new. Property is first: its Value & purchase and its loan.
+
+### The box (`fieldHtml({ box: true })`, `type: "money"`)
+
+- **The box is the control.** A soft filled field (`--paper-sunken`, 14px corners, no border at rest) with its label
+  drawn small inside at the top and the value big below (`--fs-lg`, money `--fs-xl`). The whole box is one tap target:
+  58px tall on a phone, 52px on a desktop. It sets `height`, not `min-height`, because the phone floor sets
+  `min-height:44px !important` on every input.
+- **Focus:** a raised background, a 2px `--field-focus` border and a 4px soft ring, and the label turns `--brass-strong`.
+- **Error:** a `--bad-ink` border on a faint red wash. The message sits below the box, as before.
+- **`prefix` and `unit`** (`$`, `%`, `yrs`) are drawn inside the box, `aria-hidden`; the label names the field.
+- **`type: "money"`** is a text field with `inputmode="decimal"` and `data-money`, shown as "575,000". Leaving it tidies
+  it back to that (`lib/moneyfield.js`). It's read through `readInput`, and `readNumberField` takes "$1,250.50" and
+  "1 250" as numbers. The separators aren't stripped on focus: changing the value as it's focused drops the selection
+  a Tab makes, so typing appended to the old amount.
+- **`wide: true`** spans both columns of an `.fgrid` (two columns). On a phone a date always takes the row, because the
+  native date field doesn't fit half its width.
+
+### Pills (`pillsHtml`) and switches (`switchHtml`)
+
+- **Pills** replace a select of two to four choices ("Principal & interest / Interest only", "Weekly / Fortnightly /
+  Monthly"). They're real radios in a labelled `role="radiogroup"`, with arrow keys between them. The chosen one is
+  `--ink` on `--paper-raised`. The page's class goes on each radio, so its change handler reads `e.target.value` as it
+  read the select's.
+- **Switches** replace a yes/no select or a field that only matters when something is on ("Offset account", "Fixed
+  rate", "I pay a set amount"). Each is a checkbox with `role="switch"`, and its whole row is its label. Turned on, a
+  switch opens its fields; turned off, it clears them.
+- **Sections** within a form are `.fsec`: a quiet title and a rule across. What only tax needs is folded under a
+  "For tax" summary that says what's set.
+
+### Where it is
+
+| Form | Now |
+|---|---|
+| Property → Value & purchase | Bought → worth today as a picture, then when you bought it, what it's worth now, and an investment's land tax with a chip |
+| Property → a loan | Balance and rate as boxes, repayments as pills, "I pay a set amount", offset and fixed rate as switches, For tax folded |
+| Property's tabs | Chips that wrap (`.prop-chips`), never the section picker's dropdown |
+
 ## Inventory: every control → shared field or variant
 
 Counts are text-entry controls at 1280px (236 per width).

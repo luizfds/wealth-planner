@@ -25,7 +25,7 @@ import { findProperty, rerenderTableFor, openNewRowModal, defineSavedValue } fro
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { openAddPropertyDialog } from "./buyingwiring.js";
 import { defineSection } from "../lib/sections.js";
-import { renderPropListModern } from "./properties.js";
+import { renderPropListModern, loanUi } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
 import { openStatementForm } from "./rentstatement.js";
 import { removeLedgerRecord } from "../calc/propertyactuals.js";
@@ -422,8 +422,25 @@ export function wireProperties(){
     if(loanTr){
       var loan = property.loans[Number(loanTr.getAttribute("data-loan-index"))];
       if(!loan) return;
+      var uiKey = property.id + ":" + loanTr.getAttribute("data-loan-index");
       if(e.target.classList.contains("loan-type")) loan.repaymentType = e.target.value;
       else if(e.target.classList.contains("loan-repay-mode")) loan.repaymentMode = e.target.value;
+      // November 2026: the loan's switches. "I pay a set amount" is the manual repayment; turning the offset or the
+      // fixed rate on opens its fields (loanUi keeps it open till there's a balance or a date), off clears them.
+      else if(e.target.classList.contains("loan-repay-mode-switch")) loan.repaymentMode = e.target.checked ? "manual" : "auto";
+      else if(e.target.classList.contains("loan-offset-switch")){
+        loanUi[uiKey] = Object.assign({}, loanUi[uiKey], { offset: e.target.checked });
+        if(!e.target.checked && (Number(loan.offsetBalance) || 0) !== 0){
+          loan.offsetBalance = 0;
+          recordLoanSnapshot(loan, "offsetHistory", 0);
+          patchOffsetsRow(property.id, Number(loanTr.getAttribute("data-loan-index")), 0);
+          renderAssetsSummary();
+        }
+      }
+      else if(e.target.classList.contains("loan-fixed-switch")){
+        loanUi[uiKey] = Object.assign({}, loanUi[uiKey], { fixed: e.target.checked });
+        if(!e.target.checked){ loan.fixedUntil = ""; delete loan.revertRate; }
+      }
       else if(e.target.classList.contains("loan-repay-freq")) loan.manualRepaymentFreq = e.target.value;
       else return;
       renderProperties();

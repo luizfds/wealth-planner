@@ -184,6 +184,54 @@
   .field-control[readonly]{ background:var(--field-muted-bg); }
   .field-control[aria-invalid="true"]{ border-color:var(--bad-ink); }
   .field-control.is-valid{ border-color:var(--good-ink); }
+  /* ---------------- Floating label, pills, switches (November 2026; docs/design/fields.md) ----------------
+     The owner chose them from three styles mocked on a loan. The box is the control itself — a soft filled field with
+     its label drawn small inside at the top and the value big below — so the whole box is the tap target. Its height
+     is set, not its min-height: the phone floor sets every input's min-height to 44px !important, under this. */
+  .fbox{ position:relative; min-width:0; }
+  .fbox-control.field-control{ display:block; width:100%; height:58px; padding:22px 14px 6px; border:2px solid transparent; border-radius:14px;
+    background: var(--paper-sunken); font-family: var(--font-num); font-size:var(--fs-lg); font-weight:600; color: var(--ink); }
+  .fbox-control[data-money].field-control{ font-size:var(--fs-xl); }
+  /* A desktop: a little shorter — no thumb to fit, and room under a tall header in a short window. */
+  @media (min-width: 881px){ .fbox-control.field-control{ height:52px; padding-top:20px; } .fbox-label.field-label{ top:7px; } }
+  .fbox-control.has-pre{ padding-left:30px; }
+  .fbox-control.has-suf{ padding-right:46px; }
+  select.fbox-control.field-control{ font-family: inherit; appearance:none; -webkit-appearance:none; padding-right:36px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%), linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+    background-position: calc(100% - 20px) 28px, calc(100% - 14px) 28px; background-size:6px 6px; background-repeat:no-repeat; }
+  input[type="date"].fbox-control.field-control, input[type="text"]:not([data-money]).fbox-control.field-control{ font-family: inherit; }
+  .fbox-control.field-control:hover:not(:disabled, [readonly]){ border-color: color-mix(in srgb, var(--ink-soft) 35%, transparent); }
+  .fbox-control.field-control:focus-visible{ background: var(--paper-raised); border-color: var(--field-focus); box-shadow: 0 0 0 4px color-mix(in srgb, var(--field-focus) 18%, transparent); }
+  .fbox-control.field-control[aria-invalid="true"]{ border-color: var(--bad-ink); background: color-mix(in srgb, var(--bad) 6%, var(--paper-raised)); }
+  .fbox-label.field-label{ position:absolute; left:16px; top:9px; font-size:var(--fs-xs); pointer-events:none; z-index:1; }
+  .fbox:focus-within .fbox-label{ color: var(--brass-strong); }
+  .fbox-pre, .fbox-suf{ position:absolute; bottom:13px; font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); pointer-events:none; z-index:1; font-family: var(--font-num); }
+  .fbox-pre{ left:16px; } .fbox-suf{ right:16px; }
+  .field-box .field-help{ padding-left:4px; }
+  .field-pills .field-label{ font-size:var(--fs-sm); color: var(--ink); }
+  .pills{ display:flex; flex-wrap:wrap; gap:8px; }
+  .pill{ position:relative; display:inline-flex; align-items:center; min-height:44px; padding:0 16px; border-radius:100px; background: var(--paper-sunken);
+    font-size:var(--fs-sm); font-weight:600; color: var(--ink-soft); cursor:pointer; }
+  .pill-input{ position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+  .pill:has(.pill-input:checked){ background: var(--ink); color: var(--paper-raised); }
+  .pill:has(.pill-input:focus-visible){ box-shadow: var(--focus-ring); }
+  .switch-row{ display:flex; width:100%; box-sizing:border-box; align-items:center; justify-content:space-between; gap:12px; min-height:52px; padding:8px 14px;
+    border-radius:14px; background: var(--paper-sunken); cursor:pointer; }
+  .switch-text{ display:flex; flex-direction:column; min-width:0; }
+  .switch-text b{ font-weight:600; font-size:var(--fs-md); }
+  .switch-text small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .switch-input{ appearance:none; -webkit-appearance:none; flex:none; width:50px; height:30px; margin:0; border-radius:100px; background: var(--border); position:relative; cursor:pointer; transition: background .15s; }
+  .switch-input::after{ content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition: left .15s; }
+  .switch-input:checked{ background: var(--good); }
+  .switch-input:checked::after{ left:23px; }
+  .switch-input:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  /* A form section's heading in this style: a quiet title and a rule across. */
+  .fsec{ display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:var(--fs-sm); font-weight:600; color: var(--ink); }
+  .fsec::after{ content:""; flex:1; height:1px; background: var(--border); }
+  .fgrid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+  .fgrid > .span2{ grid-column: 1 / -1; }
+  /* A phone's date picker doesn't fit half a phone: a date takes the row there. */
+  @media (max-width: 480px){ .fgrid > .field-box:has(input[type="date"]){ grid-column: 1 / -1; } }
   :where(input:not([class]), select:not([class]), textarea:not([class])):focus-visible{ border-color: var(--brass); outline:none; box-shadow: var(--focus-ring); }
   input[type="number"]{ -moz-appearance:textfield; }
   input[type="number"]::-webkit-outer-spin-button,

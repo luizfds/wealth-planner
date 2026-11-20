@@ -39,7 +39,7 @@ import { wirePayslip, wireImports } from "./components/importwiring.js";
 import { wireSettings, wireActivity, wireErrorLog, renderSettingsTab } from "./components/settingswiring.js";
 import { wireCards, wireMonthReview, wireBenchmarks, wireHomeArrange, wireHomeSummary } from "./components/homewiring.js";
 import { wireData, wireFirstRun, buildDemoState, hasRealUserData } from "./components/datawiring.js";
-import { wireNavigation, wireSubpages, wirePullToRefresh, wirePeriod, wireShortcuts } from "./components/chromewiring.js";
+import { wireNavigation, wireSubpages, wirePullToRefresh, wirePeriod, wireShortcuts, wireMoneyFields } from "./components/chromewiring.js";
 import { wireAdvice, wireBudgetHistory } from "./components/budgettoolswiring.js";
 import { wireSafekeeping, keepNetWorthHistory } from "./components/safekeepingwiring.js";
 import { wireReports } from "./components/reportswiring.js";
@@ -268,6 +268,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   });
   if(new URLSearchParams(location.search).has("mock")) history.replaceState(history.state, "", location.pathname + location.hash);
   wireShortcuts();
+  wireMoneyFields();
 
   // Matching #appLoading's inline styles in index.html — fades out only once the real UI above
   // has actually been built, not on a fixed timer, so a slow first load (cold cache, slow device)

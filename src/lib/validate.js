@@ -19,7 +19,8 @@ import { refreshErrorSummary } from "./error-summary.js";
 
 export function readNumberField(raw, rule){
   rule = rule || {};
-  var s = String(raw == null ? "" : raw).trim();
+  // An amount as it's shown or pasted — "$1,250.50", "1 250" — reads as the number (November 2026, money fields).
+  var s = String(raw == null ? "" : raw).trim().replace(/^\$\s*|[\s,](?=\d)/g, "").replace(/^-\$/, "-");
   if(!s){
     if(rule.badInput) return { ok: false, message: "That isn't a number — use digits and a full stop, like 1250.50." };
     if(rule.empty) return { ok: false, message: rule.empty };

@@ -264,6 +264,51 @@ async function settle(page){
 // (data-wp-settled), then a frame for what they drew. The day's price read starts 800ms after startup and, when it
 // lands, legitimately changes a holding's saved price — a journey that had already read its "before" then saw "a
 // negative price saved 113.35" (PR #317: the price file's figure, not the -3 it typed).
+async function errorBoundsSteps(page){
+    await go(page,'properties');await page.locator('[data-prop-edit]').first().click();
+    const card=page.locator('.property-card').first(),id=await card.getAttribute('data-property-id');
+    const before=await page.evaluate(async id=>{const m=await import('/src/state.js');const p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},id);
+    await card.locator('.prop-value').fill('');await card.locator('.prop-purchase-price').fill('-100');await card.locator('.prop-purchase-price').press('Tab');
+    await waited(page,()=>document.querySelector('[data-error-summary] a')&&document.querySelector('[data-error-summary]').querySelectorAll('a').length===2,'two property errors');
+    if(process.env.ERROR_BOUNDS_SHOTS)fs.mkdirSync(process.env.ERROR_BOUNDS_SHOTS,{recursive:true});
+    let phase='activation';
+    const visible=async target=>waited(page,id=>{
+      const input=document.getElementById(id);if(!input||input!==document.activeElement)return false;
+      const v=visualViewport;let top=v?.offsetTop||0,bottom=top+(v?.height||innerHeight);
+      const header=document.querySelector('.app-topbar').getBoundingClientRect();if(header.top<=top&&header.bottom>top)top=header.bottom;
+      const nav=document.querySelector('.mobile-tabbar'),n=nav.getBoundingClientRect();if(nav.getClientRects().length&&n.top>top&&n.top<bottom)bottom=n.top;
+      const r=input.getBoundingClientRect();return r.top>top+1&&r.bottom<bottom-1&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===input;
+    },'error field inside usable viewport after '+phase,target).catch(async error=>{
+      const diagnostic=await page.evaluate(id=>{const e=document.getElementById(id),r=e?.getBoundingClientRect(),v=visualViewport,nav=document.querySelector('.mobile-tabbar');return {id,width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.theme,scrollY,focus:document.activeElement?.outerHTML.slice(0,250),target:e?.outerHTML.slice(0,250),rect:r?.toJSON(),header:document.querySelector('.app-topbar').getBoundingClientRect().toJSON(),nav:nav.getBoundingClientRect().toJSON(),navVisible:!!nav.getClientRects().length,viewport:{top:v.offsetTop,left:v.offsetLeft,width:v.width,height:v.height},hit:r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML.slice(0,250):null};},target);
+      throw new Error(error.message+'; '+JSON.stringify(diagnostic));
+    });
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark'])for(const height of [190,240,390,844]){
+      await page.setViewportSize({width,height});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(let i=0;i<2;i++){
+        const link=card.locator('[data-error-summary] a').nth(i),target=await link.getAttribute('data-error-target');
+        await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+        if(width<700)await link.tap();else{await link.focus();await page.keyboard.press('Enter');}
+        phase='activation';await visible(target);
+        // A redraw preserves the same focused draft and must not let the deferred adjustment scroll an old node.
+        await page.evaluate(async()=>{(await import('/src/components/properties.js')).renderProperties();});phase='redraw';await visible(target);
+        if(process.env.ERROR_BOUNDS_SHOTS&&i===0&&[190,844].includes(height))await page.screenshot({path:path.join(process.env.ERROR_BOUNDS_SHOTS,width+'-'+theme+'-'+height+'.png')});
+      }
+    }
+    await page.setViewportSize({width:390,height:390});
+    const link=card.locator('[data-error-summary] a').first(),target=await link.getAttribute('data-error-target');
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await page.evaluate(()=>{window.__errorBoundsWheel=false;window.addEventListener('wheel',()=>window.__errorBoundsWheel=true,{once:true,capture:true});});
+    await page.mouse.move(20,180);await page.mouse.wheel(0,500);
+    await waited(page,()=>window.__errorBoundsWheel,'native wheel event delivered');
+    await waited(page,id=>document.getElementById(id).getBoundingClientRect().bottom<0,'user scroll moves away from selected field',target);
+    await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    check(await page.evaluate(id=>document.getElementById(id).getBoundingClientRect().bottom<0,target),'layout adjustment fought a manual scroll');
+    const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    check(await page.evaluate(async id=>{const m=await import('/src/state.js');return JSON.stringify({...m.state.properties.find(p=>p.id===id),sectionsCollapsed:undefined});},id)===before,'summary navigation or redraw changed property figures');
+}
 async function quiet(page){
   await ready(page, "the app at rest");
   await settle(page);
@@ -2283,49 +2328,17 @@ const JOURNEYS = {
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
   async errorsummarybounds(page){
-    await quiet(page);await go(page,'properties');await page.locator('[data-prop-edit]').first().click();
-    const card=page.locator('.property-card').first(),id=await card.getAttribute('data-property-id');
-    const before=await page.evaluate(async id=>{const m=await import('/src/state.js');const p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},id);
-    await card.locator('.prop-value').fill('');await card.locator('.prop-purchase-price').fill('-100');await card.locator('.prop-purchase-price').press('Tab');
-    await waited(page,()=>document.querySelector('[data-error-summary] a')&&document.querySelector('[data-error-summary]').querySelectorAll('a').length===2,'two property errors');
-    if(process.env.ERROR_BOUNDS_SHOTS)fs.mkdirSync(process.env.ERROR_BOUNDS_SHOTS,{recursive:true});
-    let phase='activation';
-    const visible=async target=>waited(page,id=>{
-      const input=document.getElementById(id);if(!input||input!==document.activeElement)return false;
-      const v=visualViewport;let top=v?.offsetTop||0,bottom=top+(v?.height||innerHeight);
-      const header=document.querySelector('.app-topbar').getBoundingClientRect();if(header.top<=top&&header.bottom>top)top=header.bottom;
-      const nav=document.querySelector('.mobile-tabbar'),n=nav.getBoundingClientRect();if(nav.getClientRects().length&&n.top>top&&n.top<bottom)bottom=n.top;
-      const r=input.getBoundingClientRect();return r.top>top+1&&r.bottom<bottom-1&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===input;
-    },'error field inside usable viewport after '+phase,target).catch(async error=>{
-      const diagnostic=await page.evaluate(id=>{const e=document.getElementById(id),r=e?.getBoundingClientRect(),v=visualViewport,nav=document.querySelector('.mobile-tabbar');return {id,width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.theme,scrollY,focus:document.activeElement?.outerHTML.slice(0,250),target:e?.outerHTML.slice(0,250),rect:r?.toJSON(),header:document.querySelector('.app-topbar').getBoundingClientRect().toJSON(),nav:nav.getBoundingClientRect().toJSON(),navVisible:!!nav.getClientRects().length,viewport:{top:v.offsetTop,left:v.offsetLeft,width:v.width,height:v.height},hit:r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML.slice(0,250):null};},target);
-      throw new Error(error.message+'; '+JSON.stringify(diagnostic));
-    });
-    for(const width of [320,390,768,1280])for(const theme of ['light','dark'])for(const height of [190,240,390,844]){
-      await page.setViewportSize({width,height});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
-      for(let i=0;i<2;i++){
-        const link=card.locator('[data-error-summary] a').nth(i),target=await link.getAttribute('data-error-target');
-        await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
-        if(width<700)await link.tap();else{await link.focus();await page.keyboard.press('Enter');}
-        phase='activation';await visible(target);
-        // A redraw preserves the same focused draft and must not let the deferred adjustment scroll an old node.
-        await page.evaluate(async()=>{(await import('/src/components/properties.js')).renderProperties();});phase='redraw';await visible(target);
-        if(process.env.ERROR_BOUNDS_SHOTS&&i===0&&[190,844].includes(height))await page.screenshot({path:path.join(process.env.ERROR_BOUNDS_SHOTS,width+'-'+theme+'-'+height+'.png')});
-      }
+    await quiet(page);
+    // CI saw "Execution context was destroyed" here (PR #450), never locally: if the page loads anew, say where it
+    // went and what was last pressed (kept across the load in sessionStorage).
+    const left=[];page.on('request',r=>{if(r.isNavigationRequest()&&r.frame()===page.mainFrame())left.push(r.url());});
+    await page.evaluate(()=>{for(const k of ['pointerdown','click','keydown'])document.addEventListener(k,e=>{try{sessionStorage.setItem('errorBoundsLast',k+' '+(e.key||'')+' '+String(e.target?.outerHTML||e.target?.nodeName).slice(0,200));}catch(_){}},true);});
+    try{await errorBoundsSteps(page);}catch(e){
+      if(!left.length)throw e;
+      await page.waitForLoadState('domcontentloaded').catch(()=>{});
+      const last=await page.evaluate(()=>sessionStorage.getItem('errorBoundsLast')).catch(()=>null);
+      throw new Error(e.message+'; the page loaded '+left.join(', ')+' after '+last,{cause:e});
     }
-    await page.setViewportSize({width:390,height:390});
-    const link=card.locator('[data-error-summary] a').first(),target=await link.getAttribute('data-error-target');
-    await link.focus();await page.keyboard.press('Enter');await visible(target);
-    await page.evaluate(()=>{window.__errorBoundsWheel=false;window.addEventListener('wheel',()=>window.__errorBoundsWheel=true,{once:true,capture:true});});
-    await page.mouse.move(20,180);await page.mouse.wheel(0,500);
-    await waited(page,()=>window.__errorBoundsWheel,'native wheel event delivered');
-    await waited(page,id=>document.getElementById(id).getBoundingClientRect().bottom<0,'user scroll moves away from selected field',target);
-    await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
-    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    check(await page.evaluate(id=>document.getElementById(id).getBoundingClientRect().bottom<0,target),'layout adjustment fought a manual scroll');
-    const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
-    await link.focus();await page.keyboard.press('Enter');await visible(target);
-    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
-    check(await page.evaluate(async id=>{const m=await import('/src/state.js');return JSON.stringify({...m.state.properties.find(p=>p.id===id),sectionsCollapsed:undefined});},id)===before,'summary navigation or redraw changed property figures');
   },
   async errorsummaries(page){
     await quiet(page);

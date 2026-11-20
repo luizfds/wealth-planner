@@ -201,7 +201,7 @@
   .fbox-control.field-control:hover:not(:disabled, [readonly]){ border-color: color-mix(in srgb, var(--ink-soft) 35%, transparent); }
   .fbox-control.field-control:focus-visible{ background: var(--paper-raised); border-color: var(--field-focus); box-shadow: 0 0 0 4px color-mix(in srgb, var(--field-focus) 18%, transparent); }
   .fbox-control.field-control[aria-invalid="true"]{ border-color: var(--bad-ink); background: color-mix(in srgb, var(--bad) 6%, var(--paper-raised)); }
-  .fbox-label.field-label{ position:absolute; left:16px; top:9px; font-size:var(--fs-xs); pointer-events:none; z-index:1; }
+  .fbox-label.field-label{ position:absolute; left:16px; top:9px; font-size:var(--fs-xs); z-index:1; cursor:text; }
   .fbox:focus-within .fbox-label{ color: var(--brass-strong); }
   .fbox-pre, .fbox-suf{ position:absolute; bottom:12px; font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); pointer-events:none; z-index:1; font-family: var(--font-num); }
   .fbox-pre{ left:16px; } .fbox-suf{ right:16px; }

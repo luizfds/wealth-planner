@@ -172,6 +172,8 @@ export function defaultState(){
     properties: [],
     // A home being bought, until it settles (calc/purchase.js) — then it's one of the properties.
     purchases: [],
+    // Scenarios put away, to restore as they were (calc/scenarioarchive.js).
+    scenarioArchive: [],
     // A frozen copy of a past projection, graded against real logged net worth over time — see
     // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
     // user sets one; never auto-captured, since silently freezing on first load would grade
@@ -863,6 +865,15 @@ export var MIGRATION_STEPS = [
         c.paid = c.paid === true;
         if(c.auto !== true) delete c.auto;
       });
+    });
+  } },
+  // November 2026: scenarios put away, to restore as they were (calc/scenarioarchive.js) — each with its name.
+  { n: 33, name: "archived scenarios", run: function(s){
+    s.scenarioArchive = (Array.isArray(s.scenarioArchive) ? s.scenarioArchive : []).filter(function(e){ return e && typeof e === "object" && typeof e.name === "string" && e.name.trim(); });
+    s.scenarioArchive.forEach(function(e){
+      if(!Array.isArray(e.overrides)) e.overrides = [];
+      if(!Array.isArray(e.includedBy)) e.includedBy = [];
+      if(typeof e.archivedOn !== "string") e.archivedOn = "";
     });
   } }
 ];

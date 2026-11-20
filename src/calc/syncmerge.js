@@ -131,7 +131,7 @@ export function rowLabel(r){
 var SECTION_LABELS = { transactions: "Spending", transfers: "Transfers", incomeLog: "Income received", shared: "Budget", income: "Income",
   assets: "Investments", properties: "Property", accounts: "Accounts", debts: "Debts", importRules: "Import rules", categories: "Categories",
   savingsGoals: "Savings goals", goals: "Goals", trips: "Trips", txViews: "Saved views", activity: "Who changed what", taxYears: "Tax years", home: "Home costs", monthReviews: "Month reviews",
-  netWorthLog: "Net worth history", tax: "Tax settings", projection: "Projections", fire: "Retirement", purchase: "Purchase", invest: "Investing plan", purchases: "Buying" };
+  netWorthLog: "Net worth history", tax: "Tax settings", projection: "Projections", fire: "Retirement", purchase: "Purchase", invest: "Investing plan", purchases: "Buying", scenarioArchive: "Archived scenarios" };
 export function fieldLabel(f){ return String(f || "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase(); }
 export function sectionLabel(top){ return SECTION_LABELS[top] || String(top || ""); }
 // A value, short: a deleted row says so; a row its name; a field its value.

@@ -1626,6 +1626,17 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   assert.doesNotMatch(addPropertyDialogHtml([]), /addPropPlan/, "no plans, no plan to start from");
 });
 
+test("archived scenarios: each with when, Restore and a Delete that's a delete; none, nothing", async function(){
+  const { archivedScenariosHtml } = await import("../src/components/dashboard.js");
+  assert.equal(archivedScenariosHtml([]), "");
+  const h = archivedScenariosHtml([{ name: "Buy a house <&>", archivedOn: "2026-11-20" }]);
+  assert.match(h, /Archived scenarios/);
+  assert.match(h, /Buy a house &lt;&amp;>/);
+  assert.match(h, /Archived 20 Nov 2026/);
+  assert.match(h, /data-restore-archived="0">Restore/);
+  assert.match(h, /class="btn btn-sm btn-danger" data-delete-archived="0"/);
+});
+
 test("the merge question lists each thing changed on both devices, this device's ticked", async function(){
   const { mergeDialogHtml } = await import("../src/components/syncmerge.js");
   const html = mergeDialogHtml([

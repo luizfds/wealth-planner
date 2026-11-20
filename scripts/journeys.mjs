@@ -6876,6 +6876,28 @@ const JOURNEYS = {
   // still able to change any one back, and Combine with what's ticked.
   // The owner, buying a home: "+ Add property" asks first; one being bought gets a Buying card — its deposit held in
   // net worth, its costs ticked off as they're paid — and Settled makes it an ordinary home with its loan.
+  // The owner: put a scenario away without losing it — off the cards, under Archived scenarios, and back as it was.
+  async archivescenario(page){
+    await quiet(page);
+    await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    const name = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; return s.scenarios.find(n => n !== s.baselineScenario); });
+    const purchaseBefore = await page.evaluate(async n => JSON.stringify((await import('/src/state.js')).state.purchase[n] || null), name);
+    const card = page.locator('#cards .card-select[data-scenario="' + name + '"]');
+    await card.locator('[data-overflow-toggle]').click();
+    await card.locator('[data-archive]').click();
+    await page.waitForFunction(n => !document.querySelector('#cards .card-select[data-scenario="' + CSS.escape(n) + '"]'), name, { timeout: 5000 }).catch(() => {});
+    check(await card.count() === 0, 'an archived scenario is still on the cards');
+    const list = page.locator('#scenarioArchiveList');
+    check(await list.isVisible(), 'Archived scenarios does not show');
+    await list.locator('summary').click();
+    check((await list.innerText()).includes(name), 'the archived scenario is not listed');
+    await list.locator('[data-restore-archived="0"]').click();
+    await page.waitForFunction(n => !!document.querySelector('#cards .card-select[data-scenario="' + CSS.escape(n) + '"]'), name, { timeout: 5000 }).catch(() => {});
+    check(await page.locator('#cards .card-select[data-scenario="' + name + '"]').count() === 1, 'a restored scenario is not back on the cards');
+    const purchaseAfter = await page.evaluate(async n => JSON.stringify((await import('/src/state.js')).state.purchase[n] || null), name);
+    check(purchaseAfter === purchaseBefore, 'a restored scenario lost its purchase plan');
+    check(await list.isHidden(), 'Archived scenarios shows with nothing in it');
+  },
   async buyinghome(page){
     await quiet(page);
     await go(page, 'properties');

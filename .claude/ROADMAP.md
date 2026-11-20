@@ -5720,3 +5720,12 @@ property that said "negatively geared" at $0. Part 1:
   date, its costs the acquisition costs, its loan drawn that day; the deposit asset goes. Undo on Settled and Remove.
 - The sample household is buying 2 Sample Rd (no deposit yet, so its figures are unchanged). Journey `buyinghome`.
 Next: a payment logged against a purchase's cost (one entry, not two), then a lighter home card.
+
+## Archived scenarios (November 2026)
+
+`[x]` The owner: "I'm planning to delete some, but might need them back." A scenario's ⋯ has Archive (not the current
+situation, nor the last one): it leaves the scenarios — every card, chart and comparison — and is kept whole under
+Archived scenarios (its home rows, purchase and investing plans, changes, note, the lines varied for it, and other
+scenarios' includes of it), each with when, Restore and Delete. Restored, it's back as it was (a name taken since
+gets " (2)"). `state.scenarioArchive`, migration 33, calc/scenarioarchive.js; archived home rows in
+`everyAccountLink`; journey `archivescenario`.

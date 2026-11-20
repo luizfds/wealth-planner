@@ -324,3 +324,10 @@ test("step 32: homes being bought — a list, its figures numbers, each cost wit
   assert.deepEqual(p.costs.map(c => [c.what, c.amount, c.paid, !!c.auto, !!c.id]), [["Conveyancer", 1200, true, false, true], ["Stamp duty", 0, false, true, true]]);
   assert.equal(run(32, { purchases: [{ kind: "IP" }] }).purchases[0].kind, "IP");
 });
+
+test("step 33: archived scenarios — a list, each with a name, its overrides and includes as lists", function(){
+  assert.deepEqual(run(33, {}).scenarioArchive, []);
+  const s = run(33, { scenarioArchive: [null, { name: "" }, { name: "Buy a house", archivedOn: 5 }, "x"] });
+  assert.equal(s.scenarioArchive.length, 1);
+  assert.deepEqual([s.scenarioArchive[0].name, s.scenarioArchive[0].archivedOn, s.scenarioArchive[0].overrides, s.scenarioArchive[0].includedBy], ["Buy a house", "", [], []]);
+});

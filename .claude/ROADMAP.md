@@ -5738,3 +5738,9 @@ see how to change its name or settlement date (they were in "The purchase", fold
   and the settlement date; its name opens its Buying card. The deposit is counted there, no longer under Other things.
 - The Buying card's hero has Edit (to the name) and its settlement chip opens the date ("Add the settlement date" +);
   "The purchase" reads as a way in — what's inside, and Edit — and stays open while the price or date is missing.
+
+## Forms: floating labels, pills and switches (November 2026)
+
+`[~]` The owner: forms aren't set in stone — make them beautiful and simpler. Of three styles mocked on a loan, the
+owner chose B (floating labels in soft filled boxes, choices as pills, on/off as switches) for editing, and C (one
+question at a time) for adding. Property first: Value & purchase and the loan, then its costs and the statement.

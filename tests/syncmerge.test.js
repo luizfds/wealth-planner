@@ -95,3 +95,17 @@ test("rows with no id match by content", () => {
   const r = mergeStates(b, o, t);
   assert.deepEqual(r.merged.income.map((x) => x.what), ["Pay B", "Pay C"]);
 });
+
+// A computed row is matched by what it's for, not its content: the same property's rent at two amounts (one on each
+// device) is one row after a merge, not two — the owner's income counted an old rent twice. Invented figures.
+test("a computed row is one per thing it's for after a merge, whatever its amount on each side", function(){
+  const rent = amount => ({ syntheticRentForProperty: "p1", computed: true, what: "1 Example St — Rent", amount: amount, freq: "Monthly" });
+  const bonus = amount => ({ syntheticOneOffFor: "b1", computed: true, what: "Bonus — after tax", amount: amount, freq: "Yearly", irregular: true });
+  const base = { income: [{ id: "i1", what: "Pay", amount: 5000, freq: "Monthly" }, rent(2000), bonus(9000)] };
+  const ours = { income: [{ id: "i1", what: "Pay", amount: 5000, freq: "Monthly" }, rent(2400), bonus(9500)] };
+  const theirs = { income: [{ id: "i1", what: "Pay", amount: 5000, freq: "Monthly" }, rent(2100), bonus(9100)] };
+  const m = mergeStates(base, ours, theirs);
+  assert.equal(m.merged.income.filter(r => r.syntheticRentForProperty === "p1").length, 1);
+  assert.equal(m.merged.income.filter(r => r.syntheticOneOffFor === "b1").length, 1);
+  assert.equal(m.conflicts.length, 0, "computed rows are rebuilt after a load — never asked about");
+});

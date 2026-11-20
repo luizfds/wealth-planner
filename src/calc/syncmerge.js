@@ -24,6 +24,16 @@ var AUTO_KEYS = { priceSheet: 1, fx: 1, benchmark: 1, projectionReference: 1 };
 function isLastDone(field){ return /^last[A-Z]|(At|Date|Updated)$/.test(String(field || "")); }
 function isAutoRow(r){ return !!(r && typeof r === "object" && (r.auto || r.derived || r.computed || r.syntheticNetFor || r.syntheticRentForProperty || r.syntheticOneOffFor || r.syntheticRefundFor || r.syntheticEndingFor)); }
 
+// A computed row (calc/engine.js recalcComputedItems) is one per thing it's for — this person's net pay, this
+// property's rent, this bonus after tax, this person's lodgement — so that's what matches it across copies. Matched by
+// content, the same rent row at two amounts (one on each device) read as two rows, and a merge kept both: the owner's
+// income counted an old rent, each bonus and both a tax bill and a refund twice.
+var AUTO_ROW_FIELDS = ["syntheticNetFor", "syntheticRentForProperty", "syntheticOneOffFor", "syntheticRefundFor", "syntheticEndingFor"];
+export function autoKey(r){
+  if(!r || typeof r !== "object") return "";
+  for(var i = 0; i < AUTO_ROW_FIELDS.length; i++){ if(r[AUTO_ROW_FIELDS[i]] != null && r[AUTO_ROW_FIELDS[i]] !== "") return "auto:" + AUTO_ROW_FIELDS[i] + ":" + r[AUTO_ROW_FIELDS[i]]; }
+  return "";
+}
 function isObj(v){ return v != null && typeof v === "object" && !Array.isArray(v); }
 // Key order doesn't make two rows different.
 function canon(v){
@@ -43,7 +53,8 @@ function keyer(lists){
   return function(list){
     var counts = {}, out = [];
     (list || []).forEach(function(r){
-      var k = r != null && r.id != null ? "id:" + r.id : byDate ? "date:" + r.date : "row:" + canon(r);
+      var auto = autoKey(r);
+      var k = r != null && r.id != null ? "id:" + r.id : auto ? auto : byDate ? "date:" + r.date : "row:" + canon(r);
       if(counts[k]){ counts[k]++; k += "#" + counts[k]; } else counts[k] = 1;
       out.push({ key: k, row: r });
     });

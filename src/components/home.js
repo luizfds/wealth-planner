@@ -20,6 +20,12 @@ import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
 import { autoPayCardHtml } from "./autopay.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { standingFigures } from "../calc/standing.js";
+import { liquidityForecast } from "../calc/liquidity.js";
+import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { emergencyFund } from "../calc/emergency.js";
+import { rateStress } from "../calc/scenariostress.js";
+import { liquidityInputs } from "./dashboard.js";
 
 // ---------------- Home (v3.58.0) ----------------
 // The first screen answers four things before anything else: what we're worth, how the month is
@@ -178,6 +184,7 @@ export function homeSummaryHtml(today, opts){
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
     // A household with nothing in it has nothing to glance at: its cards below say what to enter, each with where.
     (opts.glance === false || (nwEmpty && monthEmpty) ? '' : glance) +
+    (opts.standing === false || (nwEmpty && monthEmpty) ? '' : standingCardHtml(todos)) +
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
     '<div class="home-grid">' + needsCard + monthCard + nwCard + '</div>' +
@@ -260,4 +267,34 @@ export function weekCardHtml(today, recap){
       '<button type="button" class="link-btn home-link" data-sv data-sv-direction="out" data-sv-from="' + w.start + '" data-sv-to="' + w.end + '">See this week in Transactions →</button></div>' +
       biggest + bills + '</div>' +
     (foot ? '<div class="wk-foot">' + foot + '</div>' : '') + '</details></section>';
+}
+
+// #457: where you stand — at most five decision figures (calc/standing.js), each from a calculation the app already
+// does, labelled with its period or scenario, a way to where it's worked out, and "not known" rather than $0.
+var STANDING_GO = { insights: ' data-home-go="dashboard" data-home-sub="insights"', budget: ' data-home-go="expenses" data-home-sub="budget"',
+  emergency: ' data-home-go="plan" data-home-sub="goals"', loans: ' data-home-go="properties"', accounts: ' data-home-go="accounts"', needs: ' data-glance-go="needs"' };
+export function standingCardHtml(todos){
+  var figures;
+  try {
+    var scenario = currentScenario(), t = scenarioTotals(scenario);
+    var hasPlan = (state.income || []).length || (state.shared || []).length;
+    var liq = hasPlan ? liquidityForecast(liquidityInputs(monthlyCashFlowForecast(12).months, 0)) : null;
+    var em = null, stress = null;
+    try { em = emergencyFund(); } catch(e){ em = null; }
+    var hasLoans = (state.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return !l.endedOn && Number(l.balance) > 0; }); });
+    try { stress = hasLoans ? rateStress(scenario, 2, t) : null; } catch(e){ stress = null; }
+    figures = standingFigures({ liquidity: liq, surplus: hasPlan && t && t.regularNetMonthly != null ? t.regularNetMonthly : null, scenario: scenario,
+      emergency: em, stress: stress, hasLoans: hasLoans, todos: todos || [],
+      monthLabel: function(m){ return MONTHS[m.month - 1] + " " + String(m.year).slice(2); } });
+  } catch(err){ return ""; }
+  var val = function(f){
+    if(f.value == null) return '—';
+    if(f.unit) return f.value + ' <small>' + f.unit + '</small>';
+    return (f.value < 0 ? "−" : "") + fmtCompact(Math.abs(f.value)) + (f.perMonth ? '<small>/mo</small>' : '');
+  };
+  return '<section class="home-card home-standing" data-home-card="standing" aria-labelledby="homeStandingHead"><span class="home-k" id="homeStandingHead">Where you stand</span>' +
+    '<ul class="hs-list">' + figures.map(function(f){
+      return '<li><button type="button" class="hs-fig' + (f.value == null ? ' is-unknown' : f.tone ? ' is-' + f.tone : '') + '"' + (STANDING_GO[f.go] || '') + '>' +
+        '<span class="hs-k">' + escapeAttr(f.label) + '</span><b class="hs-v">' + val(f) + '</b><small class="hs-sub">' + escapeAttr(f.sub) + '</small></button></li>';
+    }).join("") + '</ul></section>';
 }

@@ -531,13 +531,14 @@ export { renderCashFlowForecastPanel };
 // loan's repayments after — with a rate rise to try and another scenario to set beside it (calc/liquidity.js).
 // Session-only, like the app's other what-ifs.
 export var liqUi = { stress: 0, compare: "" };
-function liquidityInputs(months){
+// #457: Today's "Where you stand" gathers the same inputs (with no rate rise).
+export function liquidityInputs(months, stressPct){
   var loans = [];
   (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l){ if(!l.endedOn) loans.push({ balance: loanBalance(l), rate: Number(l.rate) || 0 }); }); });
   var hasCash = (state.assets || []).some(function(a){ return a.category === "Cash"; }) || (state.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return Number(l.offsetBalance) > 0; }); });
   var reserve = null;
   try { reserve = emergencyFund().target; } catch(e){ reserve = null; }
-  return { months: months, startCash: hasCash ? cashOnHand() : null, purchases: state.purchases || [], loans: loans, stressPct: liqUi.stress, reserveTarget: reserve, today: localDateStr() };
+  return { months: months, startCash: hasCash ? cashOnHand() : null, purchases: state.purchases || [], loans: loans, stressPct: stressPct == null ? liqUi.stress : stressPct, reserveTarget: reserve, today: localDateStr() };
 }
 function liquidityHtml(forecast){
   var f = liquidityForecast(liquidityInputs(forecast.months));

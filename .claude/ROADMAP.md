@@ -5794,3 +5794,13 @@ saved, what's owed, cash to hand (offset still yours; paid off only through redr
 and the net position they're compared on. Investment loans show the interest saved after the deduction lost (the owners'
 rate, shown and editable; not tax advice). A rate rise is the existing "If the rate moves". It starts from cash held less
 the emergency reserve, and says when an amount dips into it. Nothing is spending or a second asset. Tests: loanstrategy.
+
+## Goals measured honestly, and Where you stand (#456, #457, November 2026)
+
+`[x]` #456: Year in review already turns its findings into goals (#399/#400: next year's plan, saved as savings goals with
+their monthly amount, and a monthly check-in). What it lacked: a goal whose accounts hold no balance read as $0 saved and
+"Behind". It's now "Not tracked yet" — "—", a hatched bar, and why (`tracked` in calc/savegoals.js goalStatus).
+#457: Today's "Where you stand" card (calc/standing.js): the lowest cash in the next 12 months (settlement included,
+#454), a normal month's surplus with its scenario, the emergency runway in months, rates +2% when there are loans, and how
+many things wait in Needs you (the same list) — at most five, each a way to where it's worked out, "—" with why when it
+can't be known. It can be moved or hidden like the other cards. Tests: standing, savegoals; journeys needsyou, home*.

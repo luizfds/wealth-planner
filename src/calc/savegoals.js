@@ -59,7 +59,10 @@ export function goalStatus(goal, today, opts){
   });
   var projected = pace != null && pace > 0 && left > 0 ? addMonths(today, left / pace) : null;
   var surplus = opts.surplusMonthly;
-  var status = left <= 0 ? "done"
+  // #456: progress is measured only on balances that are known — with none of its accounts holding one (or no account
+  // chosen), what's saved isn't $0, it's not known: "untracked", never "behind".
+  var tracked = accounts.some(function(a){ return accountBalance(a).balance != null; });
+  var status = !tracked ? "untracked" : left <= 0 ? "done"
     : neededMonthly == null ? (pace != null && pace > 0 ? "moving" : "open")
     : pace != null ? (pace >= neededMonthly * 0.95 ? "on-track" : "behind")
     : (surplus != null && surplus >= neededMonthly ? "possible" : "behind");
@@ -68,7 +71,8 @@ export function goalStatus(goal, today, opts){
   return { id: goal.id, name: goal.name, target: round(target), current: round(current), left: round(left), pct: target > 0 ? Math.min(1, Math.max(0, current / target)) : 0,
     over: over, times: target > 0 ? Math.round(current / target * 10) / 10 : null,
     by: goal.by || "", months: months == null ? null : Math.round(months * 10) / 10, neededMonthly: neededMonthly == null ? null : round(neededMonthly),
-    pace: pace == null ? null : round(pace), paceMonths: Math.round(span * 10) / 10, projected: projected, status: status, missing: missing, accounts: (goal.accounts || []).slice() };
+    pace: pace == null ? null : round(pace), paceMonths: Math.round(span * 10) / 10, projected: projected, status: status, missing: missing, accounts: (goal.accounts || []).slice(),
+    tracked: tracked };
 }
 
 // Every goal, plus whether the plan's monthly surplus covers what all of them need together.

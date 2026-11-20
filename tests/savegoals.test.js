@@ -92,3 +92,20 @@ test("an open goal's editor labels its own fields, describes its help, and escap
     } finally { delete goalOpen[a.id]; delete goalOpen[b.id]; }
   });
 });
+
+// #456: a goal measured on accounts with no balance yet isn't $0 saved and "behind" — it's not known.
+test("a goal with no balance to measure is untracked, never behind", function(){
+  const keep = { accounts: state.accounts, assets: state.assets };
+  try {
+    state.assets = [{ id: "c1", what: "Saver", category: "Cash", amount: 5000, history: [] }];
+    state.accounts = [{ id: "a1", name: "Saver", type: "savings", link: "asset:c1" }, { id: "a2", name: "New saver", type: "savings", link: "" }];
+    const none = goalStatus({ id: "g1", name: "Holiday", target: 4000, by: "2027-06-30", accounts: ["New saver"] }, "2026-11-20");
+    assert.equal(none.status, "untracked");
+    assert.equal(none.tracked, false);
+    assert.equal(goalStatus({ id: "g2", name: "No accounts", target: 4000, accounts: [] }, "2026-11-20").status, "untracked");
+    const some = goalStatus({ id: "g3", name: "Deposit", target: 10000, by: "2027-06-30", accounts: ["Saver", "New saver"] }, "2026-11-20");
+    assert.equal(some.tracked, true, "one known balance is enough to measure on");
+    assert.equal(some.current, 5000);
+    assert.deepEqual(some.missing, ["New saver"]);
+  } finally { Object.assign(state, keep); }
+});

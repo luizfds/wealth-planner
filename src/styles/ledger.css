@@ -1557,6 +1557,8 @@
   .sgl-amounts span{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .sgl-bar{ height:8px; border-radius:4px; background: var(--paper-sunken); overflow:hidden; margin:6px 0 4px; }
   .sgl-bar i{ display:block; height:100%; background: var(--good); border-radius:4px; }
+  /* #456: no balance to measure — hatched, not an empty (0%) bar. */
+  .sgl-bar.is-unknown{ background: repeating-linear-gradient(-45deg, var(--paper-sunken) 0 6px, var(--border) 6px 8px); }
   .sgl-note{ margin:4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.45; }
   /* v3.146.0: where a goal's surplus could go, on Home's compact card. */
   .sgl-hint{ margin:6px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.4; }

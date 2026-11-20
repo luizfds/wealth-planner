@@ -7,12 +7,12 @@
 // the cash needed at settlement against the cash on hand, and its costs ticked off as they're paid — until "Settled"
 // makes it an ordinary property. Listeners: buyingwiring.js.
 import { state } from "../state.js";
-import { purchaseFigures, purchasePlans } from "../calc/purchase.js";
+import { purchaseFigures, purchasePlans, commonCostsToAdd } from "../calc/purchase.js";
 import { propertiesOffsetTotal } from "../calc/property.js";
 import { toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCompact, fmtDate, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
-import { fieldHtml } from "../lib/field.js";
+import { fieldHtml, pillsHtml, switchHtml } from "../lib/field.js";
 import { stackBarHtml } from "../lib/bars.js";
 import { keepUi } from "../lib/keepui.js";
 
@@ -32,17 +32,36 @@ function settleText(f, p, today){
   return "Settles in " + f.days + " day" + (f.days === 1 ? "" : "s") + " · " + fmtDate(p.settlementDate, today && String(p.settlementDate).slice(0, 4) !== String(today).slice(0, 4) ? { year: true } : undefined);
 }
 
-function costRowHtml(p, c, figure){
-  var base = "buy-" + p.id + "-" + c.id;
-  var amount = c.auto && figure.auto ? "" : (Number(c.amount) || "");
-  return '<li class="buy-cost' + (c.paid ? ' is-paid' : '') + '" data-buy-cost="' + escapeAttr(c.id) + '">' +
-    '<label class="buy-cost-paid"><input type="checkbox" data-cost-field="paid"' + (c.paid ? ' checked' : '') + ' aria-label="' + escapeAttr((c.what || "Cost") + " paid") + '"><span aria-hidden="true">Paid</span></label>' +
-    '<input type="text" class="field-control field-compact" id="' + escapeAttr(base + "-what") + '" data-cost-field="what" value="' + escapeAttr(c.what || "") + '" aria-label="What it is" placeholder="What it is">' +
-    '<input type="number" inputmode="decimal" min="0" step="1" class="field-control field-compact buy-cost-amount" id="' + escapeAttr(base + "-amount") + '" data-cost-field="amount" value="' + escapeAttr(String(amount)) + '"' +
-      ' aria-label="' + escapeAttr((c.what || "Cost") + " amount") + '" placeholder="' + escapeAttr(c.auto && figure.auto ? money(figure.amount) : "$") + '">' +
-    '<button type="button" class="btn btn-danger btn-sm" data-buy-cost-del aria-label="' + escapeAttr("Remove " + (c.what || "cost")) + '">✕</button>' +
-    (c.auto && figure.auto ? '<small class="buy-cost-note">Worked out from the price and state — type an amount to use your own.</small>' : '') +
-  '</li>';
+// Which cost rows are open (this visit): a cost just added opens, ready to type its amount.
+export var buyUi = { open: {} };
+
+// A cost: one line — what it is, a word on where it stands, its amount — that opens to edit it (November 2026, the
+// floating-label style). What it's for decides where it goes at settlement; a loan's cost can be added to the loan
+// (the owner's low-deposit fee) instead of paid in cash; an amount can be still to come ("at cost").
+function costRowHtml(p, c, fc, autoFigure){
+  var base = "buy-" + p.id + "-" + c.id, fa = function(k){ return { "data-cost-field": k }; };
+  var kind = fc.kind, financed = fc.financed;
+  var chips = [];
+  if(autoFigure) chips.push('<span class="bc-chip">Worked out</span>');
+  if(financed) chips.push('<span class="bc-chip in">Added to the loan</span>');
+  else if(c.paid) chips.push('<span class="bc-chip good">Paid</span>');
+  if(c.tbc) chips.push('<span class="bc-chip warn">Amount to come</span>');
+  var shown = c.tbc && !(fc.amount > 0) ? "To come" : money(fc.amount);
+  var amount = autoFigure ? "" : (Number(c.amount) || "");
+  return '<li><details class="buy-cost' + (c.paid && !financed ? ' is-paid' : '') + '" data-buy-cost="' + escapeAttr(c.id) + '"' + (buyUi.open[c.id] ? ' open' : '') + '>' +
+    '<summary><span class="bc-name">' + escapeAttr(c.what || "A cost") + (chips.length ? '<small>' + chips.join("") + '</small>' : '') + '</span><b class="bc-amt">' + shown + '</b></summary>' +
+    '<div class="bc-edit">' +
+      fieldHtml({ id: base + "-what", label: "What it is", box: true, value: c.what || "", attrs: fa("what") }) +
+      fieldHtml({ id: base + "-amount", label: "Amount", type: "money", value: amount, placeholder: autoFigure ? String(Math.round(fc.amount)) : "", attrs: fa("amount"),
+        help: autoFigure ? "Worked out from the price and state — type an amount to use your own." : "" }) +
+      switchHtml({ id: base + "-tbc", label: "Amount still to come", sub: "Charged at cost — fill it in when the bill comes", checked: !!c.tbc, attrs: fa("tbc") }) +
+      pillsHtml({ id: base + "-kind", label: "It's for", name: base + "-kind", value: kind, attrs: fa("kind"), options: [{ value: "purchase", label: "The purchase" }, { value: "loan", label: "The loan" }] }) +
+      (kind === "loan" ? pillsHtml({ id: base + "-fin", label: "Paid with", name: base + "-fin", value: financed ? "loan" : "cash", attrs: fa("financed"),
+        options: [{ value: "cash", label: "Cash" }, { value: "loan", label: "Added to the loan" }],
+        help: financed ? "Borrowed at settlement — not cash you need. It's in the loan's balance from day one." : "A lender's fee you pay yourself, at or before settlement." }) : "") +
+      (financed ? "" : switchHtml({ id: base + "-paid", label: "Paid", sub: c.paid ? "Counted in what's paid so far" : "Not yet — counted in cash at settlement", checked: !!c.paid, attrs: fa("paid") })) +
+      '<button type="button" class="btn btn-danger btn-sm" data-buy-cost-del aria-label="' + escapeAttr("Remove " + (c.what || "cost")) + '">Remove</button>' +
+    '</div></details></li>';
 }
 
 // One purchase's card. `cash` is the cash on hand (cashOnHand()); `today` an ISO date.
@@ -62,10 +81,12 @@ export function purchaseCardHtml(p, cash, today){
   // Where the whole cost comes from: what's paid, what the loan brings, what's still to find.
   var bar = f.totalCost > 0 ? stackBarHtml([
     { label: "Paid so far", value: f.paidSoFar, tone: "good" },
-    { label: "The loan", value: f.loan, tone: "in" },
+    { label: "The loan", value: f.borrowed, tone: "in" },
     { label: "Still to pay", value: f.cashNeeded, tone: "warn" }
   ], { label: "The whole cost, " + money(f.totalCost), keep: ["Paid so far", "The loan", "Still to pay"] }) : '';
   var covered = f.short === 0;
+  // What's borrowed when a cost is added to the loan: the loan, what's added, and the two together.
+  var borrowedLine = f.financed > 0 ? '<p class="buy-borrowed">Loan ' + money(f.loan) + ' + ' + money(f.financed) + ' added = <b>' + money(f.borrowed) + '</b> borrowed' + (f.lvr != null ? ' · ' + Math.round(f.lvr * 1000) / 10 + '% of the price' : '') + '</p>' : '';
   var tiles = '<div class="buy-tiles">' +
     '<div class="buy-tile"><span>Paid so far</span><b>' + money(f.paidSoFar) + '</b><small>deposit ' + money(f.deposit) + ' · costs ' + money(f.costsPaid) + '</small></div>' +
     '<div class="buy-tile ' + (f.short == null ? '' : covered ? 'is-good' : 'is-short') + '"><span>Cash at settlement</span><b>' + money(f.cashNeeded) + '</b>' +
@@ -75,28 +96,37 @@ export function purchaseCardHtml(p, cash, today){
   var fa = function(k){ return { "data-buy-field": k }; };
   // Open while something it needs is missing; its heading says what's inside, so a folded one reads as a way in.
   var fields = '<details class="buy-fold"' + (f.price > 0 && p.settlementDate ? '' : ' open') + '><summary><span>The purchase<small>Name, price, deposit, loan, dates, state</small></span><span class="buy-fold-edit" aria-hidden="true">Edit</span></summary><div class="buy-fields">' +
-    fieldHtml({ id: id("what"), label: "Name or address", value: p.what || "", attrs: fa("what") }) +
-    fieldHtml({ id: id("kind"), label: "It's", type: "select", value: p.kind === "IP" ? "IP" : "PPOR", options: [{ value: "PPOR", label: "A home to live in" }, { value: "IP", label: "An investment" }], attrs: fa("kind") }) +
-    fieldHtml({ id: id("price"), label: "Contract price", type: "number", value: p.price, unit: "$", attrs: Object.assign({ min: "0", step: "1000", inputmode: "decimal" }, fa("price")) }) +
-    fieldHtml({ id: id("deposit"), label: "Deposit paid", type: "number", value: p.deposit, unit: "$", help: "Held until settlement, so it counts in net worth as “Deposit held”.", attrs: Object.assign({ min: "0", step: "1000", inputmode: "decimal" }, fa("deposit")) }) +
-    fieldHtml({ id: id("loanAmount"), label: "Loan amount", type: "number", value: p.loanAmount, unit: "$", attrs: Object.assign({ min: "0", step: "1000", inputmode: "decimal" }, fa("loanAmount")) }) +
-    fieldHtml({ id: id("rate"), label: "Loan rate", type: "number", value: p.rate, unit: "%", attrs: Object.assign({ min: "0", max: "25", step: "0.01", inputmode: "decimal" }, fa("rate")) }) +
-    fieldHtml({ id: id("contractDate"), label: "Contract signed", type: "date", value: p.contractDate || "", attrs: fa("contractDate") }) +
-    fieldHtml({ id: id("settlementDate"), label: "Settlement date", type: "date", value: p.settlementDate || "", attrs: fa("settlementDate") }) +
-    fieldHtml({ id: id("stateCode"), label: "State", type: "select", value: p.stateCode || "", options: [{ value: "", label: "Not set" }].concat(STATES.map(function(s){ return { value: s, label: s }; })), help: "For stamp duty.", attrs: fa("stateCode") }) +
-    fieldHtml({ id: id("firstHome"), label: "First home buyer", type: "select", value: p.firstHome ? "yes" : "no", options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }], attrs: fa("firstHome") }) +
+    fieldHtml({ id: id("what"), label: "Name or address", box: true, wide: true, value: p.what || "", attrs: fa("what") }) +
+    fieldHtml({ id: id("kind"), label: "It's", type: "select", box: true, wide: true, value: p.kind === "IP" ? "IP" : "PPOR", options: [{ value: "PPOR", label: "A home to live in" }, { value: "IP", label: "An investment" }], attrs: fa("kind") }) +
+    fieldHtml({ id: id("price"), label: "Contract price", type: "money", wide: true, value: p.price, attrs: fa("price") }) +
+    fieldHtml({ id: id("deposit"), label: "Deposit paid", type: "money", value: p.deposit, attrs: fa("deposit") }) +
+    fieldHtml({ id: id("loanAmount"), label: "Loan amount", type: "money", value: p.loanAmount, attrs: fa("loanAmount") }) +
+    '<p class="field-help span2">The deposit is held until settlement, so it counts in net worth. The loan amount is before any fee added to it — add those as costs below.</p>' +
+    fieldHtml({ id: id("rate"), label: "Loan rate", type: "number", box: true, value: p.rate, unit: "%", attrs: Object.assign({ min: "0", max: "25", step: "0.01", inputmode: "decimal" }, fa("rate")) }) +
+    fieldHtml({ id: id("contractDate"), label: "Contract signed", type: "date", box: true, value: p.contractDate || "", attrs: fa("contractDate") }) +
+    fieldHtml({ id: id("settlementDate"), label: "Settlement date", type: "date", box: true, value: p.settlementDate || "", attrs: fa("settlementDate") }) +
+    fieldHtml({ id: id("stateCode"), label: "State", type: "select", box: true, value: p.stateCode || "", options: [{ value: "", label: "Not set" }].concat(STATES.map(function(s){ return { value: s, label: s }; })), help: "For stamp duty.", attrs: fa("stateCode") }) +
+    fieldHtml({ id: id("firstHome"), label: "First home buyer", type: "select", box: true, value: p.firstHome ? "yes" : "no", options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }], attrs: fa("firstHome") }) +
   '</div></details>';
-  var costs = '<div class="buy-costs"><h4 class="buy-sub">Costs <small>' + money(f.costsPaid) + ' paid · ' + money(f.costsToPay) + ' to pay</small></h4>' +
-    '<ul class="buy-cost-list">' + (p.costs || []).map(function(c){
-      var fc = byId[c.id] || { amount: 0 };
-      return costRowHtml(p, c, { auto: !!c.auto && !(Number(c.amount) > 0) && f.stampDuty != null, amount: fc.amount });
-    }).join("") + '</ul>' +
-    '<button type="button" class="btn btn-sm" data-buy-cost-add>+ Add cost</button></div>';
+  var autoOn = f.stampDuty != null;
+  var group = function(kind, title){
+    var rows = (p.costs || []).filter(function(c){ return (byId[c.id] || {}).kind === kind; });
+    if(!rows.length) return "";
+    var total = rows.reduce(function(t, c){ return t + ((byId[c.id] || {}).amount || 0); }, 0);
+    return '<div class="bc-group"><div class="fsec">' + title + ' <small class="bc-total">' + money(total) + '</small></div><ul class="buy-cost-list">' +
+      rows.map(function(c){ return costRowHtml(p, c, byId[c.id], !!c.auto && !(Number(c.amount) > 0) && autoOn); }).join("") + '</ul></div>';
+  };
+  var said = [money(f.costsPaid) + ' paid', money(f.costsToPay) + ' to pay'].concat(f.financed ? [money(f.financed) + ' added to the loan'] : []).concat(f.toConfirm ? [f.toConfirm + ' to confirm'] : []);
+  var costs = '<div class="buy-costs"><h4 class="buy-sub">Costs <small>' + said.join(" · ") + '</small></h4>' +
+    group("purchase", "For the purchase") + group("loan", "For the loan") +
+    '<div class="bc-add"><span class="bc-add-k">Add</span>' + commonCostsToAdd(p).map(function(q){
+      return '<button type="button" class="bc-quick" data-buy-cost-quick="' + escapeAttr(q.what) + '">+ ' + escapeAttr(q.what) + '</button>';
+    }).join("") + '<button type="button" class="bc-quick" data-buy-cost-add>+ Another</button></div></div>';
   var actions = '<div class="buy-actions">' +
     '<button type="button" class="btn btn-primary" data-buy-settled>Settled — make it a property</button>' +
     '<button type="button" class="btn btn-danger btn-sm" data-buy-remove>Remove</button></div>';
   return '<section class="buy-card" data-purchase="' + escapeAttr(p.id) + '" data-part="property" aria-label="' + escapeAttr("Buying " + name) + '">' + hero +
-    '<div class="buy-body">' + bar + tiles + fields + costs + actions + '</div></section>';
+    '<div class="buy-body">' + bar + borrowedLine + tiles + fields + costs + actions + '</div></section>';
 }
 
 export function buyingHtml(purchases, cash, today){

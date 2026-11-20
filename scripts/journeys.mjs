@@ -6921,10 +6921,18 @@ const JOURNEYS = {
     const held = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.purchases.find(x => x.what === '3 Example Ave'); return (s.assets.find(a => a.id === p.depositAssetId) || {}).amount; });
     check(held === 60000, 'the deposit is not held in net worth: ' + held);
     // A cost, paid.
-    const row = page.locator(cardSel + ' .buy-cost').nth(1);
+    // A cost is a line that opens to edit it (November 2026): open the conveyancer, its amount, then Paid.
+    const row = page.locator(cardSel + ' details.buy-cost').nth(1);
+    await row.locator('summary').click();
     const amount = row.locator('[data-cost-field="amount"]');
     await amount.fill('1500'); await amount.press('Tab');
-    await page.locator(cardSel + ' .buy-cost').nth(1).locator('[data-cost-field="paid"]').check();
+    await page.locator(cardSel + ' details.buy-cost').nth(1).locator('label.switch-row:has([data-cost-field="paid"])').click();
+    // A lender's fee added to the loan: one tap to add it, its amount, Added to the loan — borrowed, not cash.
+    await page.locator(cardSel + ' [data-buy-cost-quick="Low deposit fee / LMI"]').click();
+    const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
+    await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
+    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="financed"][value="loan"])').last().click();
+    check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
     check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {
@@ -6935,8 +6943,9 @@ const JOURNEYS = {
     await page.locator(cardSel + ' [data-buy-settled]').click();
     await page.waitForFunction(async () => !(await import('/src/state.js')).state.purchases.some(x => x.what === '3 Example Ave'), null, { timeout: 5000 }).catch(() => {});
     const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '3 Example Ave');
-      return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
-    check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 480000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
+      return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, borrowing: p.loans[0] && p.loans[0].borrowingCosts, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
+    // The fee added to the loan is in its balance, and with the loan's other fees in its borrowing costs.
+    check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 489000 && after.borrowing >= 9000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
   },
   async mergeall(page){
     await quiet(page);

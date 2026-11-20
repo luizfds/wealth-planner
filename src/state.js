@@ -875,6 +875,20 @@ export var MIGRATION_STEPS = [
       if(!Array.isArray(e.includedBy)) e.includedBy = [];
       if(typeof e.archivedOn !== "string") e.archivedOn = "";
     });
+  } },
+  // November 2026: a cost of a home being bought says what it's for — the purchase or the loan — whether it's added to
+  // the loan rather than paid in cash, and whether its amount is still to come (calc/purchase.js). One saved before
+  // says what its name says ("Loan fees" is the loan's).
+  { n: 34, name: "a purchase cost's kind, financed and still to come", run: function(s){
+    var LOAN = /loan|lender|lmi|mortgage insurance|low deposit|mortgage reg|valuation|discharge|establishment|settlement fee/i;
+    (s.purchases || []).forEach(function(p){
+      (p && Array.isArray(p.costs) ? p.costs : []).forEach(function(c){
+        if(!c) return;
+        if(c.kind !== "loan" && c.kind !== "purchase") c.kind = LOAN.test(String(c.what || "")) ? "loan" : "purchase";
+        c.financed = c.kind === "loan" && c.financed === true;
+        c.tbc = c.tbc === true;
+      });
+    });
   } }
 ];
 

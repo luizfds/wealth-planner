@@ -83,3 +83,28 @@ test("the deposit is held as an asset while it's being bought, and goes when it 
   removePurchase(st, q);
   assert.deepEqual([st.purchases.length, st.assets.length], [0, 1]);
 });
+
+test("a loan cost added to the loan is borrowed, not cash at settlement; at settlement it's in the balance and the borrowing costs", async function(){
+  const { purchaseFigures, settledProperty, commonCostsToAdd, costKind } = await import("../src/calc/purchase.js");
+  // Invented: a 10% deposit, its low-deposit fee added to the loan, a documentation fee in cash, one fee still to come.
+  const p = { what: "1 Example St", price: 500000, deposit: 50000, loanAmount: 450000, settlementDate: "2026-12-20",
+    costs: [{ what: "Conveyancer", amount: 1500, paid: true, kind: "purchase" },
+      { what: "Low deposit fee / LMI", amount: 9000, kind: "loan", financed: true },
+      { what: "Loan documentation fee", amount: 400, kind: "loan" },
+      { what: "Settlement fee", amount: 0, kind: "loan", tbc: true }] };
+  const f = purchaseFigures(p, "2026-11-20", 100000);
+  assert.equal(f.financed, 9000);
+  assert.equal(f.borrowed, 459000);
+  assert.equal(f.costsToPay, 400, "the fee added to the loan isn't cash to find");
+  assert.equal(f.cashNeeded, 400);
+  assert.equal(f.toConfirm, 1);
+  assert.equal(f.totalCost, 500000 + 1500 + 9000 + 400);
+  assert.equal(Math.round(f.lvr * 1000) / 10, 91.8, "the loan-to-value counts what's added");
+  let n = 0; const prop = settledProperty(p, "2026-12-21", k => k + (++n));
+  assert.equal(prop.loans[0].balance, 459000);
+  assert.equal(prop.loans[0].borrowingCosts, 9400);
+  assert.deepEqual(prop.acquisitionCosts.map(c => c.what), ["Conveyancer"], "the loan's costs aren't acquisition costs");
+  assert.deepEqual(commonCostsToAdd(p).map(c => c.what).slice(0, 2), ["Stamp duty", "Building & pest inspection"]);
+  assert.equal(costKind({ what: "Mortgage registration" }), "loan");
+  assert.equal(costKind({ what: "Building & pest inspection" }), "purchase");
+});

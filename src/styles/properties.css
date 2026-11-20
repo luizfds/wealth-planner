@@ -732,18 +732,36 @@
 .buy-fold-edit{ color: var(--brass-strong); font-size:var(--fs-sm); }
 .buy-fold[open] > summary .buy-fold-edit{ display:none; }
 .buy-fold[open] > summary{ border-color: transparent; padding-left:0; }
-.buy-fields{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:4px 12px; padding-top:4px; }
 .buy-sub{ margin:0 0 6px; font-size:var(--fs-md); font-weight:600; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
 .buy-sub small{ font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); }
-.buy-cost-list{ list-style:none; margin:0 0 8px; padding:0; display:grid; gap:6px; }
-.buy-cost{ display:grid; grid-template-columns: auto minmax(0,1fr) 7.5em auto; gap:6px; align-items:center; }
-.buy-cost-paid{ display:inline-flex; align-items:center; gap:4px; min-height:44px; min-width:44px; font-size:var(--fs-xs); color: var(--ink-soft); cursor:pointer; }
-.buy-cost-paid input{ width:20px; height:20px; margin:0; }
-.buy-cost.is-paid .buy-cost-paid{ color: var(--good-ink); font-weight:600; }
-.buy-cost.is-paid input[data-cost-field="what"]{ color: var(--ink-soft); }
-.buy-cost-amount{ text-align:right; font-family: var(--font-num); }
-.buy-cost .btn-danger{ min-height:44px; min-width:44px; }
-.buy-cost-note{ grid-column: 2 / -1; font-size:var(--fs-xs); color: var(--ink-soft); margin-top:-2px; }
+.buy-cost-list{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+/* A cost (November 2026, the floating-label style): one line — what, where it stands, the amount — that opens to edit. */
+.buy-fields{ padding-top:6px; }
+.bc-group{ display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.bc-total{ font-weight:600; font-family: var(--font-num); color: var(--ink-soft); }
+.buy-cost{ border-radius:14px; background: var(--paper-sunken); }
+.buy-cost > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:10px; min-height:52px; padding:8px 14px; }
+.buy-cost > summary::-webkit-details-marker{ display:none; }
+.bc-name{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; font-weight:600; overflow-wrap:anywhere; }
+.bc-name small{ display:flex; flex-wrap:wrap; gap:4px; }
+.bc-amt{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
+.buy-cost.is-paid .bc-amt{ color: var(--good-ink); }
+.bc-chip{ padding:1px 7px; border-radius:100px; font-size:var(--fs-xs); font-weight:600; background: var(--paper-raised); color: var(--ink-soft); }
+.bc-chip.good{ background: var(--good-wash); color: var(--good-ink); }
+.bc-chip.in{ background: var(--brass-wash); color: var(--brass-strong); }
+.bc-chip.warn{ background: color-mix(in srgb, var(--warn-ink) 14%, transparent); color: var(--warn-ink); }
+.buy-cost[open] > summary{ border-bottom:1px solid var(--border); }
+.bc-edit{ display:flex; flex-direction:column; gap:10px; padding:12px 14px 14px; }
+.bc-edit .fbox-control.field-control, .bc-edit .switch-row, .bc-edit .pill{ background: var(--paper-raised); }
+.bc-edit .pill:has(.pill-input:checked){ background: var(--ink); }
+.bc-edit > .btn-danger{ align-self:flex-start; min-height:44px; }
+.bc-add{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:2px 0 8px; }
+.bc-add-k{ font-size:var(--fs-sm); font-weight:600; margin-right:2px; }
+.bc-quick{ all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; min-height:44px; padding:0 12px; border-radius:100px;
+  border:1px dashed var(--border); font-size:var(--fs-sm); font-weight:600; color: var(--ink-soft); }
+.bc-quick:hover{ color: var(--ink); border-color: var(--ink-soft); }
+.bc-quick:focus-visible{ box-shadow: var(--focus-ring); }
+.buy-borrowed{ margin:-4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); } .buy-borrowed b{ color: var(--ink); font-family: var(--font-num); }
 .buy-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; }
 .buy-actions .btn{ min-height:44px; }
 /* "+ Add property" asks first: two choices as cards, then the name. */
@@ -761,16 +779,5 @@
 .pick-card b{ font-size:var(--fs-sm); font-weight:600; }
 .pick-card small{ font-size:var(--fs-xs); color: var(--ink-soft); }
 .add-prop-plan[hidden]{ display:none; }
-@media (max-width: 420px){
-  .buy-fields{ grid-template-columns: 1fr; }
-  /* A phone: the cost's name across the row, then paid, amount and remove under it — names like "Conveyancing / Legal
-     Fees" are read whole. */
-  .buy-cost{ grid-template-columns: auto minmax(0,1fr) auto; grid-template-areas: "what what what" "paid amount del"; padding:6px 0; border-bottom:1px dashed var(--border); }
-  .buy-cost > [data-cost-field="what"]{ grid-area: what; }
-  .buy-cost > .buy-cost-paid{ grid-area: paid; }
-  .buy-cost > .buy-cost-amount{ grid-area: amount; }
-  .buy-cost > .btn-danger{ grid-area: del; }
-  .buy-cost-note{ grid-column: 1 / -1; }
-}
 .add-prop-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
 .add-prop-actions .btn{ min-height:44px; }

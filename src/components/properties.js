@@ -106,8 +106,10 @@ export function valuePurchaseHtml(p){
     '</div><p class="field-help">From your contract of sale — it gives the capital gain and the yield on cost.</p></div>' +
     '<div class="vp-group"><div class="fsec">What it\'s worth now</div>' +
       fieldHtml({ id: id("value"), label: "Current value", type: "money", value: Number(p.value) || 0, className: "prop-value" }) +
-      '<div class="prop-value-log" data-property-help="record-value"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" aria-describedby="prop-record-help-' + escapeAttr(p.id) + '">Save today\'s value</button>' + historyTrendHtml(p) + '</div>' +
-      '<p class="field-help" id="prop-record-help-' + escapeAttr(p.id) + '">An agent\'s appraisal or a recent sale nearby is enough. Saving it adds a point to the value-over-time chart.</p></div>' +
+      '<p class="field-help">An agent\'s appraisal or a recent sale nearby is enough.</p>' +
+      // Its why behind its own ⓘ, as the other property actions (lib/help.js; the accessibility scan opens it).
+      '<div data-property-help="record-value"><p class="ledger-note help" id="prop-record-help-' + escapeAttr(p.id) + '">Saving it adds today\'s value to the value-over-time chart.</p>' +
+      '<div class="prop-value-log"><button type="button" class="btn btn-sm" data-property-log="' + escapeAttr(p.id) + '" aria-describedby="prop-record-help-' + escapeAttr(p.id) + '">Save today\'s value</button>' + historyTrendHtml(p) + '</div></div></div>' +
     landTax;
 }
 // What this property's land value actually produces, said in full. The apportionment is the part

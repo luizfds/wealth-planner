@@ -49,7 +49,7 @@
  },
  "src/components/expenses.js": {
   "persist": 0,
-  "stateWrites": 25
+  "stateWrites": 24
  },
  "src/components/homewiring.js": {
   "persist": 4,
@@ -76,8 +76,8 @@
   "stateWrites": 0
  },
  "src/components/propertieswiring.js": {
-  "persist": 30,
-  "stateWrites": 3
+  "persist": 29,
+  "stateWrites": 2
  },
  "src/components/redraw.js": {
   "persist": 3,

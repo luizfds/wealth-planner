@@ -1620,8 +1620,8 @@ test("the statement under review is named, not offered again", async function(){
   assert.doesNotMatch(html, /data-inbox-next/);
 });
 
-test("a home being bought: its card says the price, the settlement, what's paid and the cash needed; adding asks first", async function(){
-  const { buyingHtml, addPropertyDialogHtml } = await import("../src/components/buying.js");
+test("a home being bought: its card says the price, the settlement, what's paid and the cash needed", async function(){
+  const { buyingHtml } = await import("../src/components/buying.js");
   const p = { id: "b1", what: "1 Example St <&>", kind: "PPOR", price: 600000, deposit: 60000, loanAmount: 480000, settlementDate: "2026-12-20", stateCode: "",
     costs: [{ id: "c1", what: "Conveyancer", amount: 1500, paid: true }, { id: "c2", what: "Loan fees", amount: 600, paid: false }] };
   const html = buyingHtml([p], 50000, "2026-11-20");
@@ -1650,11 +1650,44 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   assert.match(html, /class="btn btn-danger btn-sm" data-buy-remove/);
   assert.match(buyingHtml([Object.assign({}, p, { settlementDate: "" })], null, "2026-11-20"), /Add the settlement date/);
   assert.equal(buyingHtml([], 0, "2026-11-20"), "");
-  const d = addPropertyDialogHtml([{ name: "Buy a house", plan: { price: 500000 } }]);
-  assert.match(d, /name="addPropKind" value="PPOR" checked/);
-  assert.match(d, /name="addPropStage" value="buying"/);
-  assert.match(d, /<option value="Buy a house">Buy a house · \$500k<\/option>/);
-  assert.doesNotMatch(addPropertyDialogHtml([]), /addPropPlan/, "no plans, no plan to start from");
+});
+
+// November 2026: adding, one question at a time (components/addflow.js).
+test("adding one question at a time: every question draws, typed answers escaped, the check screen goes back to each", async function(){
+  const { addFlowHtml } = await import("../src/components/addflow.js");
+  const { flowSteps } = await import("../src/calc/addflow.js");
+  const ui = (flow, answers, step, extra) => Object.assign({ flow, answers, step, error: "", returnToCheck: false, plans: [], loans: [], anyLoan: false }, extra || {});
+  const owned = { kind: "PPOR", name: "1 Example St <&>", price: "720000", bought: "2021-03-15", value: "850000", hasLoan: true, balance: "512000", rate: "6.04", repaymentType: "PI", termYears: "26", freq: "Monthly" };
+  const buying = { kind: "buying", name: "2 Sample Rd", use: "IP", price: "640000", deposit: "64000", settlementDate: "2027-02-12", loanAmount: "576000", rate: "5.89", plan: "Buy a house" };
+  const acct = { kind: "offset", name: "Bank One Offset", loanId: "l1", balance: "12500" };
+  for(const [flow, a, extra] of [["property", owned], ["property", buying, { plans: [{ name: "Buy a house", plan: { price: 500000 } }] }], ["account", acct, { loans: [{ id: "l1", label: "Home loan — Home", sub: "$400,000 owing" }], anyLoan: true }]]){
+    flowSteps(flow, a).forEach(function(step, i){
+      const html = addFlowHtml(ui(flow, a, i, extra));
+      assert.doesNotMatch(html, /NaN|undefined|\[object/, flow + " " + step);
+      assert.match(html, /<h2 class="af-q" id="addFlowQ" tabindex="-1">/, flow + " " + step);
+      assert.doesNotMatch(html, /1 Example St <&>/, "a typed name is escaped: " + step);
+    });
+  }
+  const kind = addFlowHtml(ui("property", {}, 0));
+  assert.match(kind, /<p class="af-step">1 of 5<\/p>/);
+  assert.match(kind, /value="buying" data-af="kind">/);
+  assert.doesNotMatch(kind, /data-af-back/, "nothing to go back to");
+  // The loan's questions count on their own; the line under the figure says what it means.
+  const bal = addFlowHtml(ui("property", owned, 5));
+  assert.match(bal, /Its loan · 1 of 3/);
+  assert.match(bal, /<input type="text" id="af-balance" class="field-control af-big af-num" data-af="balance" value="512,000" inputmode="decimal"[^>]*data-money/);
+  assert.match(bal, /60% of what it's worth\./);
+  const check = addFlowHtml(ui("property", owned, 8));
+  assert.match(check, /data-af-goto="value"><span>Worth<\/span><b>\$850,000<\/b>/);
+  assert.match(check, /data-af-goto="bought"><span>Bought<\/span><b>\$720,000 · 15 Mar 2021<\/b>/);
+  assert.match(check, /1 Example St &lt;&amp;>/);
+  assert.match(check, />Add 1 Example St &lt;&amp;><\/button>/);
+  // A purchase starts from a scenario's plan with one tap; an offset with no loan free says why it can't be chosen.
+  assert.match(addFlowHtml(ui("property", buying, 3, { plans: [{ name: "Buy a house", plan: {} }] })), /data-af-chip="plan" data-af-value="Buy a house">Start from Buy a house<\/button>/);
+  assert.match(addFlowHtml(ui("account", {}, 0, { anyLoan: true })), /value="offset" data-af="kind" disabled>[\s\S]*?Every loan has its offset account already/);
+  assert.match(addFlowHtml(ui("account", {}, 0)), /Add a home loan first/);
+  assert.match(addFlowHtml(ui("account", { kind: "credit", name: "Card" }, 2)), /What do you owe on it\?[\s\S]*>Add account<\/button>/);
+  assert.match(addFlowHtml(ui("property", {}, 0, { error: "Choose one to go on." })), /<p class="af-error field-error" id="addFlowError" aria-live="polite">Choose one to go on\.<\/p>/);
 });
 
 test("archived scenarios: each with when, Restore and a Delete that's a delete; none, nothing", async function(){

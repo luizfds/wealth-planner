@@ -118,6 +118,12 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   `skipUrl`, so the address bar still names the page it started from and closing puts that page back; it has its own
   history entry (`pushModalOverlay`), so a phone's Back closes it. A step whose target isn't on screen is shown
   without a ring. The test scripts start as someone who has answered it.
+- **Adding, one question at a time** (November 2026; `calc/addflow.js`, `components/addflow.js`,
+  `components/addflowwiring.js`): "+ Add property" and "+ Add account" open a dialog that asks one thing a screen — a
+  property's kind, name, when it was bought, its worth and its loan (or, being bought, its price, deposit, settlement
+  and loan); an account's kind, name (an offset's loan) and balance — and ends on a screen to check it all. calc/addflow.js
+  orders the questions, says what a figure means and makes the record; the property opens on its edit form for the rest.
+  Editing never uses it.
 - **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
   Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
   `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts

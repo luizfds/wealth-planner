@@ -126,6 +126,14 @@ editing and **one question at a time** for adding something new. Property is fir
 | Property → a loan | Balance and rate as boxes, repayments as pills, "I pay a set amount", offset and fixed rate as switches, For tax folded |
 | Property's tabs | Chips that wrap (`.prop-chips`), never the section picker's dropdown |
 
+### One question at a time (`.af-big`, adding only)
+
+Adding a property or an account asks one question a screen (`components/addflow.js`). Its one big answer is
+`.field-control.af-big`: no box, a 3px `--brass` line under it, `--fs-3xl`, money in `var(--font-num)` with "$" before
+it and `data-money` (tidied on leaving, read with its separators). It's labelled by the question itself
+(`aria-labelledby="addFlowQ"`) and described by the line under it and its error. A question with two or three answers
+uses the boxes and pills above; a choice is a card (`.af-choice`, a real radio, the chosen one outlined).
+
 ## Inventory: every control → shared field or variant
 
 Counts are text-entry controls at 1280px (236 per width).

@@ -782,20 +782,3 @@
 .buy-borrowed{ margin:-4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); } .buy-borrowed b{ color: var(--ink); font-family: var(--font-num); }
 .buy-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; }
 .buy-actions .btn{ min-height:44px; }
-/* "+ Add property" asks first: two choices as cards, then the name. */
-/* The dialog's own form is a column, and it fits the narrowest phone (the shortcuts dialog it borrows the frame of lays
-   its form in a row, at 300px or wider). */
-.add-prop-dialog{ max-width:min(480px, calc(100vw - 32px)); min-width:0; width:100%; box-sizing:border-box; }
-.add-prop-dialog .add-prop-form{ display:block; }
-.add-prop-form h2{ margin:0 0 10px; font-size:var(--fs-lg); }
-.pick-group{ border:0; padding:0; margin:0 0 12px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
-.pick-group legend{ font-size:var(--fs-sm); font-weight:600; margin:0 0 6px; padding:0; }
-.pick-card{ display:flex; gap:8px; align-items:flex-start; padding:10px; border:1px solid var(--border); border-radius:10px; cursor:pointer; min-height:44px; }
-.pick-card:has(input:checked){ border-color: var(--brass); background: var(--brass-wash); }
-.pick-card input{ margin-top:3px; }
-.pick-card span{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-.pick-card b{ font-size:var(--fs-sm); font-weight:600; }
-.pick-card small{ font-size:var(--fs-xs); color: var(--ink-soft); }
-.add-prop-plan[hidden]{ display:none; }
-.add-prop-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
-.add-prop-actions .btn{ min-height:44px; }

@@ -7,7 +7,7 @@
 // the cash needed at settlement against the cash on hand, and its costs ticked off as they're paid — until "Settled"
 // makes it an ordinary property. Listeners: buyingwiring.js.
 import { state } from "../state.js";
-import { purchaseFigures, purchasePlans, commonCostsToAdd } from "../calc/purchase.js";
+import { purchaseFigures, commonCostsToAdd } from "../calc/purchase.js";
 import { propertiesOffsetTotal } from "../calc/property.js";
 import { toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCompact, fmtDate, localDateStr } from "../lib/format.js";
@@ -150,25 +150,3 @@ function drawBuying(){
   el.innerHTML = list.length ? buyingHtml(list, cashOnHand(), localDateStr()) : "";
 }
 
-// "+ Add property": what it is, and whether it's owned or being bought — and, being bought, a scenario's plan to
-// start from when there is one.
-export function addPropertyDialogHtml(plans){
-  plans = plans || purchasePlans(state);
-  var opt = function(name, value, title, sub, checked){
-    return '<label class="pick-card"><input type="radio" name="' + name + '" value="' + value + '"' + (checked ? ' checked' : '') + '><span><b>' + title + '</b><small>' + sub + '</small></span></label>';
-  };
-  return '<form method="dialog" class="add-prop-form">' +
-    '<h2>Add a property</h2>' +
-    '<fieldset class="pick-group"><legend>It\'s</legend>' +
-      opt("addPropKind", "PPOR", "A home to live in", "Its value, loan and costs", true) +
-      opt("addPropKind", "IP", "An investment", "Rent, costs, tax and gearing too", false) + '</fieldset>' +
-    '<fieldset class="pick-group"><legend>Is it</legend>' +
-      opt("addPropStage", "own", "Already ours", "Settled — enter what it's worth and its loan", true) +
-      opt("addPropStage", "buying", "Being bought", "Contract signed or about to be — track the deposit and costs to settlement", false) + '</fieldset>' +
-    fieldHtml({ id: "addPropName", label: "Name or address", placeholder: "e.g. 1 Example St" }) +
-    (plans.length ? '<div class="add-prop-plan" hidden>' + fieldHtml({ id: "addPropPlan", label: "Start from a plan", type: "select", value: "",
-      options: [{ value: "", label: "No — start blank" }].concat(plans.map(function(x){ return { value: x.name, label: x.name + " · " + fmtCompact(Number(x.plan.price) || 0) }; })),
-      help: "Its price, deposit, rate and cost estimates, from the scenario's purchase." }) + '</div>' : '') +
-    '<div class="add-prop-actions"><button class="btn btn-sm btn-ghost" value="cancel" formnovalidate>Cancel</button><button class="btn btn-sm btn-primary" value="ok" data-add-prop-ok>+ Add property</button></div>' +
-  '</form>';
-}

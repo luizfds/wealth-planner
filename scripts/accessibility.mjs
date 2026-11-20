@@ -366,6 +366,27 @@ for(const width of widths)for(const scheme of schemes){
   await page.locator('[data-dialog-cancel]').click();
   await page.locator('.app-dialog').waitFor({state:'detached'});
  }
+ // Adding one question at a time (November 2026): a choice, a missing answer, boxes, pills, the check screen, and
+ // closing with something answered asks first.
+ await page.evaluate(async()=>(await import('/src/components/addflowwiring.js')).openAddFlow('property'));
+ {
+  const af=page.locator('#addFlowDialog');
+  await af.waitFor();
+  await scan('add-flow/kind','#addFlowDialog');
+  await af.locator('.af-next').click();await scan('add-flow/needs-answer','#addFlowDialog');
+  await af.locator('.af-choice').first().click();await af.locator('.af-next').click();
+  await af.locator('.af-big').fill('1 Example St');await af.locator('.af-next').click();
+  await scan('add-flow/boxes','#addFlowDialog');
+  await af.locator('.af-next').click();await af.locator('.af-big').fill('500000');await af.locator('.af-next').click();
+  await af.locator('.af-choice').first().click();await af.locator('.af-next').click();
+  await af.locator('.af-big').fill('300000');await af.locator('.af-next').click();
+  await af.locator('.af-big').fill('6');await af.locator('.af-next').click();
+  await scan('add-flow/pills','#addFlowDialog');
+  await af.locator('.af-next').click();await scan('add-flow/check','#addFlowDialog');
+  await af.locator('[data-af-close]').click();await page.locator('.app-dialog').waitFor();
+  await page.locator('.app-dialog [data-dialog-submit]').click();
+  await page.waitForFunction(()=>!document.querySelector('#addFlowDialog[open]'));
+ }
  await page.evaluate(async()=>{
   const s=await import('/src/state.js');s.setState(s.defaultState());
   (await import('/src/calc/engine.js')).recalcComputedItems();

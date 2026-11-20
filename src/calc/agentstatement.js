@@ -77,6 +77,19 @@ export function fillAgentAccount(st){
   return n;
 }
 
+// An account becomes a property manager's (Accounts' type select, and Checks' fix for one typed as an ordinary account):
+// linked to the property when there's just one, and picking up the statement bills logged before it was one. A link to
+// a balance goes — a manager's account holds the rent on its way to you, not your money. → how many bills it picked up.
+export function makeAgentAccount(st, a){
+  a.type = "agent";
+  if(a.link && !/^property:/.test(a.link)) a.link = "";
+  if(!a.link && (st.properties || []).length === 1 && st.properties[0].id) a.link = "property:" + st.properties[0].id;
+  return fillAgentAccount(st);
+}
+// A name that says it's a property manager's, on an account that isn't typed as one.
+var AGENT_WORDS = /property manag|managing agent|real estate|rental (trust|account)|trust account|leasing|\bagent\b/i;
+export function looksLikeAgentAccount(a){ return !!(a && a.name && a.type !== "agent" && a.type !== "loan" && a.type !== "credit" && AGENT_WORDS.test(a.name)); }
+
 // Takes a statement back out, with everything it wrote.
 export function removeAgentStatement(st, p, id){
   var i = (p.agentStatements || []).findIndex(function(r){ return r.id === id; });

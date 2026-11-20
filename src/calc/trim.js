@@ -61,6 +61,16 @@ export function trimReport(opts){
       suggested: Math.round(actual / Math.max(1, periodsOf(1, l.freq).yearly) * 100) / 100 };
   }).filter(function(x){ return x.planned > 0 && x.gap >= 300 && x.actual < x.planned * 0.75; })
     .sort(function(x, y){ return y.gap - x.gap; }) : [];
+  // November 2026: and the other way — spent well above what's budgeted, which makes every scenario look better than
+  // life is. Only lines with spending logged against them.
+  var under = a.months >= MIN_MONTHS ? lines.map(function(l){
+    if(!a.by[l.id]) return null;
+    var planned = periodsOf(Number(l.amount) || 0, l.freq).yearly;
+    var actual = a.by[l.id] * 12 / Math.max(1, a.months);
+    return { id: l.id, what: l.what || "Line", category: l.category || "", freq: l.freq, planned: r0(planned), actual: r0(actual), gap: r0(actual - planned),
+      suggested: Math.round(actual / Math.max(1, periodsOf(1, l.freq).yearly) * 100) / 100 };
+  }).filter(function(x){ return x && x.gap >= 300 && x.actual > x.planned * 1.25; })
+    .sort(function(x, y){ return y.gap - x.gap; }) : [];
   // The flexible lines, biggest first, with what halving or pausing each frees.
   var flex = lines.filter(isFlexible).map(function(l){
     var y = periodsOf(Number(l.amount) || 0, l.freq).yearly;
@@ -78,9 +88,26 @@ export function trimReport(opts){
   });
   return {
     months: a.months, over: over, overYearly: over.reduce(function(s, x){ return s + x.gap; }, 0),
+    under: under, underYearly: under.reduce(function(s, x){ return s + x.gap; }, 0),
     flexible: flex, flexibleYearly: flex.reduce(function(s, x){ return s + x.yearly; }, 0),
     wants: wants, duplicates: dupes
   };
+}
+
+// The lines far from what's spent that Checks offers to set (calc/integrity.js): above or below, but only lines with
+// spending logged against them — a line with nothing logged may simply not be logged, and $0 is no fix for a rent.
+export function spendingDrift(r){
+  return (r.over || []).filter(function(x){ return x.actual > 0; }).concat(r.under || []);
+}
+// Sets each line ({ id, suggested } from trimReport's over and under) to what's spent on it, in the household budget.
+// → [{ l, was }] for an undo.
+export function setLinesToSpending(st, list){
+  return (list || []).map(function(x){
+    var l = (st.shared || []).find(function(y){ return y.id === x.id; });
+    if(!l) return null;
+    var was = l.amount; l.amount = x.suggested;
+    return { l: l, was: was };
+  }).filter(Boolean);
 }
 
 // The level a flexible line is set to in a scenario: "keep", "half", "pause" (or "custom").

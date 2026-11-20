@@ -11,7 +11,7 @@ import { recalcComputedItems } from "../calc/engine.js";
 import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
 import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
-import { setLeanLevel, leanLevel, trimReport } from "../calc/trim.js";
+import { setLeanLevel, leanLevel, trimReport, setLinesToSpending } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
@@ -191,10 +191,10 @@ export function wireAdvice(){
     }
     if(e.target.closest("[data-trim-set-all]")){
       var rep = trimReport({ today: localDateStr() });
-      var before = rep.over.map(function(x){ var l = state.shared.find(function(y){ return y.id === x.id; }); return l ? { l: l, was: l.amount, to: x.suggested } : null; }).filter(Boolean);
-      before.forEach(function(b){ b.l.amount = b.to; });
+      var before = setLinesToSpending(state, rep.over.concat(rep.under || []));
       afterTrimChange();
-      showUndoToast(before.length + " lines set to what you spend — " + fmtCurrency0.format(rep.overYearly) + "/yr out of the plan", function(){ before.forEach(function(b){ b.l.amount = b.was; }); afterTrimChange(); });
+      var net = rep.overYearly - (rep.underYearly || 0);
+      showUndoToast(before.length + " lines set to what you spend — " + fmtCurrency0.format(Math.abs(net)) + "/yr " + (net >= 0 ? "out of" : "into") + " the plan", function(){ before.forEach(function(b){ b.l.amount = b.was; }); afterTrimChange(); });
       return;
     }
     var lv = e.target.closest("[data-trim-level]");

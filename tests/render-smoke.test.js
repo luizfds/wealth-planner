@@ -3057,3 +3057,15 @@ test("Plan → Scenarios compares every scenario's normal month on one scale", a
   if(state.scenarios.length < 2) assert.equal(h, "");
   else { assert.match(h, /Saved in a normal month/); assert.equal((h.match(/class="sc-compare-track" role="img"/g) || []).length, state.scenarios.length); }
 });
+
+test("Trim: lines spent above the budget beside those budgeted above it, a name escaped, one set-all for both", async () => {
+  const { trimHtml } = await import("../src/components/trim.js");
+  const row = (id, what, planned, actual) => ({ id, what, freq: "Monthly", planned, actual, gap: Math.abs(actual - planned), suggested: Math.round(actual / 12) });
+  const r = { months: 12, over: [row("a", "Going out", 2400, 240)], overYearly: 2160, under: [row("b", "Fern Café <b>", 6000, 10800)], underYearly: 4800, flexible: [], wants: [], duplicates: [] };
+  const html = trimHtml(r, "", "2026-11-20");
+  assert.match(html, /Spent above the budget — \$4,800 a year/);
+  assert.match(html, /Fern Café &lt;b/);
+  assert.match(html, /data-trim-set="b" data-trim-to="900"/);
+  assert.match(html, /Set all 2 to what you spend/);
+  assert.equal(trimHtml(Object.assign({}, r, { under: [] }), "", "2026-11-20").includes("Spent above"), false);
+});

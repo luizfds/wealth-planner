@@ -5804,3 +5804,20 @@ their monthly amount, and a monthly check-in). What it lacked: a goal whose acco
 #454), a normal month's surplus with its scenario, the emergency runway in months, rates +2% when there are loans, and how
 many things wait in Needs you (the same list) — at most five, each a way to where it's worked out, "—" with why when it
 can't be known. It can be moved or hidden like the other cards. Tests: standing, savegoals; journeys needsyou, home*.
+
+## Checks that catch what a real backup got wrong (November 2026)
+
+`[x]` Four things a household's own data had wrong that nothing flagged, each a check in Checks (calc/integrity.js) that
+says how sure it is and offers a one-tap fix with an undo, nothing changed until it's pressed:
+- a loan amount that looks like it already holds a fee marked "Added to the loan" — taking one such fee (or all) off it
+  leaves a round thousand, and the lender's figure is empty (`loanHoldsFees`). Borrowed twice, so the cash to bring came
+  out low. The fix moves it to "Lender's approved loan" and the loan before fees to "Loan amount"; the purchase form says
+  so under the loan too, and "Added to the loan" asks whether the loan amount already includes it.
+- the plan a purchase came from, behind what's real: more than a tenth apart is now a warning, and the fix sets the plan's
+  price, deposit % and rate to what's agreed, nothing else (`planFromPurchase`).
+- budget lines far from what's spent, both ways: Trim now lists lines spent above their amount beside those budgeted
+  above spending, and "Set all" covers both. Checks offers only lines with spending logged — $0 is no fix for a rent
+  nobody logs (`spendingDrift`).
+- an account named like a property manager's but typed as an ordinary one: the fix makes it one, linked to the property
+  when there's just one (`makeAgentAccount`, shared with Accounts' type select).
+Tests: integrity, render smoke (Trim); journey checkfixes.

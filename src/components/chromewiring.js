@@ -179,6 +179,7 @@ function shortcutsDialog(){
 // are up, if `el` starts under the page header or its section's sticky header, scroll it just clear. On CI a check made
 // at a pause found it clear, the scroll went on, and it ended under the section header.
 function settleBelowHeaders(el){
+  var nudges = 0;
   function clear(){
     if(!el.isConnected) return;
     var bar = document.querySelector(".app-topbar"), section = el.closest("details.ledger"), summary = section && section.querySelector(":scope > summary");
@@ -187,7 +188,13 @@ function settleBelowHeaders(el){
     // counting it would move the page again at every scrollend (each move ending in one).
     var stuck = !!s && getComputedStyle(summary).position === "sticky" && s.top <= barBottom + 1;
     var short = Math.max(barBottom, stuck ? s.bottom : 0) + 12 - el.getBoundingClientRect().top;
-    if(short > 1) window.scrollBy({ top: -short, behavior: "instant" });
+    if(short > 1){
+      window.scrollBy({ top: -short, behavior: "instant" });
+      // Moving up opens a compact phone header out again (57px → 113px on CI, after the last check had passed): once it
+      // has finished changing size, look again — a few times at most.
+      if(bar && nudges++ < 4) Promise.all(bar.getAnimations({ subtree: true }).map(function(a){ return a.finished.catch(function(){}); }))
+        .then(function(){ requestAnimationFrame(function(){ requestAnimationFrame(clear); }); });
+    }
   }
   window.addEventListener("scrollend", clear);
   setTimeout(function(){ window.removeEventListener("scrollend", clear); clear(); }, 2000);

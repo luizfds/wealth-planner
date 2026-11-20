@@ -782,3 +782,18 @@
 .buy-borrowed{ margin:-4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); } .buy-borrowed b{ color: var(--ink); font-family: var(--font-num); }
 .buy-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; }
 .buy-actions .btn{ min-height:44px; }
+
+/* #452: settlement, line by line — the price down to the cash to bring, then the lender's figure against it. */
+.buy-recon{ display:flex; flex-direction:column; gap:8px; }
+.recon{ margin:0; padding:4px 14px; border-radius:14px; background: var(--paper-sunken); }
+.recon-row{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+.recon-row:last-child{ border-bottom:0; }
+.recon-row dt{ display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--fs-sm); color: var(--ink); }
+.recon-row dt small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.recon-row dd{ margin:0; font-family: var(--font-num); font-weight:600; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.recon-row.is-total dt{ font-weight:600; }
+.recon-row.is-total dd{ font-size:var(--fs-lg); }
+.recon-note{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.recon-note.is-good{ color: var(--good-ink); }
+.recon-note.is-warn{ color: var(--warn-ink); }
+.recon-note b{ font-family: var(--font-num); }

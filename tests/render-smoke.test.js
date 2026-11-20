@@ -1643,11 +1643,22 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   const fin = buyingHtml([Object.assign({}, p, { costs: [{ id: "c9", what: "Low deposit fee / LMI", amount: 9000, kind: "loan", financed: true }] })], 50000, "2026-11-20");
   assert.match(fin, /Loan \$480,000 \+ \$9,000 added = <b>\$489,000<\/b> borrowed/);
   assert.match(fin, /<span class="bc-chip in">Added to the loan<\/span>/);
-  assert.match(fin, /name="buy-b1-c9-fin" value="loan" checked data-cost-field="financed"/);
+  assert.match(fin, /name="buy-b1-c9-with" value="loan" checked data-cost-field="paidWith"/);
   assert.doesNotMatch(fin, /id="buy-b1-c9-paid"/, "a fee added to the loan isn't ticked off as paid");
   assert.match(buyingHtml([Object.assign({}, p, { costs: [{ id: "c8", what: "Settlement fee", amount: 0, kind: "loan", tbc: true }] })], 50000, "2026-11-20"), /<b class="bc-amt">To come<\/b>[\s\S]*1 to confirm|1 to confirm[\s\S]*<b class="bc-amt">To come<\/b>/);
   assert.match(html, /data-buy-settled/);
   assert.match(html, /class="btn btn-danger btn-sm" data-buy-remove/);
+  // #452: settlement line by line, and the lender's figure against the purchase's.
+  assert.match(html, /<dt>− What the lender releases<small>the loan \$480,000<\/small><\/dt><dd>\$480,000<\/dd>/);
+  assert.match(html, /<div class="recon-row is-total"><dt>= Cash you bring<\/dt><dd>\$60,600<\/dd>/);
+  assert.match(html, /Type the loan amount on the lender's letter/);
+  const lender = buyingHtml([Object.assign({}, p, { grossLoan: 490000, lenderSource: "approval", costs: [{ id: "c5", what: "Settlement fee", amount: 300, kind: "loan", withheld: true }, { id: "c6", what: "Sundry charge", amount: 80 }] })], 50000, "2026-11-20");
+  assert.match(lender, /The lender's formal approval says <b>\$490,000<\/b>; the loan and the fees added to it make \$480,000 — \$10,000 more from the lender/);
+  assert.match(lender, /less \$300 it keeps for fees/);
+  assert.match(lender, /<span class="bc-chip in">Taken from the loan<\/span>/);
+  assert.match(lender, /<span class="bc-chip warn">Purchase or loan\?<\/span>/);
+  assert.match(lender, /1 cost doesn't say if it's for the purchase or the loan/);
+  assert.match(buyingHtml([Object.assign({}, p, { grossLoan: 480000, lenderSource: "offer" })], 50000, "2026-11-20"), /Matches the lender's loan offer: \$480,000\./);
   assert.match(buyingHtml([Object.assign({}, p, { settlementDate: "" })], null, "2026-11-20"), /Add the settlement date/);
   assert.equal(buyingHtml([], 0, "2026-11-20"), "");
 });

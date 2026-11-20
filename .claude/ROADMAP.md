@@ -5757,3 +5757,12 @@ settlement ("Loan $X + $Y added = $Z borrowed", the LVR on that), in the loan's 
 **still to come** ("at cost"; "1 to confirm"). One tap adds the usual ones (documentation fee, low deposit fee / LMI,
 mortgage and transfer registration, settlement fee…), each a line that opens to edit it in the floating-label style.
 Migration 34 (a saved cost's kind from its name). Tests: purchase, migrations, render smoke; journey `buyinghome`.
+
+## Buying a home: the lender's figures, paying from an account (#452, November 2026)
+
+`[x]` The lender's approved (gross) loan and where it's from (estimate, loan offer, formal approval, settlement statement);
+a cost can be taken by the lender out of the money it releases (`withheld`) as well as added to the loan (`financed`, in
+the gross once, never again). "Settlement, line by line": price − deposit − what the lender releases (gross − what it
+keeps) + costs still to pay = cash to bring, and the lender's figure against the loan and what's added to it. A cost
+whose name doesn't say purchase or loan is flagged until chosen. A cost paid from an account comes off its balance (back
+if unticked). The deposit held is its own segment of the allocation, beside Property. Tests: purchase (invented figures).

@@ -7020,13 +7020,26 @@ const JOURNEYS = {
     await row.locator('summary').click();
     const amount = row.locator('[data-cost-field="amount"]');
     await amount.fill('1500'); await amount.press('Tab');
+    // #452: paid from an account — it comes off that account's balance.
+    const from = page.locator(cardSel + ' details.buy-cost').nth(1).locator('[data-cost-field="paidFrom"]');
+    const acctId = await from.locator('option').nth(1).getAttribute('value');
+    const balanceOf = id => page.evaluate(async id => { const s = (await import('/src/state.js')).state, a = s.accounts.find(x => x.id === id); return (await import('/src/calc/accounts.js')).accountBalance(a).balance; }, id);
+    const before = await balanceOf(acctId);
+    await from.selectOption(acctId);
     await page.locator(cardSel + ' details.buy-cost').nth(1).locator('label.switch-row:has([data-cost-field="paid"])').click();
+    await waited(page, ([id, b]) => import('/src/state.js').then(async m => (await import('/src/calc/accounts.js')).accountBalance(m.state.accounts.find(x => x.id === id)).balance === b - 1500), 'the cost to come off the account it was paid from', [acctId, before]);
     // A lender's fee added to the loan: one tap to add it, its amount, Added to the loan — borrowed, not cash.
     await page.locator(cardSel + ' [data-buy-cost-quick="Low deposit fee / LMI"]').click();
     const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
     await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
-    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="financed"][value="loan"])').last().click();
+    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="paidWith"][value="loan"])').last().click();
     check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
+    // #452: the lender's approved loan, typed from its letter, checked against the loan and the fee added to it.
+    const gross = page.locator(cardSel + ' [data-buy-field="grossLoan"]');
+    if(!(await gross.isVisible())) await page.locator(cardSel + ' .buy-fold > summary').click();
+    await gross.fill('489000'); await gross.press('Tab');
+    check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
+    check(/= Cash you bring\s*\$60,000/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'settlement line by line does not end on the cash to bring');
     check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {

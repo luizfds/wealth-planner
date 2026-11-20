@@ -68,6 +68,8 @@ export function everyAccountLink(st){
   var rows = function(list, field){ (list || []).forEach(function(r){ if(r && typeof r === "object") out.push({ row: r, field: field }); }); };
   rows(st.income, "account"); rows(st.shared, "account"); rows(st.transactions, "account"); rows(st.incomeLog, "account");
   Object.keys(st.home || {}).forEach(function(k){ rows(st.home[k], "account"); });
+  // An archived scenario's home rows (calc/scenarioarchive.js): restored, they still name the right account.
+  (st.scenarioArchive || []).forEach(function(e){ if(e) rows(e.home, "account"); });
   (st.properties || []).forEach(function(p){ rows(p.income, "account"); rows(p.expenses, "account"); });
   rows(st.transfers, "from"); rows(st.transfers, "to");
   rows(st.autoPayments, "from"); rows(st.autoPayments, "to");

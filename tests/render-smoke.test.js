@@ -1603,6 +1603,40 @@ test("the statement under review is named, not offered again", async function(){
   assert.doesNotMatch(html, /data-inbox-next/);
 });
 
+test("a home being bought: its card says the price, the settlement, what's paid and the cash needed; adding asks first", async function(){
+  const { buyingHtml, addPropertyDialogHtml } = await import("../src/components/buying.js");
+  const p = { id: "b1", what: "1 Example St <&>", kind: "PPOR", price: 600000, deposit: 60000, loanAmount: 480000, settlementDate: "2026-12-20", stateCode: "",
+    costs: [{ id: "c1", what: "Conveyancer", amount: 1500, paid: true }, { id: "c2", what: "Loan fees", amount: 600, paid: false }] };
+  const html = buyingHtml([p], 50000, "2026-11-20");
+  assert.match(html, /Buying · a home/);
+  assert.match(html, /1 Example St &lt;&amp;>/, "a typed name is escaped");
+  assert.match(html, /Settles in 30 days/);
+  assert.match(html, /Cash at settlement<\/span><b>\$60,600<\/b>/);
+  assert.match(html, /\$10,600 more than the \$50,000 in cash and offsets/);
+  assert.match(html, /class="buy-tile is-short"/);
+  assert.match(html, /data-cost-field="paid" checked aria-label="Conveyancer paid"/);
+  assert.match(html, /data-buy-settled/);
+  assert.match(html, /class="btn btn-danger btn-sm" data-buy-remove/);
+  assert.match(buyingHtml([Object.assign({}, p, { settlementDate: "" })], null, "2026-11-20"), /Add the settlement date/);
+  assert.equal(buyingHtml([], 0, "2026-11-20"), "");
+  const d = addPropertyDialogHtml([{ name: "Buy a house", plan: { price: 500000 } }]);
+  assert.match(d, /name="addPropKind" value="PPOR" checked/);
+  assert.match(d, /name="addPropStage" value="buying"/);
+  assert.match(d, /<option value="Buy a house">Buy a house · \$500k<\/option>/);
+  assert.doesNotMatch(addPropertyDialogHtml([]), /addPropPlan/, "no plans, no plan to start from");
+});
+
+test("archived scenarios: each with when, Restore and a Delete that's a delete; none, nothing", async function(){
+  const { archivedScenariosHtml } = await import("../src/components/dashboard.js");
+  assert.equal(archivedScenariosHtml([]), "");
+  const h = archivedScenariosHtml([{ name: "Buy a house <&>", archivedOn: "2026-11-20" }]);
+  assert.match(h, /Archived scenarios/);
+  assert.match(h, /Buy a house &lt;&amp;>/);
+  assert.match(h, /Archived 20 Nov 2026/);
+  assert.match(h, /data-restore-archived="0">Restore/);
+  assert.match(h, /class="btn btn-sm btn-danger" data-delete-archived="0"/);
+});
+
 test("the merge question lists each thing changed on both devices, this device's ticked", async function(){
   const { mergeDialogHtml } = await import("../src/components/syncmerge.js");
   const html = mergeDialogHtml([
@@ -1614,6 +1648,10 @@ test("the merge question lists each thing changed on both devices, this device's
   assert.match(html, /value="ours" data-merge-id="accounts\/id:a1\/balance" checked/);
   assert.match(html, /Deleted/);
   assert.match(html, /data-merge-ok/);
+  // The owner: one side for all of them, in one tap.
+  assert.match(html, /data-merge-all="ours">Keep all from this device</);
+  assert.match(html, /data-merge-all="theirs">Keep all from Dropbox</);
+  assert.doesNotMatch(mergeDialogHtml([html.length && { id: "x", top: "accounts", row: { name: "A" }, field: "balance", ours: 1, theirs: 2 }], "Dropbox"), /data-merge-all/, "one choice needs no 'all'");
 });
 
 test("transfer accounts come grouped by kind, and a card paid from a loan gets a word", async function(){

@@ -92,6 +92,20 @@ function renderScenarioCompare(){
   el.hidden = !html;
   el.innerHTML = html;
 }
+// Archived scenarios (November 2026): each with when it was put away, Restore, and Delete for good.
+export function archivedScenariosHtml(list){
+  list = list || [];
+  if(!list.length) return "";
+  return '<details class="ledger sc-archive"><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>' +
+      '<h2 class="section-title">Archived scenarios</h2></div><div class="ledger-total">' + list.length + '</div></summary>' +
+    '<div class="ledger-body"><p class="ledger-note" style="margin:0 0 8px">Put away with everything they had. Restore one to see it again.</p><ul class="sc-archive-list">' +
+    list.map(function(e, i){
+      return '<li><span class="sc-archive-name"><b>' + escapeAttr(e.name) + '</b>' + (e.archivedOn ? '<small>Archived ' + escapeAttr(fmtDate(e.archivedOn, { year: true })) + '</small>' : '') + '</span>' +
+        '<button type="button" class="btn btn-sm" data-restore-archived="' + i + '">Restore</button>' +
+        '<button type="button" class="btn btn-sm btn-danger" data-delete-archived="' + i + '" aria-label="' + escapeAttr("Delete " + e.name + " for good") + '">Delete</button></li>';
+    }).join("") + '</ul></div></details>';
+}
+
 export function renderCards(){
   var el = document.getElementById("cards");
   var allRates = state.scenarios.map(function(s){ return scenarioTotals(s).rate; });
@@ -122,6 +136,8 @@ export function renderCards(){
                   '<button type="button" class="btn btn-sm btn-ghost" data-clone="' + escapeAttr(scenario) + '" title="Copy this scenario\'s home costs, purchase/invest setup and any overrides into a new one">Clone</button>' +
                   // v3.181.0: Make it real moved here from the scenario's block.
                   (!isBaseline ? '<button type="button" class="btn btn-sm btn-ghost" data-make-real="' + escapeAttr(scenario) + '">Make it real…</button>' : "") +
+                  // November 2026 (the owner): put away, to restore later — kept whole, off every list till then.
+                  (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-ghost" data-archive="' + escapeAttr(scenario) + '">Archive</button>' : "") +
                   (canDelete && !isBaseline ? '<button type="button" class="btn btn-sm btn-danger menu-danger" data-delete="' + escapeAttr(scenario) + '">Delete</button>' : "") +
                 '</span>' +
               '</span>' +
@@ -153,6 +169,8 @@ export function renderCards(){
   '<button type="button" class="add-card" id="addScenarioBtn"><span class="add-plus">+</span> <span class="add-label">Add scenario</span></button>';
 
   el.innerHTML = html;
+  var archiveEl = document.getElementById("scenarioArchiveList");
+  if(archiveEl){ var a = archivedScenariosHtml(state.scenarioArchive); archiveEl.innerHTML = a; archiveEl.hidden = !a; }
   renderScenarioCompare();
   fillBreakEvensSoon();
   renderDashboardStats();

@@ -11,7 +11,8 @@ import { copyBenchmarkTemplateToClipboard } from "../lib/backup.js";
 import { localDateStr } from "../lib/format.js";
 import { loadHomeLayout, saveHomeLayout, moveCard, applyHomeLayout, homeArrangeHtml } from "../lib/homelayout.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist } from "../state.js";
+import { state, persist, commit, setState } from "../state.js";
+import { archiveScenario, restoreScenario, deleteArchived, archiveBlocker, restoredName } from "../calc/scenarioarchive.js";
 import { renderBenchmarks, setBenchmarkField, applyBenchmarkPaste, addGoal, setGoalField, removeGoal, setPropertyMarketField } from "./benchmarks.js";
 import { openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderHealth } from "./health.js";
@@ -39,6 +40,14 @@ function onScenarioControlClick(e){
   if(renameBtn){ renameScenario(renameBtn.getAttribute("data-rename")); return true; }
   var cloneBtn = e.target.closest("[data-clone]");
   if(cloneBtn){ cloneScenario(cloneBtn.getAttribute("data-clone")); return true; }
+  // November 2026 (the owner): Archive puts it away whole, to restore later; Undo puts it straight back.
+  var archBtn = e.target.closest("[data-archive]");
+  if(archBtn){
+    var aName = archBtn.getAttribute("data-archive"), why = archiveBlocker(state, aName);
+    if(why){ showToast(why); return true; }
+    undoableScenarios('Archived "' + aName + '" — it\'s under Archived scenarios', function(){ archiveScenario(state, aName, localDateStr()); });
+    return true;
+  }
   var delBtn = e.target.closest("[data-delete]");
   if(delBtn){ var scName = delBtn.getAttribute("data-delete"); withUndo('Deleted "' + scName + '"', function(){ deleteScenario(scName); return state.scenarios.indexOf(scName) === -1; }); return true; }
   // v3.174.0 (item 209): adding a scenario starts from a question.
@@ -82,7 +91,31 @@ function renderHomeArrange(focusSel){
 function openHomeArrange(){ homeArrangeOpen = true; renderHomeArrange(); pushActiveOverlay(function(){ homeArrangeOpen = false; renderHomeArrange(); }); }
 function changeHomeLayout(fn, focusSel){ var l = loadHomeLayout(); fn(l); saveHomeLayout(l); applyHomeLayout(); renderHomeArrange(focusSel); }
 
+// Archiving touches every per-scenario part at once, so its Undo puts the whole household back as it was.
+var SCENARIO_KEYS = ["scenarios", "scenarioArchive", "home", "purchase", "invest", "scenarioChanges", "scenarioNotes", "shared", "income", "activeScenario"];
+function undoableScenarios(message, change){
+  var before = JSON.stringify(state);
+  change();
+  commit(SCENARIO_KEYS);
+  showUndoToast(message, function(){ setState(JSON.parse(before)); commit(SCENARIO_KEYS); });
+}
+
 export function wireCards(){
+  var archived = document.getElementById("scenarioArchiveList");
+  if(archived) archived.addEventListener("click", function(e){
+    var restore = e.target.closest("[data-restore-archived]");
+    if(restore){
+      var idx = Number(restore.getAttribute("data-restore-archived")), was = (state.scenarioArchive || [])[idx];
+      if(!was) return;
+      undoableScenarios('Restored "' + restoredName(state, was.name) + '"', function(){ restoreScenario(state, idx); });
+      return;
+    }
+    var del = e.target.closest("[data-delete-archived]");
+    if(del){
+      var i = Number(del.getAttribute("data-delete-archived")), entry = (state.scenarioArchive || [])[i];
+      if(entry) undoableScenarios('Deleted "' + entry.name + '" for good', function(){ deleteArchived(state, i); });
+    }
+  });
   document.getElementById("cards").addEventListener("click", function(e){
     if(onScenarioControlClick(e)) return;
     // The ⋯ menu's own toggle is handled by the page-wide overflow handler; opening it isn't a vote

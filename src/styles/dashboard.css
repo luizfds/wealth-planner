@@ -774,3 +774,13 @@
 .home-needs .home-bill-list li > em{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .home-needs .home-bill-list li span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-needs-links{ display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:auto; }
+
+/* Archived scenarios (November 2026): under the cards, one row each — its name and when, Restore, Delete. */
+#scenarioArchiveList[hidden]{ display:none; }
+.sc-archive-list{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.sc-archive-list li{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:6px 0; border-bottom:1px dashed var(--border); }
+.sc-archive-list li:last-child{ border-bottom:0; }
+.sc-archive-name{ display:flex; flex-direction:column; min-width:0; }
+.sc-archive-name b{ font-weight:600; overflow-wrap:anywhere; }
+.sc-archive-name small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.sc-archive-list .btn{ min-height:44px; }

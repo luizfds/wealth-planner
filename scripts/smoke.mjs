@@ -102,7 +102,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
       if(width === 390 || width === 1280){
         const position = await page.evaluate(([pg, sub]) => {
           const selector = pg === 'assets' && (sub === 'Shares' || sub === 'Super') ? '#assetsSub-' + sub + ' .m-row' :
-            pg === 'expenses' && sub === 'spending' ? '#transactionsTable .m-row' : pg === 'properties' ? '#propertiesBody .property-card' : '';
+            pg === 'expenses' && sub === 'spending' ? '#transactionsTable .m-row' : pg === 'properties' ? '#buyingBody .buy-card, #propertiesBody .property-card' : '';
           const first = selector && document.querySelector(selector);
           return first ? { y: first.getBoundingClientRect().top, limit: innerHeight / 2 } : null;
         }, [pg, sub]);

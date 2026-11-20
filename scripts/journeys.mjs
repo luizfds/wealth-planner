@@ -6872,6 +6872,95 @@ const JOURNEYS = {
   // "Paid" on a bill (the owner: logging the investment property's council rates meant hunting through Log spend's
   // line picker). From Today's Bills card: the bill, pre-filled — today, its amount, the account it's paid from — Save,
   // and it's logged against the property's line, on its Activity, and off the list. Money → Bills offers it too.
+  // The owner: dozens of things changed on both devices, and a choice each — keep one side for all of them in one tap,
+  // still able to change any one back, and Combine with what's ticked.
+  // The owner, buying a home: "+ Add property" asks first; one being bought gets a Buying card — its deposit held in
+  // net worth, its costs ticked off as they're paid — and Settled makes it an ordinary home with its loan.
+  // The owner: put a scenario away without losing it — off the cards, under Archived scenarios, and back as it was.
+  async archivescenario(page){
+    await quiet(page);
+    await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    const name = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; return s.scenarios.find(n => n !== s.baselineScenario); });
+    const purchaseBefore = await page.evaluate(async n => JSON.stringify((await import('/src/state.js')).state.purchase[n] || null), name);
+    const card = page.locator('#cards .card-select[data-scenario="' + name + '"]');
+    await card.locator('[data-overflow-toggle]').click();
+    await card.locator('[data-archive]').click();
+    await page.waitForFunction(n => !document.querySelector('#cards .card-select[data-scenario="' + CSS.escape(n) + '"]'), name, { timeout: 5000 }).catch(() => {});
+    check(await card.count() === 0, 'an archived scenario is still on the cards');
+    const list = page.locator('#scenarioArchiveList');
+    check(await list.isVisible(), 'Archived scenarios does not show');
+    await list.locator('summary').click();
+    check((await list.innerText()).includes(name), 'the archived scenario is not listed');
+    await list.locator('[data-restore-archived="0"]').click();
+    await page.waitForFunction(n => !!document.querySelector('#cards .card-select[data-scenario="' + CSS.escape(n) + '"]'), name, { timeout: 5000 }).catch(() => {});
+    check(await page.locator('#cards .card-select[data-scenario="' + name + '"]').count() === 1, 'a restored scenario is not back on the cards');
+    const purchaseAfter = await page.evaluate(async n => JSON.stringify((await import('/src/state.js')).state.purchase[n] || null), name);
+    check(purchaseAfter === purchaseBefore, 'a restored scenario lost its purchase plan');
+    check(await list.isHidden(), 'Archived scenarios shows with nothing in it');
+  },
+  async buyinghome(page){
+    await quiet(page);
+    await go(page, 'properties');
+    await page.locator('#addPropertyBtn').click();
+    const d = page.locator('#addPropertyDialog');
+    check(await d.isVisible(), '+ Add property did not ask what it is');
+    await d.locator('input[name="addPropStage"][value="buying"]').check();
+    await page.fill('#addPropName', '2 Sample Rd');
+    await d.locator('[data-add-prop-ok]').click();
+    const card = page.locator('.buy-card').first();
+    await card.waitFor({ state: 'visible', timeout: 5000 });
+    check(await page.locator('#propertiesBody .empty-state').count() === 0 || await page.evaluate(async () => (await import('/src/state.js')).state.properties.length > 0), 'No properties yet shows under a home being bought');
+    // The figures, as typed.
+    for (const [k, v] of [['price', '600000'], ['deposit', '60000'], ['loanAmount', '480000']]) {
+      const f = page.locator('.buy-card [data-buy-field="' + k + '"]').first();
+      await f.fill(v); await f.press('Tab');
+    }
+    const held = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.purchases[0]; return (s.assets.find(a => a.id === p.depositAssetId) || {}).amount; });
+    check(held === 60000, 'the deposit is not held in net worth: ' + held);
+    // A cost, paid.
+    const row = page.locator('.buy-card .buy-cost').nth(1);
+    const amount = row.locator('[data-cost-field="amount"]');
+    await amount.fill('1500'); await amount.press('Tab');
+    await page.locator('.buy-card .buy-cost').nth(1).locator('[data-cost-field="paid"]').check();
+    check((await page.locator('.buy-card .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
+    check((await page.locator('.buy-card .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'the Buying card scrolls sideways at ' + width + 'px');
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.buy-card [data-buy-settled]').click();
+    await page.waitForFunction(async () => (await import('/src/state.js')).state.purchases.length === 0, null, { timeout: 5000 }).catch(() => {});
+    const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '2 Sample Rd');
+      return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
+    check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 480000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
+  },
+  async mergeall(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const w = await import('/src/components/safekeepingwiring.js');
+      const conflicts = [
+        { id: 'accounts/id:a1/balance', top: 'accounts', row: { name: 'Everyday' }, field: 'balance', ours: 150, theirs: 175 },
+        { id: 'accounts/id:a2/balance', top: 'accounts', row: { name: 'Savings' }, field: 'balance', ours: 900, theirs: 950 },
+        { id: 'scenarios/id:s1/purchase', top: 'scenarios', row: { name: 'Buy a house' }, field: 'purchase', ours: { enabled: true, price: 500000 }, theirs: undefined }
+      ];
+      window.__mergeChoices = null;
+      w.openMergeDialog(conflicts, 'Dropbox', '', '', c => { window.__mergeChoices = c; });
+    });
+    const d = page.locator('#mergeDialog');
+    check(await d.isVisible(), 'the merge question did not open');
+    check(!(await d.innerText()).includes('{"'), 'a group of settings is shown as raw data');
+    await d.locator('[data-merge-all="theirs"]').click();
+    check(await d.locator('input[value="theirs"]:checked').count() === 3, 'keep all from Dropbox did not tick every choice');
+    check(await d.locator('[data-merge-all="theirs"]').getAttribute('aria-pressed') === 'true', 'the chosen side is not shown as chosen');
+    // One back to this device — a plan Dropbox's copy doesn't have.
+    await d.locator('input[name="merge-2"][value="ours"]').check();
+    await d.locator('[data-merge-ok]').click();
+    // The dialog's close event comes after the click: wait for what the app says, not a time.
+    await page.waitForFunction(() => window.__mergeChoices !== null, null, { timeout: 5000 }).catch(() => {});
+    const choices = await page.evaluate(() => window.__mergeChoices);
+    check(choices && choices['accounts/id:a1/balance'] === 'theirs' && choices['accounts/id:a2/balance'] === 'theirs' && choices['scenarios/id:s1/purchase'] === 'ours', 'Combine did not use what was ticked: ' + JSON.stringify(choices));
+  },
   async billpaid(page){
     await quiet(page);
     await page.evaluate(async () => {

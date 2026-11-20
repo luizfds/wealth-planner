@@ -23,6 +23,7 @@ import { modernPropRowOpen, renderProperties, patchPropertyCardComputed, logProp
 import { renderTotals, withUndo, renderAll } from "./redraw.js";
 import { findProperty, rerenderTableFor, openNewRowModal, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
+import { openAddPropertyDialog } from "./buyingwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { renderPropListModern } from "./properties.js";
 import { renderSharedGroups } from "./expenses.js";
@@ -834,15 +835,19 @@ export function wireProperties(){
     var target = document.getElementById("property-card-" + jumpBtn.getAttribute("data-jump-property"));
     if(target) target.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  document.getElementById("addPropertyBtn").addEventListener("click", function(){
+  // November 2026 (the owner, buying a home): it asks first — a home or an investment, owned or being bought. One
+  // being bought gets a Buying card (buyingwiring.js); one owned is made here, as before, its kind as chosen.
+  document.getElementById("addPropertyBtn").addEventListener("click", function(){ openAddPropertyDialog(addOwnedProperty); });
+}
+function addOwnedProperty(kind, name){
+    var ip = kind === "IP";
     var newPropId = genId("p");
     propertyEditing[newPropId] = true; // a new property has nothing to summarise yet — open its fields
-    state.properties.push({ id: newPropId, what:"New property", kind:"IP", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee:{percent:6, flat:5.5}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, ownership:true, loans:true, income:true, expenses:true}, ownership:{}, loans:[], income:[], expenses:[] });
+    state.properties.push({ id: newPropId, what: name || (ip ? "New investment property" : "Home"), kind: ip ? "IP" : "PPOR", value:0, purchasePrice:null, purchaseDate:"", acquisitionCosts:[], history:[], pmFee: ip ? {percent:6, flat:5.5} : {percent:0, flat:0}, incomePaidFreq:"Monthly", sectionsCollapsed:{acquisition:true, ownership:true, loans:true, income:true, expenses:true}, ownership:{}, loans:[], income:[], expenses:[] });
     recalcComputedItems();
     renderProperties();
     renderProjectionOutputs();
     persist();
-  });
 }
 
 export function wirePropertyExtras(){  // v3.41.0: Loan strategy on a property card.

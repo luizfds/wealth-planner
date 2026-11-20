@@ -5696,3 +5696,36 @@ line. The card went; it stays only as the empty state (what to enter first) unti
 opens Accounts, and says where its figure comes from — "Recorded balances", or how many need updating (the card's
 line; the journey assessmentux reads it). A past period says it stays as of today
 in Today's period note (the journeys periodheader and homedates read it there).
+
+## Combining two copies: keep all from one side (November 2026)
+
+`[x]` The owner, combining with Dropbox: 45 things changed on both devices, a choice each. The question now has "Keep
+all from this device" and "Keep all from <the other copy>" — every choice ticked to that side, any one still changeable
+— and Combine stays at the dialog's foot however long the list. A list or a group of settings is said in words ("3
+rows", "Set"), never as raw data. `openMergeDialog` (safekeepingwiring.js); journey `mergeall`.
+
+## Buying a home (November 2026)
+
+`[x]` The owner, part-way through buying a home to live in: a property was either owned or not there at all — no place
+for a deposit paid, a settlement to come, costs arriving one by one — and "+ Add property" made a blank investment
+property that said "negatively geared" at $0. Part 1:
+- "+ Add property" asks first: a home or an investment; already ours or being bought; its name — and, being bought, a
+  scenario's purchase plan to start from (its price, deposit, rate and cost estimates).
+- A home being bought is its own record (`state.purchases`, migration 32; calc/purchase.js) with a Buying card above the
+  properties, in Today's hero style: the price and days to settlement; what's paid so far, the loan and what's still to
+  pay as one bar; the cash at settlement against the cash and offsets on hand; its costs ticked off as they're paid
+  (stamp duty worked out from the price and state until one's typed).
+- The deposit is held as an "Other" asset, "Deposit held — <name>", so every net worth figure counts it unchanged.
+- "Settled — make it a property" makes an ordinary home (or investment): valued at the price, bought on the settlement
+  date, its costs the acquisition costs, its loan drawn that day; the deposit asset goes. Undo on Settled and Remove.
+- The sample household is buying 2 Sample Rd (no deposit yet, so its figures are unchanged). Journey `buyinghome`.
+Next: a payment logged against a purchase's cost (one entry, not two), then a lighter home card.
+
+## Archived scenarios (November 2026)
+
+`[x]` The owner: "I'm planning to delete some, but might need them back." A scenario's ⋯ has Archive (not the current
+situation, nor the last one): it leaves the scenarios — every card, chart and comparison — and is kept whole under
+Archived scenarios (its home rows, purchase and investing plans, changes, note, the lines varied for it, and other
+scenarios' includes of it), each with when, Restore and Delete. Restored, it's back as it was (a name taken since
+gets " (2)"). `state.scenarioArchive`, migration 33, calc/scenarioarchive.js; archived home rows in
+`everyAccountLink`; journey `archivescenario`.

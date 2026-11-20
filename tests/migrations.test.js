@@ -311,3 +311,23 @@ test("step 31: where a planned goal started, and the plan check-in off unless it
   assert.equal(run(31, { savingsGoals: [], planCheckIn: true }).planCheckIn, true);
   assert.equal(run(31, { savingsGoals: [], planCheckIn: "yes" }).planCheckIn, false);
 });
+
+test("step 32: homes being bought — a list, its figures numbers, each cost with an id and whether it's paid", function(){
+  assert.deepEqual(run(32, {}).purchases, []);
+  assert.deepEqual(run(32, { purchases: "x" }).purchases, []);
+  const s = run(32, { purchases: [null, { what: "1 Example St", price: "500000", deposit: -5, loanAmount: "", kind: "home", firstHome: "yes",
+    costs: [{ what: "Conveyancer", amount: "1200", paid: true }, { what: "Stamp duty", auto: true }, "junk"] }] });
+  assert.equal(s.purchases.length, 1);
+  const p = s.purchases[0];
+  assert.ok(p.id);
+  assert.deepEqual([p.kind, p.price, p.deposit, p.loanAmount, p.firstHome], ["PPOR", 500000, "", "", false]);
+  assert.deepEqual(p.costs.map(c => [c.what, c.amount, c.paid, !!c.auto, !!c.id]), [["Conveyancer", 1200, true, false, true], ["Stamp duty", 0, false, true, true]]);
+  assert.equal(run(32, { purchases: [{ kind: "IP" }] }).purchases[0].kind, "IP");
+});
+
+test("step 33: archived scenarios — a list, each with a name, its overrides and includes as lists", function(){
+  assert.deepEqual(run(33, {}).scenarioArchive, []);
+  const s = run(33, { scenarioArchive: [null, { name: "" }, { name: "Buy a house", archivedOn: 5 }, "x"] });
+  assert.equal(s.scenarioArchive.length, 1);
+  assert.deepEqual([s.scenarioArchive[0].name, s.scenarioArchive[0].archivedOn, s.scenarioArchive[0].overrides, s.scenarioArchive[0].includedBy], ["Buy a house", "", [], []]);
+});

@@ -170,6 +170,10 @@ export function defaultState(){
     savedReports: [],
     lifeEvents: [],
     properties: [],
+    // A home being bought, until it settles (calc/purchase.js) — then it's one of the properties.
+    purchases: [],
+    // Scenarios put away, to restore as they were (calc/scenarioarchive.js).
+    scenarioArchive: [],
     // A frozen copy of a past projection, graded against real logged net worth over time — see
     // dashboard.js's setProjectionReference()/renderProjectionAccuracyPanel(). null until the
     // user sets one; never auto-captured, since silently freezing on first load would grade
@@ -842,6 +846,35 @@ export var MIGRATION_STEPS = [
       if("planStart" in g){ var b = Number(g.planStart); if(g.planStart === null || g.planStart === "" || !isFinite(b)) delete g.planStart; else g.planStart = b; }
     });
     s.planCheckIn = s.planCheckIn === true;
+  } },
+  // November 2026: a home being bought, until it settles (calc/purchase.js). Its figures are numbers (blank stays
+  // blank), its kind a home unless it's an investment, and each cost has an id, a what and whether it's paid.
+  { n: 32, name: "homes being bought", run: function(s){
+    if(!Array.isArray(s.purchases)){ s.purchases = []; return; }
+    var n = function(v){ if(v === "" || v == null) return ""; var x = Number(v); return isFinite(x) && x >= 0 ? x : ""; };
+    s.purchases = s.purchases.filter(function(p){ return p && typeof p === "object"; });
+    s.purchases.forEach(function(p, i){
+      if(!p.id) p.id = "buy-" + i;
+      p.kind = p.kind === "IP" ? "IP" : "PPOR";
+      ["price", "deposit", "loanAmount", "rate"].forEach(function(k){ p[k] = n(p[k]); });
+      p.firstHome = p.firstHome === true;
+      p.costs = (Array.isArray(p.costs) ? p.costs : []).filter(function(c){ return c && typeof c === "object"; });
+      p.costs.forEach(function(c, j){
+        if(!c.id) c.id = p.id + "-c" + j;
+        c.amount = n(c.amount) === "" ? 0 : n(c.amount);
+        c.paid = c.paid === true;
+        if(c.auto !== true) delete c.auto;
+      });
+    });
+  } },
+  // November 2026: scenarios put away, to restore as they were (calc/scenarioarchive.js) — each with its name.
+  { n: 33, name: "archived scenarios", run: function(s){
+    s.scenarioArchive = (Array.isArray(s.scenarioArchive) ? s.scenarioArchive : []).filter(function(e){ return e && typeof e === "object" && typeof e.name === "string" && e.name.trim(); });
+    s.scenarioArchive.forEach(function(e){
+      if(!Array.isArray(e.overrides)) e.overrides = [];
+      if(!Array.isArray(e.includedBy)) e.includedBy = [];
+      if(typeof e.archivedOn !== "string") e.archivedOn = "";
+    });
   } }
 ];
 

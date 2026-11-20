@@ -499,6 +499,9 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .avatar-menu a.avatar-item{ text-decoration:none; color: var(--ink); }
 /* v3.143.0: when two devices changed the same thing, one choice each. */
 .merge-dialog{ max-width:min(520px, calc(100vw - 32px)); max-height:min(80vh, 640px); overflow:auto; }
+.merge-bulk{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; margin:0 0 10px; }
+.merge-bulk .btn{ min-height:44px; white-space:normal; line-height:1.25; }
+.merge-bulk .btn[aria-pressed="true"]{ border-color: var(--brass); background: var(--brass-wash); color: var(--brass-strong); }
 .merge-list{ display:grid; gap:10px; margin:0 0 14px; }
 .merge-item{ border:1px solid var(--border); border-radius:10px; padding:8px 10px 10px; margin:0; min-width:0; }
 .merge-item legend{ font-size:var(--fs-sm); font-weight:600; padding:0 4px; overflow-wrap:anywhere; }
@@ -506,7 +509,8 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .merge-opt input{ margin-top:3px; }
 .merge-opt span{ display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere; }
 .merge-opt small{ color: var(--ink-soft); font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; }
-.merge-actions{ display:flex; justify-content:flex-end; gap:8px; }
+/* Combine stays in reach however many there are to choose (the owner had 45): it sits at the dialog's foot. */
+.merge-actions{ display:flex; justify-content:flex-end; gap:8px; position:sticky; bottom:-18px; margin:0 -20px -18px; padding:10px 20px 18px; background: var(--paper-raised); border-top:1px solid var(--border); }
 /* v3.144.1 (item 183): the phone header's small buttons keep their look but take a bigger tap —
    since v3.167.0 that's the shared 44px catch area at the end of projections.css. */
 @media (max-width: 880px){

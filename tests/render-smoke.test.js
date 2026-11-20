@@ -1611,6 +1611,9 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   assert.match(html, /Buying · a home/);
   assert.match(html, /1 Example St &lt;&amp;>/, "a typed name is escaped");
   assert.match(html, /Settles in 30 days/);
+  // The owner couldn't find where to change the name or the date: Edit, and the settlement chip, open them.
+  assert.match(html, /data-buy-edit="what" aria-label="Edit 1 Example St &lt;&amp;>"/);
+  assert.match(html, /<button type="button" class="buy-settle-btn" data-buy-edit="settlementDate">Settles in 30 days/);
   assert.match(html, /Cash at settlement<\/span><b>\$60,600<\/b>/);
   assert.match(html, /\$10,600 more than the \$50,000 in cash and offsets/);
   assert.match(html, /class="buy-tile is-short"/);

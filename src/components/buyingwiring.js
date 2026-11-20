@@ -93,6 +93,15 @@ export function wireBuying(){
     var card = e.target.closest("[data-purchase]");
     var p = card && findPurchase(card.getAttribute("data-purchase"));
     if(!p) return;
+    // Edit / the settlement chip: open "The purchase" and put the cursor in that field.
+    var editBtn = e.target.closest("[data-buy-edit]");
+    if(editBtn){
+      var fold = card.querySelector(".buy-fold");
+      if(fold) fold.open = true;
+      var target = card.querySelector('[data-buy-field="' + editBtn.getAttribute("data-buy-edit") + '"]');
+      if(target){ target.scrollIntoView({ behavior: "smooth", block: "center" }); target.focus({ preventScroll: true }); }
+      return;
+    }
     if(e.target.closest("[data-buy-cost-add]")){
       p.costs = p.costs || [];
       var c = { id: genId("pc"), what: "", amount: 0, paid: false };

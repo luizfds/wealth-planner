@@ -25,10 +25,20 @@ export function netWorthList(st, toAud, adjust){
     if(isSoldOut(a)) return;
     var v = toAud(a, Number(a.amount) || 0) + adj("asset:" + a.id), c = a.category || "Other";
     var row = { kind: "asset", id: a.id, name: a.what || a.symbol || c, sub: [c === "Shares" && a.symbol ? a.symbol : null, a.person || null].filter(Boolean).join(" · "), value: v };
+    // A deposit held for a home being bought (calc/purchase.js) is that home, under Property, until it settles.
+    var buying = a.depositFor && (st.purchases || []).find(function(p){ return p && p.id === a.depositFor; });
+    if(buying) return;
     if(c === "Cash") G.cash.push(row);
     else if(c === "Shares") G.invest.push(row);
     else if(c === "Super") G.super.push(row);
     else G.other.push(Object.assign(row, { sub: [c, a.person || null].filter(Boolean).join(" · ") }));
+  });
+  // The owner: a home being bought is listed with the properties, marked as in progress, at the deposit held for it.
+  (st.purchases || []).forEach(function(p){
+    if(!p) return;
+    var held = (st.assets || []).find(function(a){ return a && a.id === p.depositAssetId; });
+    G.property.push({ kind: "purchase", id: p.id, name: p.what || "A home", buying: true, settles: p.settlementDate || "",
+      sub: held ? "Deposit held" : "No deposit yet", value: held ? toAud(held, Number(held.amount) || 0) + adj("asset:" + held.id) : 0 });
   });
   (st.properties || []).forEach(function(p){
     G.property.push({ kind: "property", id: p.id, name: p.what || "Property", sub: p.kind === "IP" ? "Investment" : "Home", value: Number(p.value) || 0 });

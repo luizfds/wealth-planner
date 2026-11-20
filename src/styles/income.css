@@ -227,7 +227,7 @@
 .pp-head{ display:flex; align-items:center; gap:10px; }
 .pp-head .m-avatar{ width:30px; height:30px; font-size:var(--fs-sm); flex:none; }
 .pp-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-lg); font-weight:600; }
-.pp-fields{ grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+.pp-fields{ grid-template-columns:repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
 .pp-fields .field-control{ width:100%; }
 .pp-dob{ color-scheme:light dark; }
 :root[data-theme="light"] .pp-dob{ color-scheme:light; }

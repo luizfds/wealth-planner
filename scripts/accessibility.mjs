@@ -275,17 +275,20 @@ for(const width of widths)for(const scheme of schemes){
    await row.evaluate(el=>Promise.all(el.getAnimations({subtree:true}).map(a=>a.finished.catch(()=>{}))));
    // The long form scrolls inside a modal. Scan every field with its label/help fully in view,
    // so clipped label fragments are not sampled against the backdrop at the scroll boundary.
-   const boxes=row.locator('.m-edit-field:has(input,select,textarea)');
+   // November 2026: the loan's fields are floating-label boxes, pills and switches (each in a .field, a switch its row).
+   const boxes=row.locator('.field:has(input,select,textarea), .switch-row');
    for(let i=0;i<await boxes.count();i++){
     await boxes.nth(i).evaluate((e,i)=>{e.classList.add('loan-field-scan-'+i);e.scrollIntoView({block:'center',behavior:'instant'});},i);
     await scan('loan-fields/expanded/'+i, '.m-row.open .loan-field-scan-'+i);
    }
    const offset=row.locator('.loan-offset'),before=await offset.inputValue();await offset.fill('');
    await offset.evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
-   await scan('loan-fields/invalid-offset', '.m-row.open .m-edit-field:has(> .loan-offset)');await offset.fill(before);
-   await row.locator('.loan-repay-mode').selectOption('manual');
-   await row.locator('.loan-manual-amount').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
-   await scan('loan-fields/manual', '.m-row.open .m-edit-field:has(> .loan-manual-amount)');
+   await scan('loan-fields/invalid-offset', '.m-row.open .field:has(.loan-offset)');await offset.fill(before);
+   // "I pay a set amount" is a switch now; on, its amount appears.
+   await page.locator('.m-row.open label.switch-row:has(.loan-repay-mode-switch)').click();
+   await page.locator('.m-row.open .loan-manual-amount').waitFor({ state: 'visible' });
+   await page.locator('.m-row.open .loan-manual-amount').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
+   await scan('loan-fields/manual', '.m-row.open .field:has(.loan-manual-amount)');
    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
    await page.locator('[data-prop-tab][data-tab="tax"]').first().evaluate(e=>e.click());
    await page.evaluate(()=>document.querySelectorAll('[data-prop-section-toggle="depreciation"][aria-expanded="false"]').forEach(e=>e.click()));

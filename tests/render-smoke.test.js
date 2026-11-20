@@ -1617,7 +1617,18 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   assert.match(html, /Cash at settlement<\/span><b>\$60,600<\/b>/);
   assert.match(html, /\$10,600 more than the \$50,000 in cash and offsets/);
   assert.match(html, /class="buy-tile is-short"/);
-  assert.match(html, /data-cost-field="paid" checked aria-label="Conveyancer paid"/);
+  // Each cost is a line that opens to edit it: Paid a switch, what it's for as pills (November 2026).
+  assert.match(html, /<details class="buy-cost is-paid" data-buy-cost="c1">/);
+  assert.match(html, /id="buy-b1-c1-paid" checked data-cost-field="paid">/);
+  assert.match(html, /<div class="fsec">For the purchase <small class="bc-total">\$1,500<\/small><\/div>/);
+  assert.match(html, /data-buy-cost-quick="Low deposit fee \/ LMI">\+ Low deposit fee \/ LMI<\/button>/);
+  // A loan's fee added to the loan: borrowed, said under the bar, not counted as cash.
+  const fin = buyingHtml([Object.assign({}, p, { costs: [{ id: "c9", what: "Low deposit fee / LMI", amount: 9000, kind: "loan", financed: true }] })], 50000, "2026-11-20");
+  assert.match(fin, /Loan \$480,000 \+ \$9,000 added = <b>\$489,000<\/b> borrowed/);
+  assert.match(fin, /<span class="bc-chip in">Added to the loan<\/span>/);
+  assert.match(fin, /name="buy-b1-c9-fin" value="loan" checked data-cost-field="financed"/);
+  assert.doesNotMatch(fin, /id="buy-b1-c9-paid"/, "a fee added to the loan isn't ticked off as paid");
+  assert.match(buyingHtml([Object.assign({}, p, { costs: [{ id: "c8", what: "Settlement fee", amount: 0, kind: "loan", tbc: true }] })], 50000, "2026-11-20"), /<b class="bc-amt">To come<\/b>[\s\S]*1 to confirm|1 to confirm[\s\S]*<b class="bc-amt">To come<\/b>/);
   assert.match(html, /data-buy-settled/);
   assert.match(html, /class="btn btn-danger btn-sm" data-buy-remove/);
   assert.match(buyingHtml([Object.assign({}, p, { settlementDate: "" })], null, "2026-11-20"), /Add the settlement date/);

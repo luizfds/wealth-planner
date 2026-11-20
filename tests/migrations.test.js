@@ -331,3 +331,9 @@ test("step 33: archived scenarios — a list, each with a name, its overrides an
   assert.equal(s.scenarioArchive.length, 1);
   assert.deepEqual([s.scenarioArchive[0].name, s.scenarioArchive[0].archivedOn, s.scenarioArchive[0].overrides, s.scenarioArchive[0].includedBy], ["Buy a house", "", [], []]);
 });
+
+test("step 34: a purchase cost's kind (by its name when it doesn't say), financed only for a loan cost, still to come", function(){
+  const s = run(34, { purchases: [{ costs: [{ what: "Loan fees" }, { what: "Conveyancer", financed: true }, { what: "Low deposit fee / LMI", financed: true, tbc: "yes" }, { what: "Other", kind: "loan", tbc: true }] }, null] });
+  assert.deepEqual(s.purchases[0].costs.map(c => [c.kind, c.financed, c.tbc]), [["loan", false, false], ["purchase", false, false], ["loan", true, false], ["loan", false, true]]);
+  assert.doesNotThrow(() => run(34, {}));
+});

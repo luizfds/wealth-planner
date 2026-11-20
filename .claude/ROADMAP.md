@@ -5738,3 +5738,19 @@ see how to change its name or settlement date (they were in "The purchase", fold
   and the settlement date; its name opens its Buying card. The deposit is counted there, no longer under Other things.
 - The Buying card's hero has Edit (to the name) and its settlement chip opens the date ("Add the settlement date" +);
   "The purchase" reads as a way in — what's inside, and Edit — and stays open while the price or date is missing.
+
+## Forms: floating labels, pills and switches (November 2026)
+
+`[~]` The owner: forms aren't set in stone — make them beautiful and simpler. Of three styles mocked on a loan, the
+owner chose B (floating labels in soft filled boxes, choices as pills, on/off as switches) for editing, and C (one
+question at a time) for adding. Property first: Value & purchase and the loan, then its costs and the statement.
+
+## Buying a home: costs as a lender lists them (November 2026)
+
+`[x]` The owner, with a loan offer in hand: enter its fees easily, and a low-deposit fee can be added to the loan rather
+than paid in cash. Each cost of a home being bought now says what it's for — the purchase (acquisition costs at
+settlement) or the loan (its borrowing costs) — and a loan's cost can be **added to the loan**: borrowed, not cash at
+settlement ("Loan $X + $Y added = $Z borrowed", the LVR on that), in the loan's balance from day one. An amount can be
+**still to come** ("at cost"; "1 to confirm"). One tap adds the usual ones (documentation fee, low deposit fee / LMI,
+mortgage and transfer registration, settlement fee…), each a line that opens to edit it in the floating-label style.
+Migration 34 (a saved cost's kind from its name). Tests: purchase, migrations, render smoke; journey `buyinghome`.

@@ -264,6 +264,51 @@ async function settle(page){
 // (data-wp-settled), then a frame for what they drew. The day's price read starts 800ms after startup and, when it
 // lands, legitimately changes a holding's saved price — a journey that had already read its "before" then saw "a
 // negative price saved 113.35" (PR #317: the price file's figure, not the -3 it typed).
+async function errorBoundsSteps(page){
+    await go(page,'properties');await page.locator('[data-prop-edit]').first().click();
+    const card=page.locator('.property-card').first(),id=await card.getAttribute('data-property-id');
+    const before=await page.evaluate(async id=>{const m=await import('/src/state.js');const p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},id);
+    await card.locator('.prop-value').fill('');await card.locator('.prop-purchase-price').fill('-100');await card.locator('.prop-purchase-price').press('Tab');
+    await waited(page,()=>document.querySelector('[data-error-summary] a')&&document.querySelector('[data-error-summary]').querySelectorAll('a').length===2,'two property errors');
+    if(process.env.ERROR_BOUNDS_SHOTS)fs.mkdirSync(process.env.ERROR_BOUNDS_SHOTS,{recursive:true});
+    let phase='activation';
+    const visible=async target=>waited(page,id=>{
+      const input=document.getElementById(id);if(!input||input!==document.activeElement)return false;
+      const v=visualViewport;let top=v?.offsetTop||0,bottom=top+(v?.height||innerHeight);
+      const header=document.querySelector('.app-topbar').getBoundingClientRect();if(header.top<=top&&header.bottom>top)top=header.bottom;
+      const nav=document.querySelector('.mobile-tabbar'),n=nav.getBoundingClientRect();if(nav.getClientRects().length&&n.top>top&&n.top<bottom)bottom=n.top;
+      const r=input.getBoundingClientRect();return r.top>top+1&&r.bottom<bottom-1&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===input;
+    },'error field inside usable viewport after '+phase,target).catch(async error=>{
+      const diagnostic=await page.evaluate(id=>{const e=document.getElementById(id),r=e?.getBoundingClientRect(),v=visualViewport,nav=document.querySelector('.mobile-tabbar');return {id,width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.theme,scrollY,focus:document.activeElement?.outerHTML.slice(0,250),target:e?.outerHTML.slice(0,250),rect:r?.toJSON(),header:document.querySelector('.app-topbar').getBoundingClientRect().toJSON(),nav:nav.getBoundingClientRect().toJSON(),navVisible:!!nav.getClientRects().length,viewport:{top:v.offsetTop,left:v.offsetLeft,width:v.width,height:v.height},hit:r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML.slice(0,250):null};},target);
+      throw new Error(error.message+'; '+JSON.stringify(diagnostic));
+    });
+    for(const width of [320,390,768,1280])for(const theme of ['light','dark'])for(const height of [190,240,390,844]){
+      await page.setViewportSize({width,height});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+      for(let i=0;i<2;i++){
+        const link=card.locator('[data-error-summary] a').nth(i),target=await link.getAttribute('data-error-target');
+        await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+        if(width<700)await link.tap();else{await link.focus();await page.keyboard.press('Enter');}
+        phase='activation';await visible(target);
+        // A redraw preserves the same focused draft and must not let the deferred adjustment scroll an old node.
+        await page.evaluate(async()=>{(await import('/src/components/properties.js')).renderProperties();});phase='redraw';await visible(target);
+        if(process.env.ERROR_BOUNDS_SHOTS&&i===0&&[190,844].includes(height))await page.screenshot({path:path.join(process.env.ERROR_BOUNDS_SHOTS,width+'-'+theme+'-'+height+'.png')});
+      }
+    }
+    await page.setViewportSize({width:390,height:390});
+    const link=card.locator('[data-error-summary] a').first(),target=await link.getAttribute('data-error-target');
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await page.evaluate(()=>{window.__errorBoundsWheel=false;window.addEventListener('wheel',()=>window.__errorBoundsWheel=true,{once:true,capture:true});});
+    await page.mouse.move(20,180);await page.mouse.wheel(0,500);
+    await waited(page,()=>window.__errorBoundsWheel,'native wheel event delivered');
+    await waited(page,id=>document.getElementById(id).getBoundingClientRect().bottom<0,'user scroll moves away from selected field',target);
+    await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    check(await page.evaluate(id=>document.getElementById(id).getBoundingClientRect().bottom<0,target),'layout adjustment fought a manual scroll');
+    const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
+    await link.focus();await page.keyboard.press('Enter');await visible(target);
+    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
+    check(await page.evaluate(async id=>{const m=await import('/src/state.js');return JSON.stringify({...m.state.properties.find(p=>p.id===id),sectionsCollapsed:undefined});},id)===before,'summary navigation or redraw changed property figures');
+}
 async function quiet(page){
   await ready(page, "the app at rest");
   await settle(page);
@@ -2283,49 +2328,17 @@ const JOURNEYS = {
   // #261 / #263: Settings → Categories — a rename cleared to retype doesn't uncategorise the lines in it, a taken name
   // doesn't merge two categories, and each delete says which category it removes.
   async errorsummarybounds(page){
-    await quiet(page);await go(page,'properties');await page.locator('[data-prop-edit]').first().click();
-    const card=page.locator('.property-card').first(),id=await card.getAttribute('data-property-id');
-    const before=await page.evaluate(async id=>{const m=await import('/src/state.js');const p=m.state.properties.find(p=>p.id===id);return JSON.stringify({...p,sectionsCollapsed:undefined});},id);
-    await card.locator('.prop-value').fill('');await card.locator('.prop-purchase-price').fill('-100');await card.locator('.prop-purchase-price').press('Tab');
-    await waited(page,()=>document.querySelector('[data-error-summary] a')&&document.querySelector('[data-error-summary]').querySelectorAll('a').length===2,'two property errors');
-    if(process.env.ERROR_BOUNDS_SHOTS)fs.mkdirSync(process.env.ERROR_BOUNDS_SHOTS,{recursive:true});
-    let phase='activation';
-    const visible=async target=>waited(page,id=>{
-      const input=document.getElementById(id);if(!input||input!==document.activeElement)return false;
-      const v=visualViewport;let top=v?.offsetTop||0,bottom=top+(v?.height||innerHeight);
-      const header=document.querySelector('.app-topbar').getBoundingClientRect();if(header.top<=top&&header.bottom>top)top=header.bottom;
-      const nav=document.querySelector('.mobile-tabbar'),n=nav.getBoundingClientRect();if(nav.getClientRects().length&&n.top>top&&n.top<bottom)bottom=n.top;
-      const r=input.getBoundingClientRect();return r.top>top+1&&r.bottom<bottom-1&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===input;
-    },'error field inside usable viewport after '+phase,target).catch(async error=>{
-      const diagnostic=await page.evaluate(id=>{const e=document.getElementById(id),r=e?.getBoundingClientRect(),v=visualViewport,nav=document.querySelector('.mobile-tabbar');return {id,width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.theme,scrollY,focus:document.activeElement?.outerHTML.slice(0,250),target:e?.outerHTML.slice(0,250),rect:r?.toJSON(),header:document.querySelector('.app-topbar').getBoundingClientRect().toJSON(),nav:nav.getBoundingClientRect().toJSON(),navVisible:!!nav.getClientRects().length,viewport:{top:v.offsetTop,left:v.offsetLeft,width:v.width,height:v.height},hit:r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.outerHTML.slice(0,250):null};},target);
-      throw new Error(error.message+'; '+JSON.stringify(diagnostic));
-    });
-    for(const width of [320,390,768,1280])for(const theme of ['light','dark'])for(const height of [190,240,390,844]){
-      await page.setViewportSize({width,height});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
-      for(let i=0;i<2;i++){
-        const link=card.locator('[data-error-summary] a').nth(i),target=await link.getAttribute('data-error-target');
-        await link.focus();await link.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
-        if(width<700)await link.tap();else{await link.focus();await page.keyboard.press('Enter');}
-        phase='activation';await visible(target);
-        // A redraw preserves the same focused draft and must not let the deferred adjustment scroll an old node.
-        await page.evaluate(async()=>{(await import('/src/components/properties.js')).renderProperties();});phase='redraw';await visible(target);
-        if(process.env.ERROR_BOUNDS_SHOTS&&i===0&&[190,844].includes(height))await page.screenshot({path:path.join(process.env.ERROR_BOUNDS_SHOTS,width+'-'+theme+'-'+height+'.png')});
-      }
+    await quiet(page);
+    // CI saw "Execution context was destroyed" here (PR #450), never locally: if the page loads anew, say where it
+    // went and what was last pressed (kept across the load in sessionStorage).
+    const left=[];page.on('request',r=>{if(r.isNavigationRequest()&&r.frame()===page.mainFrame())left.push(r.url());});
+    await page.evaluate(()=>{for(const k of ['pointerdown','click','keydown'])document.addEventListener(k,e=>{try{sessionStorage.setItem('errorBoundsLast',k+' '+(e.key||'')+' '+String(e.target?.outerHTML||e.target?.nodeName).slice(0,200));}catch(_){}},true);});
+    try{await errorBoundsSteps(page);}catch(e){
+      if(!left.length)throw e;
+      await page.waitForLoadState('domcontentloaded').catch(()=>{});
+      const last=await page.evaluate(()=>sessionStorage.getItem('errorBoundsLast')).catch(()=>null);
+      throw new Error(e.message+'; the page loaded '+left.join(', ')+' after '+last,{cause:e});
     }
-    await page.setViewportSize({width:390,height:390});
-    const link=card.locator('[data-error-summary] a').first(),target=await link.getAttribute('data-error-target');
-    await link.focus();await page.keyboard.press('Enter');await visible(target);
-    await page.evaluate(()=>{window.__errorBoundsWheel=false;window.addEventListener('wheel',()=>window.__errorBoundsWheel=true,{once:true,capture:true});});
-    await page.mouse.move(20,180);await page.mouse.wheel(0,500);
-    await waited(page,()=>window.__errorBoundsWheel,'native wheel event delivered');
-    await waited(page,id=>document.getElementById(id).getBoundingClientRect().bottom<0,'user scroll moves away from selected field',target);
-    await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
-    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    check(await page.evaluate(id=>document.getElementById(id).getBoundingClientRect().bottom<0,target),'layout adjustment fought a manual scroll');
-    const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1.5});
-    await link.focus();await page.keyboard.press('Enter');await visible(target);
-    await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:1});
-    check(await page.evaluate(async id=>{const m=await import('/src/state.js');return JSON.stringify({...m.state.properties.find(p=>p.id===id),sectionsCollapsed:undefined});},id)===before,'summary navigation or redraw changed property figures');
   },
   async errorsummaries(page){
     await quiet(page);
@@ -2408,7 +2421,7 @@ const JOURNEYS = {
           });
           await page.evaluate(()=>window.__captureErrorSummary('settled'));
           const field=page.locator('[id="'+target+'"]');
-          await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field")][1]'));
+          await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field") or contains(concat(" ",@class," ")," field ")][1]'));
           }
           check(await summary.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'summary has local horizontal overflow');
           check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'error summary overflows at '+width);
@@ -3733,16 +3746,15 @@ const JOURNEYS = {
       check((await page.locator('#pageCrumbs').innerText()).replace(/\s+/g, ' ').trim() === 'Accounts Investments' && (await page.locator('#pageCrumbs [data-crumb]').allInnerTexts())[0] === 'Accounts', "desktop did not show the way up (Accounts › Investments): " + await page.locator('#pageCrumbs').innerText());
       await page.setViewportSize({ width, height: 844 });
       await go(page, "properties");
+      // November 2026: a property's tabs are chips that wrap (never a dropdown) — the one chosen shows its panel.
       const prop = page.locator('#propertiesBody .prop-tabs').first();
-      const pp = prop.locator('select');
-      await pp.waitFor({ state: 'visible' });
-      await pp.selectOption({ index: 1 });
+      await prop.locator('[role="tab"]').nth(1).click();
       await settle(page);
       check(await prop.evaluate(el => {
         const selected = el.querySelector('[aria-selected="true"]');
-        return el.getAttribute('role') === 'group' && selected && !document.getElementById(selected.getAttribute('aria-controls')).hidden &&
-          el.querySelector('select').selectedOptions[0].textContent === selected.textContent.trim();
-      }), "property picker and panel disagree");
+        return el.getAttribute('role') === 'tablist' && !el.querySelector('select') && selected && !document.getElementById(selected.getAttribute('aria-controls')).hidden &&
+          el.scrollWidth <= el.clientWidth + 1;
+      }), "property tabs and panel disagree, or the tabs became a dropdown");
       const overflow = await page.evaluate(() => [...document.querySelectorAll('.app-page:not([hidden]) .subnav, .app-page:not([hidden]) .time-range-control')]
         .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1).map(el => el.getAttribute('aria-label')));
       check(!overflow.length, "sideways navigation remains: " + overflow.join(', '));
@@ -4054,6 +4066,7 @@ const JOURNEYS = {
     check(await stored(page, P + "loans[0].balance") === bal, "clearing a loan's balance saved " + await stored(page, P + "loans[0].balance"));
     check(await marked(loan + " .loan-balance"), "a cleared loan balance isn't marked with a message");
     const inv = await stored(page, P + "loans[0].investPct");
+    await page.locator(loan + " .loan-tax-fold > summary").click();   // November 2026: under For tax
     await page.fill(loan + " .loan-invest-pct", "150");
     check(await stored(page, P + "loans[0].investPct") === inv, "an investment share of 150% saved " + await stored(page, P + "loans[0].investPct"));
     check(await marked(loan + " .loan-invest-pct"), "an investment share of 150% isn't marked with a message");
@@ -4235,17 +4248,20 @@ const JOURNEYS = {
     await page.locator('.prop-tab-panel:not([hidden]) [data-loan-index="'+loan+'"]').first().locator('[data-row-toggle]').click();
     const row=page.locator('.m-row.open[data-loan-index]');
     await row.locator('details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
-    check(await row.locator('.loan-offset').inputValue()==='1000','Offsets value did not mirror into loan');
-    check(await row.locator('input,select').evaluateAll(es=>es.every(e=>e.classList.contains('field-control'))),'loan still has an independent control skin');
-    const properLabels=await row.locator('.m-edit-field > input,.m-edit-field > select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
+    // November 2026: the loan in the floating-label style — money shown with separators, choices as pills, on/off as switches.
+    check(await row.locator('.loan-offset').inputValue()==='1,000','Offsets value did not mirror into loan');
+    check(await row.locator('input:not([type=radio]):not([type=checkbox]),select').evaluateAll(es=>es.every(e=>e.classList.contains('field-control'))),'loan still has an independent control skin');
+    check(await row.locator('input[type=radio]').evaluateAll(es=>es.length>0&&es.every(e=>e.classList.contains('pill-input')))&&await row.locator('input[type=checkbox]').evaluateAll(es=>es.every(e=>e.classList.contains('switch-input')&&e.getAttribute('role')==='switch')),'loan choices are not pills and switches');
+    const properLabels=await row.locator('.field input:not([type=radio]):not([type=checkbox]),.field select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
     check(properLabels,'loan label/help links lost');
     await row.locator('.loan-offset').fill('2000');check(await saved()===2000,'loan offset did not save');
     check(await page.locator('.offset-balance-input[data-offset-property="'+property+'"][data-offset-loan="'+loan+'"]').inputValue()==='2000','loan edit did not mirror into Offsets');
     const oldBalance=await row.locator('.loan-balance').inputValue();await row.locator('.loan-balance').fill('');
     check(await row.locator('.loan-balance').getAttribute('aria-invalid')==='true','loan blank balance has no error');
     await row.locator('.loan-balance').fill(oldBalance);
-    await row.locator('.loan-repay-mode').focus();await row.locator('.loan-repay-mode').selectOption('manual');
-    check(await row.locator('.loan-repay-mode').evaluate(e=>e===document.activeElement),'repayment mode redraw lost focus');
+    await row.locator('.loan-repay-mode-switch').focus();await page.keyboard.press('Space');
+    await page.waitForFunction(()=>!!document.querySelector('.m-row.open .loan-manual-amount'));
+    check(await page.locator('.m-row.open .loan-repay-mode-switch').evaluate(e=>e===document.activeElement&&e.checked),'repayment switch redraw lost focus');
     await row.locator('.loan-manual-amount').fill('1000');
     check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].manualRepaymentAmount,{property,loan})===1000,'manual repayment did not save');
     await row.locator('.loan-rate-new').fill('5');await row.locator('.loan-rate-date').fill('2026-11-03');
@@ -4253,7 +4269,9 @@ const JOURNEYS = {
     check(await page.evaluate(async({property,loan})=>(await import('/src/state.js')).state.properties.find(p=>p.id===property).loans[loan].rateHistory.some(h=>h.date==='2026-11-03'&&h.rate===5),{property,loan}),'new rate was not recorded');
     for(const width of [320,390,768,1024,1280]){
       await page.setViewportSize({width,height:844});
-      const bad=await row.locator('input,select').evaluateAll(es=>es.filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.borderRadius!=='6px'||s.padding!=='6px 8px'||r.height+0.01<(innerWidth<=880?44:36);}).map(e=>e.className));
+      // A box (fbox-control) is the new field: 14px corners, 58px tall (52px on a desktop). Anything else on the shared skin keeps its 6px.
+      const bad=await row.locator('input:not([type=radio]):not([type=checkbox]),select').evaluateAll(es=>es.filter(e=>e.getClientRects().length).filter(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();
+        return e.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px'||s.padding!=='6px 8px'||r.height+0.01<(innerWidth<=880?44:36));}).map(e=>e.className));
       check(!bad.length,'loan shared skin failed at '+width+': '+bad.join(','));
       check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'loan editor creates page overflow at '+width);
     }
@@ -4621,7 +4639,7 @@ const JOURNEYS = {
     check(JSON.stringify(await page.locator('#assetsAllocation [role="img"]').evaluateAll(es=>es.map(e=>e.getAttribute('aria-label')))) !== JSON.stringify(labels), 'summary redraw left composition labels stale');
     check(JSON.stringify(await page.locator('#netWorthPanel tbody td').allTextContents()) !== table, 'funding redraw left cash figures stale');
     await page.evaluate(async()=>{
-      const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];s.state.debts=[];s.state.accounts=[];
+      const s=await import('/src/state.js');s.state.assets=[];s.state.properties=[];s.state.debts=[];s.state.accounts=[];s.state.purchases=[];   // nothing owned: a home being bought too
       (await import('/src/components/networth.js')).renderNetWorthPage();
     });
     await go(page, 'networth');
@@ -4744,12 +4762,8 @@ const JOURNEYS = {
     await card.locator('[data-prop-edit]').click();
     const tab = async (name, section) => {
       const button = card.locator('[data-prop-tab][data-tab="' + name + '"]');
-      const picker = card.locator('.prop-tabs select');
-      // A card redraw starts with buttons; the next picker pass can hide them. Wait for that
-      // decoration before choosing a control, so an early visibility read cannot select a disappearing tab.
-      await picker.waitFor({state:'attached'});
-      if(await picker.isVisible()) await picker.selectOption({label:(await button.textContent()).trim()});
-      else await button.click();
+      // A property's tabs are chips (November 2026), never a dropdown.
+      await button.click();
       const toggle = card.locator('[data-prop-section-toggle="' + section + '"]');
       if(await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
     };
@@ -6920,10 +6934,18 @@ const JOURNEYS = {
     const held = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.purchases.find(x => x.what === '3 Example Ave'); return (s.assets.find(a => a.id === p.depositAssetId) || {}).amount; });
     check(held === 60000, 'the deposit is not held in net worth: ' + held);
     // A cost, paid.
-    const row = page.locator(cardSel + ' .buy-cost').nth(1);
+    // A cost is a line that opens to edit it (November 2026): open the conveyancer, its amount, then Paid.
+    const row = page.locator(cardSel + ' details.buy-cost').nth(1);
+    await row.locator('summary').click();
     const amount = row.locator('[data-cost-field="amount"]');
     await amount.fill('1500'); await amount.press('Tab');
-    await page.locator(cardSel + ' .buy-cost').nth(1).locator('[data-cost-field="paid"]').check();
+    await page.locator(cardSel + ' details.buy-cost').nth(1).locator('label.switch-row:has([data-cost-field="paid"])').click();
+    // A lender's fee added to the loan: one tap to add it, its amount, Added to the loan — borrowed, not cash.
+    await page.locator(cardSel + ' [data-buy-cost-quick="Low deposit fee / LMI"]').click();
+    const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
+    await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
+    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="financed"][value="loan"])').last().click();
+    check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
     check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {
@@ -6934,8 +6956,9 @@ const JOURNEYS = {
     await page.locator(cardSel + ' [data-buy-settled]').click();
     await page.waitForFunction(async () => !(await import('/src/state.js')).state.purchases.some(x => x.what === '3 Example Ave'), null, { timeout: 5000 }).catch(() => {});
     const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '3 Example Ave');
-      return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
-    check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 480000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
+      return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, borrowing: p.loans[0] && p.loans[0].borrowingCosts, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
+    // The fee added to the loan is in its balance, and with the loan's other fees in its borrowing costs.
+    check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 489000 && after.borrowing >= 9000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
   },
   async mergeall(page){
     await quiet(page);

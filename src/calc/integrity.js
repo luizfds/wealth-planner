@@ -63,6 +63,30 @@ export function integrityChecks(st, today){
       detail: names(d2) + " — same name, amount and frequency. Separate rents (a granny flat, parking) with their own names are fine.", where: { page: "properties" } });
   });
 
+  // ---- The same row at two amounts: one row edited on two devices and kept twice by a sync merge (calc/syncmerge.js
+  // matches them by what they are now, but a household merged before has them). Same name, frequency and whose. ----
+  var split = [];
+  var twins = function(list, where){
+    var byKey = {};
+    (list || []).forEach(function(r){
+      if(!r || workedOut(r) || !String(r.what || "").trim()) return;
+      var k = [String(r.what).trim().toLowerCase(), r.freq || "", r.person || ""].join("|");
+      (byKey[k] = byKey[k] || []).push(r);
+    });
+    Object.keys(byKey).forEach(function(k){
+      var rows = byKey[k];
+      if(rows.length > 1 && !rows.every(function(r){ return same(r.amount, rows[0].amount); }))
+        split.push({ where: where, text: "“" + rows[0].what + "” " + rows.map(function(r){ return money(r.amount); }).join(" and ") + " " + String(rows[0].freq || "").toLowerCase() });
+    });
+  };
+  twins(st.income, "income"); twins(st.shared, "budget");
+  Object.keys(st.home || {}).forEach(function(sc){ twins(st.home[sc], "budget"); });
+  (st.properties || []).forEach(function(p){ twins(p.income, "property"); twins(p.expenses, "property"); });
+  if(split.length) add({ id: "int-split-rows", severity: "warn", confidence: "possible", title: plural(split.length, "line") + " that may be one line twice, at two amounts",
+    detail: split.slice(0, 3).map(function(x){ return x.text; }).join("; ") + (split.length > 3 ? "; and " + (split.length - 3) + " more" : "") +
+      ". Often one line edited on two devices and kept twice by a sync — both are counted. If it's one, delete the one that's out of date.",
+    where: split[0].where === "property" ? { page: "properties" } : { page: "expenses", sub: split[0].where === "income" ? "income" : "budget", label: split[0].where === "income" ? "Open income" : "Open the budget" } });
+
   // ---- A scenario's purchase plan against the home actually being bought (neither is changed) ----
   var plans = st.purchase || {};
   var enabled = Object.keys(plans).filter(function(n){ return plans[n] && plans[n].enabled && num(plans[n].price) > 0; });

@@ -12,6 +12,7 @@ var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
   { key: "glance", label: "At a glance (the four figures at the top)", group: "strip" },
+  { key: "standing", label: "Where you stand (cash low point, a normal month, runway, rates, what's next)", group: "strip" },
   { key: "autopay", label: "Automatic payments to confirm (on the day)", group: "strip" },
   { key: "lowbal", label: "Balance ahead (when an account nears its buffer)", group: "strip" },
   // Needs you is the bills due this week and the to-dos in one card (it was "Bills — next 2 weeks" and "To do").

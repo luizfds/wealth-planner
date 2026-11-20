@@ -139,6 +139,9 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   timeline (a repayment no longer needed, or interest-only interest not charged, is cash kept) at 1/5/10 years —
   interest saved, balance, cash to hand, payoff sooner; on an investment loan the deduction lost (owners' rate, shown and
   editable, `strategyDefaults` in calc/savingsoffset.js). It starts from the cash held less the emergency reserve.
+- **Where you stand** (#457, `calc/standing.js`, `standingCardHtml` in components/home.js): Today's five decision
+  figures, each from a calculation done elsewhere (liquidity, scenarioTotals, emergencyFund, rateStress, Needs you's
+  to-dos), linked to where it's worked out, "—" when it can't be known.
 - **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
   Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
   `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts

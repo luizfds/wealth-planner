@@ -10,10 +10,14 @@ export var goalOpen = {};
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function ym(s){ return s ? MONTHS[Number(s.slice(5, 7)) - 1] + " " + s.slice(0, 4) : ""; }
 function money(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n || 0)); }
-var STATUS = { done: ["Reached", "ok"], "on-track": ["On track", "ok"], possible: ["Within the plan", "ok"], behind: ["Behind", "warn"], moving: ["Growing", ""], open: ["No date", ""] };
+var STATUS = { done: ["Reached", "ok"], "on-track": ["On track", "ok"], possible: ["Within the plan", "ok"], behind: ["Behind", "warn"], moving: ["Growing", ""], open: ["No date", ""],
+  untracked: ["Not tracked yet", "warn"] };
 
 function goalLine(g){
   var bits = [];
+  // #456: no balance to measure — said, not counted as $0 saved.
+  if(g.tracked === false) return !(g.accounts || []).length ? "No account chosen to measure it on — open it and tick the accounts it's saved in."
+    : g.accounts.join(", ") + (g.accounts.length === 1 ? " has" : " have") + " no balance yet — record one and its progress shows here.";
   if(g.status === "done"){
     bits.push(g.over > 0 ? "Target reached — " + money(g.over) + " over." : "Target reached.");
     var to = g.surplusTo;
@@ -35,8 +39,9 @@ export function goalCardHtml(g, i, opts){
   var open = !opts.compact && goalOpen[g.id];
   var head = '<div class="sgl-head"><button type="button" class="sgl-name" data-goal-toggle="' + escapeAttr(g.id) + '"' + (opts.compact ? ' data-goal-go' : '') + ' aria-expanded="' + !!open + '">' + escapeAttr(g.name) + '</button>' +
     '<span class="sgl-status ' + st[1] + '">' + st[0] + '</span></div>' +
-    '<div class="sgl-amounts"><b>' + money(g.current) + '</b><span>of ' + money(g.target) + (g.by ? ' by ' + ym(g.by) : '') + ' · ' + (g.over > 0 && g.times >= 1.1 ? g.times + '× the target' : fmtPercent0.format(g.pct)) + '</span></div>' +
-    '<div class="sgl-bar"><i style="width:' + Math.max(1, Math.round(g.pct * 100)) + '%"></i></div>';
+    (g.tracked === false ? '<div class="sgl-amounts"><b>—</b><span>of ' + money(g.target) + (g.by ? ' by ' + ym(g.by) : '') + ' · not known yet</span></div><div class="sgl-bar is-unknown"></div>'
+    : '<div class="sgl-amounts"><b>' + money(g.current) + '</b><span>of ' + money(g.target) + (g.by ? ' by ' + ym(g.by) : '') + ' · ' + (g.over > 0 && g.times >= 1.1 ? g.times + '× the target' : fmtPercent0.format(g.pct)) + '</span></div>' +
+    '<div class="sgl-bar"><i style="width:' + Math.max(1, Math.round(g.pct * 100)) + '%"></i></div>');
   if(opts.compact) return '<div class="sgl sgl-compact">' + head + (g.over > 0 && g.surplusTo ? '<p class="sgl-hint">' + escapeAttr(g.surplusTo.kind === "goal"
       ? money(g.over) + " over — " + (g.surplusTo.finishes ? money(g.surplusTo.amount) + " of it would finish " : "it could go toward ") + g.surplusTo.name
       : money(g.over) + " over — in " + g.surplusTo.name + " it would cut the loan's interest") + '</p>' : '') + '</div>';

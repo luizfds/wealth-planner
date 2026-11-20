@@ -816,3 +816,20 @@
 .liq-table ul{ margin:4px 0 8px; padding-left:18px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .liq-k{ margin:10px 0 0; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; }
 .liq-sub{ margin:8px 0 6px; font-size:var(--fs-md); font-weight:600; }
+
+/* #457: Where you stand — at most five decision figures, each a way to where it's worked out. */
+.home-standing{ display:flex; flex-direction:column; gap:10px; }
+.hs-list{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px; }
+.hs-fig{ width:100%; height:100%; min-height:44px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 12px; border:0; border-radius:14px;
+  background: var(--paper-sunken); color: var(--ink); font:inherit; text-align:left; cursor:pointer; }
+.hs-fig:hover{ background: color-mix(in srgb, var(--brass) 8%, var(--paper-sunken)); }
+.hs-fig:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+.hs-k{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
+.hs-v{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; font-variant-numeric: tabular-nums; }
+.hs-v small{ font-size:var(--fs-sm); color: var(--ink-soft); font-weight:600; margin-left:2px; }
+.hs-sub{ font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.35; }
+.hs-fig.is-good .hs-v{ color: var(--good-ink); }
+.hs-fig.is-warn .hs-v{ color: var(--warn-ink); }
+.hs-fig.is-bad .hs-v{ color: var(--bad-ink); }
+.hs-fig.is-unknown .hs-v{ color: var(--ink-soft); }
+@media (max-width:480px){ .hs-list{ grid-template-columns: 1fr 1fr; } .hs-list > li:last-child:nth-child(odd){ grid-column: 1 / -1; } }

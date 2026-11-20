@@ -18,6 +18,10 @@ export function mergeDialogHtml(conflicts, where, savedAt, who){
   return '<h2>' + (who ? 'You and ' + escapeAttr(who) + ' changed' : 'Both devices changed') + ' the same ' + (conflicts.length === 1 ? "thing" : conflicts.length + " things") + '</h2>' +
     '<p class="ledger-note" style="margin:0 0 10px">Everything else from the copy in ' + escapeAttr(where || "the other copy") + (savedAt ? ' (' + escapeAttr(savedAt) + ')' : '') +
     ' and from this device is combined. Pick which to keep here:</p>' +
+    // The owner: with dozens of things to choose, a way to take one side for all of them — then change any one back.
+    (conflicts.length > 1 ? '<div class="merge-bulk" role="group" aria-label="Choose for all ' + conflicts.length + '">' +
+      '<button type="button" class="btn btn-sm" data-merge-all="ours">Keep all from this device</button>' +
+      '<button type="button" class="btn btn-sm" data-merge-all="theirs">Keep all from ' + escapeAttr(who ? who + "'s device" : (where || "the other copy")) + '</button></div>' : '') +
     '<div class="merge-list">' + items + '</div>' +
     '<form method="dialog" class="merge-actions"><button class="btn btn-sm btn-ghost" value="cancel">Not now</button><button class="btn btn-sm btn-primary" value="ok" data-merge-ok>Combine</button></form>';
 }

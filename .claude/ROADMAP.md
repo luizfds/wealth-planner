@@ -5696,3 +5696,10 @@ line. The card went; it stays only as the empty state (what to enter first) unti
 opens Accounts, and says where its figure comes from — "Recorded balances", or how many need updating (the card's
 line; the journey assessmentux reads it). A past period says it stays as of today
 in Today's period note (the journeys periodheader and homedates read it there).
+
+## Combining two copies: keep all from one side (November 2026)
+
+`[x]` The owner, combining with Dropbox: 45 things changed on both devices, a choice each. The question now has "Keep
+all from this device" and "Keep all from <the other copy>" — every choice ticked to that side, any one still changeable
+— and Combine stays at the dialog's foot however long the list. A list or a group of settings is said in words ("3
+rows", "Set"), never as raw data. `openMergeDialog` (safekeepingwiring.js); journey `mergeall`.

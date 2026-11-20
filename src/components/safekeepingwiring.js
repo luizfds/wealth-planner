@@ -130,17 +130,34 @@ function mergeSync(r){
   var otherWho = r.fromThisDevice ? "an earlier session here" : theirs.savedByName ? theirs.savedByName + "'s device" : "another one";
   showPersistentToast("This device and " + otherWho + " both changed " +
     (first.conflicts.length === 1 ? "the same thing" : first.conflicts.length + " of the same things") + ". Everything else combines by itself.", "Choose", function(){
-    var d = document.getElementById("mergeDialog");
-    if(!d){ d = document.createElement("dialog"); d.id = "mergeDialog"; d.className = "shortcuts-dialog merge-dialog"; d.setAttribute("aria-label", "Combine two copies"); document.body.appendChild(d); }
-    d.innerHTML = mergeDialogHtml(first.conflicts, r.folder, whenText(r.savedAt), theirs.savedByName);
-    d.onclose = function(){
-      if(d.returnValue !== "ok") return;
-      var choices = {};
-      d.querySelectorAll("input[data-merge-id]:checked").forEach(function(i){ choices[i.getAttribute("data-merge-id")] = i.value; });
+    openMergeDialog(first.conflicts, r.folder, whenText(r.savedAt), theirs.savedByName, function(choices){
       apply(mergeStates(base, ours(), JSON.parse(theirsText), choices));
-    };
-    d.showModal();
+    });
   });
+}
+// The question itself: one choice per thing changed on both sides, and a way to keep one side for all of them.
+// `onChoose(choices)` runs on Combine, with { id: "ours"|"theirs" }.
+export function openMergeDialog(conflicts, folder, savedAt, who, onChoose){
+  var d = document.getElementById("mergeDialog");
+  if(!d){
+    d = document.createElement("dialog"); d.id = "mergeDialog"; d.className = "shortcuts-dialog merge-dialog"; d.setAttribute("aria-label", "Combine two copies"); document.body.appendChild(d);
+    // Keep all from one side: ticks that side for every choice, which can still be changed one by one.
+    d.addEventListener("click", function(e){
+      var all = e.target.closest("[data-merge-all]");
+      if(!all) return;
+      var side = all.getAttribute("data-merge-all");
+      d.querySelectorAll('input[data-merge-id][value="' + side + '"]').forEach(function(i){ i.checked = true; });
+      d.querySelectorAll("[data-merge-all]").forEach(function(btn){ btn.setAttribute("aria-pressed", String(btn === all)); });
+    });
+  }
+  d.innerHTML = mergeDialogHtml(conflicts, folder, savedAt, who);
+  d.onclose = function(){
+    if(d.returnValue !== "ok") return;
+    var choices = {};
+    d.querySelectorAll("input[data-merge-id]:checked").forEach(function(i){ choices[i.getAttribute("data-merge-id")] = i.value; });
+    onChoose(choices);
+  };
+  d.showModal();
 }
 // v3.139.0 (item 171): net worth keeps its own history — the day's figure as the app saves,
 // thinned as it ages. Recorded after a save, so it rides along with the next one.

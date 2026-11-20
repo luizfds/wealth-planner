@@ -62,6 +62,10 @@ test("edited here, deleted there: asked", () => {
   assert.equal(r.conflicts.length, 1);
   assert.equal(r.conflicts[0].theirs, undefined);
   assert.equal(valueText(r.conflicts[0].theirs, true), "Deleted");
+  // A list or a group of settings is said in words, never as raw data.
+  assert.equal(valueText([{ id: "a" }, { id: "b" }]), "2 rows");
+  assert.equal(valueText({ enabled: true, price: 500000 }), "Set");
+  assert.equal(valueText([]), "None");
   assert.equal(r.merged.transactions.length, 2);
   assert.equal(mergeStates(base(), o, t, { [r.conflicts[0].id]: "theirs" }).merged.transactions.length, 1);
 });

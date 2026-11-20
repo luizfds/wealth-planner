@@ -139,6 +139,8 @@ export function valueText(v, isRow){
   if(v === undefined) return isRow ? "Deleted" : "Not set";
   if(v === null || v === "") return "Blank";
   if(isRow && isObj(v)) return rowLabel(v) + (v.amount != null ? " · " + v.amount : "");
-  if(typeof v === "object") { var s = JSON.stringify(v); return s.length > 60 ? s.slice(0, 57) + "…" : s; }
+  // A list or a group of settings said in words, not as raw data (the owner saw `[{"id":…` in the question).
+  if(Array.isArray(v)) return v.length ? v.length + (v.length === 1 ? " row" : " rows") : "None";
+  if(typeof v === "object") return Object.keys(v).length ? "Set" : "Blank";
   return String(v);
 }

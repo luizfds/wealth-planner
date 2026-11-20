@@ -6872,6 +6872,34 @@ const JOURNEYS = {
   // "Paid" on a bill (the owner: logging the investment property's council rates meant hunting through Log spend's
   // line picker). From Today's Bills card: the bill, pre-filled — today, its amount, the account it's paid from — Save,
   // and it's logged against the property's line, on its Activity, and off the list. Money → Bills offers it too.
+  // The owner: dozens of things changed on both devices, and a choice each — keep one side for all of them in one tap,
+  // still able to change any one back, and Combine with what's ticked.
+  async mergeall(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const w = await import('/src/components/safekeepingwiring.js');
+      const conflicts = [
+        { id: 'accounts/id:a1/balance', top: 'accounts', row: { name: 'Everyday' }, field: 'balance', ours: 150, theirs: 175 },
+        { id: 'accounts/id:a2/balance', top: 'accounts', row: { name: 'Savings' }, field: 'balance', ours: 900, theirs: 950 },
+        { id: 'scenarios/id:s1/purchase', top: 'scenarios', row: { name: 'Buy a house' }, field: 'purchase', ours: { enabled: true, price: 500000 }, theirs: undefined }
+      ];
+      window.__mergeChoices = null;
+      w.openMergeDialog(conflicts, 'Dropbox', '', '', c => { window.__mergeChoices = c; });
+    });
+    const d = page.locator('#mergeDialog');
+    check(await d.isVisible(), 'the merge question did not open');
+    check(!(await d.innerText()).includes('{"'), 'a group of settings is shown as raw data');
+    await d.locator('[data-merge-all="theirs"]').click();
+    check(await d.locator('input[value="theirs"]:checked').count() === 3, 'keep all from Dropbox did not tick every choice');
+    check(await d.locator('[data-merge-all="theirs"]').getAttribute('aria-pressed') === 'true', 'the chosen side is not shown as chosen');
+    // One back to this device — a plan Dropbox's copy doesn't have.
+    await d.locator('input[name="merge-2"][value="ours"]').check();
+    await d.locator('[data-merge-ok]').click();
+    // The dialog's close event comes after the click: wait for what the app says, not a time.
+    await page.waitForFunction(() => window.__mergeChoices !== null, null, { timeout: 5000 }).catch(() => {});
+    const choices = await page.evaluate(() => window.__mergeChoices);
+    check(choices && choices['accounts/id:a1/balance'] === 'theirs' && choices['accounts/id:a2/balance'] === 'theirs' && choices['scenarios/id:s1/purchase'] === 'ours', 'Combine did not use what was ticked: ' + JSON.stringify(choices));
+  },
   async billpaid(page){
     await quiet(page);
     await page.evaluate(async () => {

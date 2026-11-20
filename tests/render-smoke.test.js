@@ -1614,6 +1614,10 @@ test("the merge question lists each thing changed on both devices, this device's
   assert.match(html, /value="ours" data-merge-id="accounts\/id:a1\/balance" checked/);
   assert.match(html, /Deleted/);
   assert.match(html, /data-merge-ok/);
+  // The owner: one side for all of them, in one tap.
+  assert.match(html, /data-merge-all="ours">Keep all from this device</);
+  assert.match(html, /data-merge-all="theirs">Keep all from Dropbox</);
+  assert.doesNotMatch(mergeDialogHtml([html.length && { id: "x", top: "accounts", row: { name: "A" }, field: "balance", ours: 1, theirs: 2 }], "Dropbox"), /data-merge-all/, "one choice needs no 'all'");
 });
 
 test("transfer accounts come grouped by kind, and a card paid from a loan gets a word", async function(){

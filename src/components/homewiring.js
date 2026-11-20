@@ -351,8 +351,9 @@ export function wireHomeSummary(){
     }
     var yrOpen = e.target.closest("[data-yr-open]");
     if(yrOpen){ followNotification(yrOpen); return; }
-    // #305: a To do row is the bell's item, followed the same way.
-    var todo = e.target.closest(".home-todo [data-notif-id]");
+    // #305: a To do row is the bell's item, followed the same way. Since Today's redesign the rows are buttons in Needs you
+    // (.home-todo-btn), not inside a .home-todo card — the old selector matched nothing and every to-do went nowhere.
+    var todo = e.target.closest(".home-todo-btn[data-notif-id], .home-todo [data-notif-id]");
     if(todo){ followNotification(todo); return; }
     var b = e.target.closest("[data-home-go]");
     if(!b) return;

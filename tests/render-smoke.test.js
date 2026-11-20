@@ -1135,6 +1135,12 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
     var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ id: "review:2026-09", title: "Review September 2026", page: "dashboard", sub: "review", severity: "warn" }] });
     assert.match(html, /<b class="home-big">\$105,000<\/b>/);
+    // Today opens in colour: net worth the hero with its line; the three under it say what they are by colour.
+    assert.match(html, /class="home-glance-tile is-hero" data-glance-go="nw"><svg class="home-glance-spark"[^>]*aria-hidden="true"/);
+    assert.match(html, /<span class="home-glance-chip">▲ \$5,000 since 1 Aug<\/span>/);
+    assert.match(html, /class="home-glance-tile (is-good|is-bad)" data-glance-go="month"/);
+    assert.match(html, /class="home-glance-tile is-warn" data-glance-go="needs"><span class="home-glance-k">Next bill<\/span><b>Phone<\/b>/);
+    assert.match(html, /class="home-glance-tile is-alert" data-glance-go="needs"><span class="home-glance-k">Needs you<\/span><b>2<\/b>/);
     assert.match(html, /\+\$5,000 since 1 Aug/);
     assert.match(html, /Recorded balances · as of 14 Oct(?: 2026)?/);
     assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);

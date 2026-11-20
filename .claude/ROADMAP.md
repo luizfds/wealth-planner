@@ -5676,3 +5676,15 @@ Not changed: Your month, planned (grouped by need/want, not category). Tests in 
 - Each item in Needs you and the bell has an icon for its kind — a bill a calendar, a month to review a tick, a loan a
   house, a property its building (`attentionIconHtml`, lib/attention.js) — in its label's colour: Urgent and Watch red,
   To do amber, Opportunity green, the rest quiet. Decorative (aria-hidden): the label and title say it.
+
+## Today opens in colour (November 2026)
+
+`[x]` The owner, after the colour PRs: still "meh". Three directions mocked on Today side by side (a bold hero, soft
+tints, a teal theme); the owner chose the bold one.
+- Net worth is the glance's hero: a blue-to-teal gradient, the figure at --fs-3xl, its change in a chip, and its line
+  (the same months as the change) drawn faintly behind it.
+- The three under it are solid tiles whose colour is what they say: the month green while money is left, red once it
+  isn't (slate when nothing's planned); the next bill amber (slate when none is due); Needs you rose while something
+  waits, green with a tick when clear. White on each is 5:1 or better; the tiles are the same in both themes.
+- Phone: the hero across, three tiles under it; under 360px two to a row with Needs you across both. Wide: the hero
+  beside the three, one row.

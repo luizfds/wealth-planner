@@ -5218,7 +5218,7 @@ const JOURNEYS = {
         await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), colorScheme);
         const bad = await card.locator('.field-control, .inline-name').evaluateAll((es,options) => es.flatMap(e => {
           const st = getComputedStyle(e), r = e.getBoundingClientRect();
-          return st.borderRadius !== '6px' || r.height < 44 || r.right > options.width + 1 || r.left < -1 ||
+          return st.borderRadius !== (e.classList.contains('fbox-control') ? '14px' : '6px') || r.height < 44 || r.right > options.width + 1 || r.left < -1 ||
             (e.type === 'number' && (!e.labels.length || parseFloat(st.fontSize) < 16)) ||
             (e.type === 'date' && (st.colorScheme !== options.colorScheme || r.width < 150)) ? [e.className] : [];
         }),{width,colorScheme});
@@ -5251,7 +5251,7 @@ const JOURNEYS = {
           await page.emulateMedia({colorScheme});
           const bad = await page.locator(selector).evaluateAll((es, width) => es.filter(e => e.getClientRects().length).flatMap(e => {
             const st = getComputedStyle(e), r = e.getBoundingClientRect();
-            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== '6px' || r.height < 44 ||
+            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== (e.classList.contains('fbox-control') ? '14px' : '6px') || r.height < 44 ||
               r.left < -1 || r.right > width + 1 || (e.type === 'number' && parseFloat(st.fontSize) < 16) ||
               (e.type === 'date' && (!st.colorScheme.includes('dark') || r.width < 150)) ||
               (e.matches('[data-pa-line]') && r.width < 120) ? [e.outerHTML.slice(0,140)] : [];
@@ -5328,7 +5328,7 @@ const JOURNEYS = {
           await page.emulateMedia({colorScheme});
           const bad = await page.locator(selector).evaluateAll((es, viewportWidth) => es.filter(e => e.getClientRects().length).flatMap(e => {
             const st = getComputedStyle(e), r = e.getBoundingClientRect();
-            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== '6px' || r.height < 44 ||
+            return !e.classList.contains('field-control') || !e.labels.length || st.borderRadius !== (e.classList.contains('fbox-control') ? '14px' : '6px') || r.height < 44 ||
               r.left < -1 || r.right > viewportWidth + 1 ||
               (e.type === 'number' && parseFloat(st.fontSize) < 16) ||
               (e.type === 'date' && !st.colorScheme.includes('dark')) ? [e.outerHTML.slice(0,140)] : [];
@@ -5823,8 +5823,10 @@ const JOURNEYS = {
     const inspect = async selector => {
       const bad = await page.locator(selector).evaluateAll(els => els.filter(e => e.getClientRects().length).flatMap(e => {
         const st = getComputedStyle(e), rect = e.getBoundingClientRect();
-        return !e.classList.contains('field-control') || st.borderRadius !== '6px' ||
-          rect.height < (matchMedia('(pointer:coarse)').matches || innerWidth <= 880 ? 44 : 36) ||
+        // A box (fbox-control, the acquisition costs since November 2026) is 14px round and 58px tall (52px on a desktop).
+        const isBox = e.classList.contains('fbox-control');
+        return !e.classList.contains('field-control') || st.borderRadius !== (isBox ? '14px' : '6px') ||
+          rect.height + 0.01 < (isBox ? (innerWidth <= 880 ? 58 : 52) : (matchMedia('(pointer:coarse)').matches || innerWidth <= 880 ? 44 : 36)) ||
           rect.right > innerWidth + 1 || rect.left < -1 ||
           (e.matches(".dep-sched-cw, .dep-sched-plant") && innerWidth <= 480 && rect.width < 90) ? [e.className] : [];
       }));

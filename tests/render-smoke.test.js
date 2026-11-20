@@ -1375,6 +1375,23 @@ test("Property → rent panel: the statement form and the year's statements", as
   assert.match(html, /Log a property manager statement/);
   assert.match(html, /data-as="waterRates"/);
   assert.doesNotMatch(html, /NaN|undefined/);
+  // November 2026: amounts are money boxes, grouped as money in and paid out of it.
+  assert.match(html, /<input type="text" id="as-rent-p1" class="field-control fbox-control has-pre"[^>]*data-as="rent"[^>]*data-money/);
+  assert.match(html, /<div class="fsec span2">Money in<\/div>[\s\S]*<div class="fsec span2">Paid out of it<\/div>/);
+});
+
+test("Property → rent panel: a deleted account stays itself, and amounts read with their separators", async function(){
+  const { rentPanelHtml, agentStatementFormValues } = await import("../src/components/properties.js");
+  const keep = { accounts: state.accounts };
+  try {
+    state.accounts = [{ id: "a1", name: "Bank One" }];
+    var html = rentPanelHtml({ id: "p1", what: "1 Example St", kind: "IP", income: [{ what: "Rent", amount: 500, freq: "Weekly", account: "Old account" }], expenses: [] }, "2026-09-01");
+    assert.match(html, /<option value="Old account" selected>Old account \(deleted\)<\/option>/);
+    var fields = { date: "2026-09-01", rent: "2,400", water: "", fees: "$184.80", waterRates: "1 000", otherAmount: "30", otherLine: "x", account: "Bank One" };
+    var panel = { querySelector: function(sel){ var k = /data-as="([^"]+)"/.exec(sel)[1]; return { value: fields[k] }; } };
+    var v = agentStatementFormValues(panel);
+    assert.deepEqual([v.rent, v.fees, v.waterRates, v.others[0].amount], [2400, 184.8, 1000, 30]);
+  } finally { Object.assign(state, keep); }
 });
 
 // v3.209.0 (item 241): an investment property's year so far, actual beside the plan to date.

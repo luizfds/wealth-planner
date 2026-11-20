@@ -5744,6 +5744,9 @@ see how to change its name or settlement date (they were in "The purchase", fold
 `[~]` The owner: forms aren't set in stone — make them beautiful and simpler. Of three styles mocked on a loan, the
 owner chose B (floating labels in soft filled boxes, choices as pills, on/off as switches) for editing, and C (one
 question at a time) for adding. Property first: Value & purchase and the loan, then its costs and the statement.
+Shipped so far: Value & purchase and the loan (#450); a property's acquisition costs and the property manager statement
+(money in, then what was paid out of it; a deleted account offered as itself). Still to come: one question at a time
+for adding a property, a loan and an account.
 
 ## Buying a home: costs as a lender lists them (November 2026)
 

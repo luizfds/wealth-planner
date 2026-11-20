@@ -5759,7 +5759,12 @@ const JOURNEYS = {
     check(await st(page, '(state.accounts || []).length') === accounts + 1, '+ Add account in the empty state added no account');
     await go(page, 'tax', 'data-tax-sub', 'people');
     await click(page, '#page-tax .empty-state [data-empty-add="#addPersonBtn"]');
-    await answerDialog(page, true, 'Alex');
+    // November 2026: a person is added one question at a time — a name, then past their pay and date of birth.
+    const personFlow = page.locator('#addFlowDialog');
+    await personFlow.waitFor();
+    await personFlow.locator('.af-big').fill('Alex'); await personFlow.locator('.af-next').click();
+    await personFlow.locator('.af-next').click(); await personFlow.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
     await until(page, () => /Alex/.test(document.getElementById('page-tax').innerText));
     check(/Alex/.test(await page.locator('#page-tax').innerText()), '+ Add person in the empty state added no one');
     // A scroll: the trim card's "budget lines" are above it, and the link brings them into view.
@@ -6347,12 +6352,12 @@ const JOURNEYS = {
     await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
     await page.locator('#mRowBackdrop').click({position:{x:2,y:2}}); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     const before=await stored(page,'state.shared.length');
+    // November 2026: a budget line is added one question at a time; closed with nothing answered, nothing is added.
     await page.locator('[data-add="shared"]:visible').first().click();
-    await page.locator('.m-row.open[role="dialog"]').waitFor();
-    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.locator('#addFlowDialog[open]').waitFor();
     await page.keyboard.press('Escape');
-    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
-    check(await stored(page,'state.shared.length')===before,'Closing an untouched new row kept it');
+    await page.waitForFunction(()=>!document.querySelector('#addFlowDialog[open]'));
+    check(await stored(page,'state.shared.length')===before,'Closing an untouched new line kept it');
     check(await page.evaluate(()=>document.activeElement.matches('[data-add="shared"]')),'Discard did not restore the Add opener');
     await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
     await row.locator('.row-del').click(); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
@@ -6985,6 +6990,27 @@ const JOURNEYS = {
     await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
     const card = await page.evaluate(async () => { const s = (await import('/src/state.js')).state, a = s.accounts.find(x => x.name === 'Bank One Card'); const debt = a && s.debts.find(x => 'debt:' + x.id === a.link); return a && { type: a.type, owed: debt && debt.balance }; });
     check(card && card.type === 'credit' && card.owed === 1250, 'the card is not what was answered: ' + JSON.stringify(card));
+    // A budget line: what it's for, how much and how often, the account — made with them, not opened blank.
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    const lines = await st(page, 'state.shared.length');
+    await page.locator('[data-add="shared"]:visible').first().click();
+    await d.waitFor();
+    await d.locator('.af-big').fill('Example power'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('300'); await d.locator('.pill:has(input[value="Quarterly"])').click(); await d.locator('.af-next').click();
+    await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    const line = await page.evaluate(async () => { const r = (await import('/src/state.js')).state.shared.slice(-1)[0]; return [r.what, r.amount, r.freq]; });
+    check(await st(page, 'state.shared.length') === lines + 1 && JSON.stringify(line) === JSON.stringify(['Example power', 300, 'Quarterly']), 'the budget line is not what was answered: ' + JSON.stringify(line));
+    // A holding: its code, units, the average paid.
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    await page.locator('[data-add="holding"]:visible').first().click();
+    await d.waitFor();
+    await d.locator('.af-big').fill('vas'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('25'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('90.50'); await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    const held = await page.evaluate(async () => { const r = (await import('/src/state.js')).state.assets.slice(-1)[0]; return [r.symbol, r.category, r.quantity, r.avgCost]; });
+    check(JSON.stringify(held) === JSON.stringify(['VAS', 'Shares', 25, 90.5]), 'the holding is not what was answered: ' + JSON.stringify(held));
   },
   async buyinghome(page){
     await quiet(page);

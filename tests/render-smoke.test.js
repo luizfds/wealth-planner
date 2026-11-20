@@ -1713,6 +1713,16 @@ test("adding one question at a time: every question draws, typed answers escaped
   assert.match(addFlowHtml(ui("account", {}, 0, { anyLoan: true })), /value="offset" data-af="kind" disabled>[\s\S]*?Every loan has its offset account already/);
   assert.match(addFlowHtml(ui("account", {}, 0)), /Add a home loan first/);
   assert.match(addFlowHtml(ui("account", { kind: "credit", name: "Card" }, 2)), /What do you owe on it\?[\s\S]*>Add account<\/button>/);
+  // A person, a budget line, a holding (November 2026).
+  for(const [flow, a, n] of [["person", { name: "Sam <b>", amount: "90000", freq: "Yearly" }, 3], ["expense", { name: "Power", amount: "300", freq: "Quarterly" }, 3], ["holding", { symbol: "vas", units: "10", cost: "90" }, 3]]){
+    for(let i = 0; i < n; i++){
+      const html = addFlowHtml(ui(flow, a, i, { people: ["Alex", "Sam"], accounts: ["Bank One"], category: "Utilities" }));
+      assert.doesNotMatch(html, /NaN|undefined|Sam <b>/, flow + " " + i);
+    }
+  }
+  assert.match(addFlowHtml(ui("person", { name: "Sam" }, 1)), /What's Sam's pay, before tax\?[\s\S]*value="Yearly" checked data-af="freq"/);
+  assert.match(addFlowHtml(ui("expense", {}, 0, { category: "Utilities" })), /It goes under Utilities\./);
+  assert.match(addFlowHtml(ui("holding", { symbol: "vas" }, 2, { people: ["Alex", "Sam"] })), /name="af-person" value="Sam"[\s\S]*>Add VAS<\/button>/);
   assert.match(addFlowHtml(ui("property", {}, 0, { error: "Choose one to go on." })), /<p class="af-error field-error" id="addFlowError" aria-live="polite">Choose one to go on\.<\/p>/);
 });
 

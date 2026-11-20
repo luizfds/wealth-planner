@@ -56,7 +56,34 @@ function box(key, label, value, o){
 }
 
 // What a question asks: { title, sub, body } — body the control(s).
+var FREQ_PILLS = function(id, value, list){ return pillsHtml({ id: id, label: "How often", name: id, value: value, attrs: { "data-af": "freq" },
+  options: list.map(function(f){ return { value: f, label: f }; }) }); };
 function questionFor(flow, step, a, ui){
+  // November 2026: a person, a budget line, a share holding.
+  if(flow === "person"){
+    if(step === "name") return { title: "What's their name?", sub: "As you'd say it — it names their pay, their tax and their super.", body: bigHtml("name", a.name, { placeholder: "e.g. Sam" }) };
+    if(step === "pay") return { title: "What's " + (a.name || "their") + "'s pay, before tax?", sub: "Their salary or wage. Tax, the Medicare levy and super are worked out from it. Skip it if they don't earn.",
+      body: bigHtml("amount", a.amount, { money: true, pre: "$", placeholder: "0" }) + '<div class="af-gap">' + FREQ_PILLS("af-freq", a.freq || "Yearly", ["Yearly", "Monthly", "Fortnightly", "Weekly"]) + '</div>' };
+    return { title: "When were they born?", sub: "For super's preservation age, the pension age and tax offsets. Skip it if you'd rather not say.",
+      body: '<div class="fgrid">' + box("dob", "Date of birth", a.dob, { type: "date", wide: true }) + '</div>' };
+  }
+  if(flow === "expense"){
+    if(step === "name") return { title: "What's it for?", sub: ui.category ? "It goes under " + ui.category + "." : "A bill, a subscription, the groceries.", body: bigHtml("name", a.name, { placeholder: "e.g. Electricity" }) };
+    if(step === "amountFreq") return { title: "How much, and how often?", sub: "What a bill usually comes to — the budget spreads it across the month.",
+      body: bigHtml("amount", a.amount, { money: true, pre: "$", placeholder: "0" }) + '<div class="af-gap">' + FREQ_PILLS("af-freq", a.freq || "Monthly", ["Weekly", "Fortnightly", "Monthly", "Quarterly", "Yearly"]) + '</div>' };
+    var opts = [{ value: "", label: "Not said" }].concat((ui.accounts || []).map(function(n){ return { value: n, label: n }; }));
+    return { title: "Which account does it come out of?", sub: "So a statement's payment matches it. Skip it if it varies.",
+      body: '<div class="fgrid">' + box("account", "Account", a.account || "", { type: "select", options: opts, wide: true }) + '</div>' };
+  }
+  if(flow === "holding"){
+    if(step === "symbol") return { title: "What's its code?", sub: "The code it trades under on the ASX — VAS, BHP, IOZ.", body: bigHtml("symbol", a.symbol, { placeholder: "e.g. VAS" }) };
+    if(step === "units") return { title: "How many units?", sub: "From your broker's holdings page.", body: bigHtml("units", a.units, { number: true, unit: "units", placeholder: "0" }) };
+    var people = ui.people || [];
+    return { title: "What did you pay for each, on average?", sub: "For its gain since you bought it. Skip it if you'd rather add the trades later.",
+      body: bigHtml("cost", a.cost, { money: true, pre: "$", placeholder: "0.00" }) +
+        (people.length > 1 ? '<div class="af-gap">' + pillsHtml({ id: "af-person", label: "Whose", name: "af-person", value: a.person || "", attrs: { "data-af": "person" },
+          options: [{ value: "", label: "Joint" }].concat(people.map(function(n){ return { value: n, label: n }; })) }) + '</div>' : "") };
+  }
   if(flow === "account"){
     if(step === "kind"){
       var noLoan = ui.loans.length ? null : { offset: ui.anyLoan ? "Every loan has its offset account already" : "Add a home loan first — an offset sits against one" };
@@ -131,6 +158,13 @@ function soFarHtml(flow, step, a){
   if(step === "kind" || step === "check") return "";
   var lines = [];
   var add = function(k, v){ if(has(v)) lines.push('<div><span>' + k + '</span><b>' + escapeAttr(v) + '</b></div>'); };
+  if(flow === "person" || flow === "expense" || flow === "holding"){
+    if(step !== "name") add("Name", a.name);
+    if(step !== "symbol") add("Code", a.symbol ? String(a.symbol).toUpperCase() : "");
+    if(step !== "units" && has(a.units)) add("Units", a.units);
+    if(step !== "pay" && step !== "amountFreq" && has(a.amount)) add(flow === "person" ? "Pay" : "Amount", money(a.amount) + " " + String(a.freq || "").toLowerCase());
+    return lines.length ? '<div class="af-ans">' + lines.join("") + '</div>' : "";
+  }
   if(flow === "account") add("Kind", (ACCOUNT_KINDS.find(function(k){ return k.value === a.kind; }) || {}).title);
   else add("Kind", (PROPERTY_KINDS.find(function(k){ return k.value === a.kind; }) || {}).title);
   if(step !== "name") add("Name", a.name);
@@ -150,10 +184,14 @@ export function addFlowHtml(ui){
   var isLoan = /^loan[A-Z]/.test(step), loanSteps = steps.filter(function(s){ return /^loan[A-Z]/.test(s); });
   var counted = steps.filter(function(s){ return s !== "check" && !/^loan[A-Z]/.test(s); }), n = counted.length, at = counted.indexOf(step);
   var last = i === steps.length - 1;
-  var heading = ui.flow === "account" ? (has(a.name) && step !== "name" ? a.name : "New account")
+  var newOf = { person: "New person", expense: "New budget line", holding: "New holding" }[ui.flow];
+  var heading = newOf ? (ui.flow === "holding" ? (has(a.symbol) && step !== "symbol" ? String(a.symbol).toUpperCase() : newOf) : has(a.name) && step !== "name" ? a.name : newOf)
+    : ui.flow === "account" ? (has(a.name) && step !== "name" ? a.name : "New account")
     : (has(a.name) && step !== "name" ? a.name : a.kind === "buying" ? "Buying a home" : "New property");
   var live = liveLine(step, a, function(x){ return fmtCurrency0.format(x); });
-  var nextLabel = last ? (ui.flow === "account" ? "Add account" : a.kind === "buying" ? "Add the purchase" : "Add " + (a.name || "property")) : ui.returnToCheck ? "Done" : "Next";
+  var nextLabel = last ? (ui.flow === "account" ? "Add account" : ui.flow === "holding" ? "Add " + (String(a.symbol || "").toUpperCase() || "holding") :
+    ui.flow === "person" || ui.flow === "expense" ? "Add " + (a.name || (ui.flow === "person" ? "person" : "line")) :
+    a.kind === "buying" ? "Add the purchase" : "Add " + (a.name || "property")) : ui.returnToCheck ? "Done" : "Next";
   return '<div class="af-top"><span class="af-what">' + escapeAttr(heading) + '</span><button type="button" class="af-x" data-af-close aria-label="Close">✕</button></div>' +
     '<div class="af-prog" aria-hidden="true">' + (isLoan ? loanSteps : counted).map(function(s, k){
       return '<i' + (k <= (isLoan ? loanSteps.indexOf(step) : at === -1 ? n - 1 : at) ? ' class="on"' : '') + '></i>'; }).join("") + '</div>' +

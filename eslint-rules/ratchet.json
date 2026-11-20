@@ -121,7 +121,7 @@
  },
  "src/components/taxwiring.js": {
   "persist": 12,
-  "stateWrites": 10
+  "stateWrites": 9
  },
  "src/lib/activity.js": {
   "persist": 0,

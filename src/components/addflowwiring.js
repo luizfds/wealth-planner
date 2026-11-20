@@ -5,7 +5,8 @@
 // and commits it. Closing with something answered asks first. Enter is Next; Escape is Close.
 import { state, commit, genId } from "../state.js";
 import { recalcComputedItems } from "../calc/engine.js";
-import { flowSteps, stepNeeds, liveLine, addPropertyFromAnswers, addPurchaseFromAnswers, addAccountFromAnswers } from "../calc/addflow.js";
+import { flowSteps, stepNeeds, liveLine, addPropertyFromAnswers, addPurchaseFromAnswers, addAccountFromAnswers, addPersonFromAnswers, expenseFieldsFromAnswers, addHoldingFromAnswers } from "../calc/addflow.js";
+import { getTaxPeople } from "../calc/tax.js";
 import { purchasePlans } from "../calc/purchase.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { confirmDialog } from "../lib/dialogs.js";
@@ -47,7 +48,11 @@ function draw(focusWhat){
   (target || d.querySelector("#addFlowQ")).focus({ preventScroll: true });
 }
 
-export function openAddFlow(flow){
+// November 2026: also a person, a budget line (`ctx`: { section, group, category, onAdd(fields) } — rows.js makes the row)
+// and a share holding (`ctx`: { person, onAdd(holding) }), and `onPerson(row)` after a person is added (taxwiring.js).
+var flowCtx = {};
+export function openAddFlow(flow, ctx){
+  flowCtx = ctx || {};
   var loans = [], linked = {}, anyLoan = false;
   (state.accounts || []).forEach(function(a){ if(a && a.link) linked[a.link] = true; });
   (state.properties || []).forEach(function(p){
@@ -56,8 +61,12 @@ export function openAddFlow(flow){
       if(l.id && !l.endedOn && !linked["offset:" + l.id]) loans.push({ id: l.id, label: (l.what || "Loan") + " — " + (p.what || "Property"), sub: fmtCurrency0.format(Number(l.balance) || 0) + " owing" });
     });
   });
-  Object.assign(addFlowUi, { flow: flow === "account" ? "account" : "property", step: 0, answers: {}, error: "", returnToCheck: false,
-    plans: flow === "account" ? [] : purchasePlans(state), loans: loans, anyLoan: anyLoan });
+  var people = [];
+  try { people = getTaxPeople(); } catch(e){ people = []; }
+  Object.assign(addFlowUi, { flow: ["account", "person", "expense", "holding"].indexOf(flow) !== -1 ? flow : "property", step: 0, answers: {}, error: "", returnToCheck: false,
+    plans: flow === "property" || !flow ? purchasePlans(state) : [], loans: loans, anyLoan: anyLoan, people: people,
+    accounts: (state.accounts || []).filter(function(a){ return a && a.name && a.type !== "agent"; }).map(function(a){ return a.name; }), category: flowCtx.category || "" });
+  if(flow === "holding" && flowCtx.person) addFlowUi.answers.person = flowCtx.person;
   var d = dialog();
   d.returnValue = "";
   d.showModal();
@@ -71,7 +80,7 @@ function go(to){
 }
 function next(){
   var a = readAnswers(), list = steps(), step = list[addFlowUi.step];
-  var need = stepNeeds(addFlowUi.flow, step, a);
+  var need = stepNeeds(addFlowUi.flow, step, Object.assign({ taken: addFlowUi.people }, a));
   if(need){ addFlowUi.error = need; draw(); return; }
   if(addFlowUi.step >= list.length - 1){ finish(); return; }
   // From the check screen to one answer and back: Done returns there — unless the answer added questions (a loan).
@@ -126,13 +135,30 @@ function close(){
   var d = dialog();
   readAnswers();
   if(!answeredAnything()){ d.close("cancel"); return; }
-  confirmDialog("Discard this " + (addFlowUi.flow === "account" ? "new account" : addFlowUi.answers.kind === "buying" ? "purchase" : "new property") + "? Nothing's been added yet.",
+  confirmDialog("Discard this " + ({ account: "new account", person: "new person", expense: "budget line", holding: "holding" }[addFlowUi.flow] || (addFlowUi.answers.kind === "buying" ? "purchase" : "new property")) + "? Nothing's been added yet.",
     { title: "Discard it?", accept: "Discard", cancel: "Keep going" }).then(function(yes){ if(yes) d.close("cancel"); else draw(); });
 }
 
 // The last question: the record made and saved, the dialog closed, and the new thing shown — open, for the rest.
 function finish(){
   var a = Object.assign({}, readAnswers()), d = dialog(), selector;
+  if(addFlowUi.flow === "person"){
+    var row = addPersonFromAnswers(state, a, genId);
+    d.close("ok");
+    if(flowCtx.onPerson) flowCtx.onPerson(row); else commit(["income", "tax"]);
+    return;
+  }
+  if(addFlowUi.flow === "expense"){
+    d.close("ok");
+    if(flowCtx.onAdd) flowCtx.onAdd(expenseFieldsFromAnswers(a));
+    return;
+  }
+  if(addFlowUi.flow === "holding"){
+    var h = addHoldingFromAnswers(state, a);
+    d.close("ok");
+    if(flowCtx.onAdd) flowCtx.onAdd(h); else commit(["assets"]);
+    return;
+  }
   if(addFlowUi.flow === "account"){
     var acct = addAccountFromAnswers(state, a, genId, localDateStr());
     commit(["accounts", "assets", "debts", "properties"]);

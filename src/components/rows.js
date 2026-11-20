@@ -28,6 +28,7 @@ import { renderHomeBodyTotalsOnly, modernHomeRowOpen } from "./scenarios.js";
 import { patchCategoryCharts } from "./settingswiring.js";
 import { syncClaimFields } from "./taxwiring.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+import { openAddFlow } from "./addflowwiring.js";
 
 // True for any section the Budget tab lists: state.shared, plus the active scenario's housing
 // (see budgetLineSources in expenses.js). A housing row edited there needs the same live totals,
@@ -625,6 +626,8 @@ export function wireAddButtons(){
     var parsed = parseAdd(addBtn.getAttribute("data-add"));
     var sec = sectionOf(parsed.section);
     if(sec && sec.def.add && sec.def.add(parsed.group)) return;
+    // November 2026: a budget line asks one question at a time — what it's for, how much and how often, the account.
+    if(parsed.section === "shared"){ addExpenseByFlow(parsed.section, parsed.group, ""); return; }
     addRow(parsed.section, parsed.group, "");
   });
   document.getElementById("incomeExportCsvBtn").addEventListener("click", exportIncomeCsv);
@@ -634,16 +637,19 @@ export function wireAddButtons(){
 }
 
 // "+ Add" on a list: a new row with the generic defaults and the section's own, opened in its editor.
-function addRow(section, groupValue, addCategory){
+// `fields` (November 2026): what the add flow asked (addflowwiring.js) — the row is made with them and shown, not opened
+// blank in its editor.
+function addRow(section, groupValue, addCategory, fields){
   var arr = getArrayForSection(section);
   if(!arr) return;
   var sec = sectionOf(section);
   var newItem = { what:"New item", classification: sec.def.noClassification ? "" : (groupValue != null ? groupValue : "Needs"), category: addCategory || "", account:"", amount:0, freq:"Monthly" };
   if(sec.def.newRow) sec.def.newRow(newItem, groupValue);
+  if(fields) Object.assign(newItem, fields);
   arr.push(newItem);
   var newIdx = arr.length - 1;
   rerenderTableFor(section);
-  if(sec.def.editor) openNewRowModal(sec.def.editor.container, section, newIdx, sec.def.editor.openState, newItem);
+  if(sec.def.editor && !fields) openNewRowModal(sec.def.editor.container, section, newIdx, sec.def.editor.openState, newItem);
   if(sec.def.afterAdd) sec.def.afterAdd(sec.arg);
   if(sec.def.homeTotals) renderHomeBodyTotalsOnly();
   renderCards(); renderDetail(); renderTotals();
@@ -652,4 +658,7 @@ function addRow(section, groupValue, addCategory){
   persist();
 }
 
+export function addExpenseByFlow(section, group, category){
+  openAddFlow("expense", { category: category, onAdd: function(fields){ addRow(section, group, category, fields); } });
+}
 export { addRow, closeActiveModernRow, findProperty, openNewRowModal, refreshAfterLedgerChange, rerenderTableFor, wireModernRowToggle };

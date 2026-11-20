@@ -5776,3 +5776,12 @@ remembers it, `fromPlan`), balances over three months old or never recorded (mon
 (property, purchase, dates of birth), two accounts on one balance, a cash asset with an account's name and balance, and
 a purchase whose figures disagree (deposit held, the lender's loan, a loan over the price). Each says how sure it is
 (Certain / Likely / Worth a look), names the record and links to it. Tests: integrity (synthetic), render smoke.
+
+## Cash month by month, through a settlement (#454, November 2026)
+
+`[x]` Insights' 12-month forecast now carries a balance: from the cash and offsets held today, each month's net, a home
+being bought settling in its month (cash to bring: deposit, lender's deductions, duty and fees each once), its loan's
+repayments from the month after. Lowest balance and when; a shortfall said only when the balance goes below nothing from
+a real starting balance; cash set aside for settlement isn't counted as emergency money; months under the emergency
+reserve. Rates +1%/+2% on every loan; another scenario set beside it (`monthlyCashFlowForecast(n, scenario)`); the
+numbers, what's assumed and what's missing (never $0). Income ending on a known date stops as before. Tests: liquidity.

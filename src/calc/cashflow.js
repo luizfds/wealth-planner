@@ -87,9 +87,10 @@ function lumpyHitsMonth(entry, monthNum){
   var step = freqStepMonths(entry.freq);
   return ((monthNum - entry.dueMonth) % step + step) % step === 0;
 }
-export function monthlyCashFlowForecast(monthsAhead){
+// #454: `scenario` (optional) forecasts another scenario's months, to set beside the household's.
+export function monthlyCashFlowForecast(monthsAhead, scenario){
   monthsAhead = monthsAhead || 12;
-  var entries = collectCashFlowEntries(currentScenario());
+  var entries = collectCashFlowEntries(scenario || currentScenario());
   var lumpyEntries = entries.filter(function(e){ return e.bucket === "lumpy"; });
   var smoothEntries = entries.filter(function(e){ return e.bucket !== "lumpy"; });
   // The smoothed side is summed per month rather than once up front, because a row with an end

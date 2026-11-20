@@ -129,6 +129,11 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   purchase plan against the home being bought, balances stale or never recorded, dates that can't be, two accounts on
   one balance, a cash asset counted twice, a purchase whose figures disagree. Read-only; each names the record, where to
   fix it and how sure it is (`confidence`); "Looks right" dismisses it.
+- **Cash month by month** (#454, `calc/liquidity.js`): Insights' 12-month forecast carries the cash and offsets held
+  today through `monthlyCashFlowForecast` (which takes a scenario, to set one beside the household) — a home being
+  bought settling in its month (the cash to bring from `purchaseFigures`, so the deposit, the lender's deductions and
+  the costs land once), its loan's repayments after; a +1%/+2% rate rise on every loan; the lowest balance; what's set
+  aside for settlement rather than emergencies; months under the emergency reserve; what it assumes and what's missing.
 - **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
   Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
   `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts

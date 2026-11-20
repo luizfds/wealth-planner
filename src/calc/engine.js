@@ -1,3 +1,4 @@
+import { autoKey } from "./syncmerge.js";
 import { state } from "../state.js";
 import { LIQUID_CATEGORIES, MARKET_CURRENCY, IP_CATEGORY } from "../constants.js";
 import { periodsOf, toWeekly, sumField, sumFieldForScenario, sumFieldActiveInYear, isActiveInYear, resolveSharedAmount } from "./ledger.js";
@@ -539,6 +540,18 @@ export function recalcComputedItems(){
   });
 
   var people = getTaxPeople();
+  // One computed row per thing it's for. A sync merge used to keep two (matched by content, the same rent at two amounts
+  // read as two rows), and only the first was kept up to date — the second, stale, was counted too: an old rent, each
+  // bonus and a person's lodgement twice. The first is kept; any later one goes (calc/syncmerge.js now merges them by
+  // this key, so it doesn't happen again).
+  var seenAuto = {};
+  state.income = state.income.filter(function(i){
+    var k = autoKey(i);
+    if(!k) return true;
+    if(seenAuto[k]) return false;
+    seenAuto[k] = true;
+    return true;
+  });
   state.income = state.income.filter(function(i){ return !(i.syntheticNetFor && people.indexOf(i.syntheticNetFor) === -1); });
   var liveOneOffs = {}, liveRefunds = {}, liveEnding = {};
   people.forEach(function(person){

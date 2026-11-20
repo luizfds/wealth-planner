@@ -31,6 +31,7 @@ import { findProperty, defineSavedValue } from "./rows.js";
 import { recordLoanSnapshot } from "./taxwiring.js";
 import { defineSection } from "../lib/sections.js";
 import { openNewRowModal } from "./rows.js";
+import { openAddFlow } from "./addflowwiring.js";
 import { modernAssetRowOpen } from "./assets.js";
 import { assetListUi, clearAssetListFilters } from "./assets.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
@@ -51,8 +52,12 @@ defineSection("assets", {
   discardRows: function(){ return state.assets; },
   discard: function(){ renderAssets(); renderProjectionOutputs(); persist(); }
 });
+// November 2026: a holding asks one question at a time — its code, units, the average paid (addflowwiring.js).
 defineSection("holding", {
-  add: function(person){ return addAssetRow({ what:"New holding", category:"Shares", symbol:"", market:"ASX", quantity:0, avgCost:null, price:0, priceUpdated:"", person: person != null ? person : "", amount:0 }, "assetsSub-Shares"); }
+  add: function(person){
+    openAddFlow("holding", { person: person != null ? person : "", onAdd: function(){ commit(["assets"]); } });
+    return true;
+  }
 });
 defineSection("vehicle", {
   add: function(){

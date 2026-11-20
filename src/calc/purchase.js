@@ -6,15 +6,24 @@
 // (settledProperty). Nothing that reads state.properties has to know about a home half-bought.
 //
 // A purchase: { id, what, kind ("PPOR"|"IP"), price, contractDate, settlementDate, deposit, loanAmount, rate,
-//   stateCode, firstHome, depositAssetId, costs: [{ id, what, amount, paid, auto, kind, financed, tbc }] }
+//   stateCode, firstHome, depositAssetId, grossLoan, lenderSource,
+//   costs: [{ id, what, amount, paid, auto, kind, financed, withheld, tbc, paidFrom, paidTaken }] }
 // A cost is for the purchase (stamp duty, the conveyancer) or for the loan (the lender's fees, a low-deposit fee or
 // LMI) — `kind` — which is where it goes at settlement: the property's acquisition costs, or the loan's borrowing
 // costs. A loan cost can be added to the loan instead of paid in cash (`financed`): it's then borrowed, not needed at
 // settlement. `tbc`: its amount is still to come ("at cost" until the bill).
+//
+// #452 (November 2026): the lender's own figures. `grossLoan` is the loan its letter approves — with any fee added to it
+// already in it — and `lenderSource` where that figure is from ("estimate", "offer", "approval", "statement"). A cost the
+// lender takes out of the money it releases is `withheld`; one added to the loan is withheld too (borrowed, then taken
+// straight back), so it is in the gross once and never added again. What the lender releases is the gross less what it
+// withholds; the cash to bring is the price less the deposit less that, plus the costs still to pay yourself. A cost
+// paid from an account (`paidFrom`, an account id) took `paidTaken` off its balance, given back if it's unticked.
 // The deposit is held (by the agent or a solicitor) from exchange to settlement: it is kept as an "Other" asset,
 // "Deposit held — <name>", so every net worth figure counts it and nothing else has to (components/buying.js keeps
 // it in step). A cost with `auto` is stamp duty worked out from the price, until its amount is typed.
 import { calcStampDuty, purchaseCostAmount } from "./property.js";
+import { accountBalance, setAccountBalance } from "./accounts.js";
 
 /** @param {any} n */
 function num(n){ var v = Number(n); return isFinite(v) ? v : 0; }
@@ -46,10 +55,25 @@ export function commonCostsToAdd(p){
   return COMMON_PURCHASE_COSTS.filter(function(c){ return have.indexOf(c.what.toLowerCase()) === -1; });
 }
 // What a cost is for, when it doesn't say: words a lender's fee goes by mean the loan.
+var LOAN_WORDS = /loan|lender|lmi|mortgage insurance|low deposit|mortgage reg|valuation|discharge|establishment|settlement fee/i;
+var PURCHASE_WORDS = /stamp|duty|convey|solicitor|legal|inspection|pest|building|transfer|strata|search|adjustment|rates|agent|removal|moving|insurance/i;
 export function costKind(c){
   if(c && (c.kind === "loan" || c.kind === "purchase")) return c.kind;
-  return /loan|lender|lmi|mortgage insurance|low deposit|mortgage reg|valuation|discharge|establishment|settlement fee/i.test(String((c && c.what) || "")) ? "loan" : "purchase";
+  return LOAN_WORDS.test(String((c && c.what) || "")) ? "loan" : "purchase";
 }
+// A cost nobody has said is for the purchase or the loan, whose name doesn't say either — flagged until it's chosen.
+export function costUnclassified(c){
+  if(!c || c.kind === "loan" || c.kind === "purchase") return false;
+  var w = String(c.what || "");
+  return !LOAN_WORDS.test(w) && !PURCHASE_WORDS.test(w);
+}
+// Where the lender's loan figure is from, most to least sure.
+export var LENDER_SOURCES = [
+  { value: "estimate", label: "My estimate" },
+  { value: "offer", label: "Loan offer" },
+  { value: "approval", label: "Formal approval" },
+  { value: "statement", label: "Settlement statement" }
+];
 
 // Stamp duty for the purchase's state, price and first-home status, or null for a state not modelled.
 export function purchaseStampDuty(p){
@@ -73,25 +97,34 @@ function dayNumber(iso){
 export function purchaseFigures(p, today, cashOnHand){
   var price = Math.max(0, num(p.price)), deposit = Math.max(0, num(p.deposit)), loan = Math.max(0, num(p.loanAmount));
   var costs = (p.costs || []).map(function(c){
-    var kind = costKind(c);
-    return { id: c.id, what: c.what || "Cost", amount: costAmount(p, c), paid: !!c.paid, auto: !!c.auto, kind: kind, financed: kind === "loan" && !!c.financed, tbc: !!c.tbc };
+    var kind = costKind(c), financed = kind === "loan" && !!c.financed;
+    return { id: c.id, what: c.what || "Cost", amount: costAmount(p, c), paid: !!c.paid, auto: !!c.auto, kind: kind, financed: financed,
+      withheld: financed || !!c.withheld, tbc: !!c.tbc, unclassified: costUnclassified(c) };
   });
   var sum = function(list){ return list.reduce(function(s, c){ return s + c.amount; }, 0); };
-  // Added to the loan: borrowed at settlement, not paid in cash — so neither paid nor still to pay.
+  // Added to the loan: borrowed at settlement, not paid in cash — so neither paid nor still to pay. Taken out of the
+  // loan money by the lender: the same, but not borrowed on top.
   var financed = sum(costs.filter(function(c){ return c.financed; }));
-  var costsPaid = sum(costs.filter(function(c){ return c.paid && !c.financed; }));
-  var costsToPay = sum(costs.filter(function(c){ return !c.paid && !c.financed; }));
-  // At settlement: the price less the deposit already paid and what the loan brings, plus the costs still to pay.
-  var balanceAtSettlement = Math.max(0, price - deposit - loan);
+  var withheld = sum(costs.filter(function(c){ return c.withheld; }));
+  var costsPaid = sum(costs.filter(function(c){ return c.paid && !c.withheld; }));
+  var costsToPay = sum(costs.filter(function(c){ return !c.paid && !c.withheld; }));
+  // The lender's gross loan, when its letter's been typed; else the loan and what's added to it.
+  var ownGross = loan + financed, lenderGross = Math.max(0, num(p.grossLoan));
+  var borrowed = lenderGross > 0 ? lenderGross : ownGross;
+  var released = Math.max(0, borrowed - withheld);
+  // At settlement: the price less the deposit already paid and what the lender releases, plus the costs still to pay.
+  var balanceAtSettlement = Math.max(0, price - deposit - released);
   var cashNeeded = balanceAtSettlement + costsToPay;
-  var borrowed = loan + financed;
   var settles = dayNumber(p.settlementDate), now = dayNumber(today);
   var days = settles != null && now != null ? Math.round(settles - now) : null;
   var cash = cashOnHand == null ? null : Math.max(0, num(cashOnHand));
   return {
     price: price, deposit: deposit, loan: loan, costs: costs, costsPaid: costsPaid, costsToPay: costsToPay,
-    financed: financed, borrowed: borrowed, toConfirm: costs.filter(function(c){ return c.tbc; }).length,
-    totalCost: price + costsPaid + costsToPay + financed, balanceAtSettlement: balanceAtSettlement, cashNeeded: cashNeeded,
+    financed: financed, withheld: withheld, borrowed: borrowed, released: released, toConfirm: costs.filter(function(c){ return c.tbc; }).length,
+    unclassified: costs.filter(function(c){ return c.unclassified; }).length,
+    // The lender's figure against the purchase's own (loan + what's added to it): null until the lender's is typed.
+    lender: lenderGross > 0 ? { gross: lenderGross, own: ownGross, variance: Math.round((lenderGross - ownGross) * 100) / 100, source: p.lenderSource || "" } : null,
+    totalCost: price + costsPaid + costsToPay + withheld, balanceAtSettlement: balanceAtSettlement, cashNeeded: cashNeeded,
     cashOnHand: cash, short: cash == null ? null : Math.max(0, cashNeeded - cash),
     lvr: price > 0 ? borrowed / price : null, days: days, stampDuty: purchaseStampDuty(p),
     // Paid so far toward the whole cost: the deposit and the costs paid.
@@ -111,7 +144,8 @@ export function settledProperty(p, today, genId){
   var loanCosts = costs.filter(function(c){ return c.kind === "loan"; });
   var financed = loanCosts.filter(function(c){ return c.financed; }).reduce(function(s, c){ return s + c.amount; }, 0);
   var borrowing = loanCosts.reduce(function(s, c){ return s + c.amount; }, 0);
-  var loan = Math.max(0, num(p.loanAmount)) + financed;
+  // The lender's gross when it's been typed (a fee added to the loan is in it already), else the loan and what's added.
+  var loan = num(p.grossLoan) > 0 ? num(p.grossLoan) : Math.max(0, num(p.loanAmount)) + financed;
   var loanRow = { id: genId("loan"), what: "Home loan", balance: loan, rate: num(p.rate), termYears: 30, repaymentType: "PI", settlementDate: on };
   if(borrowing > 0) loanRow.borrowingCosts = Math.round(borrowing * 100) / 100;
   return {
@@ -180,4 +214,30 @@ export function settlePurchase(st, p, today, genId){
 export function removePurchase(st, p){
   st.assets = (st.assets || []).filter(function(a){ return !(a && p.depositAssetId && a.id === p.depositAssetId); });
   st.purchases = (st.purchases || []).filter(function(x){ return x !== p && x.id !== p.id; });
+}
+
+// #452: a cost paid from an account takes its amount off that account's balance (as a balance update, not spending —
+// buying a home isn't a month's spending); unticked, or paid from another account, it's given back first.
+export function setCostPaid(st, p, c, paid, accountId, today){
+  var giveBack = function(){
+    if(!(Number(c.paidTaken) > 0) || !c.paidFrom) return;
+    var was = (st.accounts || []).find(function(a){ return a.id === c.paidFrom; });
+    var b = was && accountBalance(was).balance;
+    if(was && b != null) setAccountBalance(was, b + Number(c.paidTaken), today);
+    delete c.paidTaken;
+  };
+  if(accountId !== undefined && accountId !== c.paidFrom){ giveBack(); if(accountId) c.paidFrom = accountId; else delete c.paidFrom; }
+  if(!paid) giveBack();
+  c.paid = !!paid;
+  if(c.paid && c.paidFrom && !(Number(c.paidTaken) > 0)){
+    var acct = (st.accounts || []).find(function(a){ return a.id === c.paidFrom; });
+    var bal = acct && accountBalance(acct).balance, amount = costAmount(p, c);
+    if(acct && bal != null && amount > 0){ setAccountBalance(acct, bal - amount, today); c.paidTaken = amount; }
+  }
+  return c;
+}
+// The accounts a cost can be paid from: money held (everyday, savings, offset), each with its balance.
+export function payingAccounts(st){
+  return (st.accounts || []).filter(function(a){ return a && a.id && ["everyday", "savings", "offset"].indexOf(a.type) !== -1; })
+    .map(function(a){ return { id: a.id, name: a.name || "Account", balance: accountBalance(a).balance }; });
 }

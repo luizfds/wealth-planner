@@ -20,7 +20,8 @@ import { cashRateDue, readCashRateNow } from "./cashrate.js";
 import { renderNotifBadge } from "./notifpanel.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
-import { renderDetail, logNetWorthSnapshot } from "./dashboard.js";
+import { renderDetail, logNetWorthSnapshot, renderCashFlowForecastPanel, liqUi } from "./dashboard.js";
+import { keepUi } from "../lib/keepui.js";
 import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
@@ -179,6 +180,7 @@ function shortcutsDialog(){
 // are up, if `el` starts under the page header or its section's sticky header, scroll it just clear. On CI a check made
 // at a pause found it clear, the scroll went on, and it ended under the section header.
 function settleBelowHeaders(el){
+  var nudges = 0;
   function clear(){
     if(!el.isConnected) return;
     var bar = document.querySelector(".app-topbar"), section = el.closest("details.ledger"), summary = section && section.querySelector(":scope > summary");
@@ -187,7 +189,13 @@ function settleBelowHeaders(el){
     // counting it would move the page again at every scrollend (each move ending in one).
     var stuck = !!s && getComputedStyle(summary).position === "sticky" && s.top <= barBottom + 1;
     var short = Math.max(barBottom, stuck ? s.bottom : 0) + 12 - el.getBoundingClientRect().top;
-    if(short > 1) window.scrollBy({ top: -short, behavior: "instant" });
+    if(short > 1){
+      window.scrollBy({ top: -short, behavior: "instant" });
+      // Moving up opens a compact phone header out again (57px → 113px on CI, after the last check had passed): once it
+      // has finished changing size, look again — a few times at most.
+      if(bar && nudges++ < 4) Promise.all(bar.getAnimations({ subtree: true }).map(function(a){ return a.finished.catch(function(){}); }))
+        .then(function(){ requestAnimationFrame(function(){ requestAnimationFrame(clear); }); });
+    }
   }
   window.addEventListener("scrollend", clear);
   setTimeout(function(){ window.removeEventListener("scrollend", clear); clear(); }, 2000);
@@ -328,6 +336,13 @@ export function wireNavigation(){
     state.fire[isCurrent ? "currentAge" : "retireAge"] = age.value;
     renderDetail();
     persist();
+  });
+  // #454: the cash forecast's rate rise and the scenario set beside it — a what-if for this visit, so nothing is saved.
+  document.getElementById("cashFlowForecastPanel").addEventListener("change", function(e){
+    if(e.target.hasAttribute("data-liq-stress")) liqUi.stress = Number(e.target.value) || 0;
+    else if(e.target.hasAttribute("data-liq-compare")) liqUi.compare = e.target.value;
+    else return;
+    keepUi(renderCashFlowForecastPanel);
   });
   document.getElementById("checkUpdatesLink").addEventListener("click", runManualUpdateCheck);
   // v3.138.0: Income → Show as — the same figures per year, month, fortnight, week, day or hour.

@@ -1,6 +1,6 @@
 // ---------------- Buying a home: its listeners (November 2026) — buying.js draws it ----------------
 import { state, commit, genId, setState } from "../state.js";
-import { syncDepositAsset, settlePurchase, removePurchase, COMMON_PURCHASE_COSTS } from "../calc/purchase.js";
+import { syncDepositAsset, settlePurchase, removePurchase, setCostPaid, COMMON_PURCHASE_COSTS } from "../calc/purchase.js";
 import { localDateStr } from "../lib/format.js";
 import { showUndoToast } from "../lib/toast.js";
 import { buyUi } from "./buying.js";
@@ -15,7 +15,7 @@ function undoable(message, keys, change){
   showUndoToast(message, function(){ setState(JSON.parse(before)); commit(keys); });
 }
 
-var NUMBER_FIELDS = { price: 1, deposit: 1, loanAmount: 1, rate: 1 };
+var NUMBER_FIELDS = { price: 1, deposit: 1, loanAmount: 1, rate: 1, grossLoan: 1 };
 // A money field shows "575,000" (lib/field.js): read "$575,000" as 575000. Blank, or not a number, is "".
 function amountOf(v){ var t = String(v == null ? "" : v).replace(/[\s,$]/g, ""); var n = Number(t); return t === "" || !isFinite(n) || n < 0 ? "" : n; }
 export function wireBuying(){
@@ -41,8 +41,11 @@ export function wireBuying(){
     var cost = row && (p.costs || []).find(function(c){ return c.id === row.getAttribute("data-buy-cost"); });
     var cf = e.target.getAttribute("data-cost-field");
     if(!cost || !cf) return;
-    if(cf === "paid") cost.paid = e.target.checked;
-    else if(cf === "amount"){
+    // #452: paid from an account comes off its balance (and goes back if unticked) — so the account's figures redraw too.
+    var moneyKeys = ["purchases", "accounts", "assets", "debts", "properties"];
+    if(cf === "paid"){ setCostPaid(state, p, cost, e.target.checked, undefined, localDateStr()); commit(moneyKeys); return; }
+    if(cf === "paidFrom"){ setCostPaid(state, p, cost, !!cost.paid, e.target.value || "", localDateStr()); commit(moneyKeys); return; }
+    if(cf === "amount"){
       var a = amountOf(e.target.value);
       cost.amount = a === "" ? 0 : a;
       // A typed amount is the cost's own; cleared, stamp duty goes back to being worked out. An amount that's come
@@ -51,9 +54,15 @@ export function wireBuying(){
       if(cost.amount > 0) cost.tbc = false;
     } else if(cf === "what") cost.what = e.target.value;
     else if(cf === "tbc") cost.tbc = e.target.checked;
-    else if(cf === "kind"){ cost.kind = e.target.value === "loan" ? "loan" : "purchase"; if(cost.kind !== "loan") cost.financed = false; }
-    // Added to the loan: borrowed at settlement, so not something paid in cash.
-    else if(cf === "financed"){ cost.financed = e.target.value === "loan"; if(cost.financed) cost.paid = false; }
+    else if(cf === "kind"){ cost.kind = e.target.value === "loan" ? "loan" : "purchase"; if(cost.kind !== "loan" && cost.financed){ cost.financed = false; cost.withheld = true; } }
+    // Paid with: cash (yours), taken by the lender from the money it releases, or added to the loan (and taken back) —
+    // the last two aren't cash, so not ticked off as paid (an account it came from gets it back).
+    else if(cf === "paidWith"){
+      var how = e.target.value;
+      cost.financed = how === "loan" && cost.kind === "loan";
+      cost.withheld = how === "withheld" || (how === "loan" && !cost.financed);
+      if(cost.financed || cost.withheld){ setCostPaid(state, p, cost, false, undefined, localDateStr()); commit(moneyKeys); return; }
+    }
     commit(["purchases"]);
   });
   // Which costs are open stays open through a redraw (a cost edited redraws the card).
@@ -79,7 +88,8 @@ export function wireBuying(){
     if(quick || e.target.closest("[data-buy-cost-add]")){
       var preset = quick ? COMMON_PURCHASE_COSTS.find(function(q){ return q.what === quick.getAttribute("data-buy-cost-quick"); }) : null;
       p.costs = p.costs || [];
-      var c = Object.assign({ id: genId("pc"), what: "", amount: 0, paid: false, kind: "purchase", financed: false, tbc: false }, preset || {});
+      // One of the usual ones knows what it's for; another says once it's chosen (flagged until then, #452).
+      var c = Object.assign({ id: genId("pc"), what: "", amount: 0, paid: false, kind: "", financed: false, tbc: false }, preset || {});
       p.costs.push(c);
       buyUi.open[c.id] = true;
       commit(["purchases"]);

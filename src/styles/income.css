@@ -227,7 +227,7 @@
 .pp-head{ display:flex; align-items:center; gap:10px; }
 .pp-head .m-avatar{ width:30px; height:30px; font-size:var(--fs-sm); flex:none; }
 .pp-name{ flex:1 1 auto; min-width:0; font-size:var(--fs-lg); font-weight:600; }
-.pp-fields{ grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+.pp-fields{ grid-template-columns:repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
 .pp-fields .field-control{ width:100%; }
 .pp-dob{ color-scheme:light dark; }
 :root[data-theme="light"] .pp-dob{ color-scheme:light; }
@@ -304,6 +304,10 @@
 .hc-dot{ width:8px; height:8px; border-radius:50%; margin-top:6px; background:var(--ink-soft); }
 .hc-bad .hc-dot{ background:#d64545; } .hc-warn .hc-dot{ background:#eda100; } .hc-info .hc-dot{ background:#2a78d6; }
 .hc-title{ font-size:var(--fs-md); font-weight:600; color:var(--ink); }
+.hc-conf{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:100px; font-size:var(--fs-xs); font-weight:600; vertical-align:1px; white-space:nowrap;
+  background: var(--paper-sunken); color: var(--ink-soft); }
+.hc-conf-certain{ color: var(--bad-ink); }
+.hc-conf-likely{ color: var(--warn-ink); }
 .hc-detail{ font-size:var(--fs-sm); color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
 .hc-go{ white-space:nowrap; }
 .hc-actions{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:flex-end; }

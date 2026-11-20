@@ -1,7 +1,8 @@
 import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { purchaseFigures, settledProperty, purchaseFromPlan, purchasePlans, defaultPurchaseCosts, costAmount, purchaseStampDuty } from "../src/calc/purchase.js";
+import { purchaseFigures, settledProperty, purchaseFromPlan, purchasePlans, defaultPurchaseCosts, costAmount, purchaseStampDuty, costKind, costUnclassified, setCostPaid, payingAccounts } from "../src/calc/purchase.js";
+import { state } from "../src/state.js";
 
 // Invented figures throughout.
 let seq = 0;
@@ -107,4 +108,66 @@ test("a loan cost added to the loan is borrowed, not cash at settlement; at sett
   assert.deepEqual(commonCostsToAdd(p).map(c => c.what).slice(0, 2), ["Stamp duty", "Building & pest inspection"]);
   assert.equal(costKind({ what: "Mortgage registration" }), "loan");
   assert.equal(costKind({ what: "Building & pest inspection" }), "purchase");
+});
+
+// #452: the lender's figures. Invented figures (never a real offer's): a gross approved loan with a low deposit fee added
+// to it, two charges the lender keeps out of the money it releases, a cost still to pay and one paid.
+test("settlement against the lender: gross less what it keeps is what it releases; a fee added to the loan is in it once", function(){
+  var p = { price: 1000000, deposit: 100000, loanAmount: 885000, grossLoan: 900000, lenderSource: "offer", costs: [
+    { id: "a", what: "Low deposit fee", amount: 15000, kind: "loan", financed: true },
+    { id: "b", what: "Mortgage registration", amount: 210.40, kind: "loan", withheld: true },
+    { id: "c", what: "Settlement fee", amount: 3040, kind: "loan", withheld: true },
+    { id: "d", what: "Transfer registration", amount: 2000, kind: "purchase" },
+    { id: "e", what: "Conveyancer", amount: 1500, kind: "purchase", paid: true }
+  ] };
+  var f = purchaseFigures(p, "2026-11-20", null);
+  assert.equal(f.borrowed, 900000, "the lender's gross, the fee not added a second time");
+  assert.equal(Math.round(f.withheld * 100) / 100, 18250.40);
+  assert.equal(Math.round(f.released * 100) / 100, 881749.60);
+  // Price − deposit − what's released + costs still to pay; the paid one isn't in it.
+  assert.equal(Math.round(f.cashNeeded * 100) / 100, 20250.40);
+  assert.equal(f.costsToPay, 2000);
+  assert.deepEqual(f.lender, { gross: 900000, own: 900000, variance: 0, source: "offer" });
+  // The same fee paid in cash instead: the lender's gross no longer matches the loan and what's added — said.
+  var cash = purchaseFigures(Object.assign({}, p, { costs: p.costs.map(function(c){ return c.id === "a" ? Object.assign({}, c, { financed: false }) : c; }) }), "2026-11-20", null);
+  assert.equal(cash.lender.variance, 15000);
+  assert.equal(cash.costsToPay, 17000, "paid in cash, it's cash to bring");
+  // The property it becomes owes the gross, once.
+  var prop = settledProperty(p, "2026-11-20", function(x){ return x; });
+  assert.equal(prop.loans[0].balance, 900000);
+});
+
+test("an old purchase, with no lender figure and nothing withheld, adds up as it always did", function(){
+  var f = purchaseFigures({ price: 600000, deposit: 60000, loanAmount: 480000, costs: [{ id: "c1", what: "Conveyancer", amount: 1500, paid: true }, { id: "c2", what: "Loan fees", amount: 600 }] }, "2026-11-20", null);
+  assert.equal(f.cashNeeded, 60600);
+  assert.equal(f.borrowed, 480000);
+  assert.equal(f.released, 480000);
+  assert.equal(f.lender, null);
+});
+
+test("each charge says what it's for; one whose name doesn't say is flagged until it's chosen", function(){
+  assert.equal(costKind({ what: "Discharge fee" }), "loan");
+  assert.equal(costKind({ what: "Transfer registration" }), "purchase");
+  assert.equal(costUnclassified({ what: "Discharge fee" }), false);
+  assert.equal(costUnclassified({ what: "Transfer registration" }), false);
+  assert.equal(costUnclassified({ what: "Sundry charge" }), true);
+  assert.equal(costUnclassified({ what: "Sundry charge", kind: "purchase" }), false, "chosen");
+  assert.equal(purchaseFigures({ price: 1, costs: [{ id: "x", what: "Sundry charge", amount: 50 }] }, "2026-11-20", null).unclassified, 1);
+});
+
+test("a cost paid from an account comes off its balance, and goes back if it's unticked or paid from another", function(){
+  var keep = { accounts: state.accounts, assets: state.assets };
+  try {
+    state.assets = [{ id: "s1", what: "Saver", category: "Cash", amount: 50000, history: [] }, { id: "s2", what: "Everyday", category: "Cash", amount: 4000, history: [] }];
+    state.accounts = [{ id: "a1", name: "Saver", type: "savings", link: "asset:s1" }, { id: "a2", name: "Everyday", type: "everyday", link: "asset:s2" }];
+    var p = { costs: [] }, c = { id: "c", what: "Conveyancer", amount: 1500 };
+    setCostPaid(state, p, c, true, "a1", "2026-11-20");
+    assert.equal(state.assets[0].amount, 48500);
+    assert.equal(c.paidTaken, 1500);
+    setCostPaid(state, p, c, true, "a2", "2026-11-20");
+    assert.deepEqual([state.assets[0].amount, state.assets[1].amount], [50000, 2500], "moved to the other account");
+    setCostPaid(state, p, c, false, undefined, "2026-11-20");
+    assert.deepEqual([state.assets[0].amount, state.assets[1].amount, c.paid, c.paidTaken], [50000, 4000, false, undefined]);
+    assert.deepEqual(payingAccounts(state).map(function(a){ return [a.name, a.balance]; }), [["Saver", 50000], ["Everyday", 4000]]);
+  } finally { Object.assign(state, keep); }
 });

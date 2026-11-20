@@ -8,6 +8,7 @@ import { localDateStr, fmtDate } from "../lib/format.js";
 import { takeHomeDrifts } from "./takehome.js";
 import { oddCardRepayments, unloggedCardRepayments } from "./bills.js";
 import { rentCheck } from "./rentcheck.js";
+import { integrityChecks } from "./integrity.js";
 
 // ---------------- Data health (v3.48.0) ----------------
 //
@@ -225,6 +226,8 @@ export function dataHealthChecks(opts){
         where: { page: "tax", sub: "returns", fy: lastFy } });
     });
   }
+  // #453: records that disagree with each other — each says how sure it is (calc/integrity.js).
+  integrityChecks(state, today).forEach(add);
   var order = { bad: 0, warn: 1, info: 2 };
   // "Looks right" (v3.70.0): a check the person has dismissed stays hidden while it says the same
   // thing, and comes back the moment it finds something different (another row, a new amount).

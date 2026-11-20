@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { flowSteps, stepNeeds, stepSkippable, liveLine, repaymentEstimate, suggestedLoan, propertyFromAnswers,
-  addPropertyFromAnswers, addPurchaseFromAnswers, addAccountFromAnswers } from "../src/calc/addflow.js";
+  addPropertyFromAnswers, addPurchaseFromAnswers, addAccountFromAnswers, addPersonFromAnswers, expenseFieldsFromAnswers, addHoldingFromAnswers } from "../src/calc/addflow.js";
 
 var n = 0;
 var genId = function(p){ return p + "-" + (++n); };
@@ -99,4 +99,25 @@ test("an account: its balance where it's kept — a savings account's Cash asset
     var e = addAccountFromAnswers(state, { kind: "everyday", name: "Bank One Everyday" }, genId, "2026-11-20");
     assert.equal(e.link, "", "no balance given, nothing made for it");
   } finally { Object.assign(state, keep); }
+});
+
+test("a person, a budget line, a holding: their questions, what each needs, and what each makes", function(){
+  assert.deepEqual(flowSteps("person", {}), ["name", "pay", "dob"]);
+  assert.deepEqual(flowSteps("expense", {}), ["name", "amountFreq", "account"]);
+  assert.deepEqual(flowSteps("holding", {}), ["symbol", "units", "cost"]);
+  assert.match(stepNeeds("person", "name", { name: "Alex", taken: ["Alex"] }), /already someone/);
+  assert.equal(stepNeeds("person", "name", { name: "Sam", taken: ["Alex"] }), "");
+  assert.match(stepNeeds("holding", "symbol", { symbol: "not a code!" }), /code/);
+  assert.equal(stepNeeds("holding", "symbol", { symbol: "vas" }), "");
+  assert.match(stepNeeds("holding", "units", { units: "0" }), /more than none/);
+  assert.ok(stepSkippable("dob") && stepSkippable("pay") && stepSkippable("account") && stepSkippable("cost"));
+  const st = { income: [], tax: { settings: { Alex: { phi: true } } }, assets: [] };
+  const row = addPersonFromAnswers(st, { name: " Sam ", amount: "90,000", freq: "Yearly", dob: "1990-04-01" }, genId);
+  assert.deepEqual([row.what, row.person, row.incomeType, row.amount, row.freq], ["Sam's pay", "Sam", "Gross", 90000, "Yearly"]);
+  assert.equal(st.tax.settings.Sam.dateOfBirth, "1990-04-01");
+  assert.deepEqual(st.tax.settings.Alex, { phi: true }, "another person's settings untouched");
+  assert.deepEqual(expenseFieldsFromAnswers({ name: " Electricity ", amount: "1,250.50", freq: "Quarterly", account: "Bank One" }), { what: "Electricity", amount: 1250.5, freq: "Quarterly", account: "Bank One" });
+  const h = addHoldingFromAnswers(st, { symbol: " vas ", units: "1,200", cost: "88.50", person: "Sam" });
+  assert.deepEqual([h.what, h.symbol, h.category, h.quantity, h.avgCost, h.person, h.market], ["VAS", "VAS", "Shares", 1200, 88.5, "Sam", "ASX"]);
+  assert.equal(addHoldingFromAnswers(st, { symbol: "IOZ", units: "10" }).avgCost, null, "skipped: not $0");
 });

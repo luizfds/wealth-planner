@@ -1177,11 +1177,15 @@ var ASSET_ALLOC_SEGMENTS = [
   { key: "Super", colorClass: "series-color-6", liquid: false },
   { key: "Vehicle", colorClass: "series-color-5", liquid: false },
   { key: "Other", colorClass: "series-color-3", liquid: false },
-  { key: "Property", colorClass: "series-color-1", liquid: false }
+  { key: "Property", colorClass: "series-color-1", liquid: false },
+  // November 2026: a home being bought's deposit, held until settlement — its own segment, beside Property, not "Other".
+  { key: "Deposit held", colorClass: "series-color-1 alloc-deposit", liquid: false }
 ];
+function isDepositHeld(a){ return !!(a && a.depositFor); }
 function assetAllocationValues(){
   var values = {};
-  ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0); });
+  ASSET_CATEGORIES.forEach(function(cat){ values[cat] = assetCategoryItems(cat).items.filter(function(a){ return !isDepositHeld(a); }).reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0); });
+  values["Deposit held"] = (state.assets || []).filter(isDepositHeld).reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0);
   values.Property = propertiesIlliquidEquityToday();
   values.Offset = propertiesOffsetTotal();
   return values;
@@ -1330,13 +1334,17 @@ function allocationBuckets(){
       current: Math.max(0, (Number(p.value) || 0) - loanNet)
     };
   });
+  // A deposit held for a home being bought is the start of that property: counted with Property, not Other.
+  var depositRecords = (state.assets || []).filter(isDepositHeld).map(function(a){
+    return { history: (a.history || []).map(function(h){ return { date: h.date, value: toAudAmount(a, h.value) }; }), current: toAudAmount(a, a.amount) };
+  });
   return ALLOCATION_BUCKETS.map(function(b){
-    if(b.key === "Property") return Object.assign({}, b, { records: propertyRecords });
+    if(b.key === "Property") return Object.assign({}, b, { records: propertyRecords.concat(depositRecords) });
     var cats = b.key === "Other" ? ["Vehicle", "Other"] : [b.key];
     return Object.assign({}, b, {
       // Converted to AUD, snapshots included: a US holding logs its value in USD, and a chart that
       // mixes converted current amounts with unconverted history steps on the day the log ends.
-      records: state.assets.filter(function(a){ return cats.indexOf(a.category) !== -1; })
+      records: state.assets.filter(function(a){ return cats.indexOf(a.category) !== -1 && !isDepositHeld(a); })
         .map(function(a){
           return {
             history: (a.history || []).map(function(h){ return { date: h.date, value: toAudAmount(a, h.value) }; }),

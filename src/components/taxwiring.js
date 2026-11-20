@@ -1,4 +1,4 @@
-import { confirmDialog, textDialog } from "../lib/dialogs.js";
+import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Tax and people, wired (v3.206.1, item 237) ----------------
 //
 // People, the Tax & super card, Checks' fixes, the year's worksheet and documents, and Close the year.
@@ -13,18 +13,19 @@ import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renamePersonEverywhere, removePersonFromTax } from "../calc/people.js";
 import { fyLabel } from "../calc/property.js";
 import { rentCheck } from "../calc/rentcheck.js";
-import { phiPremiumsAnnual, getTaxPeople, personTaxSettings, computePersonTax } from "../calc/tax.js";
+import { phiPremiumsAnnual, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { setUseBudgetLines, setLineExcluded, setRentalActual } from "../calc/taxyear.js";
 import { fmtCurrency2, localDateStr } from "../lib/format.js";
 import { onHorizontalSwipe } from "../lib/swipe.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist, genId } from "../state.js";
+import { state, persist } from "../state.js";
+import { openAddFlow } from "./addflowwiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { budgetLineItems } from "./expenses.js";
 import { renderHealth } from "./health.js";
 import { renderHomeSummary } from "./home.js";
 import { patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote, modernIncomeRowOpen } from "./income.js";
-import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./people.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderTotals, renderAll, renderChecksBadge, updatePersonSuggestions } from "./redraw.js";
@@ -225,21 +226,14 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     var rm = e.target.closest("[data-pp-remove]");
     if(rm) removeTaxPerson(rm.getAttribute("data-pp-remove"));
   });
-  document.getElementById("addPersonBtn").addEventListener("click", async function(){
-    var name = (await textDialog("Their name — they're added with a Gross income row you can fill in:", "", {"title":"Add a person","label":"Name","accept":"Add person","required":true}));
-    if(name === null) return;
-    name = name.trim();
-    if(!name) return;
-    if(getTaxPeople().indexOf(name) !== -1){ showToast('"' + name + '" already exists'); return; }
-    var row = { id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: 0, freq: "Yearly", person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
-    state.income.push(row);
-    afterPeopleChange();
-    showPage("income");
-    // Deferred like runQuickAction's: the page's view transition has to settle before the row
-    // modal can open over it.
-    // indexOf, not length - 1: the recalculation above appends the new person's synthetic
-    // net-income row after theirs.
-    setTimeout(function(){ openNewRowModal("incomeGroups", "income", state.income.indexOf(row), modernIncomeRowOpen, row); }, 240);
+  // November 2026: adding a person asks one question at a time — their name, their pay before tax, their date of birth
+  // (addflowwiring.js) — and makes their Gross income row with it, then shows it on Income.
+  document.getElementById("addPersonBtn").addEventListener("click", function(){
+    openAddFlow("person", { onPerson: function(row){
+      afterPeopleChange();
+      showPage("income");
+      setTimeout(function(){ openNewRowModal("incomeGroups", "income", state.income.indexOf(row), modernIncomeRowOpen, row); }, 240);
+    } });
   });
   document.addEventListener("click", function(e){
     if(e.target.closest("[data-goto-people]")) openPeopleTab();
@@ -396,7 +390,9 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     else showPage(page);
     if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
     if(page === "assets" && sub) showAssetsSubpage(sub, { replace: true });
-    if(page === "tax"){
+    if(page === "plan" && sub) showPlanSubpage(sub, { replace: true });
+    if(page === "tax" && sub && sub !== "returns") showTaxSubpage(sub, { replace: true });
+    else if(page === "tax"){
       if(fy) setTaxYearSelected(fy);
       showTaxSubpage(sub || "returns", { replace: true });
       renderTaxYear();

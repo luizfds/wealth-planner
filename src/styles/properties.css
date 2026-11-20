@@ -782,3 +782,28 @@
 .buy-borrowed{ margin:-4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); } .buy-borrowed b{ color: var(--ink); font-family: var(--font-num); }
 .buy-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; }
 .buy-actions .btn{ min-height:44px; }
+
+/* #452: settlement, line by line — the price down to the cash to bring, then the lender's figure against it. */
+.buy-recon{ display:flex; flex-direction:column; gap:8px; }
+.recon{ margin:0; padding:4px 14px; border-radius:14px; background: var(--paper-sunken); }
+.recon-row{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+.recon-row:last-child{ border-bottom:0; }
+.recon-row dt{ display:flex; flex-direction:column; gap:2px; min-width:0; font-size:var(--fs-sm); color: var(--ink); }
+.recon-row dt small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.recon-row dd{ margin:0; font-family: var(--font-num); font-weight:600; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.recon-row.is-total dt{ font-weight:600; }
+.recon-row.is-total dd{ font-size:var(--fs-lg); }
+.recon-note{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.recon-note.is-good{ color: var(--good-ink); }
+.recon-note.is-warn{ color: var(--warn-ink); }
+.recon-note b{ font-family: var(--font-num); }
+
+/* #455: spare cash, four ways — one row each, the best outlined. */
+.ls-spare{ grid-column:1 / -1; margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+.ls-sc-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.ls-sc{ padding:10px 12px; border-radius:12px; background: var(--paper-sunken); border:2px solid transparent; }
+.ls-sc.is-best{ border-color: var(--good-ink); }
+.ls-sc-top{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+.ls-sc-top b{ font-size:var(--fs-sm); font-weight:600; }
+.ls-sc-top span{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
+.ls-sc small{ display:block; margin-top:2px; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.45; }

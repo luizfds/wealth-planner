@@ -9,6 +9,9 @@ import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
+import { liquidityForecast } from "../calc/liquidity.js";
+import { cashOnHand } from "./buying.js";
+import { pillsHtml, fieldHtml } from "../lib/field.js";
 import { emergencyFund } from "../calc/emergency.js";
 import { budgetPlanHtml } from "./cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
@@ -517,9 +520,68 @@ function renderCashFlowForecastPanel(){
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note help">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
     : '';
-  panel.innerHTML = '<h3>12-month cash flow forecast</h3>' +
+  panel.innerHTML = '<h3>12-month cash flow forecast</h3>' + liquidityHtml(forecast) +
+    '<h4 class="liq-sub">What each month adds or takes</h4>' +
     '<p class="fire-note help" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
     rows + reserveNote;
+}
+export { renderCashFlowForecastPanel };
+
+// #454: the cash held, carried month by month through the forecast — a home being bought settling in its month, its
+// loan's repayments after — with a rate rise to try and another scenario to set beside it (calc/liquidity.js).
+// Session-only, like the app's other what-ifs.
+export var liqUi = { stress: 0, compare: "" };
+function liquidityInputs(months){
+  var loans = [];
+  (state.properties || []).forEach(function(p){ (p.loans || []).forEach(function(l){ if(!l.endedOn) loans.push({ balance: loanBalance(l), rate: Number(l.rate) || 0 }); }); });
+  var hasCash = (state.assets || []).some(function(a){ return a.category === "Cash"; }) || (state.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return Number(l.offsetBalance) > 0; }); });
+  var reserve = null;
+  try { reserve = emergencyFund().target; } catch(e){ reserve = null; }
+  return { months: months, startCash: hasCash ? cashOnHand() : null, purchases: state.purchases || [], loans: loans, stressPct: liqUi.stress, reserveTarget: reserve, today: localDateStr() };
+}
+function liquidityHtml(forecast){
+  var f = liquidityForecast(liquidityInputs(forecast.months));
+  if(!f.months.length) return "";
+  var other = liqUi.compare && (state.scenarios || []).indexOf(liqUi.compare) !== -1 && liqUi.compare !== currentScenario() ? liqUi.compare : "";
+  var g = other ? liquidityForecast(liquidityInputs(monthlyCashFlowForecast(12, other).months)) : null;
+  var label = function(m){ return MONTH_NAMES[m.month - 1].slice(0, 3) + " " + String(m.year).slice(2); };
+  var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
+  // The balance at each month's end as columns, a scenario's as a line over them, the reserve as a dashed line.
+  var all = f.months.map(function(m){ return m.balance; }).concat(g ? g.months.map(function(m){ return m.balance; }) : []).concat(f.reserveTarget > 0 ? [f.reserveTarget] : []).concat([0]);
+  var hi = Math.max.apply(null, all), lo = Math.min.apply(null, all), span = Math.max(1, hi - lo), W = 360, H = 120, n = f.months.length, cw = W / n;
+  var y = function(v){ return Math.round((hi - v) / span * (H - 8) + 4); };
+  var cols = f.months.map(function(m, i){
+    var top = Math.min(y(m.balance), y(0)), h = Math.max(1, Math.abs(y(m.balance) - y(0)));
+    return '<rect x="' + (i * cw + cw * 0.18).toFixed(1) + '" y="' + top + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + h + '" class="liq-col' + (m.balance < 0 ? ' is-neg' : '') + (f.lowest && m.year === f.lowest.year && m.month === f.lowest.month && !f.lowest.now ? ' is-low' : '') + '"/>';
+  }).join("");
+  var line = g ? '<polyline class="liq-line" points="' + g.months.map(function(m, i){ return (i * cw + cw / 2).toFixed(1) + "," + y(m.balance); }).join(" ") + '"/>' : "";
+  var reserve = f.reserveTarget > 0 ? '<line class="liq-reserve" x1="0" x2="' + W + '" y1="' + y(f.reserveTarget) + '" y2="' + y(f.reserveTarget) + '"/>' : "";
+  var low = f.lowest;
+  var summary = (f.startCash == null ? "From $0 (no cash balance recorded)" : "From " + money(f.startCash) + " in cash and offsets") + ", the lowest is " + money(low.balance) + (low.now ? " — today's" : " at the end of " + label(low)) + ".";
+  var chart = '<svg class="liq-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + escapeAttr("Cash at the end of each month. " + summary + (g ? " The line is " + other + "." : "")) + '" preserveAspectRatio="none">' +
+    '<line class="liq-zero" x1="0" x2="' + W + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' + reserve + cols + line + '</svg>' +
+    '<div class="liq-axis" aria-hidden="true"><span>' + label(f.months[0]) + '</span><span>' + label(f.months[n - 1]) + '</span></div>';
+  var tone = f.shortfall > 0 ? "is-bad" : f.monthsUnderReserve > 0 ? "is-warn" : "is-good";
+  var head = '<div class="liq-head ' + tone + '"><span>Lowest balance</span><b>' + money(low.balance) + '</b><small>' + (low.now ? "today" : "end of " + label(low)) + '</small></div>';
+  var notes = [];
+  if(f.shortfall > 0) notes.push('<p class="liq-note is-bad">' + fmtCurrency0.format(f.shortfall) + ' short at the lowest point — move a payment, or plan where it comes from.</p>');
+  else if(f.monthsUnderReserve > 0) notes.push('<p class="liq-note is-warn">' + f.monthsUnderReserve + ' month' + (f.monthsUnderReserve === 1 ? "" : "s") + ' under your emergency reserve of ' + fmtCurrency0.format(f.reserveTarget) + '.</p>');
+  if(f.earmarked > 0 && f.available != null) notes.push('<p class="liq-note">' + (f.available >= 0
+    ? fmtCurrency0.format(f.earmarked) + ' of today\'s cash is for settlement — ' + fmtCurrency0.format(f.available) + ' is free for emergencies' + (f.reserveTarget > 0 ? ' (reserve ' + fmtCurrency0.format(f.reserveTarget) + ')' : '') + '.'
+    : 'Settlement needs ' + fmtCurrency0.format(f.earmarked) + ' — ' + fmtCurrency0.format(-f.available) + ' more than today\'s cash and offsets, so none of it is free for emergencies.') + '</p>');
+  f.events.forEach(function(e){ notes.push('<p class="liq-note">' + escapeAttr(e.what) + ' settles end of ' + label(f.months[e.index]) + ': ' + fmtCurrency0.format(e.cashToBring) + ' to bring' + (e.repayment > 0 ? ', then ' + fmtCurrency0.format(e.repayment) + '/mo on the loan' : '') + '.</p>'); });
+  var scenarioOpts = [{ value: "", label: "Nothing" }].concat((state.scenarios || []).filter(function(n2){ return n2 !== currentScenario(); }).map(function(n2){ return { value: n2, label: n2 }; }));
+  var controls = '<div class="liq-controls">' +
+    pillsHtml({ id: "liq-stress", label: "Rates", name: "liq-stress", value: String(liqUi.stress), attrs: { "data-liq-stress": "1" },
+      options: [{ value: "0", label: "As they are" }, { value: "1", label: "+1%" }, { value: "2", label: "+2%" }] }) +
+    (scenarioOpts.length > 1 ? fieldHtml({ id: "liq-compare", label: "Set beside", type: "select", box: true, value: other, options: scenarioOpts, attrs: { "data-liq-compare": "1" } }) : '') + '</div>';
+  var table = '<details class="liq-table"><summary>The numbers' + (f.assumptions.length || f.missing.length ? ' and what it assumes' : '') + '</summary>' +
+    '<table><thead><tr><th scope="col">Month</th><th scope="col">In and out</th><th scope="col">Cash at the end</th>' + (g ? '<th scope="col">' + escapeAttr(other) + '</th>' : '') + '</tr></thead><tbody>' +
+    f.months.map(function(m, i){ return '<tr><th scope="row">' + label(m) + '</th><td>' + money(m.net) + '</td><td>' + money(m.balance) + '</td>' + (g ? '<td>' + money(g.months[i].balance) + '</td>' : '') + '</tr>'; }).join("") +
+    '</tbody></table>' +
+    (f.missing.length ? '<p class="liq-k">Missing</p><ul>' + f.missing.map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join("") + '</ul>' : '') +
+    (f.assumptions.length ? '<p class="liq-k">Assumed</p><ul>' + f.assumptions.map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join("") + '</ul>' : '') + '</details>';
+  return '<div class="liq">' + head + '<p class="liq-summary">' + escapeAttr(summary) + '</p>' + chart + notes.join("") + controls + table + '</div>';
 }
 
 // v3.154.0: Insights' Upcoming bills panel is gone — the same list heads Home → Overview (Bills — next

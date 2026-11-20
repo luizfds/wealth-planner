@@ -3612,12 +3612,13 @@ const JOURNEYS = {
         await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'detached' });
       }
     }
-    // This page's own row runs it: Add holding opens the holding editor on Shares.
+    // This page's own row runs it: Add holding asks its questions on Shares (November 2026: one at a time).
     await go(page, 'assets', 'data-assets-sub', 'Shares');
     const holdings = await st(page, 'state.assets.length');
     await plus(); await sheet.locator('[data-quick-page]').click(); await sheet.waitFor({ state: 'detached' });
-    await waited(page, () => !!document.querySelector('.row-modal, [data-row-editor], .m-row.open, .review-panel'), 'Add holding opened an editor');
+    await waited(page, () => !!document.querySelector('#addFlowDialog[open], .row-modal, [data-row-editor], .m-row.open, .review-panel'), 'Add holding opened its questions');
     await page.keyboard.press('Escape'); await settle(page);
+    check(!(await page.evaluate(() => !!document.querySelector('#addFlowDialog[open]'))), 'Escape with nothing answered did not close Add holding');
     check(await st(page, 'state.assets.length') >= holdings, 'opening Add holding lost a holding');
     // Import a file: the chooser in the sheet's place; Back closes it and leaves no sheet behind.
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
@@ -4388,7 +4389,7 @@ const JOURNEYS = {
       r=await open(section,id);
       const amount=r.getByLabel('Amount',{exact:true}), savedAmount=await amount.inputValue();
       await amount.fill('');
-      check(await stored(page,"state["+JSON.stringify(section)+"].find(x=>x.id==="+JSON.stringify(id)+").amount")===Number(savedAmount) && await amount.getAttribute('aria-invalid')==='true','blank draft overwrote signed amount');
+      check(await stored(page,"state["+JSON.stringify(section)+"].find(x=>x.id==="+JSON.stringify(id)+").amount")===Number(savedAmount.replace(/[\s,$]/g,'')) && await amount.getAttribute('aria-invalid')==='true','blank draft overwrote signed amount');
       await amount.fill(savedAmount);
       check(await amount.evaluate((el,meaning)=>(el.getAttribute('aria-describedby')||'').split(/\s+/).some(id=>document.getElementById(id)?.textContent.includes(meaning)),meaning),'signed amount help is not associated with its input');
       check(/-.*\$/.test(await r.locator('.m-row-amt').first().textContent()),'row summary lost its minus sign');
@@ -5355,7 +5356,8 @@ const JOURNEYS = {
     await fixed.fill('8');
     check(await page.evaluate(async key => (await import('/src/components/properties.js')).fixedWhatIf[key] === 8, fixedKey), 'fixed-rate what-if did not update');
     check(await fixed.evaluate(e => e === document.activeElement), 'fixed-rate redraw lost focus');
-    await inspect('[data-strategy-field], [data-strategy-pick], [data-fixed-whatif]');
+    // A pill's radio isn't a field: its label is what's tapped (#455's spare cash).
+    await inspect('[data-strategy-field]:not(.pill-input), [data-strategy-pick], [data-fixed-whatif]');
     await tab('sale', ['sale']);
     for(const [key,value] of Object.entries({date:'2028-01-01',price:700000,agentPct:2,otherCosts:1000})){
       const field = page.locator('[data-sale-field="' + key + '"]');
@@ -5758,7 +5760,12 @@ const JOURNEYS = {
     check(await st(page, '(state.accounts || []).length') === accounts + 1, '+ Add account in the empty state added no account');
     await go(page, 'tax', 'data-tax-sub', 'people');
     await click(page, '#page-tax .empty-state [data-empty-add="#addPersonBtn"]');
-    await answerDialog(page, true, 'Alex');
+    // November 2026: a person is added one question at a time — a name, then past their pay and date of birth.
+    const personFlow = page.locator('#addFlowDialog');
+    await personFlow.waitFor();
+    await personFlow.locator('.af-big').fill('Alex'); await personFlow.locator('.af-next').click();
+    await personFlow.locator('.af-next').click(); await personFlow.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
     await until(page, () => /Alex/.test(document.getElementById('page-tax').innerText));
     check(/Alex/.test(await page.locator('#page-tax').innerText()), '+ Add person in the empty state added no one');
     // A scroll: the trim card's "budget lines" are above it, and the link brings them into view.
@@ -6137,7 +6144,7 @@ const JOURNEYS = {
       const audit=await page.evaluate(idx=>{
         const root=document.querySelector('#assetsSub-Cash .m-row[data-index="'+idx+'"]');
         const fields=[...root.querySelectorAll('.field-control')];
-        return {doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,bad:fields.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return !el.labels?.length || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+        return {doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,bad:fields.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return !el.labels?.length || r.width<=0 || r.height<(innerWidth<880?44:36) || (el.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px' || s.padding!=='6px 8px')) || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
       },idx);
       check(audit.doc<=width && audit.scroll<=audit.width+1 && !audit.bad.length,'Basic asset fields failed at '+width+': '+JSON.stringify(audit));
     }
@@ -6207,7 +6214,7 @@ const JOURNEYS = {
     await row.getByLabel('Person',{exact:true}).fill('Sam');
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});
-      const audit=await page.evaluate(idx=>{const root=document.querySelector('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');return {open:root.classList.contains('open'),hidden:!!root.closest('[hidden]'),route:location.pathname,doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,nameWidth:root.querySelector('.v-what').getBoundingClientRect().width,dateWidth:root.querySelector('.v-purchasedate').getBoundingClientRect().width,bad:[...root.querySelectorAll('.field-control')].filter(el=>!el.labels?.length || getComputedStyle(el).borderRadius!=='6px' || el.getBoundingClientRect().height<(innerWidth<880?44:36)).map(el=>el.className)};},idx);
+      const audit=await page.evaluate(idx=>{const root=document.querySelector('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');return {open:root.classList.contains('open'),hidden:!!root.closest('[hidden]'),route:location.pathname,doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,nameWidth:root.querySelector('.v-what').getBoundingClientRect().width,dateWidth:root.querySelector('.v-purchasedate').getBoundingClientRect().width,bad:[...root.querySelectorAll('.field-control')].filter(el=>!el.labels?.length || getComputedStyle(el).borderRadius!==(el.classList.contains('fbox-control')?'14px':'6px') || el.getBoundingClientRect().height<(innerWidth<880?44:36)).map(el=>el.className)};},idx);
       check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.dateWidth>=audit.nameWidth-1 && !audit.bad.length,'Vehicle fields failed at '+width+': '+JSON.stringify(audit));
     }
     await row.getByRole('button',{name:'Record value',exact:true}).focus();
@@ -6285,7 +6292,7 @@ const JOURNEYS = {
       const audit=await row.evaluate(root=>{
         const controls=[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length);
         return {doc:document.documentElement.scrollWidth,viewport:innerWidth,width:root.clientWidth,scroll:root.scrollWidth,accountWidth:root.querySelector('.f-account').getBoundingClientRect().width,nameWidth:root.querySelector('.f-what').getBoundingClientRect().width,
-          bad:controls.filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.labels?.length || !el.labels[0].textContent.trim() || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+          bad:controls.filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.labels?.length || !el.labels[0].textContent.trim() || r.width<=0 || r.height<(innerWidth<880?44:36) || (el.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px' || s.padding!=='6px 8px')) || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
       });
       check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.accountWidth>=audit.nameWidth-1 && !audit.bad.length,'Income field sizing/names/reflow failed at '+width+': '+JSON.stringify(audit));
     }
@@ -6346,12 +6353,12 @@ const JOURNEYS = {
     await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
     await page.locator('#mRowBackdrop').click({position:{x:2,y:2}}); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
     const before=await stored(page,'state.shared.length');
+    // November 2026: a budget line is added one question at a time; closed with nothing answered, nothing is added.
     await page.locator('[data-add="shared"]:visible').first().click();
-    await page.locator('.m-row.open[role="dialog"]').waitFor();
-    check(await page.evaluate(async()=> (await import('/src/state.js')).hasPendingWork()), 'An untouched new row was considered safe to replace');
+    await page.locator('#addFlowDialog[open]').waitFor();
     await page.keyboard.press('Escape');
-    await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
-    check(await stored(page,'state.shared.length')===before,'Closing an untouched new row kept it');
+    await page.waitForFunction(()=>!document.querySelector('#addFlowDialog[open]'));
+    check(await stored(page,'state.shared.length')===before,'Closing an untouched new line kept it');
     check(await page.evaluate(()=>document.activeElement.matches('[data-add="shared"]')),'Discard did not restore the Add opener');
     await row.locator('[data-row-toggle]').first().click(); await row.getByRole('button',{name:/Close editor$/}).waitFor();
     await row.locator('.row-del').click(); await page.waitForFunction(()=>!document.querySelector('.m-row.open'));
@@ -6411,8 +6418,8 @@ const JOURNEYS = {
     }
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});
-      const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
-      check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && f.radius==='6px' && f.padding==='6px 8px' && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
+      const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {box:el.classList.contains('fbox-control'),type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
+      check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && (f.box?(f.radius==='14px'&&f.height+0.01>=(width<=880?58:52)):(f.radius==='6px' && f.padding==='6px 8px')) && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
     }
     await row.getByLabel('Amount',{exact:true}).fill('-40');
     check(await stored(page, "state.shared.find(x=>x.id==='demo-groceries').amount")===-40 && await row.locator('.f-amount').evaluate(el=>el.validity.valid), 'A supported negative amount was rejected by the shared control');
@@ -6984,6 +6991,27 @@ const JOURNEYS = {
     await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
     const card = await page.evaluate(async () => { const s = (await import('/src/state.js')).state, a = s.accounts.find(x => x.name === 'Bank One Card'); const debt = a && s.debts.find(x => 'debt:' + x.id === a.link); return a && { type: a.type, owed: debt && debt.balance }; });
     check(card && card.type === 'credit' && card.owed === 1250, 'the card is not what was answered: ' + JSON.stringify(card));
+    // A budget line: what it's for, how much and how often, the account — made with them, not opened blank.
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    const lines = await st(page, 'state.shared.length');
+    await page.locator('[data-add="shared"]:visible').first().click();
+    await d.waitFor();
+    await d.locator('.af-big').fill('Example power'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('300'); await d.locator('.pill:has(input[value="Quarterly"])').click(); await d.locator('.af-next').click();
+    await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    const line = await page.evaluate(async () => { const r = (await import('/src/state.js')).state.shared.slice(-1)[0]; return [r.what, r.amount, r.freq]; });
+    check(await st(page, 'state.shared.length') === lines + 1 && JSON.stringify(line) === JSON.stringify(['Example power', 300, 'Quarterly']), 'the budget line is not what was answered: ' + JSON.stringify(line));
+    // A holding: its code, units, the average paid.
+    await go(page, 'assets', 'data-assets-sub', 'Shares');
+    await page.locator('[data-add="holding"]:visible').first().click();
+    await d.waitFor();
+    await d.locator('.af-big').fill('vas'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('25'); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('90.50'); await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    const held = await page.evaluate(async () => { const r = (await import('/src/state.js')).state.assets.slice(-1)[0]; return [r.symbol, r.category, r.quantity, r.avgCost]; });
+    check(JSON.stringify(held) === JSON.stringify(['VAS', 'Shares', 25, 90.5]), 'the holding is not what was answered: ' + JSON.stringify(held));
   },
   async buyinghome(page){
     await quiet(page);
@@ -7020,13 +7048,26 @@ const JOURNEYS = {
     await row.locator('summary').click();
     const amount = row.locator('[data-cost-field="amount"]');
     await amount.fill('1500'); await amount.press('Tab');
+    // #452: paid from an account — it comes off that account's balance.
+    const from = page.locator(cardSel + ' details.buy-cost').nth(1).locator('[data-cost-field="paidFrom"]');
+    const acctId = await from.locator('option').nth(1).getAttribute('value');
+    const balanceOf = id => page.evaluate(async id => { const s = (await import('/src/state.js')).state, a = s.accounts.find(x => x.id === id); return (await import('/src/calc/accounts.js')).accountBalance(a).balance; }, id);
+    const before = await balanceOf(acctId);
+    await from.selectOption(acctId);
     await page.locator(cardSel + ' details.buy-cost').nth(1).locator('label.switch-row:has([data-cost-field="paid"])').click();
+    await waited(page, ([id, b]) => import('/src/state.js').then(async m => (await import('/src/calc/accounts.js')).accountBalance(m.state.accounts.find(x => x.id === id)).balance === b - 1500), 'the cost to come off the account it was paid from', [acctId, before]);
     // A lender's fee added to the loan: one tap to add it, its amount, Added to the loan — borrowed, not cash.
     await page.locator(cardSel + ' [data-buy-cost-quick="Low deposit fee / LMI"]').click();
     const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
     await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
-    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="financed"][value="loan"])').last().click();
+    await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="paidWith"][value="loan"])').last().click();
     check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
+    // #452: the lender's approved loan, typed from its letter, checked against the loan and the fee added to it.
+    const gross = page.locator(cardSel + ' [data-buy-field="grossLoan"]');
+    if(!(await gross.isVisible())) await page.locator(cardSel + ' .buy-fold > summary').click();
+    await gross.fill('489000'); await gross.press('Tab');
+    check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
+    check(/= Cash you bring\s*\$60,000/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'settlement line by line does not end on the cash to bring');
     check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {

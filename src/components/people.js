@@ -19,9 +19,14 @@ import { emptyStateHtml } from "../lib/empty.js";
 // #261: each field's visible label is its label — tied by for/id, with the person's name for a screen reader (so the
 // name starts with what's on screen: "HELP/HECS owing $ for Alex") — and its help shows under it, described, rather
 // than in a title tooltip that touch and keyboard never reach. `control` is the input, built with id and describedby.
-function field(id, label, person, control, help){
-  return '<div class="proj-field"><label for="' + id + '">' + label + '<span class="visually-hidden"> for ' + escapeAttr(person) + '</span></label>' +
-    control.replace('<input ', '<input data-error-key="' + draftFieldKey(personTaxSettings(person), id.replace(/^pp-\d+-/, "")) + '" ') + (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
+// November 2026: the floating-label box (lib/field.js's look) — the label inside, "$" before an amount (`pre`). Not a
+// .proj-field: that one's label rules (uppercase, a fixed height) belong to the old look.
+function field(id, label, person, control, help, pre){
+  control = control.replace('class="pp-in ', 'class="pp-in fbox-control' + (pre ? " has-pre" : "") + ' ');
+  return '<div class="field field-box pp-box"><div class="fbox"><label class="field-label fbox-label" for="' + id + '">' + label + '<span class="visually-hidden"> for ' + escapeAttr(person) + '</span></label>' +
+    (pre ? '<span class="fbox-pre" aria-hidden="true">' + pre + '</span>' : '') +
+    control.replace('<input ', '<input data-error-key="' + draftFieldKey(personTaxSettings(person), id.replace(/^pp-\d+-/, "")) + '" ') + '</div>' +
+    (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
 }
 function numInput(cls, person, value, id, described, step){
   return '<input type="number" min="0" step="' + (step || 500) + '" class="pp-in ' + cls + ' field-control" data-pp-person="' + escapeAttr(person) + '" id="' + id + '"' +
@@ -47,8 +52,9 @@ export function personCardHtml(person, index, today){
   for(var fy = thisFy - 3; fy <= thisFy; fy++){
     var rate = wfhRateForFy(fy);
     var h = st.wfhHours && st.wfhHours[fy] != null ? st.wfhHours[fy] : "";
-    hours.push('<div class="proj-field pp-hours"><label for="pp-wfh-' + index + '-' + fy + '">' + fyLabel(fy) + ' <small>' + Math.round(rate.rate * 100) + 'c/h</small></label>' +
-      '<input type="number" min="0" step="1" id="pp-wfh-' + index + '-' + fy + '" class="pp-in pp-wfh field-control" data-error-key="' + draftFieldKey(st, "wfh-" + fy) + '" data-pp-person="' + pid + '" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + h + '" placeholder="0"></div>');
+    hours.push('<div class="field field-box pp-box pp-hours"><div class="fbox"><label class="field-label fbox-label" for="pp-wfh-' + index + '-' + fy + '">' + fyLabel(fy) + ' · ' + Math.round(rate.rate * 100) + 'c/h</label>' +
+      '<input type="number" min="0" step="1" id="pp-wfh-' + index + '-' + fy + '" class="pp-in fbox-control has-suf pp-wfh field-control" data-error-key="' + draftFieldKey(st, "wfh-" + fy) + '" data-pp-person="' + pid + '" data-fy="' + fy + '" aria-label="Hours worked from home in ' + fyLabel(fy) + ' for ' + pid + '" value="' + h + '" placeholder="0">' +
+      '<span class="fbox-suf" aria-hidden="true">hrs</span></div></div>');
   }
   var ppid = "pp-" + index + "-";
   return '<div class="pp-card" data-error-scope="Tax details for ' + pid + '" data-pp-card="' + pid + '">' + errorSummaryLiveHtml() +
@@ -61,13 +67,13 @@ export function personCardHtml(person, index, today){
     '<div class="tax-inputs pp-fields">' +
       field(ppid + "dob", "Date of birth", person, '<input type="date" class="pp-in pp-dob field-control" data-pp-person="' + pid + '" id="' + ppid + 'dob" aria-describedby="' + ppid + 'dob-help" value="' + escapeAttr(st.dateOfBirth || "") + '">',
         "Used for the private health rebate (higher from 65 and 70), preservation age, and comparing super and net worth with people the same age on Today → How you compare.") +
-      field(ppid + "help", "HELP/HECS owing $", person, numInput("pp-help", person, st.helpBalance, ppid + "help", true),
-        "What's still owed on a study loan. The compulsory repayment is worked out from this and comes out of take-home.") +
-      field(ppid + "cap", "Concessional cap $/yr", person, numInput("pp-cap", person, st.concessionalCap, ppid + "cap", false)) +
-      field(ppid + "carry", "Carry-forward available $", person, numInput("pp-carry", person, st.carryForward, ppid + "carry", true),
-        "Unused cap from the last five years, available while the total super balance was under $500,000 on 30 June last year — myGov shows it.") +
-      field(ppid + "losses", "Capital losses b/f $", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true, 100),
-        "Net capital losses brought forward (b/f) from earlier years, as on the last notice of assessment.") +
+      field(ppid + "help", "HELP/HECS owing", person, numInput("pp-help", person, st.helpBalance, ppid + "help", true),
+        "What's still owed on a study loan. The compulsory repayment is worked out from this and comes out of take-home.", "$") +
+      field(ppid + "cap", "Concessional cap a year", person, numInput("pp-cap", person, st.concessionalCap, ppid + "cap", false), "", "$") +
+      field(ppid + "carry", "Carry-forward available", person, numInput("pp-carry", person, st.carryForward, ppid + "carry", true),
+        "Unused cap from the last five years, available while the total super balance was under $500,000 on 30 June last year — myGov shows it.", "$") +
+      field(ppid + "losses", "Capital losses brought forward", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true, 100),
+        "Net capital losses brought forward from earlier years, as on the last notice of assessment.", "$") +
       field(ppid + "week", "Hours worked a week", person, '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week field-control" data-pp-person="' + pid + '" id="' + ppid + 'week" aria-describedby="' + ppid + 'week-help" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
         "What Money → Budget → Money in divides by when it's shown per hour. Empty counts as 38.") +
     '</div>' +

@@ -1995,3 +1995,10 @@
   .add-flow{ position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:calc(100dvh - 12px); border-radius:24px 24px 0 0; }
   .af-form{ padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px)); min-height:min(560px, calc(100dvh - 100px)); }
 }
+
+/* November 2026: a row editor of floating-label boxes (lib/ledger-table.js ledgerFields) — the boxes are the structure,
+   so no card behind them (on it their fill disappeared); two columns, as the editor is a narrow sheet on a desktop too,
+   and a wide field takes the row. After the phone rule above, which it replaces for these grids. */
+.m-edit-grid:has(> .m-edit-field > .field-box){ grid-template-columns: repeat(2, minmax(0, 1fr)); background: transparent; border:0; padding:0; gap:10px; }
+.m-edit-grid:has(> .m-edit-field > .field-box) > .m-edit-field.span2,
+.m-edit-grid:has(> .m-edit-field > .field-box) > .m-edit-field.span3{ grid-column: 1 / -1; }

@@ -22,6 +22,10 @@ function has(v){ return v != null && String(v).trim() !== ""; }
 // The questions, in order, for what's been answered so far. "check" is the last: everything, to change any of it.
 export function flowSteps(flow, a){
   a = a || {};
+  // November 2026: a person (their pay, then their date of birth), a budget line, a share holding.
+  if(flow === "person") return ["name", "pay", "dob"];
+  if(flow === "expense") return ["name", "amountFreq", "account"];
+  if(flow === "holding") return ["symbol", "units", "cost"];
   if(flow === "account"){
     var s = ["kind", "name"];
     if(a.kind === "offset") s.push("loan");
@@ -38,13 +42,17 @@ export function flowSteps(flow, a){
 export function stepNeeds(flow, step, a){
   a = a || {};
   if(step === "kind") return has(a.kind) ? "" : "Choose one to go on.";
+  if(step === "name" && flow === "person") return !has(a.name) ? "Their name, as you'd say it." : (a.taken || []).indexOf(String(a.name).trim()) !== -1 ? "There's already someone called that." : "";
+  if(step === "name" && flow === "expense") return has(a.name) ? "" : "Name it — what it's for.";
+  if(step === "symbol") return /^[A-Za-z0-9.]{1,12}$/.test(String(a.symbol || "").trim()) ? "" : "The code it trades under — up to 12 letters or numbers.";
+  if(step === "units") return Number(String(a.units || "").replace(/[\s,]/g, "")) > 0 ? "" : "How many units — more than none.";
   if(step === "name") return has(a.name) ? "" : (flow === "account" ? "Give it a name — the bank and the account." : "Give it a name — a street, a suburb, or \"Home\".");
   if(step === "loan") return has(a.loanId) ? "" : "Choose the loan it sits against.";
   if(step === "hasLoan") return a.hasLoan === true || a.hasLoan === false ? "" : "Choose Yes or No.";
   return "";
 }
 // The questions that can be left for later.
-export function stepSkippable(step){ return ["bought", "value", "settlement", "buyLoan", "balance", "loanRate"].indexOf(step) !== -1; }
+export function stepSkippable(step){ return ["bought", "value", "settlement", "buyLoan", "balance", "loanRate", "dob", "account", "cost", "pay"].indexOf(step) !== -1; }
 
 // The loan a purchase needs: what the price less the deposit leaves.
 export function suggestedLoan(a){ var p = num(a.price), d = num(a.deposit); return p > 0 && d >= 0 && p > d ? p - d : 0; }
@@ -122,6 +130,8 @@ export function addPurchaseFromAnswers(st, a, genId){
   if(has(a.loanAmount)) fields.loanAmount = num(a.loanAmount);
   else if(!has(fields.loanAmount) && suggestedLoan(a) > 0) fields.loanAmount = suggestedLoan(a);
   if(has(a.settlementDate)) fields.settlementDate = String(a.settlementDate);
+  // Which plan it started from, so Checks can compare the two (#453) — neither is ever changed to match.
+  if(plan) fields.fromPlan = a.plan;
   return addPurchase(st, fields, genId);
 }
 // An account, and its balance where it's kept (calc/accounts.js): a Cash asset, a card's debt, or a loan's offset.
@@ -132,4 +142,33 @@ export function addAccountFromAnswers(st, a, genId, today){
   st.accounts.push(acct);
   if(has(a.balance) && (type !== "offset" || acct.link)) setAccountBalance(acct, num(a.balance), today);
   return acct;
+}
+
+// A person: their pay before tax, on the household's income (tax and super are worked out from it), and their date of
+// birth on their tax settings (super's preservation age, the pension age, offsets).
+export function addPersonFromAnswers(st, a, genId){
+  var name = String(a.name || "").trim();
+  var row = { id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: num(a.amount), freq: a.freq || "Yearly",
+    person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 };
+  st.income = st.income || [];
+  st.income.push(row);
+  if(has(a.dob)){
+    st.tax = st.tax || {};
+    st.tax.settings = st.tax.settings || {};
+    st.tax.settings[name] = Object.assign({}, st.tax.settings[name], { dateOfBirth: String(a.dob) });
+  }
+  return row;
+}
+// A budget line's own fields (rows.js addRow makes the row, filed under the group it was added from).
+export function expenseFieldsFromAnswers(a){
+  return { what: String(a.name || "").trim(), amount: num(a.amount), freq: a.freq || "Monthly", account: String(a.account || "") };
+}
+// A share holding: its code, units and what was paid on average (its price comes with the next price update).
+export function addHoldingFromAnswers(st, a){
+  var code = String(a.symbol || "").trim().toUpperCase(), cost = has(a.cost) ? num(a.cost) : null;
+  var h = { what: code, category: "Shares", symbol: code, market: a.market || "ASX", quantity: num(a.units), avgCost: cost, price: 0, priceUpdated: "",
+    person: a.person || "", amount: 0 };
+  st.assets = st.assets || [];
+  st.assets.push(h);
+  return h;
 }

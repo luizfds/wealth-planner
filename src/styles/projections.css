@@ -216,3 +216,6 @@
 .cb-from em{ font-style:normal; font-size:var(--fs-xs); color: var(--bad-ink); border:1px solid currentColor; border-radius:3px; padding:0 3px; margin-left:4px; }
 .cb-warn{ margin:6px 0; padding:6px 8px; border-radius:6px; background: var(--bad-wash); font-size:var(--fs-xs); line-height:1.4; }
 .cb-note{ margin:2px 0 6px; font-size:var(--fs-xs); }
+
+/* November 2026: a deposit held for a home being bought — Property's colour, lighter, beside it in the allocation. */
+.tax-waterfall-seg.alloc-deposit, .proj-swatch.alloc-deposit{ background: color-mix(in srgb, var(--series-color) 45%, var(--paper-raised)); }

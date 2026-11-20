@@ -11,12 +11,17 @@ export function ledgerFieldId(item, section, idx, surface, name){
   var key = encodeURIComponent((surface || "ledger") + ":" + (section || "income") + ":" + (item.id == null ? idx : item.id));
   return "ledger-" + key + "-" + name;
 }
+// November 2026 (the owner's chosen form style): every row editor's field is a floating-label box, and an amount of
+// money is a money box ("1,250.50" — read with its separators by lib/validate.js).
+var MONEY_FIELDS = { "f-amount": 1, "a-amount": 1, "v-purchaseprice": 1 };
 export function ledgerFields(item, section, idx, surface){
   var prefix = ledgerFieldId(item, section, idx, surface, "");
   return function(name, label, options, layout){
     layout = layout || {};
+    var o = Object.assign({}, options, { id: prefix + name, label: label, className: name, box: true });
+    if(MONEY_FIELDS[name] && o.type === "number"){ o.type = "money"; if(o.attrs){ o.attrs = Object.assign({}, o.attrs); delete o.attrs.step; delete o.attrs.min; } }
     return '<div class="m-edit-field' + (layout.className ? " " + escapeAttr(layout.className) : "") + (options && options.type === "date" ? " ledger-date-field" : "") + '"' + (layout.hidden ? " hidden" : "") + ">" +
-      fieldHtml(Object.assign({}, options, { id: prefix + name, label: label, className: name })) + "</div>";
+      fieldHtml(o) + "</div>";
   };
 }
 function choices(values){ return values.map(function(value){ return { value: value, label: value }; }); }

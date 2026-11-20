@@ -11,7 +11,10 @@ import {
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { saleScenario } from "../calc/sale.js";
 import { propertyClaimLines, rowDeductionAnnual, claimItems } from "../calc/claims.js";
-import { loanStrategy } from "../calc/loanstrategy.js";
+import { loanStrategy, cashStrategies } from "../calc/loanstrategy.js";
+import { strategyDefaults } from "../calc/savingsoffset.js";
+import { emergencyFund } from "../calc/emergency.js";
+import { cashOnHand } from "./buying.js";
 import { LAND_TAX_STATES, LAND_TAX_YEAR } from "../constants.js";
 import { sumField, householdYearWindow } from "../calc/ledger.js";
 import { fixedRateView, rentSummary } from "../calc/propertylife.js";
@@ -469,14 +472,62 @@ export function loanStrategyHtml(p){
     card("More in offset", input("offsetAdd", "$", { step: "1000", placeholder: "20000" }), offBody) +
     card("If the rate moves", input("newRate", "New rate %", { step: "0.05", placeholder: (Number(loan.rate) + 0.5).toFixed(2) }), rateBody) +
     card("Refinance", input("refiRate", "Rate %", { step: "0.05", placeholder: "5.79" }) + input("refiCosts", "Costs $", { step: "50", placeholder: "800" }) + input("cashback", "Cashback $", { step: "500", placeholder: "2000" }), refiBody) +
-  '</div>' +
+  '</div>' + spareCashHtml(p, loan, idx, st) +
   (p.kind === "IP" ? '<p class="ledger-note" style="margin:8px 0 0">On an investment loan, offset and extra repayments save the same interest while the money stays put — but money redrawn from extra repayments for anything private isn\'t deductible, while money taken back out of offset leaves the deductible loan intact. Offset keeps the options.</p>' : '');
+}
+// #455: spare cash, four ways — kept, saved, in the offset, or paid off the loan — over the same years
+// (calc/loanstrategy.js cashStrategies). It starts from the cash held less the emergency reserve, which it keeps aside;
+// the savings rate and (on an investment loan) the tax that would have been claimed are shown and can be changed.
+var SPARE_KINDS = { keep: "Keep it as cash", savings: "A savings account", offset: "In the offset", extra: "Pay it off the loan" };
+function spareCashHtml(p, loan, idx, st){
+  var d = strategyDefaults(p), reserve = 0, held = 0;
+  try { reserve = Number(emergencyFund().target) || 0; } catch(e){ reserve = 0; }
+  try { held = Number(cashOnHand()) || 0; } catch(e){ held = 0; }
+  var spare = Math.max(0, Math.floor((held - reserve) / 1000) * 1000);
+  var amount = st.spare != null ? Number(st.spare) : spare;
+  var savingsRate = st.savingsRate != null ? st.savingsRate : d.savingsRate;
+  var dedPct = p.kind === "IP" ? (st.taxPct != null ? Number(st.taxPct) : d.deductiblePct) : 0;
+  var horizon = [1, 5, 10].indexOf(Number(st.horizon)) !== -1 ? Number(st.horizon) : 5;
+  var redraw = Number(st.redraw) === 1;
+  var c = cashStrategies(loan, { amount: amount, savingsRate: savingsRate, savingsTaxPct: d.savingsTaxPct, deductiblePct: dedPct, redraw: redraw, years: [1, 5, 10] });
+  var money = function(v){ return fmtCurrency0.format(Math.round(v)); };
+  var fa = function(k, extra){ return Object.assign({ "data-strategy-field": k, "data-strategy-loan": idx }, extra || {}); };
+  var base = "ls-spare-" + escapeAttr(p.id) + "-" + idx;
+  var inputs = '<div class="fgrid">' +
+    fieldHtml({ id: base + "-amt", label: "Amount", type: "money", value: amount || "", attrs: fa("spare") }) +
+    fieldHtml({ id: base + "-sav", label: "Savings rate", box: true, value: savingsRate == null ? "" : savingsRate, unit: "%", placeholder: "e.g. 4.5", attrs: fa("savingsRate", { inputmode: "decimal" }),
+      help: "Less " + d.savingsTaxPct + "% tax on its interest." }) +
+    (p.kind === "IP" ? fieldHtml({ id: base + "-tax", label: "Tax it would have claimed", box: true, value: dedPct, unit: "%", attrs: fa("taxPct", { inputmode: "decimal" }), wide: true,
+      help: "The owners' rate, as the app works it out — interest saved on an investment loan is a deduction lost. An estimate, not tax advice." }) : '') + '</div>' +
+    pillsHtml({ id: base + "-h", label: "After", name: base + "-h", value: String(horizon), attrs: fa("horizon"), options: [{ value: "1", label: "1 year" }, { value: "5", label: "5 years" }, { value: "10", label: "10 years" }] }) +
+    (c.io ? '' : pillsHtml({ id: base + "-r", label: "The loan has redraw", name: base + "-r", value: redraw ? "1" : "0", attrs: fa("redraw"), options: [{ value: "0", label: "No" }, { value: "1", label: "Yes" }] }));
+  var y = horizon, bestKind = c.best && c.best.kind;
+  var rows = c.strategies.map(function(sx){
+    var r = sx.years[y];
+    if(!r) return "";
+    var saved = sx.kind === "keep" || sx.kind === "savings" ? "" : money(r.interestSaved) + " less interest" + (c.deductible ? " (" + money(r.interestSavedAfterTax) + " after tax)" : "");
+    var line = [saved, "owes " + money(r.balance), money(r.cash) + " to hand"].filter(Boolean).join(" · ");
+    var sooner = sx.monthsSooner > 0 ? "Paid off " + (sx.monthsSooner >= 12 ? Math.floor(sx.monthsSooner / 12) + "y " : "") + (sx.monthsSooner % 12) + "m sooner." : "";
+    var room = sx.kind === "extra" ? (redraw ? "Back through redraw if you need it." : "Gone unless the loan has redraw.") : sx.kind === "offset" ? "Still yours to take back." : "";
+    return '<li class="ls-sc' + (sx.kind === bestKind && amount > 0 ? " is-best" : "") + '"><div class="ls-sc-top"><b>' + SPARE_KINDS[sx.kind] + '</b><span>' + (r.position >= 0 ? "" : "−") + money(Math.abs(r.position)) + '</span></div>' +
+      '<small>' + escapeAttr(line) + (sooner || room ? '<br>' + escapeAttr([sooner, room].filter(Boolean).join(" ")) : '') + '</small></li>';
+  }).join("");
+  var notes = [];
+  if(!(amount > 0)) notes.push("Type an amount to compare.");
+  else if(st.spare == null && reserve > 0) notes.push("Starts from your " + money(held) + " in cash and offsets less your " + money(reserve) + " emergency reserve, which stays aside.");
+  else if(held - amount < reserve) notes.push("This dips into your emergency reserve of " + money(reserve) + ".");
+  c.missing.forEach(function(m){ notes.push("Missing: " + m); });
+  return '<div class="ls-card ls-spare"><div class="ls-title">Spare cash, four ways</div>' +
+    '<p class="ledger-note" style="margin:0 0 8px">The same amount kept, saved, in the offset or paid off this loan — what each leaves you after ' + y + ' year' + (y === 1 ? '' : 's') + '. The figure on the right is cash to hand less what\'s owed.</p>' +
+    inputs + (rows ? '<ul class="ls-sc-list">' + rows + '</ul>' : '') +
+    notes.map(function(n){ return '<p class="ledger-note" style="margin:6px 0 0">' + escapeAttr(n) + '</p>'; }).join("") + '</div>';
 }
 export function setLoanStrategyField(p, loanIdx, field, value){
   var loan = (p.loans || [])[loanIdx];
   if(!loan) return;
   if(!loan.strategy || typeof loan.strategy !== "object") loan.strategy = {};
-  if(value === "" || value == null) delete loan.strategy[field]; else loan.strategy[field] = Number(value);
+  // A money field shows "50,000" (lib/field.js): read without its separators.
+  if(value === "" || value == null) delete loan.strategy[field]; else loan.strategy[field] = Number(String(value).replace(/[\s,$]/g, ""));
   persist();
 }
 export function patchLoanStrategy(p){

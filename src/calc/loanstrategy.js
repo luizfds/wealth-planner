@@ -72,3 +72,89 @@ export function loanStrategy(loan, s){
   }
   return out;
 }
+
+// ---- Spare cash, four ways (#455, November 2026) ----
+//
+// The same amount, on one loan, over the same timeline: kept as cash; in a savings account (its rate, less the holder's
+// tax); in the offset (interest charged on the balance less it — it never repays anything, and it's still yours to
+// take back); or paid off the loan (the balance less it — back only through redraw, if the loan has it). A
+// principal-and-interest repayment stays what the bank set, so an offset or a lump sum pays the loan off sooner; once
+// it's paid, the repayment it no longer needs goes to cash, so the four stay comparable to the end. On an investment
+// loan the interest saved is shown after the tax that would have been claimed back (`deductiblePct`, the owners' rate,
+// shown and editable — an estimate, not tax advice). Nothing here is spending or a second asset: the amount is counted
+// once, wherever it sits.
+// o: { amount, savingsRate (null: not known), savingsTaxPct, deductiblePct, rateShift, redraw, years: [1, 5, 10] }
+export function cashStrategies(loan, o){
+  o = o || {};
+  var amount = Math.max(0, Number(o.amount) || 0);
+  var balance0 = Math.max(0, Number(loan.balance) || 0), offset0 = Math.max(0, Number(loan.offsetBalance) || 0);
+  var rate = (Number(loan.rate) || 0) + (Number(o.rateShift) || 0);
+  var io = loan.repaymentType === "IO";
+  var repayment = io ? null : calcRepaymentMonthly(balance0, rate, Number(loan.termYears) || 30, "PI");
+  var savings = o.savingsRate == null || o.savingsRate === "" ? null : (Number(o.savingsRate) || 0) * (1 - (Number(o.savingsTaxPct) || 0) / 100);
+  var ded = Math.min(100, Math.max(0, Number(o.deductiblePct) || 0)) / 100;
+  var years = o.years || [1, 5, 10], horizon = Math.max.apply(null, years) * 12;
+  function run(kind){
+    var bal = kind === "extra" ? Math.max(0, balance0 - amount) : balance0;
+    var off = offset0 + (kind === "offset" ? amount : 0);
+    // Cash to hand: the amount when it's kept or saved; in the offset it's counted as the offset (still yours), paid off
+    // the loan it's gone (but for redraw).
+    var cash = kind === "keep" || kind === "savings" ? amount : 0, sched = balance0, interest = 0, paidAt = null, at = {};
+    var r = rate / 100 / 12, monthlySavings = savings == null ? 0 : savings / 100 / 12;
+    // Interest only: the same outflow every way — today's interest — so a month's interest not charged is cash kept.
+    var ioOut = Math.max(0, balance0 - offset0) * r;
+    for(var m = 1; m <= 600; m++){
+      var pay = io ? Math.max(0, bal - off) * r : repayment;
+      if(io) cash += Math.max(0, ioOut - pay);
+      if(bal > 0.005){
+        var i = Math.max(0, bal - off) * r;
+        interest += i;
+        var principal = io ? 0 : Math.min(bal, pay - i);
+        bal = Math.max(0, bal - principal);
+        // Paid off — or, with an offset, covered by it: interest stops and it could be closed that month.
+        if(bal - off <= 0.005 && paidAt == null){ paidAt = m; }
+        // Paid before the month's repayment was used up: what's left of it is cash.
+        if(!io && pay - i > principal) cash += pay - i - principal;
+      } else if(!io){ cash += pay; }
+      if(kind === "savings") cash += cash * monthlySavings;
+      // The schedule without the lump sum, for what redraw would give back.
+      if(!io && sched > 0.005){ var si = Math.max(0, sched - offset0) * r; sched = Math.max(0, sched - Math.min(sched, repayment - si)); }
+      if(years.indexOf(m / 12) !== -1){
+        var avail = cash + (kind === "offset" ? amount : 0);
+        if(kind === "extra" && o.redraw) avail += Math.max(0, (io ? balance0 : sched) - bal);
+        at[m / 12] = { balance: Math.round(bal), interest: Math.round(interest), cash: Math.round(avail) };
+      }
+      if(m >= horizon && (paidAt != null || io || m >= 600)) break;
+    }
+    if(!io && bal - off > 0.005 && paidAt == null){
+      // Not paid off within the horizon: keep running (no cash needed) just to find the payoff month.
+      var b2 = bal;
+      for(var k = m + 1; k <= 600 && b2 - off > 0.005; k++){ var i2 = Math.max(0, b2 - off) * r; b2 = Math.max(0, b2 - Math.min(b2, repayment - i2)); if(b2 - off <= 0.005) paidAt = k; }
+    }
+    return { kind: kind, at: at, paidOffMonth: io ? null : paidAt };
+  }
+  var kinds = ["keep", "savings", "offset", "extra"];
+  var runs = {};
+  kinds.forEach(function(k){ if(k !== "savings" || savings != null) runs[k] = run(k); });
+  var keep = runs.keep;
+  var out = kinds.filter(function(k){ return runs[k]; }).map(function(k){
+    var r2 = runs[k], rows = {};
+    years.forEach(function(y){
+      var a = r2.at[y], b = keep.at[y];
+      if(!a || !b) return;
+      var saved = b.interest - a.interest;
+      // On an investment loan, interest saved is a deduction lost: worth the saving less the tax it would have saved —
+      // that much less back at tax time, so that much less cash to hand.
+      var lost = Math.round(Math.max(0, saved) * ded);
+      rows[y] = { balance: a.balance, cash: a.cash - lost, interestSaved: Math.round(saved), interestSavedAfterTax: Math.round(saved * (1 - ded)), deductionLost: lost,
+        // What's yours, net: the cash to hand less what's owed — the measure the four are compared on.
+        position: a.cash - lost - a.balance };
+    });
+    return { kind: k, years: rows, paidOffMonth: r2.paidOffMonth, monthsSooner: keep.paidOffMonth != null && r2.paidOffMonth != null ? keep.paidOffMonth - r2.paidOffMonth : null };
+  });
+  var missing = [];
+  if(savings == null) missing.push("A savings rate, to compare a savings account.");
+  if(!(rate > 0)) missing.push("The loan's rate.");
+  return { amount: amount, rate: rate, io: io, deductible: ded > 0, deductiblePct: Math.round(ded * 1000) / 10, strategies: out, missing: missing,
+    best: out.slice().sort(function(a, b){ var y = years[years.length - 1]; return ((b.years[y] || {}).position || 0) - ((a.years[y] || {}).position || 0); })[0] || null };
+}

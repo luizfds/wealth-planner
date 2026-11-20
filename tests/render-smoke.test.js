@@ -693,8 +693,8 @@ import { borrowingNoteText } from "../src/components/properties.js";
 
 test("a deductible row renders its claim-from/until fields", function(){
   var html = modernPlainRowHtml({ id: "r1", what: "Rent", amount: 720, freq: "Weekly", deductible: true, deductiblePct: 6.4, deductibleUntil: "2025-09-30" }, 0, "shared", {}, {});
-  assert.match(html, /class="field-control f-deductfrom"/);
-  assert.match(html, /class="field-control f-deductuntil"[^>]*value="2025-09-30"/);
+  assert.match(html, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-deductfrom"/);
+  assert.match(html, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-deductuntil"[^>]*value="2025-09-30"/);
 });
 
 test("the borrowing-costs note says what's deductible, or what's missing", function(){
@@ -918,6 +918,15 @@ test("loan strategy: four cards with results, and the IP note", async function()
   assert.match(html, /Repayments up <b>\$1\d\d<\/b> a month/);
   assert.match(html, /Pays back the \$1,500 net switching cost in <b>\d+ months?<\/b>/);
   assert.match(html, /Offset keeps the options/);
+  // #455: spare cash four ways — an amount given, no savings rate entered (said, not guessed), the tax shown to change.
+  const spare = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "Home loan", balance: 400000, rate: 6, termYears: 25, repaymentType: "PI", offsetBalance: 0, strategy: { spare: 30000, taxPct: 37, horizon: 10 } }] });
+  assert.match(spare, /Spare cash, four ways/);
+  assert.match(spare, /<b>Keep it as cash<\/b>[\s\S]*<b>In the offset<\/b>[\s\S]*<b>Pay it off the loan<\/b>/);
+  assert.doesNotMatch(spare, /<b>A savings account<\/b>/);
+  assert.match(spare, /Missing: A savings rate, to compare a savings account\./);
+  assert.match(spare, /data-strategy-field="taxPct" data-strategy-loan="0" inputmode="decimal" value="37"|value="37"[^>]*data-strategy-field="taxPct"/);
+  assert.match(spare, /class="ls-sc is-best"/);
+  assert.doesNotMatch(spare, /NaN|undefined/);
   assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
 });
 
@@ -962,12 +971,12 @@ test("rows: a property cost picks its return line; a budget line can be claimed 
   lt.setDeductionPropertiesProvider(function(){ return [{ id: "r1", what: "9 Sample Ave" }]; });
   try {
     var prop = lt.modernPlainRowHtml({ what: "Pest inspection", amount: 240, freq: "Yearly" }, 0, "propexp:r1", {}, { showClass: true });
-    assert.match(prop, /Rental schedule line<\/label><select[^>]*class="field-control f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
+    assert.match(prop, /Rental schedule line<\/label><select[^>]*class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
     assert.doesNotMatch(prop, /f-deductible/, "no second, personal claim on a property's own cost");
     var line = lt.modernPlainRowHtml({ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }, 0, "shared", {}, { showClass: true });
     assert.match(line, /<optgroup label="Investment property"><option value="property:r1" selected>9 Sample Ave<\/option>/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><div class="field"><label[^>]*>Rental schedule line/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><div class="field"><label[^>]*>Return label/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><div class="field field-box"><div class="fbox"><label[^>]*>Rental schedule line/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><div class="field field-box"><div class="fbox"><label[^>]*>Return label/);
     var gone = lt.modernPlainRowHtml({ what: "Old", amount: 1, freq: "Yearly", deductible: true, claimProperty: "zz" }, 0, "shared", {}, {});
     assert.match(gone, /value="property:zz" selected>\(deleted property\)/);
     var note = claimedHereHtml({ id: "r1" }, [{ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }]);
@@ -1042,6 +1051,12 @@ test("Close the year and Checks render", async function(){
     assert.match(h, /data-hc-page="expenses" data-hc-sub="budget">Open the budget/);
     assert.equal(healthSummaryText(checks), "1 to fix · 1 to look at");
     assert.match(healthHtml([]), /every check passes/);
+    // #453: a check says how sure it is, and where to go (a plan opens on Plan → Scenarios).
+    var sure = healthHtml([{ id: "int-plan-buy:b1", severity: "info", confidence: "certain", title: "The plan <x> and 3 Example Ave differ", detail: "d", where: { page: "plan", sub: "scenarios", label: "Open the plan" } },
+      { id: "int-twin-cash", severity: "warn", confidence: "possible", title: "t", detail: "d", where: { page: "assets" } }]);
+    assert.match(sure, /The plan &lt;x> and 3 Example Ave differ <span class="hc-conf hc-conf-certain">Certain<\/span>/);
+    assert.match(sure, /<span class="hc-conf hc-conf-possible">Worth a look<\/span>/);
+    assert.match(sure, /data-hc-page="plan" data-hc-sub="scenarios">Open the plan<\/button>/);
   } finally { Object.assign(state, keep); }
 });
 
@@ -1477,7 +1492,7 @@ test("a closed row's edit form is text until the row opens", () => {
   const item = { id: "l1", what: "Groceries </script><b>", amount: 120, freq: "Weekly", classification: "Needs" };
   const closed = plainRow(item, 0, "shared", {}, { showClass: true });
   assert.match(closed, /<script type="text\/x-row-edit" class="m-row-edit-tpl"><div class="m-row-edit">/);
-  assert.match(closed, /class="field-control f-amount"/, "the form is still there, as text, for when it opens");
+  assert.match(closed, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-amount"/, "the form is still there, as text, for when it opens");
   assert.equal(closed.match(/<\/script>/gi).length, 1, "text someone typed can't end it early");
   assert.equal(rowEditSlot(false, '<p>a</p></SCRIPT><p>b</p>'), '<script type="text/x-row-edit" class="m-row-edit-tpl"><p>a</p><\\/SCRIPT><p>b</p></script>');
   const open = plainRow(item, 0, "shared", { "shared:0": true }, { showClass: true });
@@ -1643,11 +1658,22 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   const fin = buyingHtml([Object.assign({}, p, { costs: [{ id: "c9", what: "Low deposit fee / LMI", amount: 9000, kind: "loan", financed: true }] })], 50000, "2026-11-20");
   assert.match(fin, /Loan \$480,000 \+ \$9,000 added = <b>\$489,000<\/b> borrowed/);
   assert.match(fin, /<span class="bc-chip in">Added to the loan<\/span>/);
-  assert.match(fin, /name="buy-b1-c9-fin" value="loan" checked data-cost-field="financed"/);
+  assert.match(fin, /name="buy-b1-c9-with" value="loan" checked data-cost-field="paidWith"/);
   assert.doesNotMatch(fin, /id="buy-b1-c9-paid"/, "a fee added to the loan isn't ticked off as paid");
   assert.match(buyingHtml([Object.assign({}, p, { costs: [{ id: "c8", what: "Settlement fee", amount: 0, kind: "loan", tbc: true }] })], 50000, "2026-11-20"), /<b class="bc-amt">To come<\/b>[\s\S]*1 to confirm|1 to confirm[\s\S]*<b class="bc-amt">To come<\/b>/);
   assert.match(html, /data-buy-settled/);
   assert.match(html, /class="btn btn-danger btn-sm" data-buy-remove/);
+  // #452: settlement line by line, and the lender's figure against the purchase's.
+  assert.match(html, /<dt>− What the lender releases<small>the loan \$480,000<\/small><\/dt><dd>\$480,000<\/dd>/);
+  assert.match(html, /<div class="recon-row is-total"><dt>= Cash you bring<\/dt><dd>\$60,600<\/dd>/);
+  assert.match(html, /Type the loan amount on the lender's letter/);
+  const lender = buyingHtml([Object.assign({}, p, { grossLoan: 490000, lenderSource: "approval", costs: [{ id: "c5", what: "Settlement fee", amount: 300, kind: "loan", withheld: true }, { id: "c6", what: "Sundry charge", amount: 80 }] })], 50000, "2026-11-20");
+  assert.match(lender, /The lender's formal approval says <b>\$490,000<\/b>; the loan and the fees added to it make \$480,000 — \$10,000 more from the lender/);
+  assert.match(lender, /less \$300 it keeps for fees/);
+  assert.match(lender, /<span class="bc-chip in">Taken from the loan<\/span>/);
+  assert.match(lender, /<span class="bc-chip warn">Purchase or loan\?<\/span>/);
+  assert.match(lender, /1 cost doesn't say if it's for the purchase or the loan/);
+  assert.match(buyingHtml([Object.assign({}, p, { grossLoan: 480000, lenderSource: "offer" })], 50000, "2026-11-20"), /Matches the lender's loan offer: \$480,000\./);
   assert.match(buyingHtml([Object.assign({}, p, { settlementDate: "" })], null, "2026-11-20"), /Add the settlement date/);
   assert.equal(buyingHtml([], 0, "2026-11-20"), "");
 });
@@ -1687,6 +1713,16 @@ test("adding one question at a time: every question draws, typed answers escaped
   assert.match(addFlowHtml(ui("account", {}, 0, { anyLoan: true })), /value="offset" data-af="kind" disabled>[\s\S]*?Every loan has its offset account already/);
   assert.match(addFlowHtml(ui("account", {}, 0)), /Add a home loan first/);
   assert.match(addFlowHtml(ui("account", { kind: "credit", name: "Card" }, 2)), /What do you owe on it\?[\s\S]*>Add account<\/button>/);
+  // A person, a budget line, a holding (November 2026).
+  for(const [flow, a, n] of [["person", { name: "Sam <b>", amount: "90000", freq: "Yearly" }, 3], ["expense", { name: "Power", amount: "300", freq: "Quarterly" }, 3], ["holding", { symbol: "vas", units: "10", cost: "90" }, 3]]){
+    for(let i = 0; i < n; i++){
+      const html = addFlowHtml(ui(flow, a, i, { people: ["Alex", "Sam"], accounts: ["Bank One"], category: "Utilities" }));
+      assert.doesNotMatch(html, /NaN|undefined|Sam <b>/, flow + " " + i);
+    }
+  }
+  assert.match(addFlowHtml(ui("person", { name: "Sam" }, 1)), /What's Sam's pay, before tax\?[\s\S]*value="Yearly" checked data-af="freq"/);
+  assert.match(addFlowHtml(ui("expense", {}, 0, { category: "Utilities" })), /It goes under Utilities\./);
+  assert.match(addFlowHtml(ui("holding", { symbol: "vas" }, 2, { people: ["Alex", "Sam"] })), /name="af-person" value="Sam"[\s\S]*>Add VAS<\/button>/);
   assert.match(addFlowHtml(ui("property", {}, 0, { error: "Choose one to go on." })), /<p class="af-error field-error" id="addFlowError" aria-live="polite">Choose one to go on\.<\/p>/);
 });
 
@@ -2482,14 +2518,14 @@ test("income schedules retain monthly, weekly and fortnightly selections", () =>
   assert.match(weekly,/Pay weekday/);
   assert.doesNotMatch(weekly,/f-payanchor/);
   const fortnight=modernIncomeRowHtml({...base,freq:"Fortnightly",payAnchor:"2026-10-01"},0,0);
-  assert.match(fortnight,/class="field-control f-payanchor"[^>]*value="2026-10-01"/);
+  assert.match(fortnight,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-payanchor"[^>]*value="2026-10-01"/);
   assert.match(fortnight,/fortnightly cycle/);
 });
 test("income sacrifice and pay-change controls are named, grouped and escaped", () => {
   const base={id:"example-pay",what:'Example <pay>',incomeType:"Net",amount:2000,freq:"Monthly"};
   const html=modernIncomeRowHtml({...base,sacrificeMode:"percent",sacrificeValue:5},0,0);
   assert.match(html,/Sacrifice percentage/);
-  assert.match(html,/class="field-control f-sacrificevalue"[^>]*max="100"[^>]*value="5"/);
+  assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-sacrificevalue"[^>]*max="100"[^>]*value="5"/);
   assert.match(html,/<fieldset class="pay-change"><legend class="field-label">Record a pay change/);
   assert.match(html,/New amount/);
   assert.doesNotMatch(html,/<pay>/);
@@ -2502,13 +2538,13 @@ import { modernAssetRowHtml, modernVehicleRowHtml, modernAssetRowOpen } from "..
 test("basic asset fields keep categories, linked labels and separate Details actions", () => {
   for(const category of ['Cash','Super','Other']){
     const html=modernAssetRowHtml({id:'example-asset',what:'Example <asset>',category,amount:5000,person:'Alex'},2,0);
-    assert.match(html,/class="field-control a-what"/);
+    assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? a-what"/);
     assert.match(html,new RegExp('value="'+category+'" selected'));
     assert.match(html,/View details<\/button>/);
     assert.doesNotMatch(html.split('<script')[0], /<button|<a /, 'an interactive Details action is nested inside the row button');
     assert.doesNotMatch(html,/<asset>/);
     if(category==='Super') assert.match(html,/employer super after contributions tax/);
-    const value = html.match(/class="field-control a-amount" aria-describedby="([^"]+)"/);
+    const value = html.match(/class="field-control fbox-control(?: has-pre)?(?: has-suf)? a-amount" aria-describedby="([^"]+)"/);
     const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
     assert.equal(record[1], value[1].split(" ")[0], "Record value describes the emitted Value field help");
     assert.ok(html.includes('id="'+record[1]+'"'), "the action description exists");
@@ -2521,11 +2557,11 @@ test("asset renderers follow shared open keys and preserve blank versus zero dep
     const html=modernVehicleRowHtml({...base,depreciationRate:null},2,0);
     assert.match(html,/<div class="m-row open"/);
     assert.doesNotMatch(html,/<script/);
-    assert.match(html,/class="field-control v-deprate"[^>]*value=""/);
+    assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? v-deprate"[^>]*value=""/);
     assert.match(html,/Blank or 0 applies no depreciation/);
     const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
     assert.ok(record && html.includes('class="field-help" id="'+record[1]+'"'), "vehicle recording describes its visible snapshot help");
-    assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control v-deprate"[^>]*value="0"/);
+    assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control fbox-control(?: has-pre)?(?: has-suf)? v-deprate"[^>]*value="0"/);
     assert.match(modernAssetRowHtml({id:'example-cash',category:'Cash',what:'Example cash',amount:5000},2,0),/<div class="m-row open"/);
   }finally{ delete modernAssetRowOpen['assets:2']; }
 });

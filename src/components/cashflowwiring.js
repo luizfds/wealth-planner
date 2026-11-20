@@ -24,7 +24,7 @@ import { renderTaxSuper } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
 import { renderReceived, toggleReceivedRow, receivedSheet, openReceivedSheet, closeReceivedSheet, setReceivedTarget, receivedSheetHtml } from "./received.js";
 import { renderAll } from "./redraw.js";
-import { addRow, refreshAfterLedgerChange, rerenderTableFor } from "./rows.js";
+import { addExpenseByFlow, refreshAfterLedgerChange, rerenderTableFor } from "./rows.js";
 import { renderSubscriptions, subsUi } from "./subscriptions.js";
 import { recalcComputedItems } from "../calc/engine.js";
 import { appendHistorySnapshot } from "../calc/ledger.js";
@@ -70,7 +70,7 @@ defineSection("shared", {
 });
 // "sharedcat:<name>" is the same add as "shared:" but presets the category instead of the
 // classification — what "+ Add expense" on a card means while the list is grouped by category.
-defineSection("sharedcat", { add: function(category){ addRow("shared", null, category || ""); return true; } });
+defineSection("sharedcat", { add: function(category){ addExpenseByFlow("shared", null, category || ""); return true; } });
 defineRowAction(".row-breakdown-toggle", function(breakdownBtn){
   var tr = breakdownBtn.closest("tr");
   var next = tr.nextElementSibling;

@@ -5757,3 +5757,40 @@ settlement ("Loan $X + $Y added = $Z borrowed", the LVR on that), in the loan's 
 **still to come** ("at cost"; "1 to confirm"). One tap adds the usual ones (documentation fee, low deposit fee / LMI,
 mortgage and transfer registration, settlement fee…), each a line that opens to edit it in the floating-label style.
 Migration 34 (a saved cost's kind from its name). Tests: purchase, migrations, render smoke; journey `buyinghome`.
+
+## Buying a home: the lender's figures, paying from an account (#452, November 2026)
+
+`[x]` The lender's approved (gross) loan and where it's from (estimate, loan offer, formal approval, settlement statement);
+a cost can be taken by the lender out of the money it releases (`withheld`) as well as added to the loan (`financed`, in
+the gross once, never again). "Settlement, line by line": price − deposit − what the lender releases (gross − what it
+keeps) + costs still to pay = cash to bring, and the lender's figure against the loan and what's added to it. A cost
+whose name doesn't say purchase or loan is flagged until chosen. A cost paid from an account comes off its balance (back
+if unticked). The deposit held is its own segment of the allocation, beside Property. Tests: purchase (invented figures).
+
+## Checks: records that disagree with each other (#453, November 2026)
+
+`[x]` Settings → Checks gains read-only checks for records that disagree: income entered twice (worked-out net pay and
+two differently named rents never count), a typed pay line beside the worked-out net pay, the same rent twice on a
+property, a scenario's purchase plan against the home being bought (neither changed; a purchase started from a plan
+remembers it, `fromPlan`), balances over three months old or never recorded (money held only), impossible dates
+(property, purchase, dates of birth), two accounts on one balance, a cash asset with an account's name and balance, and
+a purchase whose figures disagree (deposit held, the lender's loan, a loan over the price). Each says how sure it is
+(Certain / Likely / Worth a look), names the record and links to it. Tests: integrity (synthetic), render smoke.
+
+## Cash month by month, through a settlement (#454, November 2026)
+
+`[x]` Insights' 12-month forecast now carries a balance: from the cash and offsets held today, each month's net, a home
+being bought settling in its month (cash to bring: deposit, lender's deductions, duty and fees each once), its loan's
+repayments from the month after. Lowest balance and when; a shortfall said only when the balance goes below nothing from
+a real starting balance; cash set aside for settlement isn't counted as emergency money; months under the emergency
+reserve. Rates +1%/+2% on every loan; another scenario set beside it (`monthlyCashFlowForecast(n, scenario)`); the
+numbers, what's assumed and what's missing (never $0). Income ending on a known date stops as before. Tests: liquidity.
+
+## Spare cash, four ways (#455, November 2026)
+
+`[x]` A loan's strategy section compares the same amount kept as cash, in a savings account (its rate less the holder's
+tax; not guessed when no rate is entered), in the offset, or paid off the loan, at 1/5/10 years on one timeline: interest
+saved, what's owed, cash to hand (offset still yours; paid off only through redraw, if the loan has it), paid off sooner,
+and the net position they're compared on. Investment loans show the interest saved after the deduction lost (the owners'
+rate, shown and editable; not tax advice). A rate rise is the existing "If the rate moves". It starts from cash held less
+the emergency reserve, and says when an amount dips into it. Nothing is spending or a second asset. Tests: loanstrategy.

@@ -13,12 +13,16 @@ import { appendHistorySnapshot } from "../calc/ledger.js";
 import { renamePersonEverywhere, removePersonFromTax } from "../calc/people.js";
 import { fyLabel } from "../calc/property.js";
 import { rentCheck } from "../calc/rentcheck.js";
+import { loanHoldsFees, planFromPurchase } from "../calc/purchase.js";
+import { planForPurchase } from "../calc/integrity.js";
+import { trimReport, setLinesToSpending, spendingDrift } from "../calc/trim.js";
+import { looksLikeAgentAccount, makeAgentAccount } from "../calc/agentstatement.js";
 import { phiPremiumsAnnual, personTaxSettings, computePersonTax } from "../calc/tax.js";
 import { setUseBudgetLines, setLineExcluded, setRentalActual } from "../calc/taxyear.js";
-import { fmtCurrency2, localDateStr } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { onHorizontalSwipe } from "../lib/swipe.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
-import { state, persist } from "../state.js";
+import { state, persist, commit, setState } from "../state.js";
 import { openAddFlow } from "./addflowwiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { budgetLineItems } from "./expenses.js";
@@ -212,6 +216,34 @@ function onTaxYearChange(e){
   }
 }
 
+
+// Checks' one-tap fixes (calc/integrity.js): the state keys each touches, and what it does → the toast's words, or ""
+// when there's nothing to do (the record's gone since the check was drawn).
+var HC_FIXES = {
+  "loan-holds-fees": { keys: ["purchases"], apply: function(id){
+    var p = (state.purchases || []).find(function(x){ return x.id === id; }), h = p && loanHoldsFees(p);
+    if(!h) return "";
+    p.grossLoan = Number(p.loanAmount) || 0; p.loanAmount = h.base;
+    return "Lender's approved loan " + fmtCurrency0.format(p.grossLoan) + " · loan before fees " + fmtCurrency0.format(h.base);
+  } },
+  "plan-from-purchase": { keys: ["purchase"], apply: function(id){
+    var p = (state.purchases || []).find(function(x){ return x.id === id; }), name = p && planForPurchase(state, p);
+    if(!name) return "";
+    planFromPurchase(state.purchase[name], p);
+    return "“" + name + "” now plans with what's agreed";
+  } },
+  "budget-to-spending": { keys: ["shared"], apply: function(){
+    var r = trimReport({ today: localDateStr() });
+    var done = setLinesToSpending(state, spendingDrift(r));
+    return done.length ? done.length + " budget line" + (done.length === 1 ? "" : "s") + " set to what you spend" : "";
+  } },
+  "agent-account": { keys: ["accounts", "transactions"], apply: function(){
+    var list = (state.accounts || []).filter(looksLikeAgentAccount);
+    list.forEach(function(a){ makeAgentAccount(state, a); });
+    return list.length ? (list.length === 1 ? list[0].name + " is" : list.length + " accounts are") + " now a property manager's" : "";
+  } }
+};
+
 export function wireTax(){  peopleTable = document.getElementById("peopleTable");
   peopleTable.addEventListener("change", function(e){
     var t = e.target, person = t.getAttribute("data-pp-person");
@@ -372,6 +404,18 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
         if(!card || !from){ showToast("Couldn't tell which account pays this card — log it on Money → Transactions"); return; }
         saveTransfer({ date: arg[1], amount: amount, from: from, to: card.name, what: card.name + " repayment" }, true, "Repayment saved");
         renderHealth(); renderChecksBadge(); renderNotifBadge();
+        return;
+      }
+      // November 2026: the fixes for what a real backup got wrong (calc/integrity.js). Each puts back what it changed.
+      var hcKind = fix.getAttribute("data-hc-fix"), hcArg = fix.getAttribute("data-hc-fix-arg") || "";
+      var hcFix = HC_FIXES[hcKind];
+      if(hcFix){
+        var snap = JSON.stringify(hcFix.keys.map(function(k){ return state[k]; }));
+        var said = hcFix.apply(hcArg);
+        if(!said) return;
+        var redoFix = function(){ recalcComputedItems(); commit(hcFix.keys); };
+        redoFix();
+        showUndoToast(said, function(){ var back = JSON.parse(snap), was = {}; hcFix.keys.forEach(function(k, i){ was[k] = back[i]; }); setState(Object.assign({}, state, was)); redoFix(); });
         return;
       }
       if(fix.getAttribute("data-hc-fix") === "card-from"){

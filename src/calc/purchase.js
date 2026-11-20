@@ -93,6 +93,38 @@ function dayNumber(iso){
   return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / 86400000 : null;
 }
 
+// A loan amount that looks like it already holds a fee marked "Added to the loan" — the lender's letter's figure typed
+// where the loan before fees goes, so the fee is borrowed twice and the cash to bring comes out too low. Said only when
+// the lender's own figure is empty, the loan isn't a round figure, and taking one fee added to the loan (or all of them)
+// off it leaves a round thousand: what a loan before fees usually is. Null otherwise.
+// → { base (the loan before fees, it seems), amount (the fees it holds), fees: [names] }
+export function loanHoldsFees(p){
+  if(!p || num(p.grossLoan) > 0) return null;
+  var loan = Math.round(num(p.loanAmount) * 100) / 100;
+  if(!(loan > 0) || loan % 1000 === 0) return null;
+  var added = (p.costs || []).filter(function(c){ return costKind(c) === "loan" && c.financed && costAmount(p, c) > 0; })
+    .map(function(c){ return { what: c.what || "A fee", amount: Math.round(costAmount(p, c) * 100) / 100 }; });
+  if(!added.length) return null;
+  var tries = [{ amount: added.reduce(function(s, c){ return s + c.amount; }, 0), fees: added.map(function(c){ return c.what; }) }]
+    .concat(added.length > 1 ? added.map(function(c){ return { amount: c.amount, fees: [c.what] }; }) : []);
+  for(var i = 0; i < tries.length; i++){
+    var base = Math.round((loan - tries[i].amount) * 100) / 100;
+    if(base > 0 && Math.abs(base - Math.round(base / 1000) * 1000) < 0.5) return { base: Math.round(base / 1000) * 1000, amount: Math.round(tries[i].amount * 100) / 100, fees: tries[i].fees };
+  }
+  return null;
+}
+
+// A scenario's plan set to what's real: the purchase's agreed price, the deposit paid (as the plan's percentage of the
+// price) and the rate offered — each only when the purchase has it. The rest of the plan (its term, growth, costs) stays.
+export function planFromPurchase(plan, p){
+  if(!plan || !p) return plan;
+  var price = num(p.price) > 0 ? num(p.price) : num(plan.price);
+  if(num(p.price) > 0) plan.price = num(p.price);
+  if(num(p.deposit) > 0 && price > 0) plan.depositPct = Math.round(num(p.deposit) / price * 10000) / 100;
+  if(num(p.rate) > 0) plan.rate = num(p.rate);
+  return plan;
+}
+
 // Everything the Buying card says, from the purchase and the cash on hand (cash accounts and offsets).
 export function purchaseFigures(p, today, cashOnHand){
   var price = Math.max(0, num(p.price)), deposit = Math.max(0, num(p.deposit)), loan = Math.max(0, num(p.loanAmount));

@@ -6951,6 +6951,47 @@ const JOURNEYS = {
     }
     check(followed === n, 'not every to-do was followed');
   },
+  // November 2026: Checks' one-tap fixes for what a real backup got wrong — a fee in the loan twice, a plan behind the
+  // purchase, a budget line far below what's spent, a property manager's account typed as an ordinary one. Each fix
+  // changes only what it says, the check goes, and Undo puts it back. Invented figures.
+  async checkfixes(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'), s = m.state, today = new Date();
+      s.purchase = { 'Buy a house': { enabled: true, price: 600000, depositPct: 20, rate: 6, termYears: 30 } };
+      s.purchases = [{ id: 'jb1', what: '3 Example Ave', price: 600000, deposit: 60000, loanAmount: 548250, rate: 5.5, costs: [{ id: 'jc1', what: 'Lenders mortgage insurance', kind: 'loan', amount: 8250, financed: true }] }];
+      s.properties = (s.properties || []).slice(0, 1);
+      s.accounts.push({ id: 'ja9', name: 'Example Realty property manager', type: 'everyday', link: '' });
+      s.shared.push({ id: 'jl1', what: 'Fern Café', amount: 50, freq: 'Monthly', category: 'Dining out' });
+      for(let i = 1; i <= 12; i++){
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 5), iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-05';
+        s.transactions.push({ id: 'jt' + i, date: iso, amount: 200, what: 'Fern Café', category: 'Dining out', account: s.accounts[0].name, linkedExpenseId: 'jl1' });
+      }
+      m.commit(['purchase', 'purchases', 'properties', 'accounts', 'shared', 'transactions']);
+    });
+    await go(page, 'dashboard', 'data-dashboard-sub', 'review');
+    const fix = kind => page.locator('#healthBody [data-hc-fix="' + kind + '"]');
+    for(const kind of ['loan-holds-fees', 'plan-from-purchase', 'budget-to-spending', 'agent-account'])
+      check(await fix(kind).count() === 1, 'Checks offers no fix for ' + kind);
+    await fix('loan-holds-fees').click();
+    await waited(page, () => !document.querySelector('#healthBody [data-hc-fix="loan-holds-fees"]'), 'the loan check to go once fixed');
+    check(await st(page, 'state.purchases[0].grossLoan') === 548250 && await st(page, 'state.purchases[0].loanAmount') === 540000, 'the loan was not moved to the lender\'s figure');
+    await page.locator('#toastWrap .toast-undo-btn').click();
+    await waited(page, () => !!document.querySelector('#healthBody [data-hc-fix="loan-holds-fees"]'), 'Undo to bring the loan check back');
+    check(await st(page, 'state.purchases[0].loanAmount') === 548250 && !await st(page, 'state.purchases[0].grossLoan'), 'Undo did not put the loan back');
+    await fix('plan-from-purchase').click();
+    await settle(page);
+    check(await st(page, 'JSON.stringify(state.purchase["Buy a house"])') === JSON.stringify({ enabled: true, price: 600000, depositPct: 10, rate: 5.5, termYears: 30 }), 'the plan was not set to what\'s agreed, or more changed');
+    await fix('budget-to-spending').click();
+    await settle(page);
+    const cafe = await st(page, 'state.shared.find(l => l.id === "jl1").amount');
+    check(cafe > 150 && cafe < 250, 'the line was not set near what\'s spent: ' + cafe);
+    await fix('agent-account').click();
+    await settle(page);
+    check(await st(page, 'state.accounts.find(a => a.id === "ja9").type') === 'agent', 'the account is not a property manager\'s');
+    for(const kind of ['plan-from-purchase', 'budget-to-spending', 'agent-account'])
+      check(await fix(kind).count() === 0, 'the ' + kind + ' check stayed after its fix');
+  },
   async addflow(page){
     await quiet(page);
     await go(page, 'properties');

@@ -5807,9 +5807,17 @@ can't be known. It can be moved or hidden like the other cards. Tests: standing,
 
 ## Checks that catch what a real backup got wrong (November 2026)
 
-`[~]` Four things a household's own data had wrong that nothing flagged, each a check that says how sure it is and offers
-a one-tap fix, nothing changed until it's pressed: a loan amount that looks like it already holds a fee marked "Added to
-the loan" (counted twice; the fix moves it to the lender's figure); the plan a purchase came from, behind what's real
-(the fix sets the plan to the price, deposit and rate agreed); budget lines spent well above their amount, beside the
-ones Trim already finds above what's spent (the fix sets them to what's spent); a property manager's account typed as an
-ordinary one (the fix makes it a property-manager account).
+`[x]` Four things a household's own data had wrong that nothing flagged, each a check in Checks (calc/integrity.js) that
+says how sure it is and offers a one-tap fix with an undo, nothing changed until it's pressed:
+- a loan amount that looks like it already holds a fee marked "Added to the loan" — taking one such fee (or all) off it
+  leaves a round thousand, and the lender's figure is empty (`loanHoldsFees`). Borrowed twice, so the cash to bring came
+  out low. The fix moves it to "Lender's approved loan" and the loan before fees to "Loan amount"; the purchase form says
+  so under the loan too, and "Added to the loan" asks whether the loan amount already includes it.
+- the plan a purchase came from, behind what's real: more than a tenth apart is now a warning, and the fix sets the plan's
+  price, deposit % and rate to what's agreed, nothing else (`planFromPurchase`).
+- budget lines far from what's spent, both ways: Trim now lists lines spent above their amount beside those budgeted
+  above spending, and "Set all" covers both. Checks offers only lines with spending logged — $0 is no fix for a rent
+  nobody logs (`spendingDrift`).
+- an account named like a property manager's but typed as an ordinary one: the fix makes it one, linked to the property
+  when there's just one (`makeAgentAccount`, shared with Accounts' type select).
+Tests: integrity, render smoke (Trim); journey checkfixes.

@@ -768,6 +768,7 @@
 .bc-chip.good{ background: var(--good-wash); color: var(--good-ink); }
 .bc-chip.in{ background: var(--brass-wash); color: var(--brass-strong); }
 .bc-chip.warn{ background: color-mix(in srgb, var(--warn-ink) 14%, transparent); color: var(--warn-ink); }
+.buy-loan-warn{ color: var(--warn-ink); }
 .buy-cost[open] > summary{ border-bottom:1px solid var(--border); }
 .bc-edit{ display:flex; flex-direction:column; gap:10px; padding:12px 14px 14px; }
 .bc-edit .fbox-control.field-control, .bc-edit .switch-row, .bc-edit .pill{ background: var(--paper-raised); }

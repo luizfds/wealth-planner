@@ -9,8 +9,15 @@
 // scenario's purchase plan against the home actually being bought; balances not updated in months, or never; dates that
 // can't be; two accounts counting the same money; and a purchase whose figures don't agree (its deposit held, the
 // lender's loan, a loan bigger than the price).
-import { purchaseFigures } from "./purchase.js";
-import { accountBalance, isAgentType } from "./accounts.js";
+//
+// November 2026, from what a real backup got wrong that nothing said: a loan amount that already holds a fee added to
+// the loan; budget lines far from what's spent (both ways, calc/trim.js); a property manager's account typed as an
+// ordinary one. These, and the plan against the purchase, carry a `fix` — one tap, with an undo
+// (components/taxwiring.js) — but still change nothing until it's pressed.
+import { purchaseFigures, loanHoldsFees } from "./purchase.js";
+import { accountBalance, isAgentType, accountTypeLabel } from "./accounts.js";
+import { looksLikeAgentAccount } from "./agentstatement.js";
+import { trimReport, spendingDrift } from "./trim.js";
 
 /** @param {any} v */
 function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
@@ -89,17 +96,19 @@ export function integrityChecks(st, today){
 
   // ---- A scenario's purchase plan against the home actually being bought (neither is changed) ----
   var plans = st.purchase || {};
-  var enabled = Object.keys(plans).filter(function(n){ return plans[n] && plans[n].enabled && num(plans[n].price) > 0; });
   (st.purchases || []).forEach(function(p){
-    var name = p.fromPlan && plans[p.fromPlan] ? p.fromPlan : enabled.length === 1 && (st.purchases || []).length === 1 ? enabled[0] : "";
+    var name = planForPurchase(st, p);
     if(!name) return;
-    var plan = plans[name], off = [];
-    if(num(p.price) > 0 && !same(plan.price, p.price)) off.push("price " + money(plan.price) + " planned, " + money(p.price) + " agreed");
+    var plan = plans[name], off = [], far = false;
+    // More than a tenth apart is a plan that has fallen behind what's real: said as a warning, not a note.
+    var apart = function(a, b){ return Math.abs(num(a) - num(b)) > Math.abs(num(b)) * 0.1; };
+    if(num(p.price) > 0 && !same(plan.price, p.price)){ off.push("price " + money(plan.price) + " planned, " + money(p.price) + " agreed"); far = far || apart(plan.price, p.price); }
     var planDeposit = num(plan.price) * num(plan.depositPct) / 100;
-    if(planDeposit > 0 && num(p.deposit) > 0 && !same(planDeposit, p.deposit)) off.push("deposit " + money(planDeposit) + " planned, " + money(p.deposit) + " paid");
+    if(planDeposit > 0 && num(p.deposit) > 0 && !same(planDeposit, p.deposit)){ off.push("deposit " + money(planDeposit) + " planned, " + money(p.deposit) + " paid"); far = far || apart(planDeposit, p.deposit); }
     if(num(plan.rate) > 0 && num(p.rate) > 0 && Math.abs(num(plan.rate) - num(p.rate)) >= 0.05) off.push("rate " + plan.rate + "% planned, " + p.rate + "% offered");
-    if(off.length) add({ id: "int-plan-buy:" + p.id + ":" + name, severity: "info", confidence: "certain", title: "The plan “" + name + "” and " + (p.what || "the home being bought") + " differ",
-      detail: off.join("; ") + ". Neither is changed — update the scenario if its projections should follow what's real.", where: { page: "plan", sub: "scenarios", label: "Open the plan" } });
+    if(off.length) add({ id: "int-plan-buy:" + p.id + ":" + name, severity: far ? "warn" : "info", confidence: "certain", title: "The plan “" + name + "” and " + (p.what || "the home being bought") + " differ",
+      detail: off.join("; ") + ". The scenario's projections still use what's planned — set the plan to what's real, or leave it if the plan is the point.",
+      where: { page: "plan", sub: "scenarios", label: "Open the plan" }, fix: { label: "Set the plan to these", kind: "plan-from-purchase", arg: p.id } });
   });
 
   // ---- Balances not updated in months, or never ----
@@ -156,6 +165,34 @@ export function integrityChecks(st, today){
   if(twins.length) add({ id: "int-twin-cash", severity: "warn", confidence: "possible", title: plural(twins.length, "cash balance") + " that may be counted twice",
     detail: names(twins) + " — a Cash asset with the same name and amount as an account's own balance. If it's the same money, remove the asset.", where: { page: "assets", label: "Open Net worth" } });
 
+  // ---- A loan amount that already holds a fee added to the loan: borrowed twice ----
+  (st.purchases || []).forEach(function(p){
+    var h = loanHoldsFees(p);
+    if(!h) return;
+    add({ id: "int-loan-fees:" + p.id, severity: "warn", confidence: "likely", title: (p.what || "The home being bought") + ": a fee may be in the loan twice",
+      detail: "The loan amount, " + money(p.loanAmount) + ", is " + money(h.base) + " and " + names(h.fees) + " (" + money(h.amount) + ") — and " + (h.fees.length === 1 ? "that fee is" : "those fees are") +
+        " also marked “Added to the loan”, so " + (h.fees.length === 1 ? "it's" : "they're") + " borrowed twice and the cash to bring comes out " + money(h.amount) + " too low. If " + money(p.loanAmount) +
+        " is the lender's figure, it goes in “Lender's approved loan”, and " + money(h.base) + " in “Loan amount”.",
+      where: { page: "properties", label: "Open the purchase" }, fix: { label: "Move it to the lender's figure", kind: "loan-holds-fees", arg: p.id } });
+  });
+
+  // ---- Budget lines far from what's spent, either way (Trim finds them; here so they're not missed) ----
+  var trim = trimReport({ state: st, today: today });
+  var drift = spendingDrift(trim), under = trim.under || [];
+  if(drift.length){
+    var said = drift.slice(0, 3).map(function(x){ return "“" + x.what + "” " + money(x.planned) + " planned, " + money(x.actual) + " spent"; });
+    add({ id: "int-budget-drift", severity: "info", confidence: "likely", title: plural(drift.length, "budget line") + " far from what you spend",
+      detail: said.join("; ") + (drift.length > 3 ? "; and " + (drift.length - 3) + " more" : "") + " — a year, over the last " + Math.round(trim.months) + " months. Every scenario plans with the budget" +
+        (under.length ? (drift.length > under.length ? " — these make it look better than it is in some places and worse in others." : " — these make it look better than it is.") : " — these make it look worse than it is."),
+      where: { page: "expenses", sub: "budget", label: "Open the budget" }, fix: { label: "Set " + (drift.length === 1 ? "it" : "all " + drift.length) + " to what you spend", kind: "budget-to-spending" } });
+  }
+
+  // ---- A property manager's account typed as an ordinary one ----
+  var agents = (st.properties || []).length ? (st.accounts || []).filter(looksLikeAgentAccount) : [];
+  if(agents.length) add({ id: "int-agent-type", severity: "info", confidence: "possible", title: plural(agents.length, "account") + " that may be a property manager's",
+    detail: names(agents.map(function(a){ return a.name; })) + " — named like one, but typed " + (agents.length === 1 ? "“" + accountTypeLabel(agents[0].type) + "”, an account" : "as accounts") + " of your own: it can count as your money, and the bills on the manager's statements don't land on it.",
+    where: { page: "accounts", label: "Open Accounts" }, fix: { label: agents.length === 1 ? "Make it a property manager's" : "Make them property managers'", kind: "agent-account" } });
+
   // ---- A purchase whose figures don't agree ----
   (st.purchases || []).forEach(function(p){
     var issues = [], f = purchaseFigures(p, today, null);
@@ -168,4 +205,13 @@ export function integrityChecks(st, today){
       detail: issues.join("; ") + ".", where: { page: "properties", label: "Open the purchase" } });
   });
   return out;
+}
+
+// The scenario plan a purchase is measured against: the one it was started from, else the only plan to buy when there's
+// one purchase. "" when it can't be said.
+export function planForPurchase(st, p){
+  var plans = st.purchase || {};
+  if(p && p.fromPlan && plans[p.fromPlan]) return p.fromPlan;
+  var enabled = Object.keys(plans).filter(function(n){ return plans[n] && plans[n].enabled && num(plans[n].price) > 0; });
+  return enabled.length === 1 && (st.purchases || []).length === 1 ? enabled[0] : "";
 }

@@ -26,17 +26,25 @@ export function renderTrim(){
 }
 export function trimHtml(r, scenario, today){
   var html = "";
-  // 1. Budgeted above what's spent.
+  // 1. Budgeted above what's spent — and (November 2026) spent above what's budgeted.
+  var setBtn = function(x){ return '<div class="rc-actions"><button type="button" class="btn btn-sm" data-trim-set="' + escapeAttr(x.id) + '" data-trim-to="' + x.suggested + '">Set to ' + fmtCurrency2.format(x.suggested) + ' ' + escapeAttr(String(x.freq || "").toLowerCase()) + '</button></div>'; };
+  var row = function(x, word){
+    return '<div class="rc-row"><div class="rc-main"><b>' + escapeAttr(x.what) + '</b><small>budgeted ' + money(x.planned) + '/yr · spent ' + money(x.actual) + ' in the last ' + Math.round(r.months) + ' months</small></div>' +
+      '<span class="rc-amt">' + money(x.gap) + '<small>/yr ' + word + '</small></span>' + setBtn(x) + '</div>';
+  };
   if(r.over.length){
     html += '<div class="rc-sec">Budgeted above what you spend — ' + money(r.overYearly) + ' a year</div>' +
       '<p class="ledger-note tr-note">Every scenario plans with these amounts, so they make each one look worse than it is. Lowering a line to what you actually spend changes nothing about real money — only the plan.</p>' +
-      r.over.map(function(x){
-        return '<div class="rc-row"><div class="rc-main"><b>' + escapeAttr(x.what) + '</b><small>budgeted ' + money(x.planned) + '/yr · spent ' + money(x.actual) + ' in the last ' + Math.round(r.months) + ' months</small></div>' +
-          '<span class="rc-amt">' + money(x.gap) + '<small>/yr over</small></span>' +
-          '<div class="rc-actions"><button type="button" class="btn btn-sm" data-trim-set="' + escapeAttr(x.id) + '" data-trim-to="' + x.suggested + '">Set to ' + fmtCurrency2.format(x.suggested) + ' ' + escapeAttr(String(x.freq || "").toLowerCase()) + '</button></div></div>';
-      }).join("") +
-      (r.over.length > 1 ? '<div class="tr-all"><button type="button" class="btn btn-sm btn-ghost" data-trim-set-all>Set all ' + r.over.length + ' to what you spend</button></div>' : '');
+      r.over.map(function(x){ return row(x, "over"); }).join("");
   }
+  var under = r.under || [];
+  if(under.length){
+    html += '<div class="rc-sec">Spent above the budget — ' + money(r.underYearly) + ' a year</div>' +
+      '<p class="ledger-note tr-note">These make every scenario look better than it is: the plan counts on spending less than you do. Raise a line to what you spend, or keep it as a target to spend less.</p>' +
+      under.map(function(x){ return row(x, "under"); }).join("");
+  }
+  var drift = r.over.length + under.length;
+  if(drift > 1) html += '<div class="tr-all"><button type="button" class="btn btn-sm btn-ghost" data-trim-set-all>Set all ' + drift + ' to what you spend</button></div>';
   // 2. A lean version of a scenario.
   var scen = state.scenarios || [];
   var eff = scenario ? leanEffect(scenario, { today: today }) : null;

@@ -7,7 +7,7 @@
 // the cash needed at settlement against the cash on hand, and its costs ticked off as they're paid — until "Settled"
 // makes it an ordinary property. Listeners: buyingwiring.js.
 import { state } from "../state.js";
-import { purchaseFigures, commonCostsToAdd, payingAccounts, LENDER_SOURCES } from "../calc/purchase.js";
+import { purchaseFigures, commonCostsToAdd, payingAccounts, LENDER_SOURCES, loanHoldsFees } from "../calc/purchase.js";
 import { propertiesOffsetTotal } from "../calc/property.js";
 import { toAudAmount } from "../calc/engine.js";
 import { fmtCurrency0, fmtCompact, fmtDate, localDateStr } from "../lib/format.js";
@@ -54,7 +54,7 @@ function costRowHtml(p, c, fc, autoFigure, accounts){
   // the loan and taken straight back. Paid in cash, it can come from an account, off whose balance it goes.
   var paidWith = financed ? "loan" : withheld ? "withheld" : "cash";
   var withOpts = [{ value: "cash", label: "Cash" }, { value: "withheld", label: "Taken from the loan money" }].concat(kind === "loan" ? [{ value: "loan", label: "Added to the loan" }] : []);
-  var withHelp = financed ? "Borrowed, then taken back by the lender — in the loan once, not cash you need." :
+  var withHelp = financed ? "Borrowed, then taken back by the lender — in the loan once, not cash you need." + (Number(p.grossLoan) > 0 ? "" : " If the loan amount above already includes it, type that figure in “Lender's approved loan” instead.") :
     withheld ? "The lender keeps it out of the money it releases — not cash you bring." : "Paid by you, at or before settlement.";
   var known = accounts.some(function(a){ return a.id === c.paidFrom; });
   var acctOpts = [{ value: "", label: "Not from an account" }].concat(accounts.map(function(a){ return { value: a.id, label: a.name + (a.balance != null ? " · " + money(a.balance) : "") }; }),
@@ -127,6 +127,7 @@ export function purchaseCardHtml(p, cash, today){
   '</div>';
   var id = function(k){ return "buy-" + p.id + "-" + k; };
   var fa = function(k){ return { "data-buy-field": k }; };
+  var holds = loanHoldsFees(p);
   // Open while something it needs is missing; its heading says what's inside, so a folded one reads as a way in.
   var fields = '<details class="buy-fold"' + (f.price > 0 && p.settlementDate ? '' : ' open') + '><summary><span>The purchase<small>Name, price, deposit, loan, dates, state</small></span><span class="buy-fold-edit" aria-hidden="true">Edit</span></summary><div class="buy-fields">' +
     fieldHtml({ id: id("what"), label: "Name or address", box: true, wide: true, value: p.what || "", attrs: fa("what") }) +
@@ -135,6 +136,7 @@ export function purchaseCardHtml(p, cash, today){
     fieldHtml({ id: id("deposit"), label: "Deposit paid", type: "money", value: p.deposit, attrs: fa("deposit") }) +
     fieldHtml({ id: id("loanAmount"), label: "Loan amount", type: "money", value: p.loanAmount, attrs: fa("loanAmount") }) +
     '<p class="field-help span2">The deposit is held until settlement, so it counts in net worth. The loan amount is before any fee added to it — add those as costs below.</p>' +
+    (holds ? '<p class="field-help span2 buy-loan-warn">This loan amount looks like it already includes ' + escapeAttr(holds.fees.join(", ")) + ' (' + money(holds.amount) + '), also added to the loan below — so it\'s borrowed twice. If it\'s the lender\'s figure, put it in “Lender\'s approved loan” and ' + money(holds.base) + ' here.</p>' : '') +
     fieldHtml({ id: id("grossLoan"), label: "Lender's approved loan", type: "money", value: p.grossLoan || "", attrs: fa("grossLoan"),
       help: "The total on its letter, fees added to the loan included. Optional — it checks the figures below." }) +
     fieldHtml({ id: id("lenderSource"), label: "From its", type: "select", box: true, value: p.lenderSource || "", attrs: fa("lenderSource"),

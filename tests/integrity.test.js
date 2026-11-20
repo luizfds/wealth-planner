@@ -3,11 +3,14 @@ import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { integrityChecks } from "../src/calc/integrity.js";
+import { integrityChecks, planForPurchase } from "../src/calc/integrity.js";
+import { loanHoldsFees, planFromPurchase } from "../src/calc/purchase.js";
+import { trimReport, setLinesToSpending, spendingDrift } from "../src/calc/trim.js";
+import { makeAgentAccount, looksLikeAgentAccount } from "../src/calc/agentstatement.js";
 
 const TODAY = "2026-11-20";
 function withState(fields, fn){
-  const keys = ["income", "properties", "purchases", "purchase", "accounts", "assets", "debts", "tax"];
+  const keys = ["income", "properties", "purchases", "purchase", "accounts", "assets", "debts", "tax", "shared", "transactions"];
   const keep = {};
   keys.forEach(k => { keep[k] = state[k]; });
   try { keys.forEach(k => { state[k] = fields[k] !== undefined ? fields[k] : (k === "tax" || k === "purchase" ? {} : []); }); return fn(); }
@@ -98,5 +101,78 @@ test("the same line at two amounts — one line edited on two devices — is fla
     assert.equal(c.confidence, "possible");
     assert.match(c.detail, /“Rent” \$600 and \$610 weekly/);
     assert.deepEqual(c.where, { page: "properties" });
+  });
+});
+
+test("a loan amount that already holds a fee added to the loan: said, with the loan before fees; not when the lender's figure is typed or the loan is round", function(){
+  const fees = [{ id: "c1", what: "Lenders mortgage insurance", kind: "loan", amount: 8250, financed: true }, { id: "c2", what: "Loan application fee", kind: "loan", amount: 600, financed: true }];
+  const p = { id: "b1", what: "3 Example Ave", price: 500000, deposit: 50000, loanAmount: 458250, costs: fees };
+  assert.deepEqual(loanHoldsFees(p), { base: 450000, amount: 8250, fees: ["Lenders mortgage insurance"] }, "one fee taken off leaves a round loan");
+  assert.deepEqual(loanHoldsFees(Object.assign({}, p, { loanAmount: 458850 })).fees, ["Lenders mortgage insurance", "Loan application fee"], "or all of them");
+  assert.equal(loanHoldsFees(Object.assign({}, p, { loanAmount: 450000 })), null, "a round loan is before fees");
+  assert.equal(loanHoldsFees(Object.assign({}, p, { grossLoan: 458850 })), null, "the lender's figure typed: its own check");
+  assert.equal(loanHoldsFees(Object.assign({}, p, { costs: fees.map(c => Object.assign({}, c, { financed: false })) })), null, "nothing added to the loan");
+  withState({ purchases: [p] }, function(){
+    const c = integrityChecks(state, TODAY).find(x => x.id === "int-loan-fees:b1");
+    assert.equal(c.confidence, "likely");
+    assert.match(c.detail, /\$458,250, is \$450,000 and “Lenders mortgage insurance” \(\$8,250\)/);
+    assert.deepEqual(c.fix, { label: "Move it to the lender's figure", kind: "loan-holds-fees", arg: "b1" });
+  });
+});
+
+test("a plan well behind the purchase is a warning, with a fix that sets price, deposit and rate and nothing else", function(){
+  const plan = { enabled: true, price: 600000, depositPct: 20, rate: 6, termYears: 30 };
+  const purchase = { id: "b1", what: "3 Example Ave", price: 600000, deposit: 60000, rate: 5.5, costs: [], depositAssetId: "d1" };
+  withState({ purchase: { "Buy a house": plan }, purchases: [purchase], assets: [{ id: "d1", what: "Deposit held", category: "Other", amount: 60000, depositFor: "b1" }] }, function(){
+    const c = integrityChecks(state, TODAY).find(x => x.id.startsWith("int-plan-buy"));
+    assert.equal(c.severity, "warn", "the plan counts on twice the deposit paid");
+    assert.equal(c.fix.kind, "plan-from-purchase");
+    assert.equal(planForPurchase(state, purchase), "Buy a house");
+    planFromPurchase(plan, purchase);
+    assert.deepEqual(plan, { enabled: true, price: 600000, depositPct: 10, rate: 5.5, termYears: 30 });
+    assert.equal(integrityChecks(state, TODAY).find(x => x.id.startsWith("int-plan-buy")), undefined, "nothing left to say");
+  });
+});
+
+test("budget lines far from what's spent, both ways: Trim finds them, Checks says so, and setting them to spending clears it", function(){
+  const tx = [];
+  for(let m = 0; m < 12; m++){
+    const d = "2026-" + String(m + 1).padStart(2, "0") + "-05";
+    if(d > TODAY) continue;
+    tx.push({ id: "g" + m, date: d, amount: 900, linkedExpenseId: "groc" }, { id: "f" + m, date: d, amount: 20, linkedExpenseId: "fun" });
+  }
+  tx.push({ id: "g12", date: "2025-12-05", amount: 900, linkedExpenseId: "groc" }, { id: "f12", date: "2025-12-05", amount: 20, linkedExpenseId: "fun" });
+  const shared = [{ id: "groc", what: "Groceries", amount: 500, freq: "Monthly" }, { id: "fun", what: "Going out", amount: 200, freq: "Monthly" }, { id: "rent", what: "Rent", amount: 2000, freq: "Monthly" }];
+  withState({ shared, transactions: tx }, function(){
+    const r = trimReport({ state, today: TODAY });
+    // Trim's months run from the first spending logged, so the monthly figures are near, not exactly, what's spent.
+    assert.deepEqual(r.under.map(x => x.id), ["groc"], "spent above the budget");
+    assert.ok(Math.abs(r.under[0].suggested - 900) < 90);
+    assert.deepEqual(r.over.map(x => x.id), ["rent", "fun"], "budgeted above spending — the rent with nothing logged too, in Trim");
+    assert.deepEqual(spendingDrift(r).map(x => x.id), ["fun", "groc"], "but Checks offers only lines with spending logged");
+    const c = integrityChecks(state, TODAY).find(x => x.id === "int-budget-drift");
+    assert.match(c.title, /^2 budget lines far from what you spend/);
+    assert.match(c.detail, /“Groceries” \$6,000 planned, \$1[01],\d{3} spent/);
+    assert.equal(c.fix.kind, "budget-to-spending");
+    const undo = setLinesToSpending(state, spendingDrift(r));
+    assert.deepEqual(undo.map(u => u.was), [200, 500]);
+    assert.deepEqual([shared[0].amount, shared[1].amount, shared[2].amount], [r.under[0].suggested, r.over[1].suggested, 2000], "a line without spending logged is left alone");
+    assert.equal(integrityChecks(state, TODAY).find(x => x.id === "int-budget-drift"), undefined);
+  });
+});
+
+test("a property manager's account typed as an ordinary one: flagged when there's a property, and made one — linked to it", function(){
+  const accounts = [{ id: "a1", name: "Bank One Everyday", type: "everyday", link: "" }, { id: "a2", name: "Example Realty property manager", type: "everyday", link: "asset:c9" }];
+  assert.equal(looksLikeAgentAccount(accounts[0]), false);
+  assert.equal(looksLikeAgentAccount(accounts[1]), true);
+  withState({ accounts, properties: [] }, function(){
+    assert.equal(integrityChecks(state, TODAY).find(x => x.id === "int-agent-type"), undefined, "no property: no manager");
+  });
+  withState({ accounts, properties: [{ id: "p1", what: "1 Example St", loans: [] }] }, function(){
+    const c = integrityChecks(state, TODAY).find(x => x.id === "int-agent-type");
+    assert.match(c.detail, /“Example Realty property manager” — named like one, but typed “Everyday”/);
+    makeAgentAccount(state, accounts[1]);
+    assert.deepEqual([accounts[1].type, accounts[1].link], ["agent", "property:p1"]);
+    assert.equal(integrityChecks(state, TODAY).find(x => x.id === "int-agent-type"), undefined);
   });
 });

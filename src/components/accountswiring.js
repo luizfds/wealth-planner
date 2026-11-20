@@ -5,7 +5,7 @@
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { ACCOUNT_TYPE_KEYS, accountSourceOptions, setAccountBalance, resolveLink } from "../calc/accounts.js";
-import { fillAgentAccount } from "../calc/agentstatement.js";
+import { fillAgentAccount, makeAgentAccount } from "../calc/agentstatement.js";
 import { emergencyFund } from "../calc/emergency.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { addSavingsGoal } from "../calc/savegoals.js";
@@ -137,8 +137,7 @@ export function wireAccounts(){  // ---------------- Accounts: named money sourc
       if(a.link && !accountSourceOptions(a).some(function(o){ return o.key === a.link; })) a.link = "";
       // v3.101.0: a property manager's account picks up the statement bills logged before it existed.
       if(a.type === "agent"){
-        if(!a.link && (state.properties || []).length === 1 && state.properties[0].id) a.link = "property:" + state.properties[0].id;
-        var filled = fillAgentAccount(state);
+        var filled = makeAgentAccount(state, a);
         if(filled) showToast(filled + " bill" + (filled === 1 ? "" : "s") + " from statements now on " + (a.name || "this account"));
       }
       renderActualVsPlannedPanel();

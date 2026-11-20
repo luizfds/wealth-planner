@@ -12,7 +12,7 @@ import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
-import { renderAccountsPage, openAccounts } from "./accounts.js";
+import { renderAccountsPage } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
 import { hasOwnDates } from "../calc/txviews.js";
 import { keepUi } from "../lib/keepui.js";
@@ -2369,13 +2369,6 @@ export function setYearBasis(basis){
 
 // The page itself is components/accounts.js since v3.56.0 (balances, types, grouping).
 export function renderAccounts(){ renderAccountsPage(); }
-export function addAccount(type){
-  var a = { id: genId("acct"), name: "", type: type || "everyday", statementStartDay: 1, link: "" };
-  state.accounts.push(a);
-  openAccounts[a.id] = true;
-  renderAccounts();
-  commit(["accounts"]);
-}
 // Every array whose rows carry an `account` name — the account-side twin of
 // everyCategorisableArray(), and for the same reason: renaming or deleting an account has to reach
 // rows that aren't on screen right now.

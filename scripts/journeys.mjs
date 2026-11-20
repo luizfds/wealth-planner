@@ -5748,6 +5748,12 @@ const JOURNEYS = {
     await go(page, 'accounts');
     const accounts = await st(page, '(state.accounts || []).length');
     await click(page, '#page-accounts .empty-state [data-empty-add="#addAccountBtn"]');
+    // November 2026: it asks one question at a time — what kind, its name, its balance.
+    const flow = page.locator('#addFlowDialog');
+    await flow.waitFor();
+    await flow.locator('.af-choice').first().click(); await flow.locator('.af-next').click();
+    await flow.locator('.af-big').fill('Bank One Everyday'); await flow.locator('.af-next').click();
+    await flow.locator('.af-big').fill('1000'); await flow.locator('.af-next').click();
     await eventually(async () => await st(page, '(state.accounts || []).length') > accounts);
     check(await st(page, '(state.accounts || []).length') === accounts + 1, '+ Add account in the empty state added no account');
     await go(page, 'tax', 'data-tax-sub', 'people');
@@ -6914,15 +6920,88 @@ const JOURNEYS = {
     check(purchaseAfter === purchaseBefore, 'a restored scenario lost its purchase plan');
     check(await list.isHidden(), 'Archived scenarios shows with nothing in it');
   },
+  // November 2026 (the owner chose it): adding asks one question at a time. A home with its loan, by keyboard; the check
+  // screen goes back to a question and returns; Escape asks before anything answered is thrown away; an account.
+  async addflow(page){
+    await quiet(page);
+    await go(page, 'properties');
+    const before = await st(page, 'state.properties.length');
+    await page.locator('#addPropertyBtn').click();
+    const d = page.locator('#addFlowDialog'), step = () => d.locator('[data-af-step]').getAttribute('data-af-step');
+    await d.waitFor();
+    // Next with nothing chosen says what's needed and stays.
+    await page.keyboard.press('Enter');
+    check(/Choose one/.test(await d.locator('#addFlowError').innerText()) && await step() === 'kind', 'Next without a kind went on, or said nothing');
+    await d.locator('.af-choice:has(input[value="PPOR"])').click();
+    await page.keyboard.press('Enter');
+    check(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('af-big')), 'the name was not ready to type');
+    await page.keyboard.type('4 Example Ln'); await page.keyboard.press('Enter');
+    check(await step() === 'bought', 'a name did not lead to when it was bought, but ' + await step());
+    await d.locator('#af-price').fill('600000'); await page.keyboard.press('Enter');
+    await page.keyboard.type('660000');
+    check(/Worth \$60,000 more than you paid — 10%/.test(await d.locator('#addFlowLive').innerText()), 'the worth did not say what it means: ' + await d.locator('#addFlowLive').innerText());
+    await page.keyboard.press('Enter');
+    await d.locator('.af-choice:has(input[value="yes"])').click(); await page.keyboard.press('Enter');
+    check(/Its loan · 1 of 3/i.test(await d.innerText()), 'the loan did not count its own questions');
+    await page.keyboard.type('400000'); await page.keyboard.press('Enter');
+    await page.keyboard.type('6'); await page.keyboard.press('Enter');
+    await d.locator('.pill:has(input[value="IO"])').click();
+    check(/About \$2,000 a month, all interest/.test(await d.locator('#addFlowLive').innerText()), 'interest only did not change the repayment line');
+    await d.locator('.af-next').click();
+    check(await step() === 'check', 'the loan did not end on the check screen');
+    // Back to one answer from the check screen, and Done returns to it.
+    await d.locator('[data-af-goto="value"]').click();
+    check(await step() === 'value' && await d.locator('.af-next').innerText() === 'Done', 'the check screen did not go back to the worth');
+    await d.locator('.af-big').fill('680000'); await d.locator('.af-next').click();
+    check(await step() === 'check' && /\$680,000/.test(await d.innerText()), 'Done did not return to the check screen with the new worth');
+    // Escape asks before throwing away what's answered; Keep going keeps it.
+    await page.keyboard.press('Escape');
+    await page.locator('.app-dialog').waitFor();
+    await page.locator('.app-dialog [data-dialog-cancel]').click();
+    await page.locator('.app-dialog').waitFor({ state: 'detached' });
+    check(await d.evaluate(el => el.open) && await step() === 'check', 'Keep going lost the answers');
+    await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    check(await st(page, 'state.properties.length') === before + 1, 'Add made no property');
+    const made = await page.evaluate(async () => { const p = (await import('/src/state.js')).state.properties.slice(-1)[0]; return { what: p.what, value: p.value, price: p.purchasePrice, loans: p.loans.map(l => [l.balance, l.rate, l.repaymentType]) }; });
+    check(JSON.stringify(made) === JSON.stringify({ what: '4 Example Ln', value: 680000, price: 600000, loans: [[400000, 6, 'IO']] }), 'the property is not what was answered: ' + JSON.stringify(made));
+    // Shown, open for the rest (its name is in its own field there, so it's matched by id).
+    const newId = await page.evaluate(async () => (await import('/src/state.js')).state.properties.slice(-1)[0].id);
+    await waited(page, id => !!document.activeElement && document.activeElement.closest('.property-card')?.id === 'property-card-' + id &&
+      document.activeElement.closest('.property-card').classList.contains('is-editing'), 'the new property to be shown, open', newId);
+    // An account: what kind, a name, its balance — and Escape with nothing answered just closes.
+    await go(page, 'accounts');
+    await page.locator('#addAccountBtn').click();
+    await d.waitFor();
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    check(!(await page.locator('.app-dialog').count()), 'closing with nothing answered asked first');
+    await page.locator('#addAccountBtn').click();
+    await d.locator('.af-choice:has(input[value="credit"])').click(); await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('Bank One Card'); await d.locator('.af-next').click();
+    check(/What do you owe on it/.test(await d.locator('#addFlowQ').innerText()), 'a card did not ask what is owed');
+    await d.locator('.af-big').fill('1,250'); await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
+    const card = await page.evaluate(async () => { const s = (await import('/src/state.js')).state, a = s.accounts.find(x => x.name === 'Bank One Card'); const debt = a && s.debts.find(x => 'debt:' + x.id === a.link); return a && { type: a.type, owed: debt && debt.balance }; });
+    check(card && card.type === 'credit' && card.owed === 1250, 'the card is not what was answered: ' + JSON.stringify(card));
+  },
   async buyinghome(page){
     await quiet(page);
     await go(page, 'properties');
     await page.locator('#addPropertyBtn').click();
-    const d = page.locator('#addPropertyDialog');
-    check(await d.isVisible(), '+ Add property did not ask what it is');
-    await d.locator('input[name="addPropStage"][value="buying"]').check();
-    await page.fill('#addPropName', '3 Example Ave');
-    await d.locator('[data-add-prop-ok]').click();
+    // November 2026: adding asks one question at a time — one being bought, a name, then Next past the rest (the
+    // card takes the figures below).
+    const d = page.locator('#addFlowDialog');
+    await d.waitFor();
+    check(await d.locator('#addFlowQ').innerText() === 'What kind of property?', '+ Add property did not ask what it is');
+    await d.locator('.af-choice:has(input[value="buying"])').click();
+    await d.locator('.af-next').click();
+    await d.locator('.af-big').fill('3 Example Ave');
+    await d.locator('.af-big').press('Enter');
+    for(let i = 0; i < 5 && await d.locator('[data-af-step]').getAttribute('data-af-step') !== 'check'; i++) await d.locator('.af-next').click();
+    check(await d.locator('[data-af-step]').getAttribute('data-af-step') === 'check', 'buying a home did not end on the check screen');
+    await d.locator('.af-next').click();
+    await page.waitForFunction(() => !document.querySelector('#addFlowDialog[open]'));
     // The one just added — the sample household is buying a home of its own.
     const card = page.locator('.buy-card[aria-label="Buying 3 Example Ave"]');
     await card.waitFor({ state: 'visible', timeout: 5000 });

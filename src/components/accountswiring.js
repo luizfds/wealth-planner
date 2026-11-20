@@ -17,8 +17,9 @@ import { state, persist, commit, genId } from "../state.js";
 import { openAccounts, balanceEditing } from "./accounts.js";
 import { renderCanBuy } from "./canbuy.js";
 import { renderEmergencyFund, existingEmergencyGoal } from "./emergency.js";
-import { renderTransactions, renderActualVsPlannedPanel, renderAccounts, addAccount, deleteAccount, renameAccountEverywhere, renderYearSpending, renderSpendingTrends, listsShowAll } from "./expenses.js";
+import { renderTransactions, renderActualVsPlannedPanel, renderAccounts, deleteAccount, renameAccountEverywhere, renderYearSpending, renderSpendingTrends, listsShowAll } from "./expenses.js";
 import { showPage, showPlanSubpage } from "./nav.js";
+import { openAddFlow } from "./addflowwiring.js";
 import { renderRetirement } from "./planwiring.js";
 import { renderAll, updateAccountSuggestions } from "./redraw.js";
 import { goalsFireHtml } from "./retirement.js";
@@ -83,13 +84,9 @@ function swapAround(live, keep, fresh, counterpart){
 }
 
 export function wireAccounts(){  // ---------------- Accounts: named money sources, used for credit-card statement cycles ----------------
-  document.getElementById("addAccountBtn").addEventListener("click", function(){
-    addAccount();
-    updateAccountSuggestions();
-    var nameIn = document.querySelector("#accountsTable .acct-card.is-open:last-of-type .acct-mgmt-name") || document.querySelectorAll("#accountsTable .acct-mgmt-name");
-    if(nameIn && nameIn.length !== undefined) nameIn = nameIn[nameIn.length - 1];
-    if(nameIn) nameIn.focus();
-  });
+  // November 2026 (the owner): adding asks one question at a time — what kind, its name, today's balance
+  // (addflowwiring.js). An account's other details (a card's limit, its statement day) are on it once it's added.
+  document.getElementById("addAccountBtn").addEventListener("click", function(){ openAddFlow("account"); });
   document.getElementById("accountsTable").addEventListener("keydown", function(e){
     if(e.key === "Enter" && e.target.classList.contains("acct-bal-input")){ e.preventDefault(); saveAccountBalance(Number(e.target.getAttribute("data-acct-index"))); }
     if(e.key === "Escape" && e.target.classList.contains("acct-bal-input")){ var id = (state.accounts[Number(e.target.getAttribute("data-acct-index"))] || {}).id; delete balanceEditing[id]; renderAccounts(); }

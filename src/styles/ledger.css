@@ -1918,3 +1918,80 @@
 .money-head-actions{ display:flex; align-items:center; gap:6px; }
 .money-head{ flex-wrap:wrap; }
 .money-head > .money-head-help{ flex-basis:100%; order:3; margin:0; }
+
+/* ---------------- Adding something, one question at a time (November 2026, components/addflow.js) ----------------
+   A centred card on a desktop, a sheet from the bottom on a phone: a question, its one big answer, the answers so far,
+   then Back / Skip / Next at the foot. */
+.add-flow{ width:min(440px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:0; border:0; border-radius:24px; overflow:auto;
+  background: var(--paper-raised); color: var(--ink); box-shadow: 0 24px 64px rgba(15,23,42,.28); }
+.add-flow::backdrop{ background: rgba(15,23,42,.45); }
+.af-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px 0 20px; }
+.af-what{ min-width:0; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.af-x{ flex:none; width:44px; height:44px; border:0; border-radius:50%; background: var(--paper-sunken); color: var(--ink-soft); font-size:var(--fs-md); cursor:pointer; }
+.af-x:hover{ color: var(--ink); }
+.af-x:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+.af-prog{ display:flex; gap:4px; padding:10px 20px 0; }
+.af-prog i{ flex:1; height:4px; border-radius:4px; background: var(--border); }
+.af-prog i.on{ background: var(--brass); }
+.af-form{ display:flex; flex-direction:column; gap:0; min-height:min(540px, calc(100dvh - 120px)); padding:18px 20px 20px; box-sizing:border-box; }
+.af-step{ margin:0; font-size:var(--fs-xs); font-weight:600; color: var(--brass-strong); text-transform:uppercase; letter-spacing:.05em; }
+.af-q{ margin:6px 0 6px; font-size:var(--fs-2xl); font-weight:600; line-height:1.2; }
+.af-q:focus{ outline:none; }
+.af-sub{ margin:0 0 20px; font-size:var(--fs-md); line-height:1.45; color: var(--ink-soft); }
+/* The one big answer: no box, a line under it — what you're typing is the page. */
+.af-big-wrap{ display:flex; align-items:baseline; gap:6px; border-bottom:3px solid var(--brass); padding-bottom:4px; }
+.af-big.field-control{ flex:1; min-width:0; width:100%; height:auto; padding:2px 0; border:0; border-radius:0; background:transparent; box-shadow:none;
+  font-size:var(--fs-3xl); font-weight:600; color: var(--ink); }
+.af-big.af-num{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.af-big.field-control:focus-visible{ box-shadow:none; }
+.af-big-wrap:focus-within{ border-bottom-color: var(--brass-strong); }
+.af-big::placeholder{ color: var(--ink-soft); opacity:.45; }
+.af-pre, .af-unit{ flex:none; font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; color: var(--ink-soft); }
+.af-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.af-chip{ min-height:44px; padding:0 14px; border:0; border-radius:100px; background: var(--paper-sunken); color: var(--ink); font:inherit; font-size:var(--fs-sm); font-weight:600; cursor:pointer; }
+.af-chip:hover{ background: color-mix(in srgb, var(--brass) 10%, var(--paper-sunken)); }
+.af-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+/* A choice: a card with an icon, its name and what it means; the chosen one outlined. */
+.af-choices{ display:flex; flex-direction:column; gap:10px; }
+.af-choice{ position:relative; display:flex; align-items:center; gap:14px; min-height:60px; padding:12px 14px; border:2px solid transparent; border-radius:16px;
+  background: var(--paper-sunken); cursor:pointer; }
+.af-choice input{ position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+.af-choice:has(input:checked){ border-color: var(--brass); background: color-mix(in srgb, var(--brass) 8%, var(--paper-raised)); }
+.af-choice:has(input:focus-visible){ box-shadow: var(--focus-ring); }
+.af-choice.is-off{ opacity:.55; cursor:not-allowed; }
+.af-choice-text{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.af-choice-text b{ font-size:var(--fs-md); font-weight:600; }
+.af-choice-text small{ font-size:var(--fs-sm); color: var(--ink-soft); }
+.af-ic{ flex:none; display:flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:12px; color:#fff; font-size:var(--fs-xl); }
+.af-ic-home{ background: linear-gradient(135deg, #2563eb, #1e40af); }
+.af-ic-invest{ background: linear-gradient(135deg, #b45309, #92400e); }
+.af-ic-buying{ background: linear-gradient(135deg, #0d9488, #115e59); }
+.af-ic-good{ background: linear-gradient(135deg, #16a34a, #166534); }
+.af-ic-bad{ background: linear-gradient(135deg, #dc2626, #991b1b); }
+.af-form .field-pills + .fgrid, .af-gap{ margin-top:14px; }
+.af-form .fgrid + .field-pills{ margin-top:14px; }
+.af-error:empty, .af-live:empty{ display:none; }
+.af-error{ margin:10px 0 0; }
+.af-live{ margin:10px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.af-ans{ margin-top:16px; padding-top:10px; border-top:1px solid var(--border); }
+.af-ans div{ display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.af-ans b{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color: var(--ink); }
+/* Check, then add: each answer a row that goes back to its question. */
+.af-sum-h{ margin:6px 4px 6px; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; }
+.af-sum{ display:flex; flex-direction:column; padding:2px 14px; border-radius:16px; background: var(--paper-sunken); }
+.af-sum:empty{ display:none; }
+.af-sum-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:44px; padding:8px 0; border:0; border-bottom:1px solid var(--border);
+  background:transparent; color: var(--ink-soft); font:inherit; font-size:var(--fs-sm); text-align:left; cursor:pointer; }
+.af-sum-row:last-child{ border-bottom:0; }
+.af-sum-row b{ min-width:0; color: var(--ink); font-weight:600; text-align:right; overflow-wrap:anywhere; }
+.af-sum-row:hover b{ color: var(--brass-strong); }
+.af-sum-row:focus-visible{ outline:none; box-shadow: var(--focus-ring); border-radius:8px; }
+.af-note{ margin:10px 4px 0; font-size:var(--fs-xs); color: var(--ink-soft); }
+.af-nav{ display:flex; gap:10px; margin-top:auto; padding-top:20px; }
+.af-nav .btn{ min-height:48px; border-radius:14px; }
+.af-nav .af-next{ flex:1; }
+.af-nav .af-back{ flex:0 0 auto; min-width:88px; }
+@media (max-width: 880px){
+  .add-flow{ position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:calc(100dvh - 12px); border-radius:24px 24px 0 0; }
+  .af-form{ padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px)); min-height:min(560px, calc(100dvh - 100px)); }
+}

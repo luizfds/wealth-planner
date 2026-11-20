@@ -2408,7 +2408,7 @@ const JOURNEYS = {
           });
           await page.evaluate(()=>window.__captureErrorSummary('settled'));
           const field=page.locator('[id="'+target+'"]');
-          await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field")][1]'));
+          await scan(field.locator('xpath=ancestor::*[contains(@class,"calc-field") or contains(@class,"proj-field") or contains(@class,"ty-cell") or contains(@class,"m-edit-field") or contains(concat(" ",@class," ")," field ")][1]'));
           }
           check(await summary.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'summary has local horizontal overflow');
           check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'error summary overflows at '+width);

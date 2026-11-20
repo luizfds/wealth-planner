@@ -674,6 +674,11 @@
 .buy-hero{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:18px 20px; color:#fff;
   background: linear-gradient(135deg, #6d28d9 0%, #4338ca 55%, #1e40af 100%); }
 .buy-k{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.buy-hero-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; }
+.buy-edit-btn, .buy-settle-btn{ all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 14px; border-radius:100px;
+  background: rgba(15,23,42,.28); color:#fff; font-weight:600; font-size:var(--fs-sm); }
+.buy-edit-btn:hover, .buy-settle-btn:hover{ background: rgba(15,23,42,.4); }
+.buy-edit-btn:focus-visible, .buy-settle-btn:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 .buy-name{ margin:0; font-size:var(--fs-lg); font-weight:600; color:#fff; overflow-wrap:anywhere; }
 .buy-price{ font-family: var(--font-num); font-size: var(--fs-3xl); font-weight:600; letter-spacing:-.02em; }
 .buy-body{ display:flex; flex-direction:column; gap:12px; padding: var(--card-py) var(--card-px); }
@@ -685,7 +690,13 @@
 .buy-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); overflow-wrap:anywhere; }
 .buy-tile.is-good{ background: var(--good-wash); } .buy-tile.is-good small, .buy-tile.is-good span{ color: var(--good-ink); }
 .buy-tile.is-short{ background: var(--bad-wash); } .buy-tile.is-short small, .buy-tile.is-short span{ color: var(--bad-ink); }
-.buy-fold > summary{ cursor:pointer; font-weight:600; min-height:44px; display:flex; align-items:center; }
+.buy-fold > summary{ cursor:pointer; font-weight:600; min-height:44px; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  list-style:none; padding:8px 12px; border:1px solid var(--border); border-radius:12px; }
+.buy-fold > summary::-webkit-details-marker{ display:none; }
+.buy-fold > summary small{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+.buy-fold-edit{ color: var(--brass-strong); font-size:var(--fs-sm); }
+.buy-fold[open] > summary .buy-fold-edit{ display:none; }
+.buy-fold[open] > summary{ border-color: transparent; padding-left:0; }
 .buy-fields{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:4px 12px; padding-top:4px; }
 .buy-sub{ margin:0 0 6px; font-size:var(--fs-md); font-weight:600; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
 .buy-sub small{ font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); }

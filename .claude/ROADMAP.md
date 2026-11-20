@@ -5729,3 +5729,12 @@ Archived scenarios (its home rows, purchase and investing plans, changes, note, 
 scenarios' includes of it), each with when, Restore and Delete. Restored, it's back as it was (a name taken since
 gets " (2)"). `state.scenarioArchive`, migration 33, calc/scenarioarchive.js; archived home rows in
 `everyAccountLink`; journey `archivescenario`.
+
+## Buying a home: on Accounts, and easy to edit (November 2026)
+
+`[x]` The owner, using it: a home being bought should be listed on the main page, marked in progress; and they couldn't
+see how to change its name or settlement date (they were in "The purchase", folded once a price was in).
+- Accounts → Property lists it (calc/networthlist.js): a violet "Buying" pill, the deposit held or "No deposit yet",
+  and the settlement date; its name opens its Buying card. The deposit is counted there, no longer under Other things.
+- The Buying card's hero has Edit (to the name) and its settlement chip opens the date ("Add the settlement date" +);
+  "The purchase" reads as a way in — what's inside, and Edit — and stays open while the price or date is missing.

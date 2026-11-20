@@ -51,9 +51,12 @@ export function purchaseCardHtml(p, cash, today){
   var byId = {};
   f.costs.forEach(function(c){ byId[c.id] = c; });
   var name = p.what || "A home";
-  var heroSub = '<span class="home-glance-chip">' + escapeAttr(settleText(f, p, today)) + '</span>';
+  // The owner couldn't see how to change the name or the settlement date: the settlement chip opens them at the date,
+  // and Edit at the name (both in "The purchase", below).
+  var heroSub = '<button type="button" class="buy-settle-btn" data-buy-edit="settlementDate">' + escapeAttr(settleText(f, p, today)) + (f.days == null ? ' <span aria-hidden="true">+</span>' : '') + '</button>';
   var hero = '<div class="buy-hero">' +
-    '<span class="buy-k">Buying · ' + (p.kind === "IP" ? "an investment" : "a home") + '</span>' +
+    '<div class="buy-hero-top"><span class="buy-k">Buying · ' + (p.kind === "IP" ? "an investment" : "a home") + '</span>' +
+      '<button type="button" class="buy-edit-btn" data-buy-edit="what" aria-label="' + escapeAttr("Edit " + name) + '"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16H4v-3z"/></svg>Edit</button></div>' +
     '<h3 class="buy-name">' + escapeAttr(name) + '</h3>' +
     '<b class="buy-price">' + (f.price > 0 ? fmtCompact(f.price) : "Price —") + '</b>' + heroSub + '</div>';
   // Where the whole cost comes from: what's paid, what the loan brings, what's still to find.
@@ -70,7 +73,8 @@ export function purchaseCardHtml(p, cash, today){
   '</div>';
   var id = function(k){ return "buy-" + p.id + "-" + k; };
   var fa = function(k){ return { "data-buy-field": k }; };
-  var fields = '<details class="buy-fold"' + (f.price > 0 ? '' : ' open') + '><summary>The purchase</summary><div class="buy-fields">' +
+  // Open while something it needs is missing; its heading says what's inside, so a folded one reads as a way in.
+  var fields = '<details class="buy-fold"' + (f.price > 0 && p.settlementDate ? '' : ' open') + '><summary><span>The purchase<small>Name, price, deposit, loan, dates, state</small></span><span class="buy-fold-edit" aria-hidden="true">Edit</span></summary><div class="buy-fields">' +
     fieldHtml({ id: id("what"), label: "Name or address", value: p.what || "", attrs: fa("what") }) +
     fieldHtml({ id: id("kind"), label: "It's", type: "select", value: p.kind === "IP" ? "IP" : "PPOR", options: [{ value: "PPOR", label: "A home to live in" }, { value: "IP", label: "An investment" }], attrs: fa("kind") }) +
     fieldHtml({ id: id("price"), label: "Contract price", type: "number", value: p.price, unit: "$", attrs: Object.assign({ min: "0", step: "1000", inputmode: "decimal" }, fa("price")) }) +

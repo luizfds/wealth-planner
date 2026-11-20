@@ -4,7 +4,7 @@ import { netWorthList } from "../calc/networthlist.js";
 import { toAudAmount, totalNetWorthValue } from "../calc/engine.js";
 import { loggedSinceRecorded } from "../calc/accounts.js";
 import { estimatesUplift } from "../calc/estimates.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDate } from "../lib/format.js";
 import { detailLinkHtml } from "./detail.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -74,6 +74,10 @@ export function netWorthPageHtml(){
     return '<section class="nw-group"><h2>' + (manage ? '<button type="button" class="nw-go" data-go="' + manage + '">' + title +
         '<span class="visually-hidden">, open</span><span class="nw-go-arrow" aria-hidden="true">›</span></button>' : title) + '</h2>' +
       '<ul>' + g.rows.map(function(r){
+      // A home being bought: a way to its Buying card, and a word that it's in progress.
+      if(r.buying) return '<li class="nw-buying"><span class="nw-name"><button type="button" class="nw-buy-link" data-go="properties">' + escapeAttr(r.name) + '</button>' +
+        '<small><span class="nw-wip">Buying</span> ' + escapeAttr(r.sub + (r.settles ? " · settles " + fmtDate(r.settles, { year: r.settles.slice(0, 4) !== today.slice(0, 4) }) : "")) + '</small></span>' +
+        '<b>' + money(r.value) + '</b></li>';
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul>' + footHtml(g) + '</section>';
   }).join("") + hiddenPartsLineHtml();

@@ -1431,6 +1431,11 @@
   .nw-group li:first-child{ border-top:0; }
   .nw-name{ display:flex; flex-direction:column; min-width:0; }
   .nw-name small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  /* A home being bought (the owner): with the properties, its name a way to its Buying card, and a "Buying" pill in
+     the Buying card's violet so it reads as in progress. */
+  .nw-buy-link{ all:unset; cursor:pointer; font-weight:600; color: var(--ink); min-height:44px; display:inline-flex; align-items:center; }
+  .nw-buy-link:focus-visible{ box-shadow: var(--focus-ring); border-radius:4px; }
+  .nw-wip{ display:inline-block; padding:1px 7px; margin-right:4px; border-radius:100px; font-size:var(--fs-xs); font-weight:600; color:#fff; background:#5b21b6; }
   .nw-group li b{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
   .nw-group li b.neg{ color: var(--bad-ink); }
   .rp-drill{ margin:10px 0; padding:8px 10px; border:1px solid var(--border); border-radius:10px; }

@@ -6905,33 +6905,35 @@ const JOURNEYS = {
     const d = page.locator('#addPropertyDialog');
     check(await d.isVisible(), '+ Add property did not ask what it is');
     await d.locator('input[name="addPropStage"][value="buying"]').check();
-    await page.fill('#addPropName', '2 Sample Rd');
+    await page.fill('#addPropName', '3 Example Ave');
     await d.locator('[data-add-prop-ok]').click();
-    const card = page.locator('.buy-card').first();
+    // The one just added — the sample household is buying a home of its own.
+    const card = page.locator('.buy-card[aria-label="Buying 3 Example Ave"]');
     await card.waitFor({ state: 'visible', timeout: 5000 });
+    const cardSel = '.buy-card[aria-label="Buying 3 Example Ave"]';
     check(await page.locator('#propertiesBody .empty-state').count() === 0 || await page.evaluate(async () => (await import('/src/state.js')).state.properties.length > 0), 'No properties yet shows under a home being bought');
     // The figures, as typed.
     for (const [k, v] of [['price', '600000'], ['deposit', '60000'], ['loanAmount', '480000']]) {
-      const f = page.locator('.buy-card [data-buy-field="' + k + '"]').first();
+      const f = page.locator(cardSel + ' [data-buy-field="' + k + '"]');
       await f.fill(v); await f.press('Tab');
     }
-    const held = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.purchases[0]; return (s.assets.find(a => a.id === p.depositAssetId) || {}).amount; });
+    const held = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.purchases.find(x => x.what === '3 Example Ave'); return (s.assets.find(a => a.id === p.depositAssetId) || {}).amount; });
     check(held === 60000, 'the deposit is not held in net worth: ' + held);
     // A cost, paid.
-    const row = page.locator('.buy-card .buy-cost').nth(1);
+    const row = page.locator(cardSel + ' .buy-cost').nth(1);
     const amount = row.locator('[data-cost-field="amount"]');
     await amount.fill('1500'); await amount.press('Tab');
-    await page.locator('.buy-card .buy-cost').nth(1).locator('[data-cost-field="paid"]').check();
-    check((await page.locator('.buy-card .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
-    check((await page.locator('.buy-card .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
+    await page.locator(cardSel + ' .buy-cost').nth(1).locator('[data-cost-field="paid"]').check();
+    check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
+    check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'the Buying card scrolls sideways at ' + width + 'px');
     }
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('.buy-card [data-buy-settled]').click();
-    await page.waitForFunction(async () => (await import('/src/state.js')).state.purchases.length === 0, null, { timeout: 5000 }).catch(() => {});
-    const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '2 Sample Rd');
+    await page.locator(cardSel + ' [data-buy-settled]').click();
+    await page.waitForFunction(async () => !(await import('/src/state.js')).state.purchases.some(x => x.what === '3 Example Ave'), null, { timeout: 5000 }).catch(() => {});
+    const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '3 Example Ave');
       return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
     check(after && after.kind === 'PPOR' && after.value === 600000 && after.loan === 480000 && after.costs.includes(1500) && after.held === 0, 'Settled did not make it a home with its loan and costs: ' + JSON.stringify(after));
   },

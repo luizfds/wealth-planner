@@ -33,3 +33,15 @@ test("a holding sold down to nothing isn't listed in net worth", () => {
   assert.ok(names.includes("Not bought yet"), "no sales: it isn't sold, just empty");
   assert.equal(isSoldOut(st.assets[0]), true); assert.equal(isSoldOut(st.assets[1]), false); assert.equal(isSoldOut(st.assets[2]), false);
 });
+
+test("a home being bought is listed with the properties, in progress, at the deposit held — not under Other things", async function(){
+  const { netWorthList } = await import("../src/calc/networthlist.js");
+  const st = { assets: [{ id: "dep1", what: "Deposit held — 1 Example St", category: "Other", amount: 60000, depositFor: "b1" }, { id: "car", what: "Car", category: "Vehicle", amount: 9000 }],
+    purchases: [{ id: "b1", what: "1 Example St", depositAssetId: "dep1", settlementDate: "2026-12-20" }, { id: "b2", what: "2 Sample Rd" }], properties: [] };
+  const l = netWorthList(st);
+  const prop = l.groups.find(g => g.key === "property"), other = l.groups.find(g => g.key === "other");
+  assert.deepEqual(prop.rows.map(r => [r.name, r.buying, r.sub, r.value]), [["1 Example St", true, "Deposit held", 60000], ["2 Sample Rd", true, "No deposit yet", 0]]);
+  assert.equal(prop.total, 60000);
+  assert.deepEqual(other.rows.map(r => r.name), ["Car"], "the deposit isn't counted twice");
+  assert.equal(l.total, 69000);
+});

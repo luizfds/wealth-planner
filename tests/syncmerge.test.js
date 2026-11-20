@@ -109,3 +109,22 @@ test("a computed row is one per thing it's for after a merge, whatever its amoun
   assert.equal(m.merged.income.filter(r => r.syntheticOneOffFor === "b1").length, 1);
   assert.equal(m.conflicts.length, 0, "computed rows are rebuilt after a load — never asked about");
 });
+
+// A row with no id edited on two devices is still one row (the owner's rent was two after a merge). Invented figures.
+test("a row with no id, edited on each device, is one row: one side's change taken, the same field both ways asked", function(){
+  const rent = (amount, extra) => Object.assign({ what: "1 Example St - Rent", amount: amount, freq: "Weekly", account: "Bank One" }, extra || {});
+  const base = { properties: [{ id: "p1", income: [rent(580)] }] };
+  // Only one side changed the amount, the other a different field: both kept, in one row.
+  const r1 = mergeStates(base, { properties: [{ id: "p1", income: [rent(600)] }] }, { properties: [{ id: "p1", income: [rent(580, { account: "Bank Two" })] }] });
+  assert.equal(r1.merged.properties[0].income.length, 1);
+  assert.deepEqual([r1.merged.properties[0].income[0].amount, r1.merged.properties[0].income[0].account], [600, "Bank Two"]);
+  // The amount changed both ways: one row, and asked which.
+  const r2 = mergeStates(base, { properties: [{ id: "p1", income: [rent(600)] }] }, { properties: [{ id: "p1", income: [rent(610)] }] });
+  assert.equal(r2.merged.properties[0].income.length, 1);
+  assert.equal(r2.conflicts.length, 1);
+  const r3 = mergeStates(base, { properties: [{ id: "p1", income: [rent(600)] }] }, { properties: [{ id: "p1", income: [rent(610)] }] }, { [r2.conflicts[0].id]: "theirs" });
+  assert.equal(r3.merged.properties[0].income[0].amount, 610);
+  // Two different lines that happen to share a name stay two.
+  const two = { shared: [{ what: "Groceries", amount: 100, freq: "Weekly" }, { what: "Groceries", amount: 50, freq: "Weekly" }] };
+  assert.equal(mergeStates(two, two, two).merged.shared.length, 2);
+});

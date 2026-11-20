@@ -34,6 +34,15 @@ export function autoKey(r){
   for(var i = 0; i < AUTO_ROW_FIELDS.length; i++){ if(r[AUTO_ROW_FIELDS[i]] != null && r[AUTO_ROW_FIELDS[i]] !== "") return "auto:" + AUTO_ROW_FIELDS[i] + ":" + r[AUTO_ROW_FIELDS[i]]; }
   return "";
 }
+// A row the household entered with no id (a budget line, a property's rent) is matched by what it is — its name, how
+// often, whose and what it's filed under — not its whole content. Matched by content, a row edited on two devices
+// (a rent changed to one amount on one device and another on the other) read as one row removed and two added, and a merge
+// kept both — the rent counted twice. By what it is, the two edits are the same row: one side's change is taken, the
+// same field changed both ways is asked. Two rows that are the same thing are told apart by their order ("#2").
+function identityKey(r){
+  if(!isObj(r) || typeof r.what !== "string" || !r.what.trim() || typeof r.date === "string") return "";
+  return "what:" + [r.what.trim().toLowerCase(), r.freq || "", r.person || "", r.category || "", r.incomeType || ""].join("|");
+}
 function isObj(v){ return v != null && typeof v === "object" && !Array.isArray(v); }
 // Key order doesn't make two rows different.
 function canon(v){
@@ -54,7 +63,7 @@ function keyer(lists){
     var counts = {}, out = [];
     (list || []).forEach(function(r){
       var auto = autoKey(r);
-      var k = r != null && r.id != null ? "id:" + r.id : auto ? auto : byDate ? "date:" + r.date : "row:" + canon(r);
+      var k = r != null && r.id != null ? "id:" + r.id : auto ? auto : byDate ? "date:" + r.date : identityKey(r) || "row:" + canon(r);
       if(counts[k]){ counts[k]++; k += "#" + counts[k]; } else counts[k] = 1;
       out.push({ key: k, row: r });
     });

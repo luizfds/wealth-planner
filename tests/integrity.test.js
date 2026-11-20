@@ -90,3 +90,13 @@ test("a purchase whose figures don't agree: its deposit held, the lender's loan,
     assert.match(c.detail, /deposit held in net worth is \$40,000, not the \$50,000 paid; the lender's loan is \$530,000, the loan and fees added to it \$520,000; the deposit and loan \(\$570,000\) come to well over the price; the loan is more than the price/);
   });
 });
+
+test("the same line at two amounts — one line edited on two devices — is flagged, not two rents with their own names", function(){
+  withState({ properties: [{ id: "p1", what: "1 Example St", loans: [], income: [{ what: "Rent", amount: 600, freq: "Weekly" }, { what: "Rent", amount: 610, freq: "Weekly" }, { what: "Granny flat", amount: 200, freq: "Weekly" }] }] }, function(){
+    const c = integrityChecks(state, TODAY).find(x => x.id === "int-split-rows");
+    assert.ok(c);
+    assert.equal(c.confidence, "possible");
+    assert.match(c.detail, /“Rent” \$600 and \$610 weekly/);
+    assert.deepEqual(c.where, { page: "properties" });
+  });
+});

@@ -5688,3 +5688,11 @@ tints, a teal theme); the owner chose the bold one.
   waits, green with a tick when clear. White on each is 5:1 or better; the tiles are the same in both themes.
 - Phone: the hero across, three tiles under it; under 360px two to a row with Needs you across both. Wide: the hero
   beside the three, one row.
+
+## Today: net worth said once (November 2026)
+
+`[x]` The owner: Today doesn't need the second Net worth card — the glance's hero says the figure, its change and its
+line. The card went; it stays only as the empty state (what to enter first) until something is owned or owed. The hero
+opens Accounts, and says where its figure comes from — "Recorded balances", or how many need updating (the card's
+line; the journey assessmentux reads it). A past period says it stays as of today
+in Today's period note (the journeys periodheader and homedates read it there).

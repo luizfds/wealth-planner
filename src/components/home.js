@@ -10,11 +10,9 @@ import { goalCardHtml } from "./savegoals.js";
 import { monthReview } from "../calc/monthreview.js";
 import { budgetLineItems, loggableBudgetLineItems, transactionAccount, transactionCategory } from "./expenses.js";
 import { trendToToday } from "../calc/history.js";
-import { fmtCurrency0, fmtCompact, localDateStr, fmtDate } from "../lib/format.js";
+import { fmtCurrency0, fmtCompact, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
-import { netWorthOn } from "../calc/nwhistory.js";
-import { netWorthMovers, netWorthSplit } from "../calc/nwauto.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { weekRecap, showWeekRecap, KEEP_WEEKS } from "../calc/weekrecap.js";
 import { transactionDisplayName } from "../calc/ledger.js";
@@ -52,21 +50,6 @@ function monthGone(ym, today){
   var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   return Number(String(today).slice(8, 10)) / days;
 }
-// A filled line for net worth: the line in the brass ink, the area under it a wash of it.
-function areaHtml(points){
-  if(!points || points.length < 2) return "";
-  var w = 300, h = 64, vals = points.map(function(p){ return Number(p.value) || 0; });
-  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
-  if(min === max){ min -= 1; max += 1; }
-  var pad = (max - min) * 0.08; min -= pad; max += pad;
-  var xy = vals.map(function(v, i){ return [(i / (vals.length - 1)) * w, h - ((v - min) / (max - min)) * h]; });
-  var line = xy.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
-  var last = xy[xy.length - 1];
-  return '<svg class="home-area" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
-    '<path class="home-area-fill" d="' + line + ' L' + w + ',' + h + ' L0,' + h + ' Z"/>' +
-    '<path class="home-area-line" d="' + line + '" vector-effect="non-scaling-stroke"/>' +
-    '<circle class="home-area-dot" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="3.5" vector-effect="non-scaling-stroke"/></svg>';
-}
 // The hero's line: net worth over the same months as its change, drawn faintly behind the figure. Decorative — the
 // change is written beside it, and Net worth's card below has the chart.
 function sparkHtml(points){
@@ -79,7 +62,6 @@ function sparkHtml(points){
   return '<svg class="home-glance-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +
     '<path class="fill" d="' + line + ' L' + w + ',' + h + ' L0,' + h + ' Z"/><path class="line" d="' + line + '" vector-effect="non-scaling-stroke"/></svg>';
 }
-function signed(n){ return (n < 0 ? "−" : "+") + fmtCurrency0.format(Math.abs(n)); }
 
 // Bills expected in the next `days` days (and unpaid ones from the last week) — v3.94.1: the bills
 // calendar's own reading (calc/bills.js upcomingBills), so ended lines, spending budgets, bills on
@@ -101,25 +83,6 @@ function todoAttrs(n){
     (n.line ? ' data-notif-line="' + escapeAttr(n.line) + '" data-notif-due="' + escapeAttr(n.due || "") + '"' : '');
 }
 
-// v3.139.0 (item 171): what moved it most since the line began — the same rules both ends
-// (calc/nwhistory.js), so the parts add up. Nothing when no one thing explains much.
-function moverHtml(fromDate, today, change){
-  if(!fromDate || fromDate >= today) return "";
-  var a = netWorthOn(fromDate, today), b = netWorthOn(today, today);
-  if(a.partial.length) return "";
-  // v3.146.0: in two parts — the money kept (or spent) and what the things owned are worth — so a
-  // revaluation doesn't read as a month of overspending.
-  var sp = netWorthSplit(netWorthMovers(a.parts, b.parts));
-  if(Math.abs(sp.money) < 100 && Math.abs(sp.values) < 100) return "";
-  var part = function(label, v, cls){ return '<span class="' + cls + '">' + label + ' <b class="' + (v >= 0 ? "up" : "down") + '">' + (v < 0 ? "−" : "+") + fmtCompact(Math.abs(v)) + '</b></span>'; };
-  // The headline's change runs from the figure logged back then; the parts from that day rebuilt from
-  // today's records. A balance updated or back-dated since makes the two differ — said, not hidden,
-  // so the parts always add up to the headline.
-  var revised = change != null ? Math.round(change - sp.money - sp.values) : 0;
-  return '<div class="home-nw-mover">' + part("Cash &amp; loans", sp.money, "nw-part") +
-    part("Property &amp; investments", sp.values, "nw-part") +
-    (Math.abs(revised) >= Math.max(500, Math.abs(change) * 0.05) ? part("Records updated", revised, "nw-part nw-revised") : '') + '</div>';
-}
 export function homeSummaryHtml(today, opts){
   today = today || localDateStr();
   opts = opts || {};
@@ -128,12 +91,9 @@ export function homeSummaryHtml(today, opts){
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
   var stale = staleAssets().length;
-  var nwCard = '<div class="home-card home-nw" data-home-card="nw"><span class="home-k">Net worth</span>' +
-    '<div class="home-nw-head"><b class="home-big">' + money(nw) + '</b>' +
-    (trend ? '<span class="home-chip ' + (trend.change >= 0 ? "up" : "down") + '"><span aria-hidden="true">' + (trend.change >= 0 ? "▲" : "▼") + '</span> ' + signed(trend.change) + ' since ' + shortDate(trend.from.date, today) + '</span>' : '') + '</div>' +
-    (trend ? areaHtml(trend.points) + moverHtml(trend.from.date, today, trend.change) : '<small>The trend appears as the days go by</small>') +
-    '<small class="home-asof">Recorded balances · as of ' + escapeAttr(fmtDate(today)) + (stale ? ' · <span class="warn">' + stale + ' values need updating</span>' : '') + '</small>' +
-    '<button type="button" class="link-btn home-link" data-home-go="assets">Net worth over time →</button></div>';
+  // The glance's hero says net worth, its change and its line; the card that said it again under it went (the owner,
+  // November 2026). It stays only as the empty state — what to enter first — until something is owned or owed.
+  var nwCard = '';
   // #309 (pages.md §4): nothing owned or owed yet is said, with where to start — not "$0" and a flat line.
   var nwEmpty = nw === 0 && !(state.assets || []).length && !(state.properties || []).length && !(state.debts || []).length;
   if(nwEmpty)
@@ -202,8 +162,12 @@ export function homeSummaryHtml(today, opts){
     return '<button type="button" class="home-glance-tile ' + look + '" data-glance-go="' + go + '">' + (extra || '') + '<span class="home-glance-k">' + label + '</span><b>' + value + '</b><small>' + sub + '</small></button>';
   };
   var glance = '<nav class="home-glance" data-home-card="glance" aria-label="At a glance">' +
+    // Net worth opens Accounts, where it's broken down — there's no card under it to go to.
     (nwEmpty ? glanceTile("nw", "is-hero", "Net worth", "—", "")
-      : glanceTile("nw", "is-hero", "Net worth", fmtCompact(nw), trend ? '<span class="home-glance-chip">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + ' since ' + shortDate(trend.from.date, today) + '</span>' : 'as of today', trend ? sparkHtml(trend.points) : '')) +
+      : glanceTile("nw", "is-hero", "Net worth", fmtCompact(nw), (trend ? '<span class="home-glance-chip">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + ' since ' + shortDate(trend.from.date, today) + '</span>' : 'as of today') +
+        // Where the figure comes from (the card said "Recorded balances"), or how many of them are out of date.
+        (stale ? '<span class="home-glance-stale">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : '<span class="home-glance-asof">Recorded balances</span>'), trend ? sparkHtml(trend.points) : '')
+      ).replace('data-glance-go="nw"', 'data-home-go="networth"') +
     (monthEmpty ? glanceTile("month", "is-quiet", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
       : glanceTile("month", saved >= 0 ? "is-good" : "is-bad", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent")) +
     glanceTile("needs", nextBill ? "is-warn" : "is-quiet", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight") +

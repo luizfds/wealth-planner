@@ -1134,22 +1134,21 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     var bills = upcomingBills(items, state.transactions, "2026-10-14", 14);
     assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
     var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ id: "review:2026-09", title: "Review September 2026", page: "dashboard", sub: "review", severity: "warn" }] });
-    assert.match(html, /<b class="home-big">\$105,000<\/b>/);
+    // Net worth is the glance's hero, a way to Accounts; the card that said it again under it went (the owner).
+    assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth">[\s\S]*?<b>\$105(?:\.0)?k<\/b>/);
+    assert.doesNotMatch(html, /data-home-card="nw"/);
     // Today opens in colour: net worth the hero with its line; the three under it say what they are by colour.
-    assert.match(html, /class="home-glance-tile is-hero" data-glance-go="nw"><svg class="home-glance-spark"[^>]*aria-hidden="true"/);
+    assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth"><svg class="home-glance-spark"[^>]*aria-hidden="true"/);
     assert.match(html, /<span class="home-glance-chip">▲ \$5,000 since 1 Aug<\/span>/);
     assert.match(html, /class="home-glance-tile (is-good|is-bad)" data-glance-go="month"/);
     assert.match(html, /class="home-glance-tile is-warn" data-glance-go="needs"><span class="home-glance-k">Next bill<\/span><b>Phone<\/b>/);
     assert.match(html, /class="home-glance-tile is-alert" data-glance-go="needs"><span class="home-glance-k">Needs you<\/span><b>2<\/b>/);
-    assert.match(html, /\+\$5,000 since 1 Aug/);
-    assert.match(html, /Recorded balances · as of 14 Oct(?: 2026)?/);
     assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
     // Today leads with pictures: each bar says in words what it draws; each bill has a date chip.
     assert.match(html, /class="home-meter-track" role="img" aria-label="Spent \$\d[\d,]* of \$80 planned, \d+%(; \d+% of the month gone)?"/);
     assert.match(html, /aria-label="Received \$0 of \$0 planned"/);
     assert.match(html, /<span class="home-date " aria-hidden="true"><b>20<\/b><small>Oct<\/small><\/span>/);
-    assert.match(html, /<svg class="home-area"/);
     // "Paid": log the bill from where it's listed, pre-filled.
     assert.match(html, /data-bill-paid="e1" data-bill-due="2026-10-20" data-bill-amount="80" aria-label="Log Phone as paid">Paid<\/button>/);
     // #305: a To do row carries the same attributes as the bell's, and is followed the same way.
@@ -1176,7 +1175,7 @@ test("Home summary for an empty household: the month and net worth say what's mi
     assert.doesNotMatch(html, /undefined|NaN/);
     // Something owned: the card is the figure again.
     state.assets = [{ id: "a1", what: "Bank One savings", category: "Cash", amount: 500 }];
-    assert.match(homeSummaryHtml("2026-10-14", { netWorth: 500, items: [], todos: [] }), /<b class="home-big">\$500<\/b>/);
+    assert.match(homeSummaryHtml("2026-10-14", { netWorth: 500, items: [], todos: [] }), /data-home-go="networth">[\s\S]*?<b>\$500<\/b>/);
   } finally { Object.assign(state, keep); }
 });
 

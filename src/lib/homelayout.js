@@ -17,7 +17,7 @@ export var HOME_CARDS = [
   // Needs you is the bills due this week and the to-dos in one card (it was "Bills — next 2 weeks" and "To do").
   { key: "needs", label: "Needs you — bills this week and to-dos", group: "cards" },
   { key: "month", label: "This month", group: "cards" },
-  { key: "nw", label: "Net worth", group: "cards" },
+  { key: "nw", label: "Net worth — where to start (until something is entered)", group: "cards" },
   { key: "goals", label: "Goals (under the cards)", group: "strip" },
   { key: "yearreview", label: "Year in review (once a year has finished)", group: "strip" },
   { key: "week", label: "Your week (expandable recap)", group: "strip" },

@@ -586,12 +586,6 @@
 .ai-paste-open{ font-size:var(--fs-sm); }
 .ai-claude{ margin-top:6px; }
 .ai-claude > summary{ cursor:pointer; color: var(--ink-soft); min-height:32px; margin-top:8px; }
-/* v3.146.0: the change in two parts — as two chips (the owner: Today had too much text). */
-.home-nw-mover{ display:flex; flex-wrap:wrap; gap:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
-.home-nw-mover .nw-part{ display:inline-flex; gap:4px; align-items:baseline; padding:3px 8px; border-radius:100px; background: var(--paper-sunken); }
-.home-nw-mover b{ white-space:nowrap; font-family: var(--font-num); font-weight:600; }
-.home-nw-mover b.up{ color: var(--good-ink); }
-.home-nw-mover b.down{ color: var(--bad-ink); }
 
 /* Today's cards lead with a picture. */
 .home-chip{ display:inline-flex; align-items:baseline; gap:4px; padding:3px 9px; border-radius:100px; background: var(--paper-sunken); font-size:var(--fs-xs); color: var(--ink-soft); white-space:nowrap; }
@@ -599,15 +593,6 @@
 .home-chip.up{ background: var(--good-wash); color: var(--good-ink); }
 .home-chip.down{ background: var(--bad-wash); color: var(--bad-ink); }
 .home-chip.up b, .home-chip.down b{ color: inherit; }
-.home-nw-head{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; }
-.home-nw-head .home-chip{ font-family: var(--font-num); font-weight:600; }
-.home-area{ display:block; width:100%; height:64px; margin:2px 0; overflow:visible; }
-.home-area-fill{ fill: var(--brass); opacity:.14; }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .home-area-fill{ opacity:.26; } }
-:root[data-theme="dark"] .home-area-fill{ opacity:.26; }
-.home-area-line{ fill:none; stroke: var(--brass-strong); stroke-width:2px; stroke-linejoin:round; stroke-linecap:round; }
-.home-area-dot{ fill: var(--brass-strong); stroke: var(--paper-raised); stroke-width:2px; }
-.home-asof .warn{ color: var(--warn-ink); font-weight:600; }
 .home-left{ display:flex; flex-direction:column; gap:1px; }
 .home-left small{ font-weight:600; }
 .home-left b{ font-family: var(--font-num); }
@@ -760,6 +745,8 @@
   box-shadow: 0 10px 24px -12px rgba(14,116,144,.7); }
 .home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
 .home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }
+.home-glance-stale{ display:inline-block; margin-left:6px; font-weight:600; text-decoration: underline; text-underline-offset:2px; }
+.home-glance-asof{ display:inline-block; margin-left:6px; }
 .home-glance-spark{ position:absolute; right:0; bottom:0; width:58%; height:62%; pointer-events:none; }
 .home-glance-spark .fill{ fill: rgba(255,255,255,.12); }
 .home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.55); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }

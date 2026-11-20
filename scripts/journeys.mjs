@@ -3612,12 +3612,13 @@ const JOURNEYS = {
         await page.keyboard.press('Escape'); await sheet.waitFor({ state: 'detached' });
       }
     }
-    // This page's own row runs it: Add holding opens the holding editor on Shares.
+    // This page's own row runs it: Add holding asks its questions on Shares (November 2026: one at a time).
     await go(page, 'assets', 'data-assets-sub', 'Shares');
     const holdings = await st(page, 'state.assets.length');
     await plus(); await sheet.locator('[data-quick-page]').click(); await sheet.waitFor({ state: 'detached' });
-    await waited(page, () => !!document.querySelector('.row-modal, [data-row-editor], .m-row.open, .review-panel'), 'Add holding opened an editor');
+    await waited(page, () => !!document.querySelector('#addFlowDialog[open], .row-modal, [data-row-editor], .m-row.open, .review-panel'), 'Add holding opened its questions');
     await page.keyboard.press('Escape'); await settle(page);
+    check(!(await page.evaluate(() => !!document.querySelector('#addFlowDialog[open]'))), 'Escape with nothing answered did not close Add holding');
     check(await st(page, 'state.assets.length') >= holdings, 'opening Add holding lost a holding');
     // Import a file: the chooser in the sheet's place; Back closes it and leaves no sheet behind.
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');

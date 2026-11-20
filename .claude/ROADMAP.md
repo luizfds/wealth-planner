@@ -5766,3 +5766,13 @@ the gross once, never again). "Settlement, line by line": price − deposit − 
 keeps) + costs still to pay = cash to bring, and the lender's figure against the loan and what's added to it. A cost
 whose name doesn't say purchase or loan is flagged until chosen. A cost paid from an account comes off its balance (back
 if unticked). The deposit held is its own segment of the allocation, beside Property. Tests: purchase (invented figures).
+
+## Checks: records that disagree with each other (#453, November 2026)
+
+`[x]` Settings → Checks gains read-only checks for records that disagree: income entered twice (worked-out net pay and
+two differently named rents never count), a typed pay line beside the worked-out net pay, the same rent twice on a
+property, a scenario's purchase plan against the home being bought (neither changed; a purchase started from a plan
+remembers it, `fromPlan`), balances over three months old or never recorded (money held only), impossible dates
+(property, purchase, dates of birth), two accounts on one balance, a cash asset with an account's name and balance, and
+a purchase whose figures disagree (deposit held, the lender's loan, a loan over the price). Each says how sure it is
+(Certain / Likely / Worth a look), names the record and links to it. Tests: integrity (synthetic), render smoke.

@@ -24,7 +24,7 @@ import { budgetLineItems } from "./expenses.js";
 import { renderHealth } from "./health.js";
 import { renderHomeSummary } from "./home.js";
 import { patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote, modernIncomeRowOpen } from "./income.js";
-import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage } from "./nav.js";
+import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./people.js";
 import { renderProjectionOutputs } from "./projections.js";
 import { renderTotals, renderAll, renderChecksBadge, updatePersonSuggestions } from "./redraw.js";
@@ -396,7 +396,9 @@ export function wireTax(){  peopleTable = document.getElementById("peopleTable")
     else showPage(page);
     if(page === "expenses" && sub) showExpensesSubpage(sub, { replace: true });
     if(page === "assets" && sub) showAssetsSubpage(sub, { replace: true });
-    if(page === "tax"){
+    if(page === "plan" && sub) showPlanSubpage(sub, { replace: true });
+    if(page === "tax" && sub && sub !== "returns") showTaxSubpage(sub, { replace: true });
+    else if(page === "tax"){
       if(fy) setTaxYearSelected(fy);
       showTaxSubpage(sub || "returns", { replace: true });
       renderTaxYear();

@@ -11,6 +11,8 @@ var WHERE_LABEL = { expenses: "Open the budget", properties: "Open Properties", 
 // A check disappears by itself once what it found is fixed — they're worked out fresh every time.
 // One that's fine as it is gets "Looks right" (v3.70.0), which hides it until it finds something
 // different; hidden ones are listed at the bottom, each with Show again.
+// #453: how sure a check is — the data contradicts itself, it very probably does, or it's worth a look.
+var CONFIDENCE = { certain: "Certain", likely: "Likely", possible: "Worth a look" };
 export function healthHtml(checks, hidden){
   checks = checks || dataHealthChecks();
   hidden = hidden || [];
@@ -24,7 +26,7 @@ export function healthHtml(checks, hidden){
     var w = c.where || {};
     return '<div class="hc-item hc-' + c.severity + '" data-hc-id="' + escapeAttr(c.id) + '">' +
       '<span class="hc-dot" aria-hidden="true"></span>' +
-      '<div class="hc-body"><div class="hc-title">' + escapeAttr(c.title) + '</div><p class="hc-detail">' + escapeAttr(c.detail) + '</p></div>' +
+      '<div class="hc-body"><div class="hc-title">' + escapeAttr(c.title) + (c.confidence ? ' <span class="hc-conf hc-conf-' + escapeAttr(c.confidence) + '">' + escapeAttr(CONFIDENCE[c.confidence] || "") + '</span>' : '') + '</div><p class="hc-detail">' + escapeAttr(c.detail) + '</p></div>' +
       // v3.105.0: both buttons in one cell — as two grid children the second wrapped into the 10px
       // dot column on its own row.
       '<div class="hc-actions">' +

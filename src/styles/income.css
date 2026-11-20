@@ -304,6 +304,10 @@
 .hc-dot{ width:8px; height:8px; border-radius:50%; margin-top:6px; background:var(--ink-soft); }
 .hc-bad .hc-dot{ background:#d64545; } .hc-warn .hc-dot{ background:#eda100; } .hc-info .hc-dot{ background:#2a78d6; }
 .hc-title{ font-size:var(--fs-md); font-weight:600; color:var(--ink); }
+.hc-conf{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:100px; font-size:var(--fs-xs); font-weight:600; vertical-align:1px; white-space:nowrap;
+  background: var(--paper-sunken); color: var(--ink-soft); }
+.hc-conf-certain{ color: var(--bad-ink); }
+.hc-conf-likely{ color: var(--warn-ink); }
 .hc-detail{ font-size:var(--fs-sm); color:var(--ink-soft); margin:3px 0 0; line-height:1.45; }
 .hc-go{ white-space:nowrap; }
 .hc-actions{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; justify-content:flex-end; }

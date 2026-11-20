@@ -124,6 +124,11 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   and loan); an account's kind, name (an offset's loan) and balance — and ends on a screen to check it all. calc/addflow.js
   orders the questions, says what a figure means and makes the record; the property opens on its edit form for the rest.
   Editing never uses it.
+- **Records that disagree** (#453, `calc/integrity.js`): more checks for Settings → Checks (`calc/health.js` merges
+  them) — income entered twice (never the worked-out net-pay rows, nor two rents with different names), a scenario's
+  purchase plan against the home being bought, balances stale or never recorded, dates that can't be, two accounts on
+  one balance, a cash asset counted twice, a purchase whose figures disagree. Read-only; each names the record, where to
+  fix it and how sure it is (`confidence`); "Looks right" dismisses it.
 - **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
   Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
   `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts

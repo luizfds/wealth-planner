@@ -122,6 +122,8 @@ export function addPurchaseFromAnswers(st, a, genId){
   if(has(a.loanAmount)) fields.loanAmount = num(a.loanAmount);
   else if(!has(fields.loanAmount) && suggestedLoan(a) > 0) fields.loanAmount = suggestedLoan(a);
   if(has(a.settlementDate)) fields.settlementDate = String(a.settlementDate);
+  // Which plan it started from, so Checks can compare the two (#453) — neither is ever changed to match.
+  if(plan) fields.fromPlan = a.plan;
   return addPurchase(st, fields, genId);
 }
 // An account, and its balance where it's kept (calc/accounts.js): a Cash asset, a card's debt, or a loan's offset.

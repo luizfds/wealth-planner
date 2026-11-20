@@ -1042,6 +1042,12 @@ test("Close the year and Checks render", async function(){
     assert.match(h, /data-hc-page="expenses" data-hc-sub="budget">Open the budget/);
     assert.equal(healthSummaryText(checks), "1 to fix · 1 to look at");
     assert.match(healthHtml([]), /every check passes/);
+    // #453: a check says how sure it is, and where to go (a plan opens on Plan → Scenarios).
+    var sure = healthHtml([{ id: "int-plan-buy:b1", severity: "info", confidence: "certain", title: "The plan <x> and 3 Example Ave differ", detail: "d", where: { page: "plan", sub: "scenarios", label: "Open the plan" } },
+      { id: "int-twin-cash", severity: "warn", confidence: "possible", title: "t", detail: "d", where: { page: "assets" } }]);
+    assert.match(sure, /The plan &lt;x> and 3 Example Ave differ <span class="hc-conf hc-conf-certain">Certain<\/span>/);
+    assert.match(sure, /<span class="hc-conf hc-conf-possible">Worth a look<\/span>/);
+    assert.match(sure, /data-hc-page="plan" data-hc-sub="scenarios">Open the plan<\/button>/);
   } finally { Object.assign(state, keep); }
 });
 

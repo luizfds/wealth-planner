@@ -5785,3 +5785,12 @@ repayments from the month after. Lowest balance and when; a shortfall said only 
 a real starting balance; cash set aside for settlement isn't counted as emergency money; months under the emergency
 reserve. Rates +1%/+2% on every loan; another scenario set beside it (`monthlyCashFlowForecast(n, scenario)`); the
 numbers, what's assumed and what's missing (never $0). Income ending on a known date stops as before. Tests: liquidity.
+
+## Spare cash, four ways (#455, November 2026)
+
+`[x]` A loan's strategy section compares the same amount kept as cash, in a savings account (its rate less the holder's
+tax; not guessed when no rate is entered), in the offset, or paid off the loan, at 1/5/10 years on one timeline: interest
+saved, what's owed, cash to hand (offset still yours; paid off only through redraw, if the loan has it), paid off sooner,
+and the net position they're compared on. Investment loans show the interest saved after the deduction lost (the owners'
+rate, shown and editable; not tax advice). A rate rise is the existing "If the rate moves". It starts from cash held less
+the emergency reserve, and says when an amount dips into it. Nothing is spending or a second asset. Tests: loanstrategy.

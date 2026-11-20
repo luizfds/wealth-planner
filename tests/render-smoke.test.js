@@ -918,6 +918,15 @@ test("loan strategy: four cards with results, and the IP note", async function()
   assert.match(html, /Repayments up <b>\$1\d\d<\/b> a month/);
   assert.match(html, /Pays back the \$1,500 net switching cost in <b>\d+ months?<\/b>/);
   assert.match(html, /Offset keeps the options/);
+  // #455: spare cash four ways — an amount given, no savings rate entered (said, not guessed), the tax shown to change.
+  const spare = loanStrategyHtml({ id: "p1", kind: "IP", loans: [{ what: "Home loan", balance: 400000, rate: 6, termYears: 25, repaymentType: "PI", offsetBalance: 0, strategy: { spare: 30000, taxPct: 37, horizon: 10 } }] });
+  assert.match(spare, /Spare cash, four ways/);
+  assert.match(spare, /<b>Keep it as cash<\/b>[\s\S]*<b>In the offset<\/b>[\s\S]*<b>Pay it off the loan<\/b>/);
+  assert.doesNotMatch(spare, /<b>A savings account<\/b>/);
+  assert.match(spare, /Missing: A savings rate, to compare a savings account\./);
+  assert.match(spare, /data-strategy-field="taxPct" data-strategy-loan="0" inputmode="decimal" value="37"|value="37"[^>]*data-strategy-field="taxPct"/);
+  assert.match(spare, /class="ls-sc is-best"/);
+  assert.doesNotMatch(spare, /NaN|undefined/);
   assert.match(loanStrategyHtml({ id: "p", kind: "IP", loans: [] }), /Add a loan with a balance/);
 });
 

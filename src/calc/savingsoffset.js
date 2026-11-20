@@ -66,3 +66,19 @@ export function savingsOffsetLines(c){
     return { name: a.name, balance: a.balance, savingsYearly: a.yearly, offsetYearly: r2(offsetYearly), gain: r2(offsetYearly - a.yearly) };
   });
 }
+
+// #455: what the spare-cash comparison starts from — the best savings rate entered on a cash account (never assumed),
+// the tax on its interest (that account's holder, or the household's even split), and on an investment loan the owners'
+// rate the interest would have been claimed at. Each is shown and can be changed there.
+export function strategyDefaults(p){
+  var pr = personRates(), people = pr.people, rates = pr.rates;
+  var even = people.length ? people.reduce(function(s, n){ return s + (rates[n] || 0); }, 0) / people.length : 0;
+  var best = null;
+  (state.assets || []).forEach(function(a){
+    if(!a || a.category !== "Cash" || a.interestRate == null || a.interestRate === "") return;
+    var rate = Number(a.interestRate) || 0;
+    if(!best || rate > best.rate) best = { rate: rate, tax: a.person && people.indexOf(a.person) !== -1 ? rates[a.person] || 0 : even };
+  });
+  return { savingsRate: best ? best.rate : null, savingsTaxPct: r2((best ? best.tax : even) * 100),
+    deductiblePct: p && p.kind === "IP" ? r2(ownersRate(p, people, rates) * 100) : 0 };
+}

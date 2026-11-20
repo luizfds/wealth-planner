@@ -5355,7 +5355,8 @@ const JOURNEYS = {
     await fixed.fill('8');
     check(await page.evaluate(async key => (await import('/src/components/properties.js')).fixedWhatIf[key] === 8, fixedKey), 'fixed-rate what-if did not update');
     check(await fixed.evaluate(e => e === document.activeElement), 'fixed-rate redraw lost focus');
-    await inspect('[data-strategy-field], [data-strategy-pick], [data-fixed-whatif]');
+    // A pill's radio isn't a field: its label is what's tapped (#455's spare cash).
+    await inspect('[data-strategy-field]:not(.pill-input), [data-strategy-pick], [data-fixed-whatif]');
     await tab('sale', ['sale']);
     for(const [key,value] of Object.entries({date:'2028-01-01',price:700000,agentPct:2,otherCosts:1000})){
       const field = page.locator('[data-sale-field="' + key + '"]');

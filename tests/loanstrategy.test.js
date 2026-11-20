@@ -1,7 +1,7 @@
 import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-const { runLoan, loanStrategy } = await import("../src/calc/loanstrategy.js");
+const { runLoan, loanStrategy, cashStrategies } = await import("../src/calc/loanstrategy.js");
 const { calcRepaymentMonthly, loanPaidOut, loanBalance, loanRepaymentMonthly, loanInterestMonthly } = await import("../src/calc/property.js");
 
 test("runLoan: the scheduled repayment pays the loan off in its term", () => {
@@ -95,4 +95,50 @@ test("a past year's model interest stops at the payout date", async () => {
     assert.ok(Math.abs(got - full * share) < 0.01, got + " vs " + full * share);
     assert.equal(rentalSchedule(p, 2026).lines.find(l => l.key === "interest").model, 0);
   } finally { state.taxYears = keep; }
+});
+
+// #455: spare cash, four ways — invented figures.
+test("spare cash: offset and paying it off save the same interest; the offset keeps it to hand, paying off doesn't", function(){
+  const loan = { balance: 400000, rate: 6, termYears: 30, repaymentType: "PI", offsetBalance: 0 };
+  const c = cashStrategies(loan, { amount: 50000, savingsRate: 4, savingsTaxPct: 30, years: [1, 5, 10] });
+  const by = Object.fromEntries(c.strategies.map(s => [s.kind, s]));
+  assert.deepEqual(Object.keys(by), ["keep", "savings", "offset", "extra"]);
+  assert.equal(by.keep.years[5].interestSaved, 0);
+  assert.equal(by.offset.years[5].interestSaved, by.extra.years[5].interestSaved, "the same dollars off the interest-bearing balance");
+  assert.ok(by.offset.years[1].interestSaved > 2950 && by.offset.years[1].interestSaved < 3150, "about 6% of $50,000 in the first year");
+  assert.equal(by.offset.years[1].cash, 50000, "still yours, in the offset");
+  assert.equal(by.extra.years[1].cash, 0, "paid off, not to hand without redraw");
+  assert.equal(by.offset.years[10].position, by.extra.years[10].position, "the same net position: counted once, wherever it sits");
+  assert.ok(by.savings.years[10].position < by.offset.years[10].position, "4% less 30% tax earns less than 6% saved");
+  assert.ok(by.savings.years[10].position > by.keep.years[10].position);
+  assert.ok(by.offset.monthsSooner > 0 && by.offset.monthsSooner === by.extra.monthsSooner);
+  assert.equal(c.best.kind === "offset" || c.best.kind === "extra", true);
+});
+
+test("an investment loan: the saving after the tax it would have claimed; redraw gives a lump sum back", function(){
+  const loan = { balance: 400000, rate: 6, termYears: 30, repaymentType: "PI", offsetBalance: 0 };
+  const c = cashStrategies(loan, { amount: 50000, deductiblePct: 37, redraw: true, years: [1] });
+  const off = c.strategies.find(s => s.kind === "offset").years[1];
+  assert.equal(off.interestSavedAfterTax, Math.round(off.interestSaved * 0.63));
+  assert.equal(off.deductionLost, Math.round(off.interestSaved * 0.37), "less back at tax time");
+  assert.equal(off.cash, 50000 - off.deductionLost);
+  assert.equal(c.deductiblePct, 37);
+  assert.ok(c.strategies.find(s => s.kind === "extra").years[1].cash >= 50000, "redraw: the lump sum (and the extra principal it paid) is available");
+  assert.match(c.missing.join(), /savings rate/, "no savings rate: not guessed, said");
+  assert.ok(!c.strategies.some(s => s.kind === "savings"));
+});
+
+test("interest only: the offset lowers each month's interest; nothing is paid off; a rate rise costs more", function(){
+  const loan = { balance: 300000, rate: 6, termYears: 30, repaymentType: "IO", offsetBalance: 10000 };
+  const c = cashStrategies(loan, { amount: 20000, years: [1] });
+  const off = c.strategies.find(s => s.kind === "offset");
+  assert.equal(off.paidOffMonth, null);
+  assert.equal(off.years[1].balance, 300000);
+  assert.equal(off.years[1].interestSaved, 1200, "6% of $20,000 for a year");
+  // The repayment falls by the interest saved: that's cash kept, so the offset leaves more than keeping it.
+  const keep = c.strategies.find(s => s.kind === "keep");
+  assert.equal(off.years[1].position - keep.years[1].position, 1200);
+  assert.equal(c.strategies.find(s => s.kind === "extra").years[1].position, off.years[1].position);
+  const up = cashStrategies(loan, { amount: 20000, rateShift: 1, years: [1] }).strategies.find(s => s.kind === "offset");
+  assert.equal(up.years[1].interestSaved, 1400);
 });

@@ -797,3 +797,13 @@
 .recon-note.is-good{ color: var(--good-ink); }
 .recon-note.is-warn{ color: var(--warn-ink); }
 .recon-note b{ font-family: var(--font-num); }
+
+/* #455: spare cash, four ways — one row each, the best outlined. */
+.ls-spare{ grid-column:1 / -1; margin-top:10px; display:flex; flex-direction:column; gap:10px; }
+.ls-sc-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.ls-sc{ padding:10px 12px; border-radius:12px; background: var(--paper-sunken); border:2px solid transparent; }
+.ls-sc.is-best{ border-color: var(--good-ink); }
+.ls-sc-top{ display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
+.ls-sc-top b{ font-size:var(--fs-sm); font-weight:600; }
+.ls-sc-top span{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
+.ls-sc small{ display:block; margin-top:2px; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.45; }

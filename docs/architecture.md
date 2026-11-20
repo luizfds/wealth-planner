@@ -134,6 +134,11 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   bought settling in its month (the cash to bring from `purchaseFigures`, so the deposit, the lender's deductions and
   the costs land once), its loan's repayments after; a +1%/+2% rate rise on every loan; the lowest balance; what's set
   aside for settlement rather than emergencies; months under the emergency reserve; what it assumes and what's missing.
+- **Spare cash, four ways** (#455, `cashStrategies` in calc/loanstrategy.js): under a loan's strategy, the same amount
+  kept, in savings (its rate less the holder's tax), in the offset, or paid off the loan, run month by month on one
+  timeline (a repayment no longer needed, or interest-only interest not charged, is cash kept) at 1/5/10 years —
+  interest saved, balance, cash to hand, payoff sooner; on an investment loan the deduction lost (owners' rate, shown and
+  editable, `strategyDefaults` in calc/savingsoffset.js). It starts from the cash held less the emergency reserve.
 - **Kept per device, never in `state`** (#426): Simple/Advanced (`wealthPlanner.mode`) and Today's one-time offer of
   Simple (`wealthPlanner.modeOffer`, `lib/mode.js`); the count of screens opened (`wealthPlanner.pageUse`,
   `lib/pageuse.js`, recorded by nav.js `syncUrl`, shown in Settings → Preferences, cleared by Reset). The test scripts

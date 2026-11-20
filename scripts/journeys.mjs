@@ -4388,7 +4388,7 @@ const JOURNEYS = {
       r=await open(section,id);
       const amount=r.getByLabel('Amount',{exact:true}), savedAmount=await amount.inputValue();
       await amount.fill('');
-      check(await stored(page,"state["+JSON.stringify(section)+"].find(x=>x.id==="+JSON.stringify(id)+").amount")===Number(savedAmount) && await amount.getAttribute('aria-invalid')==='true','blank draft overwrote signed amount');
+      check(await stored(page,"state["+JSON.stringify(section)+"].find(x=>x.id==="+JSON.stringify(id)+").amount")===Number(savedAmount.replace(/[\s,$]/g,'')) && await amount.getAttribute('aria-invalid')==='true','blank draft overwrote signed amount');
       await amount.fill(savedAmount);
       check(await amount.evaluate((el,meaning)=>(el.getAttribute('aria-describedby')||'').split(/\s+/).some(id=>document.getElementById(id)?.textContent.includes(meaning)),meaning),'signed amount help is not associated with its input');
       check(/-.*\$/.test(await r.locator('.m-row-amt').first().textContent()),'row summary lost its minus sign');
@@ -6138,7 +6138,7 @@ const JOURNEYS = {
       const audit=await page.evaluate(idx=>{
         const root=document.querySelector('#assetsSub-Cash .m-row[data-index="'+idx+'"]');
         const fields=[...root.querySelectorAll('.field-control')];
-        return {doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,bad:fields.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return !el.labels?.length || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+        return {doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,bad:fields.filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return !el.labels?.length || r.width<=0 || r.height<(innerWidth<880?44:36) || (el.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px' || s.padding!=='6px 8px')) || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
       },idx);
       check(audit.doc<=width && audit.scroll<=audit.width+1 && !audit.bad.length,'Basic asset fields failed at '+width+': '+JSON.stringify(audit));
     }
@@ -6208,7 +6208,7 @@ const JOURNEYS = {
     await row.getByLabel('Person',{exact:true}).fill('Sam');
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});
-      const audit=await page.evaluate(idx=>{const root=document.querySelector('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');return {open:root.classList.contains('open'),hidden:!!root.closest('[hidden]'),route:location.pathname,doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,nameWidth:root.querySelector('.v-what').getBoundingClientRect().width,dateWidth:root.querySelector('.v-purchasedate').getBoundingClientRect().width,bad:[...root.querySelectorAll('.field-control')].filter(el=>!el.labels?.length || getComputedStyle(el).borderRadius!=='6px' || el.getBoundingClientRect().height<(innerWidth<880?44:36)).map(el=>el.className)};},idx);
+      const audit=await page.evaluate(idx=>{const root=document.querySelector('#assetsSub-Vehicle .m-row[data-index="'+idx+'"]');return {open:root.classList.contains('open'),hidden:!!root.closest('[hidden]'),route:location.pathname,doc:document.documentElement.scrollWidth,scroll:root.scrollWidth,width:root.clientWidth,nameWidth:root.querySelector('.v-what').getBoundingClientRect().width,dateWidth:root.querySelector('.v-purchasedate').getBoundingClientRect().width,bad:[...root.querySelectorAll('.field-control')].filter(el=>!el.labels?.length || getComputedStyle(el).borderRadius!==(el.classList.contains('fbox-control')?'14px':'6px') || el.getBoundingClientRect().height<(innerWidth<880?44:36)).map(el=>el.className)};},idx);
       check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.dateWidth>=audit.nameWidth-1 && !audit.bad.length,'Vehicle fields failed at '+width+': '+JSON.stringify(audit));
     }
     await row.getByRole('button',{name:'Record value',exact:true}).focus();
@@ -6286,7 +6286,7 @@ const JOURNEYS = {
       const audit=await row.evaluate(root=>{
         const controls=[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length);
         return {doc:document.documentElement.scrollWidth,viewport:innerWidth,width:root.clientWidth,scroll:root.scrollWidth,accountWidth:root.querySelector('.f-account').getBoundingClientRect().width,nameWidth:root.querySelector('.f-what').getBoundingClientRect().width,
-          bad:controls.filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.labels?.length || !el.labels[0].textContent.trim() || r.width<=0 || r.height<(innerWidth<880?44:36) || s.borderRadius!=='6px' || s.padding!=='6px 8px' || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
+          bad:controls.filter(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return !el.labels?.length || !el.labels[0].textContent.trim() || r.width<=0 || r.height<(innerWidth<880?44:36) || (el.classList.contains('fbox-control')?(s.borderRadius!=='14px'||r.height+0.01<(innerWidth<=880?58:52)):(s.borderRadius!=='6px' || s.padding!=='6px 8px')) || document.querySelectorAll('[id="'+el.id+'"]').length!==1 || (el.getAttribute('aria-describedby')||'').split(' ').some(id=>!document.getElementById(id));}).map(el=>el.className)};
       });
       check(audit.doc<=width && audit.scroll<=audit.width+1 && audit.accountWidth>=audit.nameWidth-1 && !audit.bad.length,'Income field sizing/names/reflow failed at '+width+': '+JSON.stringify(audit));
     }
@@ -6412,8 +6412,8 @@ const JOURNEYS = {
     }
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:844});
-      const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
-      check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && f.radius==='6px' && f.padding==='6px 8px' && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
+      const layout=await row.evaluate(root=>({doc:document.documentElement.scrollWidth,viewport:innerWidth,fullWidth:root.querySelector('.f-what').getBoundingClientRect().width,fields:[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {box:el.classList.contains('fbox-control'),type:el.type,width:r.width,height:r.height,radius:s.borderRadius,padding:s.padding};})}));
+      check(layout.doc<=width && layout.fields.every(f=>f.width>0 && f.height>=(width<880?44:36) && (f.box?(f.radius==='14px'&&f.height+0.01>=(width<=880?58:52)):(f.radius==='6px' && f.padding==='6px 8px')) && (width>640 || f.type!=='date' || f.width>=layout.fullWidth-1)), 'Shared field sizing/reflow failed at '+width+': '+JSON.stringify(layout));
     }
     await row.getByLabel('Amount',{exact:true}).fill('-40');
     check(await stored(page, "state.shared.find(x=>x.id==='demo-groceries').amount")===-40 && await row.locator('.f-amount').evaluate(el=>el.validity.valid), 'A supported negative amount was rejected by the shared control');

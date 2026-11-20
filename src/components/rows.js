@@ -571,14 +571,15 @@ export function wireLedgerEdits(){
   // the figure it became.
   document.addEventListener("keydown", function(e){
     var t = e.target;
-    if(e.key !== "," || !t.matches || !t.matches('input[type="number"]') || !(t.closest("table.ledger-table") || t.closest(".m-rows"))) return;
+    // November 2026: a money field (lib/field.js) keeps a comma — as a thousands separator, so "1,5" is 15 there too.
+    if(e.key !== "," || !t.matches || !t.matches('input[type="number"], input[data-money]') || !(t.closest("table.ledger-table") || t.closest(".m-rows"))) return;
     var box = t.closest(".m-edit-field") || t.parentElement;
     if(!box || box.querySelector("[data-comma-note]")) return;
     var note = document.createElement("p");
     note.className = "field-help";
     note.setAttribute("data-comma-note", "");
     note.setAttribute("aria-live", "polite");
-    note.textContent = "Commas are left out — for a decimal, use a full stop (1.5).";
+    note.textContent = t.hasAttribute("data-money") ? "A comma separates thousands (1,250) — for cents, use a full stop (1.50)." : "Commas are left out — for a decimal, use a full stop (1.5).";
     box.appendChild(note);
     t.addEventListener("blur", function(){ note.remove(); }, { once: true });
   });

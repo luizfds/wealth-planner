@@ -2597,7 +2597,8 @@ const JOURNEYS = {
     check(await label.textContent() === 'Jun · FY25/26', 'past whole year does not state its effective month');
     check((await page.locator('#periodBtn').getAttribute('aria-label')).includes('not today'), 'accessible name omits the visible past-period flag');
     await page.keyboard.press('Escape');
-    check((await page.locator('#homeSummary [data-home-card="nw"]').textContent()).includes('as of 3 Nov'), 'balance date followed the past period');
+    // Net worth is the glance's hero now (no card of its own): a past period says it stays as of today.
+    check((await page.locator('#homeSummary .home-period-note').textContent()).includes('always as of today'), 'balance date followed the past period');
     for(const scheme of ['light','dark']){
       await page.evaluate(s => { document.documentElement.dataset.theme = s; }, scheme);
       for(const width of [320,390,1280]){
@@ -2983,8 +2984,8 @@ const JOURNEYS = {
       await page.emulateMedia({colorScheme});
       for(const width of [320,390,1280]){
         await page.setViewportSize({width,height:844});
-        const card = page.locator('#homeSummary [data-home-card="nw"]');
-        check((await card.textContent()).includes('Recorded balances · as of 3 Nov'), 'balance date did not stay today');
+        const card = page.locator('#homeSummary .home-period-note');
+        check((await card.textContent()).includes('always as of today'), 'balance date did not stay today');
         check(!/\b\d{4}-\d{2}-\d{2}\b/.test(await page.locator('#homeSummary').innerText()), 'Home displays an ISO date');
         check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'readable date overflows');
         if(process.env.DATE_SHOTS && width !== 320) await card.screenshot({path:process.env.DATE_SHOTS + '/home-date-' + width + '-' + colorScheme + '.png'});

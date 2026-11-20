@@ -5804,3 +5804,12 @@ their monthly amount, and a monthly check-in). What it lacked: a goal whose acco
 #454), a normal month's surplus with its scenario, the emergency runway in months, rates +2% when there are loans, and how
 many things wait in Needs you (the same list) — at most five, each a way to where it's worked out, "—" with why when it
 can't be known. It can be moved or hidden like the other cards. Tests: standing, savegoals; journeys needsyou, home*.
+
+## Checks that catch what a real backup got wrong (November 2026)
+
+`[~]` Four things a household's own data had wrong that nothing flagged, each a check that says how sure it is and offers
+a one-tap fix, nothing changed until it's pressed: a loan amount that looks like it already holds a fee marked "Added to
+the loan" (counted twice; the fix moves it to the lender's figure); the plan a purchase came from, behind what's real
+(the fix sets the plan to the price, deposit and rate agreed); budget lines spent well above their amount, beside the
+ones Trim already finds above what's spent (the fix sets them to what's spent); a property manager's account typed as an
+ordinary one (the fix makes it a property-manager account).

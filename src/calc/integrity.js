@@ -66,7 +66,7 @@ export function integrityChecks(st, today){
   // ---- The same row at two amounts: one row edited on two devices and kept twice by a sync merge (calc/syncmerge.js
   // matches them by what they are now, but a household merged before has them). Same name, frequency and whose. ----
   var split = [];
-  var twins = function(list, where){
+  var splitIn = function(list, where){
     var byKey = {};
     (list || []).forEach(function(r){
       if(!r || workedOut(r) || !String(r.what || "").trim()) return;
@@ -79,9 +79,9 @@ export function integrityChecks(st, today){
         split.push({ where: where, text: "“" + rows[0].what + "” " + rows.map(function(r){ return money(r.amount); }).join(" and ") + " " + String(rows[0].freq || "").toLowerCase() });
     });
   };
-  twins(st.income, "income"); twins(st.shared, "budget");
-  Object.keys(st.home || {}).forEach(function(sc){ twins(st.home[sc], "budget"); });
-  (st.properties || []).forEach(function(p){ twins(p.income, "property"); twins(p.expenses, "property"); });
+  splitIn(st.income, "income"); splitIn(st.shared, "budget");
+  Object.keys(st.home || {}).forEach(function(sc){ splitIn(st.home[sc], "budget"); });
+  (st.properties || []).forEach(function(p){ splitIn(p.income, "property"); splitIn(p.expenses, "property"); });
   if(split.length) add({ id: "int-split-rows", severity: "warn", confidence: "possible", title: plural(split.length, "line") + " that may be one line twice, at two amounts",
     detail: split.slice(0, 3).map(function(x){ return x.text; }).join("; ") + (split.length > 3 ? "; and " + (split.length - 3) + " more" : "") +
       ". Often one line edited on two devices and kept twice by a sync — both are counted. If it's one, delete the one that's out of date.",

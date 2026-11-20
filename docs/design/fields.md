@@ -100,6 +100,11 @@ editing and **one question at a time** for adding something new. Property is fir
   a Tab makes, so typing appended to the old amount.
 - **`wide: true`** spans both columns of an `.fgrid` (two columns). On a phone a date always takes the row, because the
   native date field doesn't fit half its width.
+- **A label is one line.** A label that wrapped would sit on the value, so a long one is cut short with an ellipsis.
+  Keep labels to a word or two ("Fees", "Water recovered") and say the rest in the field's help.
+- **Where it's used:** Property's Value & purchase, its loans, its acquisition costs (what it is beside its amount, the
+  amount under it on a phone), the property manager statement (money in, then what was paid out of it), and a home
+  being bought.
 
 ### Pills (`pillsHtml`) and switches (`switchHtml`)
 

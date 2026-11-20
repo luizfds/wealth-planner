@@ -228,13 +228,6 @@
   /* Two classes, so it beats the phone-width .m-cost-row grid below whatever the source order: that
      grid is shaped for name + amount + delete, and drops this row's second amount into a 14px slot. */
   .m-cost-row.dep-sched-row{ display:flex; }
-  /* "Move to borrowing costs" (v3.28.0): a quiet text button after the row; a row whose name looks
-     like a loan cost gets a tinted background and a louder button. */
-  .m-cost-row .acq-move{ flex:none; font-size:var(--fs-xs); white-space:nowrap; }
-  .m-cost-row.is-loan-cost{ background: var(--brass-wash, var(--paper-sunken)); border-radius:8px; padding-left:6px; padding-right:6px; }
-  .m-cost-row .acq-move.suggested{ color: var(--brass-strong); font-weight:600; }
-  .m-cost-row.has-move{ flex-wrap:wrap; }
-  .m-cost-row .acq-move.icon-only{ width:32px; padding:0; color: var(--ink-soft); }
 
   /* At mobile widths, cramming the dot + name input + amount input + delete button onto one
      flex row left the name illegibly clipped (confirmed via screenshot — every default cost
@@ -252,9 +245,6 @@
     /* Its own width, or an <input>'s intrinsic one (259px at 320 wide) overflows its column out past the row's left edge. */
     .m-cost-row input.cc-amount{ grid-area:amount; justify-self:end; width:100%; }
     .m-cost-row .row-del{ grid-area:del; }
-    .m-cost-row.has-move.is-loan-cost{ grid-template-areas:"dot name name" "dot amount del" "dot move move"; }
-    .m-cost-row.has-move:not(.is-loan-cost){ grid-template-columns:auto 1fr auto auto; grid-template-areas:"dot name name name" "dot amount move del"; }
-    .m-cost-row .acq-move{ grid-area:move; justify-self:start; white-space:normal; text-align:left; }
     .m-cost-row.dep-sched-row{
       display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
       grid-template-areas:"year del" "capital plant";
@@ -268,6 +258,30 @@
      grid it spans every column below the areas above. */
   .m-cost-row:has(> .field-error:not(:empty)){ flex-wrap:wrap; }
   .m-cost-row > .field-error{ flex:0 0 100%; grid-column:1 / -1; margin:0; }
+
+  /* November 2026: a property's acquisition costs in the floating-label boxes (lib/field.js) — what it is, its amount,
+     delete. "Move to borrowing costs" (v3.28.0) is a quiet ↪ beside them; a row whose name looks like a loan cost is
+     tinted, with the move spelled out on its own line under the boxes. */
+  .acq-rows{ display:flex; flex-direction:column; gap:10px; }
+  .acq-row{ display:grid; grid-template-columns:auto minmax(0, 1fr) minmax(0, 160px) auto; grid-template-areas:"dot what amount del";
+    gap:6px 8px; align-items:center; }
+  /* Beside the name, the first box's middle (58px tall on a phone, 52px on a desktop). */
+  .acq-row .m-row-dot{ grid-area:dot; align-self:start; margin-top:25px; }
+  @media (min-width:881px){ .acq-row .m-row-dot{ margin-top:22px; } }
+  .acq-row > .field-box:has(.cc-what){ grid-area:what; }
+  .acq-row > .field-box:has(.cc-amount){ grid-area:amount; }
+  .acq-row .row-del{ grid-area:del; }
+  .acq-row .acq-move{ grid-area:move; font-size:var(--fs-xs); }
+  .acq-row.has-move:not(.is-loan-cost){ grid-template-columns:auto minmax(0, 1fr) minmax(0, 160px) auto auto; grid-template-areas:"dot what amount move del"; }
+  .acq-row .acq-move.icon-only{ width:32px; padding:0; color: var(--ink-soft); }
+  .acq-row.is-loan-cost{ grid-template-areas:"dot what amount del" "dot move move move"; background: var(--brass-wash, var(--paper-sunken));
+    border-radius:16px; padding:8px; }
+  .acq-row.is-loan-cost .acq-move{ justify-self:start; white-space:normal; text-align:left; color: var(--brass-strong); font-weight:600; }
+  @media (max-width:480px){
+    .acq-row{ grid-template-columns:auto minmax(0, 1fr) auto; grid-template-areas:"dot what what" "dot amount del"; }
+    .acq-row.has-move:not(.is-loan-cost){ grid-template-columns:auto minmax(0, 1fr) auto auto; grid-template-areas:"dot what what what" "dot amount move del"; }
+    .acq-row.is-loan-cost{ grid-template-areas:"dot what what" "dot amount del" "dot move move"; }
+  }
 
   /* ---------------- Portfolio-wide overview (above the property card list) ---------------- */
   /* One row per property — name, then a few key stats — that doubles as jump-nav to that
@@ -428,8 +442,12 @@
 .agent-stmt{ margin-top:14px; border-top:1px dashed var(--border); padding-top:10px; }
 .agent-stmt > summary{ cursor:pointer; font-weight:600; font-size:var(--fs-sm); color: var(--ink); }
 .agent-read-source{ overflow-wrap:anywhere; }
-.agent-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:8px 10px; margin-top:8px; }
-.agent-grid input, .agent-grid select{ width:100%; min-width:0; }
+/* November 2026: a .fgrid of floating-label boxes (base.css) — two to a row. */
+.agent-grid{ margin-top:8px; }
+/* On a phone the account and the other cost (a name and the cost it's for) take the whole row: half of one cuts them short. */
+@media (max-width:480px){
+  .agent-grid > .field-box:has([data-as="account"], [data-as="otherAmount"], [data-as="otherLine"]){ grid-column:1 / -1; }
+}
 .agent-grid input[type="date"]{ color-scheme:light dark; }
 .agent-foot{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
 .agent-foot b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }

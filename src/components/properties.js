@@ -346,10 +346,12 @@ function acquisitionCostRowModernHtml(item, index, colorIdx, p){
   var moveBtn = canMove
     ? '<button type="button" class="btn btn-ghost btn-sm acq-move' + (suggested ? " suggested" : " icon-only") + '" data-acq-cost-move="' + index + '"' + (suggested ? "" : ' aria-label="Move to the loan\'s borrowing costs"') + ' aria-describedby="prop-move-help-' + escapeAttr(p.id) + '">' + (suggested ? "Looks like a loan cost — move to borrowing costs" : '<span aria-hidden="true">↪</span>') + '</button>'
     : "";
-  var whatInput = '<input type="text" class="cc-what field-control field-compact" data-acq-cost-index="' + index + '" value="' + escapeAttr(item.what) + '" placeholder="e.g. Stamp duty" aria-label="Acquisition cost description">';
-  var amountInput = '<input type="number" step="100" min="0" class="cc-amount field-control field-compact" data-error-key="' + draftFieldKey(item, "amount") + '" data-acq-cost-index="' + index + '" value="' + (Number(item.amount) || 0) + '" aria-label="Amount">';
-  var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete acquisition cost">✕</button>';
-  return '<div class="cc-row m-cost-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
+  // November 2026: the floating-label boxes (lib/field.js) — what it is, and its amount in dollars.
+  var rid = "acq-" + String(p ? p.id : "").replace(/[^A-Za-z0-9_-]/g, "_") + "-" + index;
+  var whatInput = fieldHtml({ id: rid + "-what", label: "What it is", box: true, value: item.what == null ? "" : item.what, placeholder: "e.g. Stamp duty", className: "cc-what", attrs: { "data-acq-cost-index": index } });
+  var amountInput = fieldHtml({ id: rid + "-amount", label: "Amount", type: "money", value: Number(item.amount) || 0, className: "cc-amount", attrs: { "data-acq-cost-index": index, "data-error-key": draftFieldKey(item, "amount") } });
+  var delBtn = '<button type="button" class="btn btn-danger btn-sm row-del" data-acq-cost-del="' + index + '" aria-label="Delete ' + escapeAttr(item.what || "this cost") + '">✕</button>';
+  return '<div class="cc-row acq-row' + (canMove ? " has-move" : "") + (suggested ? " is-loan-cost" : "") + '" data-acq-cost-index="' + index + '">' +
     '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>' + whatInput + amountInput + delBtn + moveBtn +
   '</div>';
 }
@@ -575,7 +577,7 @@ function acquisitionCostsSectionHtml(p){
   var bodyHtml =
     '<p class="ledger-note" style="margin-left:0">Stamp duty, legal/conveyancing, buyer\'s agent, building/pest inspection — itemize what you actually paid. Added to Purchase price above for Capital gain and yield-on-cost.</p>' +
     (p.kind === "IP" && (p.loans || []).length ? '<div data-property-help="move-cost"><p class="ledger-note help" id="prop-move-help-' + escapeAttr(p.id) + '">A cost of taking out the loan (LMI, lender fees, mortgage registration) isn\'t part of the purchase: it\'s deducted over five years instead, and doesn\'t go in the CGT cost base.</p></div>' : "") +
-    '<div class="m-card m-cost-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>' +
+    '<div class="acq-rows" id="propAcqCostRows_' + escapeAttr(p.id) + '">' + acquisitionCostCompBarHtml(rowMeta) + rowsHtml + '</div>' +
     '<button type="button" class="btn btn-sm btn-ghost" style="margin-top:8px" data-acq-cost-add="' + escapeAttr(p.id) + '">+ Add cost</button>';
   return propertySectionHtml(p, "acquisition", titleHtml, bodyHtml);
 }
@@ -682,27 +684,31 @@ function agentStatementHtml(p, win){
     return '<li><span>' + escapeAttr(fmtDate(r.date, { year: true })) + '</span> <span>rent ' + fmtCurrency0.format(r.rent) + (r.water ? ' + water ' + fmtCurrency0.format(r.water) : '') + ' · out ' + fmtCurrency0.format(statementTotals(r).moneyOut) + '</span> <b>' + fmtCurrency2.format(r.net) + '</b>' +
       ' <button type="button" class="btn btn-danger btn-sm" data-as-del="' + escapeAttr(r.id) + '" aria-label="Remove this statement">✕</button></li>';
   }).join("");
-  // #261: help shows in the field, described — it was a title tooltip.
-  var field = function(key, label, help){
-    var hid = help ? "as-" + key + "-help-" + String(p.id).replace(/[^A-Za-z0-9_-]/g, "_") : "";
-    return '<label class="fr-field"><span>' + label + '</span><input type="number" inputmode="decimal" min="0" step="0.01" class="field-control" data-as="' + key + '" value="' + escapeAttr(value(key)) + '"' + disabled + (hid ? ' aria-describedby="' + hid + '"' : "") + '>' +
-      (help ? '<small class="field-help" id="' + hid + '">' + escapeAttr(help) + '</small>' : "") + '</label>';
-  };
+  // #261: help shows in the field, described — it was a title tooltip. November 2026: floating-label boxes, amounts in
+  // dollars (lib/field.js).
+  var pid = String(p.id).replace(/[^A-Za-z0-9_-]/g, "_");
+  var box = function(key, o){ return fieldHtml(Object.assign({ id: "as-" + key + "-" + pid, box: true, disabled: !!disabled, attrs: { "data-as": key } }, o)); };
+  var field = function(key, label, help){ return box(key, { label: label, type: "money", value: value(key), help: help || "" }); };
   var accounts = (state.accounts || []).map(function(a){ return a.name; });
   var defAcct = value("account", (p.income && p.income[0] && p.income[0].account) || "");
+  // A deleted account's name stays on the rent line: offer it as itself, or the select silently shows "—".
+  var acctOptions = [{ value: "", label: "—" }].concat(accounts.map(function(a){ return { value: a, label: a }; }),
+    defAcct && accounts.indexOf(defAcct) === -1 ? [{ value: defAcct, label: defAcct + " (deleted)" }] : []);
   return '<details class="agent-stmt"' + (agentStatementUi.open[p.id] ? ' open' : '') + ' data-as-panel="' + escapeAttr(p.id) + '"><summary>Log a property manager statement</summary>' +
     '<p class="ledger-note">One statement in one go: what was collected, what was paid out of it, and what reached you. Rent received and any bills paid from the rent are logged for you.</p>' +
     (review ? '<p class="ledger-note agent-read-source" data-as-source>Review ' + escapeAttr(review.name || 'statement PDF') + ' for <b>' + escapeAttr(p.what || 'Investment property') + '</b>. ' + (review.logged ? 'This statement could not be saved. Export a backup from the user menu before closing, or discard the unsaved statement.' : 'Check the figures, then Log statement.') + (review.onLogged ? ' The inbox file stays pending until the statement is saved.' : '') + '</p>' + '<button type="button" class="btn btn-sm btn-ghost" data-as-discard>' + (review.logged ? 'Discard unsaved statement' : 'Discard read') + '</button>' : '') +
     '<p class="agent-pdf"><button type="button" class="btn btn-sm btn-ghost" data-as-pick' + disabled + '>Fill from the statement PDF</button><input type="file" accept=".pdf,application/pdf" data-as-pdf hidden></p>' +
-    '<div class="agent-grid">' +
-      '<label class="fr-field"><span>Statement date</span><input type="date" class="field-control" data-as="date" value="' + escapeAttr(value("date", localDateStr())) + '"' + disabled + '></label>' +
-      field("rent", "Rent collected $") + field("water", "Water usage recovered $") +
-      field("fees", "Management + statement fees $") + field("waterRates", "Water rates paid $", water ? "" : "No water line on this property — it will be logged without one.") +
-      field("otherAmount", "Other cost paid $") +
-      '<label class="fr-field"><span>Other cost is for</span><select class="field-control" data-as="otherLine"' + disabled + '>' + costLines.map(function(e){ return '<option value="' + escapeAttr(e.id) + '"' + (e.id === value("otherLine") ? ' selected' : '') + '>' + escapeAttr(e.what) + '</option>'; }).join("") + '</select></label>' +
-      '<label class="fr-field"><span>Paid into</span><select class="field-control" data-as="account"' + disabled + '><option value="">—</option>' + accounts.map(function(a){ return '<option' + (a === defAcct ? ' selected' : '') + '>' + escapeAttr(a) + '</option>'; }).join("") + '</select></label>' +
+    '<div class="agent-grid fgrid">' +
+      box("date", { label: "Statement date", type: "date", value: value("date", localDateStr()) }) +
+      box("account", { label: "Paid into", type: "select", value: defAcct, options: acctOptions }) +
+      '<div class="fsec span2">Money in</div>' +
+      field("rent", "Rent") + field("water", "Water recovered", "Water usage the tenant paid back") +
+      '<div class="fsec span2">Paid out of it</div>' +
+      field("fees", "Fees", "Management and statement fees") + field("waterRates", "Water rates", water ? "" : "No water line on this property — it will be logged without one.") +
+      field("otherAmount", "Other cost") +
+      box("otherLine", { label: "Which cost", type: "select", value: value("otherLine"), options: costLines.map(function(e){ return { value: e.id, label: e.what }; }) }) +
     '</div>' +
-    '<div class="agent-foot"><span>Paid to you <b data-as-net>' + fmtCurrency2.format(statementTotals({rent:values.rent,water:values.water,fees:values.fees,waterRates:values.waterRates,others:[{amount:values.otherAmount}]}).net) + '</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log' + disabled + '>' + (review && review.logged ? 'Not saved' : 'Log statement') + '</button></div>' +
+    '<div class="agent-foot"><span>Paid to you <b data-as-net>' + fmtCurrency2.format(statementTotals({rent:asAmount(values.rent),water:asAmount(values.water),fees:asAmount(values.fees),waterRates:asAmount(values.waterRates),others:[{amount:asAmount(values.otherAmount)}]}).net) + '</b></span><button type="button" class="btn btn-sm btn-primary" data-as-log' + disabled + '>' + (review && review.logged ? 'Not saved' : 'Log statement') + '</button></div>' +
     (sum.count ? '<p class="agent-sum">' + escapeAttr(fyLabel(fy)) + ' from ' + sum.count + ' statement' + (sum.count === 1 ? '' : 's') + ': rent ' + fmtCurrency0.format(sum.rent) + ' · water back ' + fmtCurrency0.format(sum.water) + ' · fees ' + fmtCurrency0.format(sum.fees) + ' · bills paid ' + fmtCurrency0.format(sum.waterRates + sum.other) + ' · to you ' + fmtCurrency0.format(sum.net) + '</p>' : '') +
     (recent ? '<ul class="agent-list">' + recent + '</ul>' : '') +
   '</details>';
@@ -710,10 +716,13 @@ function agentStatementHtml(p, win){
 // The live "paid to you" figure while the form is filled in.
 export function agentStatementFormValues(panel){
   var v = function(k){ var el = panel.querySelector('[data-as="' + k + '"]'); return el ? el.value : ""; };
-  var others = Number(v("otherAmount")) > 0 ? [{ lineId: v("otherLine"), amount: Number(v("otherAmount")), what: "" }] : [];
-  return { date: v("date") || localDateStr(), rent: Number(v("rent")) || 0, water: Number(v("water")) || 0, fees: Number(v("fees")) || 0,
-    waterRates: Number(v("waterRates")) || 0, others: others, account: v("account") };
+  var other = asAmount(v("otherAmount"));
+  var others = other > 0 ? [{ lineId: v("otherLine"), amount: other, what: "" }] : [];
+  return { date: v("date") || localDateStr(), rent: asAmount(v("rent")), water: asAmount(v("water")), fees: asAmount(v("fees")),
+    waterRates: asAmount(v("waterRates")), others: others, account: v("account") };
 }
+// A money field shows "1,200.50" (lib/field.js): read it as 1200.5; blank or not a number is 0.
+function asAmount(v){ var n = Number(String(v == null ? "" : v).replace(/[\s,$]/g, "")); return isFinite(n) ? n : 0; }
 
 // ---------------- Tabs on a property (v3.61.0) ----------------
 // A property card had nine collapsible sections stacked one after another — value, purchase costs,

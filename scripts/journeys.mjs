@@ -6929,6 +6929,28 @@ const JOURNEYS = {
   },
   // November 2026 (the owner chose it): adding asks one question at a time. A home with its loan, by keyboard; the check
   // screen goes back to a question and returns; Escape asks before anything answered is thrown away; an account.
+  // Today's Needs you: every to-do goes where it says (the owner: "Needs you links are not working" — the handler still
+  // looked for the .home-todo card Today's redesign removed, so none of them did anything).
+  async needsyou(page){
+    await quiet(page);
+    const todos = page.locator('#homeSummary .home-needs .home-todo-btn');
+    check(await todos.count() > 0, 'the sample household has nothing in Needs you to follow');
+    const n = await todos.count();
+    let followed = 0;
+    for(let i = 0; i < n; i++){
+      await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
+      const t = page.locator('#homeSummary .home-needs .home-todo-btn').nth(i);
+      const action = await t.getAttribute('data-notif-action');
+      const before = await page.evaluate(() => location.pathname);
+      await t.click();
+      // A to-do either goes to its page or opens its own question (the cash rate's) — never nothing.
+      await waited(page, before => location.pathname !== before || !!document.querySelector('dialog[open], .app-dialog, [role="dialog"]:not([hidden])'), 'to-do ' + i + ' (' + action + ') to go somewhere', before);
+      followed++;
+      await page.keyboard.press('Escape').catch(() => {});
+      await settle(page);
+    }
+    check(followed === n, 'not every to-do was followed');
+  },
   async addflow(page){
     await quiet(page);
     await go(page, 'properties');

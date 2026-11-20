@@ -192,8 +192,6 @@
   .fbox-control.field-control{ display:block; width:100%; height:58px; padding:22px 14px 6px; border:2px solid transparent; border-radius:14px;
     background: var(--paper-sunken); font-family: var(--font-num); font-size:var(--fs-lg); font-weight:600; color: var(--ink); }
   .fbox-control[data-money].field-control{ font-size:var(--fs-xl); }
-  /* A desktop: a little shorter — no thumb to fit, and room under a tall header in a short window. */
-  @media (min-width: 881px){ .fbox-control.field-control{ height:52px; padding-top:20px; } .fbox-label.field-label{ top:7px; } }
   .fbox-control.has-pre{ padding-left:30px; }
   .fbox-control.has-suf{ padding-right:46px; }
   select.fbox-control.field-control{ font-family: inherit; appearance:none; -webkit-appearance:none; padding-right:36px;
@@ -205,8 +203,11 @@
   .fbox-control.field-control[aria-invalid="true"]{ border-color: var(--bad-ink); background: color-mix(in srgb, var(--bad) 6%, var(--paper-raised)); }
   .fbox-label.field-label{ position:absolute; left:16px; top:9px; font-size:var(--fs-xs); pointer-events:none; z-index:1; }
   .fbox:focus-within .fbox-label{ color: var(--brass-strong); }
-  .fbox-pre, .fbox-suf{ position:absolute; bottom:13px; font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); pointer-events:none; z-index:1; font-family: var(--font-num); }
+  .fbox-pre, .fbox-suf{ position:absolute; bottom:12px; font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); pointer-events:none; z-index:1; font-family: var(--font-num); }
   .fbox-pre{ left:16px; } .fbox-suf{ right:16px; }
+  /* A desktop: a little shorter — no thumb to fit, and room under a tall header in a short window. After
+     the rules it changes: same layer, same specificity, so source order decides. */
+  @media (min-width: 881px){ .fbox-control.field-control{ height:52px; padding-top:20px; } .fbox-label.field-label{ top:7px; } .fbox-pre, .fbox-suf{ bottom:9px; } }
   .field-box .field-help{ padding-left:4px; }
   .field-pills .field-label{ font-size:var(--fs-sm); color: var(--ink); }
   .pills{ display:flex; flex-wrap:wrap; gap:8px; }

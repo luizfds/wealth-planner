@@ -5693,5 +5693,6 @@ tints, a teal theme); the owner chose the bold one.
 
 `[x]` The owner: Today doesn't need the second Net worth card — the glance's hero says the figure, its change and its
 line. The card went; it stays only as the empty state (what to enter first) until something is owned or owed. The hero
-opens Accounts, and says how many values need updating (that was the card's). A past period says it stays as of today
+opens Accounts, and says where its figure comes from — "Recorded balances", or how many need updating (the card's
+line; the journey assessmentux reads it). A past period says it stays as of today
 in Today's period note (the journeys periodheader and homedates read it there).

@@ -746,6 +746,7 @@
 .home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
 .home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }
 .home-glance-stale{ display:inline-block; margin-left:6px; font-weight:600; text-decoration: underline; text-underline-offset:2px; }
+.home-glance-asof{ display:inline-block; margin-left:6px; }
 .home-glance-spark{ position:absolute; right:0; bottom:0; width:58%; height:62%; pointer-events:none; }
 .home-glance-spark .fill{ fill: rgba(255,255,255,.12); }
 .home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.55); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }

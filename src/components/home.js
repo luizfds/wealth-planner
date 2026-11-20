@@ -165,7 +165,8 @@ export function homeSummaryHtml(today, opts){
     // Net worth opens Accounts, where it's broken down — there's no card under it to go to.
     (nwEmpty ? glanceTile("nw", "is-hero", "Net worth", "—", "")
       : glanceTile("nw", "is-hero", "Net worth", fmtCompact(nw), (trend ? '<span class="home-glance-chip">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + ' since ' + shortDate(trend.from.date, today) + '</span>' : 'as of today') +
-        (stale ? '<span class="home-glance-stale">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : ''), trend ? sparkHtml(trend.points) : '')
+        // Where the figure comes from (the card said "Recorded balances"), or how many of them are out of date.
+        (stale ? '<span class="home-glance-stale">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : '<span class="home-glance-asof">Recorded balances</span>'), trend ? sparkHtml(trend.points) : '')
       ).replace('data-glance-go="nw"', 'data-home-go="networth"') +
     (monthEmpty ? glanceTile("month", "is-quiet", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
       : glanceTile("month", saved >= 0 ? "is-good" : "is-bad", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent")) +

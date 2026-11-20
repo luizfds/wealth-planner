@@ -693,8 +693,8 @@ import { borrowingNoteText } from "../src/components/properties.js";
 
 test("a deductible row renders its claim-from/until fields", function(){
   var html = modernPlainRowHtml({ id: "r1", what: "Rent", amount: 720, freq: "Weekly", deductible: true, deductiblePct: 6.4, deductibleUntil: "2025-09-30" }, 0, "shared", {}, {});
-  assert.match(html, /class="field-control f-deductfrom"/);
-  assert.match(html, /class="field-control f-deductuntil"[^>]*value="2025-09-30"/);
+  assert.match(html, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-deductfrom"/);
+  assert.match(html, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-deductuntil"[^>]*value="2025-09-30"/);
 });
 
 test("the borrowing-costs note says what's deductible, or what's missing", function(){
@@ -971,12 +971,12 @@ test("rows: a property cost picks its return line; a budget line can be claimed 
   lt.setDeductionPropertiesProvider(function(){ return [{ id: "r1", what: "9 Sample Ave" }]; });
   try {
     var prop = lt.modernPlainRowHtml({ what: "Pest inspection", amount: 240, freq: "Yearly" }, 0, "propexp:r1", {}, { showClass: true });
-    assert.match(prop, /Rental schedule line<\/label><select[^>]*class="field-control f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
+    assert.match(prop, /Rental schedule line<\/label><select[^>]*class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-rentline"[^>]*>[\s\S]*<option value="pestControl" selected>Pest control/);
     assert.doesNotMatch(prop, /f-deductible/, "no second, personal claim on a property's own cost");
     var line = lt.modernPlainRowHtml({ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }, 0, "shared", {}, { showClass: true });
     assert.match(line, /<optgroup label="Investment property"><option value="property:r1" selected>9 Sample Ave<\/option>/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><div class="field"><label[^>]*>Rental schedule line/);
-    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><div class="field"><label[^>]*>Return label/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-prop"><div class="field field-box"><div class="fbox"><label[^>]*>Rental schedule line/);
+    assert.match(line, /class="m-edit-field f-deduct-extra f-claim-person" hidden><div class="field field-box"><div class="fbox"><label[^>]*>Return label/);
     var gone = lt.modernPlainRowHtml({ what: "Old", amount: 1, freq: "Yearly", deductible: true, claimProperty: "zz" }, 0, "shared", {}, {});
     assert.match(gone, /value="property:zz" selected>\(deleted property\)/);
     var note = claimedHereHtml({ id: "r1" }, [{ what: "Landlord insurance", amount: 900, freq: "Yearly", deductible: true, claimProperty: "r1" }]);
@@ -1492,7 +1492,7 @@ test("a closed row's edit form is text until the row opens", () => {
   const item = { id: "l1", what: "Groceries </script><b>", amount: 120, freq: "Weekly", classification: "Needs" };
   const closed = plainRow(item, 0, "shared", {}, { showClass: true });
   assert.match(closed, /<script type="text\/x-row-edit" class="m-row-edit-tpl"><div class="m-row-edit">/);
-  assert.match(closed, /class="field-control f-amount"/, "the form is still there, as text, for when it opens");
+  assert.match(closed, /class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-amount"/, "the form is still there, as text, for when it opens");
   assert.equal(closed.match(/<\/script>/gi).length, 1, "text someone typed can't end it early");
   assert.equal(rowEditSlot(false, '<p>a</p></SCRIPT><p>b</p>'), '<script type="text/x-row-edit" class="m-row-edit-tpl"><p>a</p><\\/SCRIPT><p>b</p></script>');
   const open = plainRow(item, 0, "shared", { "shared:0": true }, { showClass: true });
@@ -2508,14 +2508,14 @@ test("income schedules retain monthly, weekly and fortnightly selections", () =>
   assert.match(weekly,/Pay weekday/);
   assert.doesNotMatch(weekly,/f-payanchor/);
   const fortnight=modernIncomeRowHtml({...base,freq:"Fortnightly",payAnchor:"2026-10-01"},0,0);
-  assert.match(fortnight,/class="field-control f-payanchor"[^>]*value="2026-10-01"/);
+  assert.match(fortnight,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-payanchor"[^>]*value="2026-10-01"/);
   assert.match(fortnight,/fortnightly cycle/);
 });
 test("income sacrifice and pay-change controls are named, grouped and escaped", () => {
   const base={id:"example-pay",what:'Example <pay>',incomeType:"Net",amount:2000,freq:"Monthly"};
   const html=modernIncomeRowHtml({...base,sacrificeMode:"percent",sacrificeValue:5},0,0);
   assert.match(html,/Sacrifice percentage/);
-  assert.match(html,/class="field-control f-sacrificevalue"[^>]*max="100"[^>]*value="5"/);
+  assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? f-sacrificevalue"[^>]*max="100"[^>]*value="5"/);
   assert.match(html,/<fieldset class="pay-change"><legend class="field-label">Record a pay change/);
   assert.match(html,/New amount/);
   assert.doesNotMatch(html,/<pay>/);
@@ -2528,13 +2528,13 @@ import { modernAssetRowHtml, modernVehicleRowHtml, modernAssetRowOpen } from "..
 test("basic asset fields keep categories, linked labels and separate Details actions", () => {
   for(const category of ['Cash','Super','Other']){
     const html=modernAssetRowHtml({id:'example-asset',what:'Example <asset>',category,amount:5000,person:'Alex'},2,0);
-    assert.match(html,/class="field-control a-what"/);
+    assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? a-what"/);
     assert.match(html,new RegExp('value="'+category+'" selected'));
     assert.match(html,/View details<\/button>/);
     assert.doesNotMatch(html.split('<script')[0], /<button|<a /, 'an interactive Details action is nested inside the row button');
     assert.doesNotMatch(html,/<asset>/);
     if(category==='Super') assert.match(html,/employer super after contributions tax/);
-    const value = html.match(/class="field-control a-amount" aria-describedby="([^"]+)"/);
+    const value = html.match(/class="field-control fbox-control(?: has-pre)?(?: has-suf)? a-amount" aria-describedby="([^"]+)"/);
     const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
     assert.equal(record[1], value[1].split(" ")[0], "Record value describes the emitted Value field help");
     assert.ok(html.includes('id="'+record[1]+'"'), "the action description exists");
@@ -2547,11 +2547,11 @@ test("asset renderers follow shared open keys and preserve blank versus zero dep
     const html=modernVehicleRowHtml({...base,depreciationRate:null},2,0);
     assert.match(html,/<div class="m-row open"/);
     assert.doesNotMatch(html,/<script/);
-    assert.match(html,/class="field-control v-deprate"[^>]*value=""/);
+    assert.match(html,/class="field-control fbox-control(?: has-pre)?(?: has-suf)? v-deprate"[^>]*value=""/);
     assert.match(html,/Blank or 0 applies no depreciation/);
     const record = html.match(/data-asset-log="2" aria-describedby="([^"]+)"/);
     assert.ok(record && html.includes('class="field-help" id="'+record[1]+'"'), "vehicle recording describes its visible snapshot help");
-    assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control v-deprate"[^>]*value="0"/);
+    assert.match(modernVehicleRowHtml({...base,depreciationRate:0},2,0),/class="field-control fbox-control(?: has-pre)?(?: has-suf)? v-deprate"[^>]*value="0"/);
     assert.match(modernAssetRowHtml({id:'example-cash',category:'Cash',what:'Example cash',amount:5000},2,0),/<div class="m-row open"/);
   }finally{ delete modernAssetRowOpen['assets:2']; }
 });

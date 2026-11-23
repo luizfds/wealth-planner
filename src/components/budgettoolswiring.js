@@ -21,7 +21,7 @@ import { refreshNotifPanel } from "./notifpanel.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
-import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
+import { loggableBudgetLineItems, budgetLineItems, openQuickLog, setQuickLogLink, renderQuickLogSheet } from "./expenses.js";
 import { taxUi } from "./income.js";
 import { showPage, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./recurring.js";
@@ -30,8 +30,11 @@ import { refreshAfterLedgerChange } from "./rows.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTrim, trimUi, trimScenario } from "./trim.js";
 import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
-import { renderBudgetSplit, budgetSplitUi } from "./budgetsplit.js";
-import { budgetHints } from "../calc/budgetsplit.js";
+import { renderBudgetSplit, budgetSplitUi, budgetSplitModel } from "./budgetsplit.js";
+import { applyInboxAction } from "../calc/tidyinbox.js";
+import { renderAdjust, adjustUi, adjustModel } from "./adjustplan.js";
+import { renderDetailPage } from "./detail.js";
+import { applyAdjust } from "../calc/adjustplan.js";
 import { classWord } from "../constants.js";
 import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
 
@@ -505,6 +508,11 @@ export function wireTidy(){
     e.preventDefault();
     var lineId = open.getAttribute("data-tidy-open");
     var go = function(){
+      // From a line's Details page: Money first — a page change applies inside a view transition, so after it's done.
+      if(document.body.getAttribute("data-current-page") !== "expenses"){
+        Promise.resolve(showPage("expenses")).then(function(){ showExpensesSubpage("budget"); requestAnimationFrame(function(){ requestAnimationFrame(function(){ openTidyAt(lineId, null); }); }); });
+        return;
+      }
       var card = document.getElementById("tidyCard");
       // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
       if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
@@ -521,33 +529,86 @@ export function wireTidy(){
   });
 }
 
-// ---------------- Money → Budget → Essentials & lifestyle (November 2026) ----------------
-// "Worth a look": one tap sets what the hint says (Essential, Lifestyle, every month), with an undo; "It's right" keeps
-// the line as it is and the hint doesn't come back (state.tidyOk, shared with Tidy up).
+// ---------------- Money → Budget: things to tidy, a card at a time (November 2026) ----------------
+// One inbox for misfiled purchases, Essential/Lifestyle and set-aside hints, plans far from spending and new repeating
+// charges (calc/tidyinbox.js). Each answer is one commit with an undo; "no" is remembered, Later lasts the session.
+var INBOX_TOUCHES = { move: ["transactions"], set: ["shared", "home"], amount: ["shared", "home"], addLine: ["shared", "transactions"], ok: ["tidyOk"] };
+function focusInbox(){
+  var b = document.querySelector("#bhInboxBody [data-inbox-yes]") || document.querySelector("#budgetSplitBody [data-inbox-toggle]");
+  if(b) b.focus({ preventScroll: true });
+}
 export function wireBudgetSplit(){
   var body = document.getElementById("budgetSplitBody");
   body.addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b) return;
-    var more = b.getAttribute("data-bs-more");
-    if(more){ if(more === "pots") budgetSplitUi.allPots = !budgetSplitUi.allPots; else budgetSplitUi.allHints = !budgetSplitUi.allHints; renderBudgetSplit(); return; }
-    var okId = b.getAttribute("data-bs-ok");
-    if(okId){
-      var undoOk = markTidyOk(state, okId);
-      commit(["tidyOk"]);
-      showUndoToast("Kept as it is", function(){ undoOk(); commit(["tidyOk"]); });
+    if(b.hasAttribute("data-inbox-toggle")){ budgetSplitUi.inboxOpen = !budgetSplitUi.inboxOpen; renderBudgetSplit(); focusInbox(); return; }
+    if(b.getAttribute("data-bs-more") === "pots"){ budgetSplitUi.allPots = !budgetSplitUi.allPots; renderBudgetSplit(); return; }
+    var later = b.getAttribute("data-inbox-later");
+    if(later){ budgetSplitUi.later[later] = true; renderBudgetSplit(); focusInbox(); return; }
+    var yes = b.getAttribute("data-inbox-yes"), no = b.getAttribute("data-inbox-no");
+    if(!yes && !no) return;
+    var card = budgetSplitModel().inbox.find(function(c){ return c.id === (yes || no); });
+    if(!card) return;
+    var answer = yes ? card.yes : card.no;
+    var lines = loggableBudgetLineItems();
+    var undo = applyInboxAction(state, answer.act, { lineOf: function(id){ return lines.find(function(l){ return l.id === id; }); }, idFactory: function(){ return genId("exp"); } });
+    if(!undo) return;
+    var touched = INBOX_TOUCHES[answer.act.type] || ["*"];
+    commit(touched);
+    focusInbox();
+    showUndoToast(answer.act.type === "ok" ? "Kept as it is — it won't be asked again" : answer.label + " — done", function(){ undo(); commit(touched); focusInbox(); });
+  });
+}
+
+// ---------------- Money → Budget → Adjust the plan (November 2026) ----------------
+// Picks are this session's; Save sets every picked line to its typical amount — one commit, one undo.
+export function wireAdjust(){
+  var body = document.getElementById("adjustBody");
+  body.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    var f = b.getAttribute("data-adjust-filter");
+    if(f){ adjustUi.filter = f; renderAdjust(); var c = body.querySelector('[data-adjust-filter="' + f + '"]'); if(c) c.focus(); return; }
+    var pick = b.getAttribute("data-adjust-pick");
+    if(pick){
+      if(adjustUi.picked[pick]) delete adjustUi.picked[pick]; else adjustUi.picked[pick] = true;
+      renderAdjust();
+      var again = body.querySelector('[data-adjust-pick="' + CSS.escape(pick) + '"]');
+      if(again) again.focus();
       return;
     }
-    var fixId = b.getAttribute("data-bs-fix");
-    if(!fixId) return;
-    var lines = loggableBudgetLineItems();
-    var hint = budgetHints(lines, state.transactions, { today: localDateStr(), ok: state.tidyOk || {} }).find(function(h){ return h.id === fixId; });
-    var line = hint && lines.find(function(l){ return l.id === hint.lineId; });
+    if(b.hasAttribute("data-adjust-save")){
+      var lines = loggableBudgetLineItems();
+      var r = applyAdjust(adjustModel().rows, adjustUi.picked, function(id){ return lines.find(function(l){ return l.id === id; }); });
+      if(!r.count) return;
+      adjustUi.picked = {};
+      commit(["shared", "home"]);
+      showUndoToast(r.count + " line" + (r.count === 1 ? "" : "s") + " set to what you typically spend", function(){ r.undo(); commit(["shared", "home"]); });
+    }
+  });
+  // A line's Details page: "Make the plan $X/mo" (its typical month, in its own frequency) and "Log spend" on it.
+  document.addEventListener("click", function(e){
+    var typ = e.target.closest("[data-line-typical]"), log = e.target.closest("[data-line-log]");
+    if(log){ openQuickLog(); setQuickLogLink(log.getAttribute("data-line-log")); renderQuickLogSheet(); return; }
+    if(!typ) return;
+    var id = typ.getAttribute("data-line-typical"), line = loggableBudgetLineItems().find(function(l){ return l.id === id; });
     if(!line) return;
-    var was = {};
-    Object.keys(hint.fix.set).forEach(function(k){ was[k] = line[k]; });
-    Object.assign(line, hint.fix.set);
+    var was = line.amount;
+    line.amount = Number(typ.getAttribute("data-line-typical-amount")) || 0;
     commit(["shared", "home"]);
-    showUndoToast((line.what || "Line") + ": " + hint.fix.label.replace(/^Make it /, "now "), function(){ Object.assign(line, was); commit(["shared", "home"]); });
+    renderDetailPage();
+    showUndoToast((line.what || "Line") + " planned at what you typically spend", function(){ line.amount = was; commit(["shared", "home"]); renderDetailPage(); });
+  });
+  // "Adjust the plan →" in the Lines bar: open the card and bring it into view.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("[data-adjust-open]")) return;
+    var card = document.getElementById("adjustCard");
+    if(!card) return;
+    card.open = true;
+    renderAdjust();
+    alignTo(card);
+    var first = body.querySelector("[data-adjust-filter]");
+    if(first) first.focus({ preventScroll: true });
   });
 }

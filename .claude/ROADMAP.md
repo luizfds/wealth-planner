@@ -5861,3 +5861,26 @@ medical as Wants, and eating out, cafés and delivery marked "no fixed timing" t
 - Money's screens say Essential/Lifestyle (the transaction editor's "Counts as", the bulk bar, Tidy up). Still to do:
   the Dashboard's 50/30/20 card, Settings' Needs target and Reports' Needs/Wants grouping still say Needs/Wants.
 Tests: budgetsplit, migrations (36), render smoke; journey essentialssplit.
+
+## An easier budget: one answer first, one place to tidy (November 2026)
+
+`[x]` Measured on a real backup at 390px, the Budget tab was ~9,700px (11 screens), 168 controls and 245 dollar figures;
+Money in filled the first ~3,400px; five totals disagreed; budget-vs-actual was split across two tabs; six cards asked
+for fixes; every line had its own window; every line had a bar, even "$0 of $201". Agreed from mock-ups (round 2).
+Now ~3,700px on that phone (2,450px at 1280px), opening on the lines that need a look:
+- **Income is a Money tab** again (`expensesSub-income`), with "Your month, planned"; Budget keeps one Money in line.
+- **The top answers first** (`components/budgetsplit.js`): Left for Lifestyle this month, a day, and on pace or not
+  (`lifestylePace`, drawn day by day against an even pace); Essentials and Lifestyle spent of plan; a purchase on no line
+  said apart; bills due in 7 days (`upcomingBills`); the pots; money in. Two columns from 1024px.
+- **One inbox** (`calc/tidyinbox.js`): misfiled purchases, Essential/Lifestyle and set-aside hints, plans far from
+  spending (`spendingDrift`), new repeating charges — a card at a time, yes / no (remembered, `tidyOk`) / Later
+  (session), each an undo. The old tool cards fold under "Tools".
+- **Lines** (was Household budget): Needs a look / Spent this month / All, Biggest / A–Z, kept in localStorage
+  (`lineView`); each line in words with a bar only once spent (`lineStatus`); ended lines in their own folded card;
+  grouping only under All.
+- **Adjust the plan** (`calc/adjustplan.js`): each line beside its typical month (12 full months), Far from typical /
+  All, Use $X, the effect on the plan and a normal month's left over before Save. Nothing logged is never offered as $0.
+- **A line's Details page as one sheet**: this month, 12 months against the plan, where it goes (strays flagged),
+  recent, Make the plan typical / Edit / Log spend / Tidy.
+Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgethome. Not done: the Spending tab's
+category chart still counts one-offs; Dashboard and Reports still say Needs/Wants.

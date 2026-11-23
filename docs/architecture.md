@@ -14,8 +14,9 @@ All markup is in `index.html`; pages are `<section class="app-page" id="page-…
   each Monday.
 - **More** (`page-more`, #412): a phone's tab for Tax, Reports, Calculators, Settings and Backup & sync; a desktop's
   sidebar lists the same five under a More heading. The phone's More tab stays lit on each of them (`MORE_GROUP`).
-- **Money** (`page-expenses`, was Cash flow; #427): Budget / Transactions / Bills. Budget is one plan — Money in (the old
-  Income tab, still `#expensesSub-income`, where `/expenses/income` and every Income link land) then Money out.
+- **Money** (`page-expenses`, was Cash flow; #427): Budget / Transactions / Bills / Income. Budget leads with what's left
+  for Lifestyle, one inbox to tidy, what's due, the pots and the Lines; Income (`#expensesSub-income`, `/expenses/income`)
+  has the pay rows, Received and "Your month, planned" (November 2026).
   Transactions is the old Spending (`data-expenses-sub="spending"`, `/expenses/spending`).
 - **Accounts** (was Net worth; #428): the page is one list (`page-networth`), and the editing pages are behind it with
   no rail — Bank accounts (`page-accounts`), Investments (`page-assets`), Property (`page-properties`) — reached from a
@@ -57,7 +58,7 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
   `investments.js` / `investreturn.js` / `performance.js`, `reports.js` / `reportframe.js` and the report modules,
   `savegoals.js`, `firstrun.js`, `pricesheet.js`, `trips.js`, `recurring.js` / `subscriptions.js`, `nwhistory.js`,
   `takehome.js`, `canbuy.js` / `cashdraw.js` (where a purchase's cash comes from, and what emptying an offset costs), `needstarget.js` (the take-home it would take for Needs to be a target share, #389), `yearreview.js` (the guided Year in review's year and sections, #396), `reconcile.js` (the year reconciled: kept, and where it went, read from balances, #397), `savingsoffset.js` (a savings account's after-tax interest beside an offset's, #398), `nextyearplan.js` (next year's goals sharing one monthly surplus in priority order, #399), `planprogress.js` (each planned goal against the plan each month: forecast, how far off, how to catch up, #400), `cashrate.js` (the RBA cash rate), `emergency.js`, `trim.js`, `advice.js`, `aisummary.js` (the anonymised summary behind
-  Ask Claude), `estimates.js`, `merchantbook.js`, `tidy.js` (Budget → Tidy up: purchases on the wrong line, a line by shop), `budgetsplit.js` (Essentials, Lifestyle and set-aside pots), `budgetfromhistory.js`, `outcomes.js` (Monte Carlo), `lifeevents.js`,
+  Ask Claude), `estimates.js`, `merchantbook.js`, `tidy.js` (Budget → Tidy up: purchases on the wrong line, a line by shop), `budgetsplit.js` (Essentials, Lifestyle, set-aside pots and the month's pace), `tidyinbox.js` (Budget's one inbox), `adjustplan.js` (each line beside its typical month), `budgetfromhistory.js`, `outcomes.js` (Monte Carlo), `lifeevents.js`,
   `agepension.js`, `networthlist.js`, `inbox.js`, `showas.js`, `payslipcheck.js`, `dailyforecast.js`, `autopay.js`,
   `txviews.js`, `receipts.js`, `activity.js`, `syncfile.js` / `syncmerge.js`, `parts.js`, `categorylook.js`, and the
   scenario modules (`scenariochanges.js`, `scenariodraft.js`, `scenariolegs.js`, `scenariotemplates.js`,

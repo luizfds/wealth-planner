@@ -111,8 +111,9 @@ function assetsShown(id){ return id === "Vehicle" || id === "Other" ? ["Vehicle"
 // Expenses' own two halves — the planned budget and the real spend logged against it. Unlike
 // Assets' categories (whose ids are the user-facing category names and so need a slug map), these
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
-// #427: Money's tabs. "income" is no tab now — Money in is the top of Budget — but every link that says it still lands there.
-var EXPENSES_SUBS = ["budget", "spending", "bills"];
+// #427: Money's tabs. November 2026: Income is a tab again (Budget leads with spending), so every link that says "income"
+// — /expenses/income, a notice, search — lands on it.
+var EXPENSES_SUBS = ["budget", "spending", "bills", "income"];
 var currentExpensesSub = "budget";
 // Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.
@@ -655,7 +656,7 @@ export function showPage(id, opts){
     // arriving on Tax brings it up to date with whatever changed elsewhere in the meantime.
     if(id === "tax") renderTaxYear();
     // Received is planned against the income rows, rent and holdings, which change elsewhere.
-    if(id === "expenses" && currentExpensesSub === "budget") renderReceived();
+    if(id === "expenses" && currentExpensesSub === "income") renderReceived();
     updateQuickFab(id);
     if(!opts.skipScroll) window.scrollTo(0, 0);
     if(pendingPageWrite && pendingPageWrite.page === id) pendingPageWrite = null;
@@ -792,7 +793,6 @@ function renderMorePage(){
 export function showExpensesSubpage(id, opts){
   opts = opts || {};
   if(leavePending) return afterPendingPage("expenses", function(){ return showExpensesSubpage(id, Object.assign({}, opts, { replace: true })); });
-  var toMoneyIn = id === "income";
   if(EXPENSES_SUBS.indexOf(id) === -1) id = "budget";
   currentExpensesSub = id;
   document.querySelectorAll(".expenses-subpage").forEach(function(el){ el.hidden = el.id !== "expensesSub-" + id; });
@@ -803,23 +803,11 @@ export function showExpensesSubpage(id, opts){
   });
   scrollActiveSubnavIntoView("expensesSubnav");
   renderPeriodButton();
-  // Received is planned against the income rows, rent and holdings, which change elsewhere — it is on Budget now.
-  if(id === "budget") renderReceived();
+  // Received is planned against the income rows, rent and holdings, which change elsewhere.
+  if(id === "income") renderReceived();
   updateQuickFab("expenses");
   if(!opts.skipUrl) syncUrl("expenses", !!opts.replace, true);
   renderShowMore();
-  // An old Income link (a notice, search, /expenses/income) opens Budget at Money in, once the page has shown.
-  if(toMoneyIn) restoreAnchor("moneyIn");
-}
-function restoreAnchor(id){
-  var tries = 0;
-  (function wait(){
-    var el = document.getElementById(id);
-    if(el && document.body.getAttribute("data-current-page") === "expenses" && el.getClientRects().length){
-      return requestAnimationFrame(function(){ try{ el.scrollIntoView({ block: "start" }); }catch(e){} });
-    }
-    if(++tries < 90) requestAnimationFrame(wait);
-  })();
 }
 
 // Overview (top stats + scenario cards) vs. Insights (50/30/20, FI progress, actual vs. expected,

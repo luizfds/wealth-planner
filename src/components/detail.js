@@ -1,12 +1,12 @@
 import { ASSET_PAGE_TITLES } from "../constants.js";
 import { balanceForecastHtml, renderBalanceForecastChart } from "./dailyforecast.js";
 import { state } from "../state.js";
-import { budgetLineItems, transactionCategory, transactionAccount } from "./expenses.js";
-import { transactionDisplayName, periodsOf } from "../calc/ledger.js";
+import { budgetLineItems, transactionCategory, transactionAccount, lineStatus } from "./expenses.js";
+import { transactionDisplayName, periodsOf, resolveSharedAmount } from "../calc/ledger.js";
 import { accountBalance, rolledBalance, accountTypeLabel } from "../calc/accounts.js";
 import { holdingReturns, distributionYears, cgtParcels } from "../calc/investreports.js";
 import { propertyReturns, debtSchedule } from "../calc/assetreports.js";
-import { toAudAmount, scenarioTotals } from "../calc/engine.js";
+import { toAudAmount, scenarioTotals, currentScenario } from "../calc/engine.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { propertyOwnershipPct } from "../calc/property.js";
 import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
@@ -17,6 +17,9 @@ import { incomeSearchId } from "../lib/search.js";
 import { emptyStateHtml } from "../lib/empty.js";
 import { classWord } from "../constants.js";
 import { potFor, potTrips } from "../calc/budgetsplit.js";
+import { typicalMonthly } from "../calc/adjustplan.js";
+import { lineMerchants } from "../calc/tidy.js";
+import { currentStrays } from "./tidy.js";
 
 // ---------------- A page for every thing (v3.128.0) ----------------
 //
@@ -56,6 +59,25 @@ function monthlyChart(txs, today, label){
   if(!months.some(function(m){ return by[m]; })) return "";
   var MN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return reportChartHtml({ type: "columns", series: [label || "Spent"], items: months.map(function(m){ return { label: MN[Number(m.slice(5, 7)) - 1] + " " + m.slice(2, 4), a: Math.round((by[m] || 0) * 100) / 100 }; }) });
+}
+// A line's last twelve months (this one, so far, lighter) against its plan a month — a dashed line; a month over it red.
+function twelveMonthsHtml(txs, today, planMonthly){
+  var t = new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, 1), months = [];
+  for(var i = 11; i >= 0; i--){ var d = new Date(t.getFullYear(), t.getMonth() - i, 1); months.push(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")); }
+  var by = {};
+  txs.forEach(function(x){ var k = (x.date || "").slice(0, 7); by[k] = (by[k] || 0) + (Number(x.amount) || 0); });
+  if(!months.some(function(m){ return by[m]; })) return emptyStateHtml("Nothing spent on this line in the last 12 months.", { done: true });
+  var MN = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"], FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var max = Math.max(planMonthly || 0, Math.max.apply(null, months.map(function(m){ return by[m] || 0; }))) * 1.08 || 1;
+  var over = months.slice(0, 11).filter(function(m){ return planMonthly > 0 && (by[m] || 0) > planMonthly + 0.5; }).length;
+  var label = "Spent each month for the last 12 months" + (planMonthly > 0 ? ", against a plan of " + money(planMonthly) + " a month; over it in " + over + " of the 11 finished months" : "") + ". " +
+    months.map(function(m){ return FULL[Number(m.slice(5, 7)) - 1] + " " + money(by[m] || 0); }).join(", ") + ".";
+  return '<div class="dt-12" role="img" aria-label="' + escapeAttr(label) + '">' +
+    (planMonthly > 0 ? '<span class="dt-12-plan" style="bottom:' + Math.round(planMonthly / max * 100) + '%"></span>' : '') +
+    months.map(function(m, k){
+      var v = by[m] || 0, cls = k === 11 ? " now" : (planMonthly > 0 && v > planMonthly + 0.5 ? " over" : "");
+      return '<span class="dt-12-bar' + cls + '" style="height:' + Math.max(v > 0 ? 2 : 0, Math.round(v / max * 100)) + '%"></span>';
+    }).join("") + '</div><div class="dt-12-key" aria-hidden="true">' + months.map(function(m){ return '<span>' + MN[Number(m.slice(5, 7)) - 1] + '</span>'; }).join("") + '</div>';
 }
 function findLoan(id){
   var out = null;
@@ -160,7 +182,6 @@ export function detailView(kind, id, today){
     var line = budgetLineItems().find(function(l){ return l.id === id; });
     if(!line) return null;
     var ltx = (state.transactions || []).filter(function(t){ return t.linkedExpenseId === id; });
-    var per = periodsOf(Number(line.amount) || 0, line.freq);
     var yearAgo = (Number(today.slice(0, 4)) - 1) + today.slice(4);
     var spent12 = ltx.filter(function(t){ return t.date > yearAgo && t.date <= today; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     // November 2026 (calc/budgetsplit.js): a set-aside line is a pot — what's in it, what went in and out, and the trips.
@@ -175,14 +196,51 @@ export function detailView(kind, id, today){
           return '<li>' + escapeAttr(x.trip.name || "Trip") + ' <small>' + escapeAttr(fmtDate(x.trip.from) + (x.trip.to && x.trip.to !== x.trip.from ? " – " + fmtDate(x.trip.to, { year: true }) : "")) + '</small> <b>' + money(x.spent) + '</b></li>';
         }).join("") + '</ul>') : "");
     }
+    // November 2026: a line, opened — one place for this month, the year against the plan, where it goes, what's recent
+    // and every action (Make the plan typical, Edit, Log spend, Tidy).
+    var scen = currentScenario();
+    var planMonthly = periodsOf(resolveSharedAmount(line, scen), line.freq).monthly;
+    var typ = typicalMonthly(line, state.transactions, today, planMonthly);
+    var strayList = currentStrays(today).filter(function(x){ return x.fromLineId === id; });
+    var st = lineStatus(line, strayList.length ? (function(){ var o = {}; o[id] = strayList.length; return o; })() : null);
+    var chips = '<div class="dt-chips"><span>' + escapeAttr(line.classification ? classWord(line.classification) : "Other") + '</span><span>' + (line.irregular ? "Set aside" : "Every month") + '</span><span>Plan ' + money(planMonthly) + '/mo</span>' +
+      (line.category ? '<span>' + escapeAttr(line.category) + '</span>' : '') + '</div>';
+    var nowHtml = line.irregular || line.computed ? "" : section("This month", '<div class="dt-now"><b>' + money(st.spent) + '</b> <span>of ' + money(st.target) + '</span>' + st.html + '</div>');
+    var typicalNote = typ.monthsSpent ? '<p class="dt-typical">Typically <b>' + money(typ.monthly) + '</b> a month' + (typ.monthsOver ? ' · over the plan in ' + typ.monthsOver + ' of ' + typ.months : '') + '</p>' : '';
+    var where = lineMerchants(state.transactions, id, { today: today }).slice(0, 6);
+    var strayKeys = {};
+    strayList.forEach(function(x){ strayKeys[x.key] = budgetLineItems().find(function(l){ return l.id === x.toLineId; }); });
+    var perMonth = Math.max(1, typ.months || 12);
+    var whereTop = where.length ? where[0].total : 0;
+    var whereHtml = where.length > 1 ? '<ul class="dt-where">' + where.map(function(g){
+      var usual = strayKeys[g.key];
+      return '<li><span class="dt-where-name">' + escapeAttr(g.label) + (usual ? ' <span class="dt-usually">usually ' + escapeAttr(usual.what || "another line") + '</span>' : '') + '</span>' +
+        '<span class="bh-track"><span class="bh-fill needs" style="width:' + (whereTop > 0 ? Math.round(g.total / whereTop * 100) : 0) + '%"></span></span><b>' + money(g.total / perMonth) + '</b></li>';
+    }).join("") + '</ul>' : "";
+    var recent = ltx.slice().sort(function(a, b){ return String(b.date).localeCompare(String(a.date)); });
+    var yearStart = (Number(today.slice(0, 4)) - 1) + today.slice(4, 7) + "-01";
+    var recentHtml = recent.length ? '<ul class="dt-recent">' + recent.slice(0, 4).map(function(t){
+      return '<li><span>' + escapeAttr(fmtDate(t.date)) + '</span><span class="dt-recent-what">' + escapeAttr(transactionDisplayName(t, budgetLineItems())) + '</span><b>' + fmtCurrency2.format(Number(t.amount) || 0) + '</b></li>';
+    }).join("") + '</ul><button type="button" class="link-btn" data-sv data-sv-line="' + escapeAttr(id) + '" data-sv-from="' + yearStart + '" data-sv-to="' + today + '">All ' + recent.length + ' in Spending →</button>'
+      : emptyStateHtml("Nothing logged on this line yet.", { attrs: { "data-line-log": id }, label: "Log spend" });
+    var typicalAmount = Math.round(typ.monthly / (periodsOf(1, line.freq).monthly || 1));
+    var offerTypical = !line.computed && typ.months >= 3 && typ.monthsSpent > 0 && Math.abs(typ.monthly - planMonthly) >= 1;
+    var actions = line.computed ? "" : '<div class="dt-actions">' +
+      (offerTypical ? '<button type="button" class="btn btn-primary" data-line-typical="' + escapeAttr(id) + '" data-line-typical-amount="' + typicalAmount + '">Make the plan ' + money(typ.monthly) + '/mo</button>' : '') +
+      '<button type="button" class="btn" data-detail-edit>Edit line</button>' +
+      '<button type="button" class="btn" data-line-log="' + escapeAttr(id) + '">Log spend</button>' +
+      '<button type="button" class="btn" data-tidy-open="' + escapeAttr(id) + '">Tidy' + (strayList.length ? ' (' + strayList.length + ')' : '') + '</button></div>';
     return { title: line.what || "Budget line", kicker: line.irregular ? "Set aside" : "Budget line", history: null,
-      html: potHtml + facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["A year", money(per.yearly)], ["Spent in the last 12 months", money(spent12)],
-          ["Category", escapeAttr(line.category || "")], ["Essential or lifestyle", escapeAttr(line.classification ? classWord(line.classification) : "") + (line.irregular ? " · set aside" : "") + (function(){
+      html: chips + nowHtml + potHtml +
+        section("Last 12 months", twelveMonthsHtml(ltx, today, planMonthly) + typicalNote) +
+        (whereHtml ? section("Where it goes", '<p class="dt-typical">A month, on average</p>' + whereHtml) : "") +
+        section("Recent", recentHtml) + actions +
+        facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["Spent in the last 12 months", money(spent12)],
+          ["Counted otherwise", (function(){
             // Budget → Tidy up: purchases that count as the other one themselves.
             var own = ltx.filter(function(t){ return (t.classification === "Needs" || t.classification === "Wants") && t.classification !== line.classification; }).length;
-            return own ? ' <small>(' + own + ' purchase' + (own === 1 ? '' : 's') + ' counted otherwise)</small>' : '';
-          })()], ["Account", line.account ? escapeAttr(line.account) : null]]) +
-        section("Month by month", monthlyChart(ltx, today)) + section("Transactions", txTable(ltx)),
+            return own ? own + ' purchase' + (own === 1 ? '' : 's') : null;
+          })()], ["Account", line.account ? escapeAttr(line.account) : null]]),
       edit: { label: "Edit on Money", to: { page: "expenses", sub: "budget", lineId: id } } };
   }
   if(kind === "merchant"){

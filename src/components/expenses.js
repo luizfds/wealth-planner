@@ -20,7 +20,7 @@ import { hasOwnDates } from "../calc/txviews.js";
 import { keepUi } from "../lib/keepui.js";
 import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
 import { txGrid, txGridHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, filterBarHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
-import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml } from "../lib/ledger-table.js";
+import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml, hasEnded } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
 import { categoryLook, renameCategoryLook, CATEGORY_COLORS, CATEGORY_ICONS } from "../calc/categorylook.js";
@@ -41,12 +41,14 @@ function budgetGroupKeyOf(item, axis){
   // v3.164.0 (item 194): the flexible view — Fixed bills / Flexible / Non-monthly (calc/flexbudget.js).
   if(axis === "flex") return flexKindOf(item);
   if(axis === "category") return (item.category || "").trim() || UNCATEGORISED;
+  // An ended line is in no total; it waits in a folded card of its own at the end, not among the lines still running.
+  if(hasEnded(item)) return ENDED;
   // November 2026 (calc/budgetsplit.js): a set-aside Essential or Lifestyle line is a pot, in a card of its own.
   if(item.irregular && (item.classification === "Needs" || item.classification === "Wants")) return SET_ASIDE;
   return item.classification || "N/A";
 }
-var SET_ASIDE = "SetAside";
-var TYPE_ORDER = ["Needs", "Wants", SET_ASIDE, "Savings", "N/A"];
+var SET_ASIDE = "SetAside", ENDED = "Ended";
+var TYPE_ORDER = ["Needs", "Wants", SET_ASIDE, "Savings", "N/A", ENDED];
 // Group order is the *stable* one — CLASSES order, or the user's own category list — not biggest
 // first. This is a list you edit: ordering it by amount would make cards jump around as you type
 // into them. The charts sort by size instead, because a chart is read, not edited.
@@ -229,12 +231,13 @@ function classificationSwatchClass(cls){
   if(cls === "Wants") return "wants";
   if(cls === "Savings") return "savings";
   if(cls === SET_ASIDE) return "setaside";
+  if(cls === ENDED) return "na";
   return "na";
 }
 
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
 // November 2026: Essentials and Lifestyle (stored Needs/Wants), each every month, then the set-aside pots.
-var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other" };
+var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other", Ended: "Ended · in no total" };
 export function groupLabel(key){ return FLEX_LABELS[key] || TYPE_LABELS[key] || key; }
 
 function sharedCompositionBarHtml(groups){
@@ -254,6 +257,14 @@ function sharedCompositionBarHtml(groups){
 
 // Session-only (not persisted) — mirrors modernIncomeRowOpen for the Expenses page's rows.
 export var modernSharedRowOpen = {};
+// November 2026: which lines show — "look" (over, nearly over or misfiled), "spent" (anything this month) or "all" — and
+// in what order, "big" (biggest plan first) or "az". A convenience of this device: kept in its localStorage, never in state.
+function readPref(key, allowed, fallback){ try { var v = localStorage.getItem(key); return allowed.indexOf(v) !== -1 ? v : fallback; } catch(e){ return fallback; } }
+export var lineView = { filter: readPref("wealthPlanner.budgetLineFilter", ["look", "spent", "all"], "look"), sort: readPref("wealthPlanner.budgetLineSort", ["big", "az"], "big") };
+export function setLineView(key, value){
+  lineView[key] = value;
+  try { localStorage.setItem(key === "filter" ? "wealthPlanner.budgetLineFilter" : "wealthPlanner.budgetLineSort", value); } catch(e){}
+}
 
 // Each budget line's own "how's this one going" line: a thin bar plus "$120 of $200 this month".
 // This is what makes the Budget tab worth opening on any day other than set-up day — the planned
@@ -270,25 +281,31 @@ export var modernSharedRowOpen = {};
 // had a silent gap where every other row has a bar, with the comparison available only in the
 // "Irregular / reserve budgets" panel further down and nothing on the row saying so. "No monthly
 // comparison is honest" does not mean no comparison is.
-function budgetRowProgressHtml(item){
-  // A computed line can't be logged against (it's not a quick-log chip and never enters the
-  // overdue queue), so its progress bar would sit at "$0 of $150" forever — a permanent red herring
-  // on a row that is, in fact, always paid.
-  if(item.computed) return "";
+// A line this month (or its pot's year) in words: { target, spent, over, close, any, look, html }. `look` is what the
+// "Needs a look" filter shows: over its plan, nearly there with days to go, or a purchase that looks misfiled on it.
+// November 2026: words first, and a bar only once something's been spent — 38 bars reading "$0 of $201" buried the
+// three that mattered.
+export function lineStatus(item, strays){
+  if(item.computed) return { target: 0, spent: 0, over: false, close: false, any: false, look: false, html: "" };
   // item.amount, not resolveSharedAmount(): the row's own headline "/mo" figure right next to this
   // is the un-overridden amount, as is the Actual vs. planned panel's, so reading the scenario
   // override here would make the two numbers on the same row disagree whenever one is set.
   var cycle = item.irregular ? reserveCycleFor(item) : budgetCycleFor(item, state.transactions);
   var target = Math.round(cycle.target * 100) / 100;
-  if(target <= 0) return "";
   var spent = Math.round(spentInCycle(item, cycle) * 100) / 100;
-  var over = spent - target > 0.5;
-  var pct = Math.min(100, (spent / target) * 100);
-  var text = fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(target) + " " + cycle.label;
-  return '<div class="budget-progress">' +
-    '<div class="budget-progress-track"><div class="budget-progress-fill' + (over ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
-    '<span class="budget-progress-text' + (over ? " over" : "") + '">' + escapeAttr(text) + '</span>' +
-  '</div>';
+  var over = target > 0 && spent - target > 0.5;
+  var close = !over && target > 0 && spent >= target * 0.85 && spent < target - 0.5 && !item.irregular;
+  var misfiled = !!(strays && strays[item.id]);
+  var when = cycle.label && cycle.label !== "this month" ? " " + cycle.label : " this month";
+  var html = "";
+  if(target > 0 || spent){
+    var words = spent <= 0 ? "nothing yet" + when
+      : fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(target) + when + (over ? " · " + fmtCurrency0.format(spent - target) + " over" : target - spent <= 0.5 && target > 0 ? " · on plan" : target > 0 ? " · " + fmtCurrency0.format(target - spent) + " left" : "");
+    html = '<div class="budget-progress' + (spent <= 0 ? " is-quiet" : "") + '">' +
+      (spent > 0 ? '<div class="budget-progress-track"><div class="budget-progress-fill' + (over ? " over" : close ? " close" : "") + '" style="width:' + (target > 0 ? Math.min(100, spent / target * 100) : 100) + '%"></div></div>' : '') +
+      '<span class="budget-progress-text' + (over ? " over" : close ? " close" : "") + '">' + escapeAttr(words) + '</span></div>';
+  }
+  return { target: target, spent: spent, over: over, close: close, any: spent > 0.5, look: over || close || misfiled, html: html };
 }
 // What's been logged against this line inside its current billing window.
 function spentInCycle(item, cycle){
@@ -326,6 +343,9 @@ export function revealBudgetLine(lineId){
   if(!group) return false;
   if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
   state.budgetGroupsCollapsed[group.key] = false;
+  // Arriving at one line (search, a Details page's Edit) shows the whole list — Needs a look may not hold it. For this
+  // visit only: the remembered choice stays as it was.
+  lineView.filter = "all";
   return true;
 }
 // Cash flow → Bills (v3.60.0) — calc/bills.js, laid out by components/cashflow.js.
@@ -385,7 +405,36 @@ export function renderSharedGroups(){
   var addPrefix = byCategory ? "sharedcat:" : "shared:";
   // Budget → Tidy up: how many of each line's purchases look misfiled, worked out once for every row.
   var strayList = currentStrays(), strayN = strayCountByLine(strayList);
-  container.innerHTML = compositionHtml + '<div class="m-people">' + groups.map(function(g, gi){
+  // November 2026: Needs a look / Spent this month / All, biggest first or A–Z (lineView). The group's own total stays its
+  // whole plan whatever's shown; an ended line shows only under All, in its folded card.
+  var scen = currentScenario(), status = {}, counts = { look: 0, spent: 0, all: 0 };
+  var monthlyOf = function(item){ return periodsOf(resolveSharedAmount(item, scen), item.freq).monthly; };
+  groups.forEach(function(g){ g.members.forEach(function(line){
+    var st = lineStatus(line.item, strayN);
+    status[line.section + ":" + line.idx] = st;
+    if(g.key === ENDED) return;
+    counts.all++; if(st.look) counts.look++; if(st.any) counts.spent++;
+  }); });
+  var filter = lineView.filter;
+  var shown = groups.map(function(g){
+    var members = g.members.filter(function(line){
+      var st = status[line.section + ":" + line.idx];
+      return filter === "all" || (g.key !== ENDED && (filter === "look" ? st.look : st.any));
+    });
+    if(lineView.sort === "big") members = members.slice().sort(function(a, b){ return monthlyOf(b.item) - monthlyOf(a.item) || String(a.item.what || "").localeCompare(String(b.item.what || "")); });
+    return Object.assign({}, g, { members: members });
+  }).filter(function(g){ return filter === "all" || g.members.length; });
+  var chip = function(key, label, n){ return '<button type="button" class="bl-chip' + (filter === key ? " is-on" : "") + '" data-line-filter="' + key + '" aria-pressed="' + (filter === key) + '">' + label + ' <span>' + n + '</span></button>'; };
+  var seg = function(key, label){ return '<button type="button" class="seg-option' + (lineView.sort === key ? " active" : "") + '" data-line-sort="' + key + '" aria-pressed="' + (lineView.sort === key) + '">' + label + '</button>'; };
+  var barHtml = '<div class="bl-bar"><div class="bl-chips" role="group" aria-label="Show lines">' + chip("look", "Needs a look", counts.look) + chip("spent", "Spent this month", counts.spent) + chip("all", "All", counts.all) + '</div>' +
+    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div>' +
+    '<button type="button" class="link-btn bl-adjust" data-adjust-open>Adjust the plan →</button></div>';
+  if(!shown.length){
+    container.innerHTML = compositionHtml + barHtml + emptyStateHtml(filter === "look" ? "Nothing needs a look — every line is on track this month." : "Nothing spent on a line yet this month.", { attrs: { "data-line-filter": "all" }, label: "Show all lines" });
+    renderPropertyExpensesSummary();
+    return;
+  }
+  container.innerHTML = compositionHtml + barHtml + '<div class="m-people">' + shown.map(function(g, gi){
     var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : groupLabel(g.key).charAt(0);
     // Category avatars take the same cycling palette as the chart, so a card and its slice are
     // the same colour; classification keeps its fixed named swatches.
@@ -399,7 +448,8 @@ export function renderSharedGroups(){
     // the same budget is seven headers that each still state their own monthly total, so the shape
     // of the spending is legible at a glance and the detail is one tap away. Same call, and the
     // same reasoning, as defaulting a property card's sections closed.
-    var collapsed = isBudgetGroupCollapsed(g.key);
+    // A filtered list is short and is the point — its cards are open.
+    var collapsed = filter === "all" ? isBudgetGroupCollapsed(g.key) : false;
     return '<div class="m-card' + (collapsed ? " is-collapsed" : "") + '">' +
       '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
@@ -410,8 +460,8 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item) + tidyMarkerHtml(line.item.id, strayN), leadFieldsHtml: line.item.computed ? '' : tidyStraysForLineHtml(line.item.id, strayList), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
-      '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: (status[line.section + ":" + line.idx] || lineStatus(line.item)).html + tidyMarkerHtml(line.item.id, strayN), leadFieldsHtml: line.item.computed ? '' : tidyStraysForLineHtml(line.item.id, strayList), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
+      (g.key === ENDED ? '' : '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>') +
     '</div>';
   }).join("") + '</div>';
   renderPropertyExpensesSummary(); // item 247: the loan repayments, under the lines
@@ -1112,7 +1162,8 @@ export function renderBudgetGroupByToggle(){
   // shown whenever there is more than one card to act on — the Group-by half is what's conditional,
   // not the row itself.
   var groupCount = computeSharedGroups().length;
-  el.hidden = !anyCategorised && !flexAvailable;
+  // Grouping and Collapse all are for the whole list; a filtered one (Needs a look, Spent) is short and open.
+  el.hidden = (!anyCategorised && !flexAvailable) || lineView.filter !== "all";
   if(el.hidden) return;
   el.innerHTML = (anyCategorised || groupCount > 0
     ? '<span class="groupby-label">Group by</span>' +

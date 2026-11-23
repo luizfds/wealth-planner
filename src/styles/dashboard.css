@@ -29,7 +29,8 @@
      ~850px at 320px (#257). A zero floor lets the wrapper scroll instead. */
   @media (max-width: 340px){
     #dashboardStats.stat-row{ grid-template-columns: minmax(0,1fr); }
-    #dashboardStats.stat-row .stat-tile:first-child{ grid-column: 1 / -1; }
+    /* With five tiles the first spans two (above) — on one column that asks for a second, which the grid makes up. */
+    #dashboardStats.stat-row .stat-tile:first-child, #dashboardStats.stat-row .stat-tile:first-child:nth-last-child(5){ grid-column: 1 / -1; }
   }
   /* #266: an open "Compare monthly trade-offs" takes the whole row — at 390px it was a 174px column 2.6 screens tall,
      and the tile beside it (Tax) stretched to the same height, mostly empty. Dense flow lets a later tile fill the cell

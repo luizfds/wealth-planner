@@ -337,3 +337,12 @@ test("step 34: a purchase cost's kind (by its name when it doesn't say), finance
   assert.deepEqual(s.purchases[0].costs.map(c => [c.kind, c.financed, c.tbc]), [["loan", false, false], ["purchase", false, false], ["loan", true, false], ["loan", false, true]]);
   assert.doesNotThrow(() => run(34, {}));
 });
+
+test("step 35: a purchase's own Needs or Wants kept only when it's one of the two; tidy-up answers a map of pairs", function(){
+  const s = run(35, { transactions: [{ id: "a", classification: "Wants" }, { id: "b", classification: "Needs" }, { id: "c", classification: "Savings" }, { id: "d" }, null], tidyOk: { "petshop one|l1": true, "bad": true, "x|l2": "yes" } });
+  assert.deepEqual(s.transactions.slice(0, 4).map(t => t.classification), ["Wants", "Needs", undefined, undefined]);
+  assert.ok(!("classification" in s.transactions[2]));
+  assert.deepEqual(s.tidyOk, { "petshop one|l1": true });
+  assert.deepEqual(run(35, {}).tidyOk, {});
+  assert.deepEqual(run(35, { tidyOk: ["x"] }).tidyOk, {});
+});

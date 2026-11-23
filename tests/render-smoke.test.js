@@ -3069,3 +3069,45 @@ test("Trim: lines spent above the budget beside those budgeted above it, a name 
   assert.match(html, /Set all 2 to what you spend/);
   assert.equal(trimHtml(Object.assign({}, r, { under: [] }), "", "2026-11-20").includes("Spent above"), false);
 });
+
+test("Tidy up: a misfiled purchase with Move / It's right, a line's shops, an open shop's move and Needs/Wants, names escaped", async () => {
+  const { tidyHtml, tidyUi, tidyMarkerHtml } = await import("../src/components/tidy.js");
+  const wasShared = state.shared, wasTx = state.transactions;
+  try {
+    state.shared = [
+      { id: "lp", what: "Biscuit <i>", category: "Pets", classification: "Needs", amount: 100, freq: "Monthly" },
+      { id: "lh", what: "Home & garden", category: "Home", classification: "Wants", amount: 50, freq: "Monthly" }
+    ];
+    state.transactions = [
+      { id: "x1", date: "2026-11-02", what: "Petshop One", amount: 40, linkedExpenseId: "lp" },
+      { id: "x2", date: "2026-11-03", what: "Fern Toys \"x\"", amount: 25, linkedExpenseId: "lp", classification: "Wants" },
+      { id: "x3", date: "2026-11-04", what: "Corner Vet", amount: 90, linkedExpenseId: "lp" }
+    ];
+    const strays = [{ id: "hardware co|lp", key: "hardware co", label: "Hardware <Co>", fromLineId: "lp", toLineId: "lh", txIds: ["x9"], count: 1, total: 30, mainCount: 5 }];
+    let h = tidyHtml(strays, "2026-11-20");
+    assert.match(h, /Hardware &lt;Co>/);
+    assert.match(h, /1 purchase on Biscuit &lt;i> · your other 5 are on Home &amp; garden/);
+    assert.match(h, /data-tidy-move="hardware co\|lp">Move to Home &amp; garden/);
+    assert.match(h, /data-tidy-ok="hardware co\|lp"/);
+    assert.match(h, /Choose a line…/);
+    assert.match(tidyHtml([], "2026-11-20"), /data-empty="done"/, "nothing misfiled says so, with nothing to do");
+    Object.assign(tidyUi, { lineId: "lp", openKey: "fern toys x", picked: { x2: true }, moveTo: "__new", newName: "", newClass: "Wants", teach: true });
+    h = tidyHtml([], "2026-11-20");
+    assert.match(h, /3 shops · the line counts as Needs, 1 purchase as Wants/);
+    assert.match(h, /data-tidy-shop="fern toys x" aria-expanded="true"/);
+    assert.match(h, /Fern Toys &quot;x&quot;/);
+    assert.match(h, /data-tidy-new-name/);
+    assert.match(h, /File Fern Toys &quot;x&quot; there from future statements too/);
+    assert.match(h, /data-tidy-class="Wants"/);
+    assert.match(h, /As the line \(Needs\)/);
+    const moveTo = h.slice(h.indexOf("data-tidy-to"), h.indexOf("</select>", h.indexOf("data-tidy-to")));
+    assert.doesNotMatch(moveTo, /<option value="lp"/, "the line itself isn't a place to move to");
+    assert.match(moveTo, /value="__new" selected>\+ A new line…/);
+    assert.equal(tidyMarkerHtml("lp", { lp: 2 }).includes("2 to checks"), false);
+    assert.match(tidyMarkerHtml("lp", { lp: 2 }), /2 to check</);
+    assert.equal(tidyMarkerHtml("lh", { lp: 2 }), "");
+  } finally {
+    state.shared = wasShared; state.transactions = wasTx;
+    Object.assign(tidyUi, { lineId: "", openKey: null, picked: {}, moveTo: "", newName: "" });
+  }
+});

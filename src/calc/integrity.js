@@ -18,6 +18,7 @@ import { purchaseFigures, loanHoldsFees } from "./purchase.js";
 import { accountBalance, isAgentType, accountTypeLabel } from "./accounts.js";
 import { looksLikeAgentAccount } from "./agentstatement.js";
 import { trimReport, spendingDrift } from "./trim.js";
+import { strays } from "./tidy.js";
 
 /** @param {any} v */
 function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
@@ -185,6 +186,19 @@ export function integrityChecks(st, today){
       detail: said.join("; ") + (drift.length > 3 ? "; and " + (drift.length - 3) + " more" : "") + " — a year, over the last " + Math.round(trim.months) + " months. Every scenario plans with the budget" +
         (under.length ? (drift.length > under.length ? " — these make it look better than it is in some places and worse in others." : " — these make it look better than it is.") : " — these make it look worse than it is."),
       where: { page: "expenses", sub: "budget", label: "Open the budget" }, fix: { label: "Set " + (drift.length === 1 ? "it" : "all " + drift.length) + " to what you spend", kind: "budget-to-spending" } });
+  }
+
+  // ---- Purchases that look filed on the wrong line (Budget → Tidy up, calc/tidy.js) ----
+  // A shop nearly always on one line with a purchase or two on another. "It's right" there keeps a pair quiet for good.
+  var misfiled = strays(st.transactions, (st.shared || []).filter(function(l){ return l && !l.computed; }), { today: today, ok: st.tidyOk || {}, trips: st.trips || [] });
+  if(misfiled.length){
+    var lineName = {};
+    (st.shared || []).forEach(function(l){ if(l && l.id) lineName[l.id] = l.what || "a line"; });
+    var nMis = misfiled.reduce(function(a, x){ return a + x.count; }, 0);
+    add({ id: "int-misfiled", severity: "info", confidence: "possible", title: plural(nMis, "purchase") + (nMis === 1 ? " that looks" : " that look") + " filed on the wrong line",
+      detail: misfiled.slice(0, 3).map(function(x){ return "“" + x.label + "” on " + lineName[x.fromLineId] + " (usually " + lineName[x.toLineId] + ")"; }).join("; ") +
+        (misfiled.length > 3 ? "; and " + (misfiled.length - 3) + " more" : "") + ". Budget → Tidy up moves them, or keeps one where it is.",
+      where: { page: "expenses", sub: "budget", label: "Open Tidy up" }, fix: { label: "Move " + (nMis === 1 ? "it" : "them") + " to the usual line", kind: "tidy-strays" } });
   }
 
   // ---- A property manager's account typed as an ordinary one ----

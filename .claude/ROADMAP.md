@@ -5824,7 +5824,7 @@ Tests: integrity, render smoke (Trim); journey checkfixes.
 
 ## Tidy up: spending on the wrong line (November 2026)
 
-`[~]` A line was Needs or Wants as a whole and collected whatever was filed against it; nothing looked back. A household's
+`[x]` A line was Needs or Wants as a whole and collected whatever was filed against it; nothing looked back. A household's
 pet line held the toys with the food and vet (all Needs), a hardware store sat under it, a bottle shop among the
 groceries while its other visits were under Drinks. Fixing one meant Transactions, a filter, select, bulk bar — and the
 import rule filed it the old way again next month.
@@ -5837,3 +5837,5 @@ import rule filed it the old way again next month.
 - **Needs or Wants on a purchase** (`t.classification`, migration 35): `transactionClass()` in calc/ledger.js; Reports'
   Needs/Wants, the Year in review and the Wants insight read it. Also in the transaction editor and the bulk bar.
 - **A marker on each budget row** ("2 to check"), and "Tidy this line →" in an open row and in a line's breakdown.
+  The card starts folded (Simple mode's control budget on Budget); its header says how many to check.
+Tests: tidy, migrations (35), render smoke (Tidy up); journey tidyup.

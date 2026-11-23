@@ -163,7 +163,11 @@ export function detailView(kind, id, today){
     var spent12 = ltx.filter(function(t){ return t.date > yearAgo && t.date <= today; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     return { title: line.what || "Budget line", kicker: "Budget line", history: null,
       html: facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["A year", money(per.yearly)], ["Spent in the last 12 months", money(spent12)],
-          ["Category", escapeAttr(line.category || "")], ["Needs or wants", escapeAttr(line.classification || "")], ["Account", line.account ? escapeAttr(line.account) : null]]) +
+          ["Category", escapeAttr(line.category || "")], ["Needs or wants", escapeAttr(line.classification || "") + (function(){
+            // Budget → Tidy up: purchases that count as the other one themselves.
+            var own = ltx.filter(function(t){ return (t.classification === "Needs" || t.classification === "Wants") && t.classification !== line.classification; }).length;
+            return own ? ' <small>(' + own + ' purchase' + (own === 1 ? '' : 's') + ' counted otherwise)</small>' : '';
+          })()], ["Account", line.account ? escapeAttr(line.account) : null]]) +
         section("Month by month", monthlyChart(ltx, today)) + section("Transactions", txTable(ltx)),
       edit: { label: "Edit on Money", to: { page: "expenses", sub: "budget", lineId: id } } };
   }

@@ -46,6 +46,7 @@ import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
 import { renderTrim } from "./trim.js";
+import { renderTidy } from "./tidy.js";
 import { renderCashRatePanel } from "./cashrate.js";
 
 // v3.205.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
@@ -143,7 +144,7 @@ function defineViews(){
   // On Cash flow it draws one block, Budget's property expenses (propertyExpensesModern).
   defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"],
     { tabs: { expenses: ["expensesSub-budget"] } });
-  defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments"]);
+  defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments", "tidyOk", "trips"]);
   defineView("accounts", ["accounts"], renderAccounts, ["accounts", "balances", "assets", "debts", "properties", "transactions", "transfers", "incomeLog", "autoPayments", "savingsGoals"]);
   defineView("categories", ["settings"], renderCategories, ["categories", "categoryLooks", "shared", "transactions", "home", "properties"]);
   defineView("budgetGroupBy", ["expenses"], renderBudgetGroupByToggle, ["budgetGroupBy"]);
@@ -193,6 +194,7 @@ function defineViews(){
   // Drawn after the save, like the bell's badge: it reads every notification and all the advice, and doing that
   // inside each save took saving a transfer from about 225ms to over 400ms on the speed budget's slowed CPU (#267).
   defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"], { later: true });
+  defineView("tidy", ["expenses"], renderTidy, ["transactions", "shared", "home", "properties", "tidyOk", "trips", "importRules"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);

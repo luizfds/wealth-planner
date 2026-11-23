@@ -1,8 +1,9 @@
 import { renderSubscriptions } from "./subscriptions.js";
 import { state, commit, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
-import { sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
+import { TX_CLASSES, sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
+import { tidyMarkerHtml, tidyLinkHtml, strayCounts } from "./tidy.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { billsForMonth, billsToConfirm } from "../calc/bills.js";
@@ -375,6 +376,8 @@ export function renderSharedGroups(){
   // — sharedcat: for a category, shared: for a classification. The Uncategorised card presets
   // nothing, since it isn't a category you can put something into.
   var addPrefix = byCategory ? "sharedcat:" : "shared:";
+  // Budget → Tidy up: how many of each line's purchases look misfiled, worked out once for every row.
+  var strayN = strayCounts();
   container.innerHTML = compositionHtml + '<div class="m-people">' + groups.map(function(g, gi){
     var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : groupLabel(g.key).charAt(0);
     // Category avatars take the same cycling palette as the chart, so a card and its slice are
@@ -400,7 +403,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' : ''}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item) + tidyMarkerHtml(line.item.id, strayN), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';
@@ -1307,6 +1310,14 @@ function transactionDescriptionPlaceholder(t){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   return linked && linked.what ? linked.what : "Optional note";
 }
+function txClassSelectHtml(t, idx){
+  var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
+  var lineCls = linked && linked.classification && linked.classification !== "N/A" ? linked.classification : "";
+  var own = TX_CLASSES.indexOf(t.classification) !== -1 ? t.classification : "";
+  return '<select class="tx-class field-control" data-tx-index="' + idx + '" aria-label="Counts as Needs or Wants">' +
+    '<option value=""' + (own ? '' : ' selected') + '>As its line' + (lineCls ? ' (' + escapeAttr(lineCls) + ')' : '') + '</option>' +
+    TX_CLASSES.map(function(c){ return '<option' + (own === c ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>';
+}
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
@@ -1342,6 +1353,8 @@ function transactionRowHtml(t, idx){
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
     '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
+    // Budget → Tidy up: Needs or Wants on this purchase, whatever its line is (the dog's toys on a Needs line).
+    '<div class="m-edit-field"><label>Counts as</label>' + txClassSelectHtml(t, idx) + '</div>' +
     // v3.170.0 (item 201): the receipt — a photo or PDF, kept on this device and in the backup.
     '<div class="m-edit-field span3"><label>Receipt</label>' + receiptsFieldHtml(txOwnerKey(t, idx), t.receipts) + '</div>';
   // See modernPlainRowHtml's identical doneButtonHtml for why: every field here already
@@ -1620,7 +1633,9 @@ function budgetRowTxnListHtml(pairs, item, cycle){
   }).join("");
   // v3.168.0: the same rows in Spending, where they can be filtered further or saved as a view.
   var more = item && cycle ? '<button type="button" class="link-btn budget-row-sv" data-sv data-sv-line="' + escapeAttr(item.id) + '" data-sv-from="' + escapeAttr(cycle.start) + '" data-sv-to="' + escapeAttr(cycle.end) + '">Show these in Transactions →</button>' : '';
-  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>' + more;
+  // Budget → Tidy up: the same line over a whole year, with moving and Needs/Wants per shop.
+  var tidy = item && item.id && !item.computed ? '<button type="button" class="link-btn budget-row-sv" data-tidy-open="' + escapeAttr(item.id) + '">Tidy this line →</button>' : '';
+  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>' + more + tidy;
 }
 // Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a
 // $0 actual most months is expected, not a budget miss. Comparing them against this month's

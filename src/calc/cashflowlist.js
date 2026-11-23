@@ -152,6 +152,8 @@ export function bulkEditTransactions(indices, changes){
     if("linkedExpenseId" in changes) t.linkedExpenseId = changes.linkedExpenseId || null;
     if("account" in changes) t.account = changes.account || "";
     if("category" in changes) t.category = changes.category || "";
+    // Needs or Wants on the purchase itself (Budget → Tidy up); "" goes back to what its line is.
+    if("classification" in changes){ if(changes.classification === "Needs" || changes.classification === "Wants") t.classification = changes.classification; else delete t.classification; }
     n++;
   });
   return n;

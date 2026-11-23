@@ -105,6 +105,8 @@ export function defaultState(){
     weekRecaps: {},
     // #305: observations put away — {adviceId: the title it had}. One comes back when its title (its figures) changes.
     noticesDismissed: {},
+    // Budget → Tidy up (calc/tidy.js): {"<merchant>|<lineId>": true} — a merchant someone said belongs on that line.
+    tidyOk: {},
     // What the bank-import review screen has been taught: {id, match, linkedExpenseId, category,
     // account, hits}. Written only as a side effect of confirming an import — there is no rule
     // editor, because a rule you have to go and maintain is a rule you stop maintaining.
@@ -889,6 +891,16 @@ export var MIGRATION_STEPS = [
         c.tbc = c.tbc === true;
       });
     });
+  } },
+  // November 2026 (Tidy up, calc/tidy.js): a purchase can be Needs or Wants itself, whatever its line is — anything else
+  // it said is dropped, so it follows its line; and the merchant/line pairs someone said are right, so they aren't asked again.
+  { n: 35, name: "Needs or Wants on a purchase, and tidy-up answers", run: function(s){
+    (Array.isArray(s.transactions) ? s.transactions : []).forEach(function(t){
+      if(t && typeof t === "object" && "classification" in t && t.classification !== "Needs" && t.classification !== "Wants") delete t.classification;
+    });
+    var ok = s.tidyOk && typeof s.tidyOk === "object" && !Array.isArray(s.tidyOk) ? s.tidyOk : {};
+    s.tidyOk = {};
+    Object.keys(ok).forEach(function(k){ if(ok[k] === true && k.indexOf("|") > 0) s.tidyOk[k] = true; });
   } }
 ];
 

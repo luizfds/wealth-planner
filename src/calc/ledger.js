@@ -790,3 +790,14 @@ export function plannedToDateByCategory(items, fullStart, fullEnd, toDate, amoun
   });
   return out;
 }
+// ---------------- Needs or Wants, per purchase (Tidy up, November 2026) ----------------
+// A budget line is Needs or Wants as a whole, but what's spent on it may not be: the dog's food and
+// vet are needs, the toys aren't. A transaction can say so itself (`t.classification`, "Needs" or
+// "Wants"); without one it is what its line is. Everything that splits actual spending into Needs
+// and Wants reads it through here. The plan's own Needs/Wants (the lines' amounts) is unchanged —
+// it plans by line.
+export var TX_CLASSES = ["Needs", "Wants"];
+export function transactionClass(t, line){
+  if(t && TX_CLASSES.indexOf(t.classification) !== -1) return t.classification;
+  return line && line.classification && line.classification !== "N/A" ? line.classification : "Other";
+}

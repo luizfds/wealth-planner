@@ -40,6 +40,7 @@ import { rentalLogged } from "../calc/propertyactuals.js";
 import { claimItems } from "../calc/claims.js";
 import { withUndo } from "./redraw.js";
 import { readInput } from "../lib/validate.js";
+import { strays, moveTransactions } from "../calc/tidy.js";
 
 var peopleTable, taxYearBody, taxDocsBody;
 
@@ -236,6 +237,12 @@ var HC_FIXES = {
     var r = trimReport({ today: localDateStr() });
     var done = setLinesToSpending(state, spendingDrift(r));
     return done.length ? done.length + " budget line" + (done.length === 1 ? "" : "s") + " set to what you spend" : "";
+  } },
+  // Budget → Tidy up: every purchase that looks misfiled, onto its merchant's usual line.
+  "tidy-strays": { keys: ["transactions"], apply: function(){
+    var list = strays(state.transactions, (state.shared || []).filter(function(l){ return l && !l.computed; }), { today: localDateStr(), ok: state.tidyOk || {}, trips: state.trips || [] });
+    var n = list.reduce(function(a, x){ return a + moveTransactions(state.transactions, x.txIds, x.toLineId).length; }, 0);
+    return n ? n + " purchase" + (n === 1 ? "" : "s") + " moved to the usual line" : "";
   } },
   "agent-account": { keys: ["accounts", "transactions"], apply: function(){
     var list = (state.accounts || []).filter(looksLikeAgentAccount);

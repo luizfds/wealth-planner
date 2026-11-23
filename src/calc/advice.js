@@ -8,6 +8,7 @@ import { monthFigures, shiftMonth, monthBounds } from "./monthdetail.js";
 import { totalNetWorthValue, toAudAmount } from "./engine.js";
 import { localDateStr } from "../lib/format.js";
 import { trimReport } from "./trim.js";
+import { transactionClass } from "./ledger.js";
 
 // ---------------- What the app notices (v3.98.0) ----------------
 //
@@ -185,7 +186,7 @@ export function adviceFor(opts){
     (state.transactions || []).forEach(function(t){
       if(!t.date || t.date < from || t.date >= to) return;
       var l = lines[t.linkedExpenseId];
-      if(!l || l.classification !== "Wants") return;
+      if(!l || transactionClass(t, l) !== "Wants") return;
       var v = Number(t.amount) || 0;
       wants += v;
       var k = l.category || l.what || "Other";

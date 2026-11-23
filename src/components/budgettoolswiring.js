@@ -28,6 +28,8 @@ import { renderAll } from "./redraw.js";
 import { refreshAfterLedgerChange } from "./rows.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTrim, trimUi, trimScenario } from "./trim.js";
+import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
+import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
 
 var trimBody;
 var editingRecurringRule = null;
@@ -364,3 +366,118 @@ export function wireBudgetHistory(){  document.getElementById("historyBudgetBody
 }
 
 export { currentHistoryBudget, renderBudgetFromHistory, renderRecurring };
+
+// ---------------- Money → Budget → Tidy up (November 2026) ----------------
+// Every change is one commit with an undo; a move can also create a line and teach the import, and the undo takes
+// back all three.
+function tidyOpenGroup(){
+  if(!tidyUi.lineId || tidyUi.openKey == null) return null;
+  return lineMerchants(state.transactions, tidyUi.lineId, { today: localDateStr() }).find(function(g){ return g.key === tidyUi.openKey; }) || null;
+}
+function tidyTicked(g){ return g ? g.txIds.filter(function(id){ return tidyUi.picked[id] !== false; }) : []; }
+function tidyResetShop(){ tidyUi.picked = {}; tidyUi.moveTo = ""; tidyUi.newName = ""; }
+function tidyLineName(id){ var l = budgetLineItems().find(function(x){ return x.id === id; }); return (l && l.what) || "the line"; }
+function openTidyAt(lineId, key){
+  tidyUi.lineId = lineId || ""; tidyUi.openKey = key == null ? null : key; tidyResetShop();
+  var card = document.getElementById("tidyCard");
+  if(card) card.open = true;
+  renderTidy();
+  var target = key != null ? document.querySelector('#tidyBody .tidy-shop.open') : document.querySelector("#tidyBody [data-tidy-line]");
+  var focusEl = key != null ? document.querySelector('#tidyBody .tidy-shop.open .tidy-shop-head') : target;
+  if(target && target.scrollIntoView) target.scrollIntoView({ block: "start", behavior: "smooth" });
+  if(focusEl) focusEl.focus({ preventScroll: true });
+}
+export function wireTidy(){
+  var body = document.getElementById("tidyBody");
+  body.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    if(b.hasAttribute("data-tidy-move") || b.hasAttribute("data-tidy-move-all")){
+      var all = currentStrays();
+      var chosen = b.hasAttribute("data-tidy-move-all") ? all : all.filter(function(s){ return s.id === b.getAttribute("data-tidy-move"); });
+      if(!chosen.length) return;
+      var undo = [];
+      chosen.forEach(function(s){ undo = undo.concat(moveTransactions(state.transactions, s.txIds, s.toLineId)); });
+      commit(["transactions"]);
+      showUndoToast(chosen.length === 1 ? "Moved " + chosen[0].label + " to " + tidyLineName(chosen[0].toLineId) : "Moved " + undo.length + " purchases to their usual lines",
+        function(){ undoChanges(undo); commit(["transactions"]); });
+      return;
+    }
+    if(b.hasAttribute("data-tidy-ok")){
+      var undoOk = markTidyOk(state, b.getAttribute("data-tidy-ok"));
+      commit(["tidyOk"]);
+      showUndoToast("Kept where it is — it won't be asked again", function(){ undoOk(); commit(["tidyOk"]); });
+      return;
+    }
+    if(b.hasAttribute("data-tidy-see")){ openTidyAt(b.getAttribute("data-tidy-see"), b.getAttribute("data-tidy-key")); return; }
+    if(b.hasAttribute("data-tidy-pick")){ openTidyAt(b.getAttribute("data-tidy-pick"), null); return; }
+    if(b.hasAttribute("data-tidy-more")){ tidyUi.showAllStrays = !tidyUi.showAllStrays; renderTidy(); return; }
+    if(b.hasAttribute("data-tidy-shop")){
+      var k = b.getAttribute("data-tidy-shop");
+      tidyUi.openKey = tidyUi.openKey === k ? null : k; tidyResetShop();
+      renderTidy();
+      var head = body.querySelector('[data-tidy-shop="' + CSS.escape(k) + '"]');
+      if(head) head.focus();
+      return;
+    }
+    var g = tidyOpenGroup();
+    if(!g) return;
+    if(b.hasAttribute("data-tidy-tick")){
+      var on = b.getAttribute("data-tidy-tick") === "all";
+      g.txIds.forEach(function(x){ if(on) delete tidyUi.picked[x]; else tidyUi.picked[x] = false; });
+      renderTidy();
+      return;
+    }
+    var ids = tidyTicked(g);
+    if(!ids.length) return;
+    if(b.hasAttribute("data-tidy-class")){
+      var cls = b.getAttribute("data-tidy-class");
+      var undoC = setTransactionsClass(state.transactions, ids, cls);
+      commit(["transactions"]);
+      showUndoToast(ids.length + (ids.length === 1 ? " purchase" : " purchases") + " at " + g.label + (cls ? " counted as " + cls : " back to counting as the line does"),
+        function(){ undoChanges(undoC); commit(["transactions"]); });
+      return;
+    }
+    if(b.hasAttribute("data-tidy-apply-move")){
+      if(!tidyUi.moveTo) return;
+      var source = budgetLineItems().find(function(l){ return l.id === tidyUi.lineId; });
+      var isNew = tidyUi.moveTo === "__new";
+      var r = tidyMove(state, ids, isNew ? null : tidyUi.moveTo, {
+        newLine: isNew ? { source: source, what: tidyUi.newName || ((source && source.what ? source.what : "Line") + " – " + g.label), cls: tidyUi.newClass, months: TIDY_MONTHS, id: genId("exp") } : null,
+        teach: tidyUi.teach && !!g.key, idFactory: function(){ return genId("rule"); } });
+      var touched = r.made ? ["transactions", "shared", "importRules"] : ["transactions", "importRules"];
+      var whereTo = r.made ? r.made.what : tidyLineName(r.lineId);
+      tidyResetShop();
+      if(ids.length === g.txIds.length) tidyUi.openKey = null;
+      commit(touched);
+      showUndoToast("Moved " + ids.length + " at " + g.label + " to " + whereTo + (r.made ? " (a new line, " + fmtCurrency0.format(r.made.amount) + "/mo)" : "") + (r.taught ? " — future statements file it there too" : ""),
+        function(){ r.undo(); commit(touched); });
+    }
+  });
+  body.addEventListener("change", function(e){
+    var t = e.target;
+    if(t.matches("[data-tidy-line]")){ tidyUi.lineId = t.value; tidyUi.openKey = null; tidyResetShop(); renderTidy(); var sel = body.querySelector("[data-tidy-line]"); if(sel) sel.focus(); return; }
+    if(t.matches("[data-tidy-to]")){ tidyUi.moveTo = t.value; renderTidy(); var to = body.querySelector(tidyUi.moveTo === "__new" ? "[data-tidy-new-name]" : "[data-tidy-to]"); if(to) to.focus(); return; }
+    if(t.matches("[data-tidy-new-class]")){ tidyUi.newClass = t.value; return; }
+    if(t.matches("[data-tidy-teach]")){ tidyUi.teach = !!t.checked; return; }
+    if(t.matches("[data-tidy-tx]")){
+      var id = t.getAttribute("data-tidy-tx");
+      if(t.checked) delete tidyUi.picked[id]; else tidyUi.picked[id] = false;
+      renderTidy();
+      var again = body.querySelector('[data-tidy-tx="' + CSS.escape(id) + '"]');
+      if(again) again.focus();
+    }
+  });
+  body.addEventListener("input", function(e){ if(e.target.matches("[data-tidy-new-name]")) tidyUi.newName = e.target.value; });
+  // "Tidy this line →" from an open budget row (Budget) or a line's breakdown (Transactions).
+  document.addEventListener("click", function(e){
+    var open = e.target.closest("[data-tidy-open]");
+    if(!open) return;
+    e.preventDefault();
+    var lineId = open.getAttribute("data-tidy-open");
+    var card = document.getElementById("tidyCard");
+    // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
+    if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
+    openTidyAt(lineId, null);
+  });
+}

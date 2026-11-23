@@ -117,10 +117,13 @@ function onCashflowListClick(e){
     var idxs = pickedIndices();
     var lineSel = document.querySelector('#transactionsTable [data-cf-bulk="line"]').value;
     var acctSel = document.querySelector('#transactionsTable [data-cf-bulk="account"]').value;
+    var classEl = document.querySelector('#transactionsTable [data-cf-bulk="class"]');
+    var classSel = classEl ? classEl.value : "__keep";
     var changes = {};
     if(lineSel !== "__keep") changes.linkedExpenseId = lineSel;
     if(acctSel !== "__keep") changes.account = acctSel;
-    if(!Object.keys(changes).length){ showToast("Choose a line or an account to set"); return; }
+    if(classSel !== "__keep") changes.classification = classSel;
+    if(!Object.keys(changes).length){ showToast("Choose a line, an account or Needs/Wants to set"); return; }
     var before = idxs.map(function(i){ return { i: i, t: Object.assign({}, state.transactions[i]) }; });
     var n = bulkEditTransactions(idxs, changes);
     txSelect.picked = {};
@@ -544,6 +547,17 @@ export function wireSpending(){
         if(whatFieldOff) whatFieldOff.placeholder = "Optional note";
       }
       if(txRow) patchTransactionRowHeader(txRow, t);
+    }
+    else if(e.target.classList.contains("tx-class")){
+      // Budget → Tidy up: Needs or Wants on the purchase itself; blank follows its line.
+      if(e.target.value === "Needs" || e.target.value === "Wants") t.classification = e.target.value; else delete t.classification;
+      // Saved a tick later, as tx-date is: the redraw rebuilds the list this select is still dispatching inside.
+      setTimeout(function(){
+        commit(["transactions"]);
+        var back = document.querySelector('#transactionsTable .tx-class[data-tx-index="' + idx + '"]');
+        if(back) back.focus();
+      }, 0);
+      return;
     }
     else if(e.target.classList.contains("tx-account")){
       t.account = e.target.value || "";

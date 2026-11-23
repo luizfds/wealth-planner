@@ -6992,6 +6992,64 @@ const JOURNEYS = {
     for(const kind of ['plan-from-purchase', 'budget-to-spending', 'agent-account'])
       check(await fix(kind).count() === 0, 'the ' + kind + ' check stayed after its fix');
   },
+  // Budget → Tidy up: a hardware store under the pet line while its other visits are under Home & garden — moved, undone,
+  // kept; then inside the pet line, one purchase moved to a new line (with the import taught) and another counted as Wants.
+  async tidyup(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'), s = m.state, today = new Date();
+      const day = i => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 9); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      s.shared.push({ id: 'jtp', what: 'Biscuit', category: 'Pets', classification: 'Needs', amount: 120, freq: 'Monthly', account: '' },
+        { id: 'jth', what: 'Home & garden', category: 'Home', classification: 'Wants', amount: 60, freq: 'Monthly', account: '' });
+      let n = 0;
+      const tx = (line, bank, amount) => s.transactions.push({ id: 'jtx' + (++n), date: day(n), amount, what: bank, bankWhat: bank, linkedExpenseId: line, account: '' });
+      tx('jtp', 'HARDWARE CO EXAMPLE TOWN', 30);
+      for(let i = 0; i < 5; i++) tx('jth', 'HARDWARE CO EXAMPLE TOWN', 25);
+      for(let i = 0; i < 4; i++) tx('jtp', 'PETSHOP ONE EXAMPLE TOWN', 40);
+      tx('jtp', 'CORNER VET EXAMPLE TOWN', 90);
+      s.tidyOk = {};
+      m.commit(['shared', 'transactions', 'tidyOk']);
+    });
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await waited(page, () => /\d+ to check/.test(document.getElementById('tidyCount').textContent), 'Tidy up to count the misfiled purchase');
+    const counted = () => page.evaluate(() => parseInt(document.getElementById('tidyCount').textContent, 10) || 0);
+    const before = await counted();
+    check(await page.locator('.m-row .tidy-pill').count() >= 1, 'no budget row is marked with purchases to check');
+    await page.locator('#tidyCard > summary').click();
+    const move = page.locator('#tidyBody [data-tidy-move^="hardware co"][data-tidy-move$="|jtp"]');
+    check(await move.count() === 1, 'the hardware store under the pet line was not offered to move');
+    await move.click();
+    await settle(page);
+    check(await st(page, 'state.transactions.find(t => t.id === "jtx1").linkedExpenseId') === 'jth', 'Move did not put it on Home & garden');
+    check(await counted() === before - 1, 'the count did not drop by one after the move');
+    await page.locator('#toastWrap .toast-undo-btn').click();
+    await waited(page, () => !!document.querySelector('#tidyBody [data-tidy-ok^="hardware co"][data-tidy-ok$="|jtp"]'), 'Undo to bring the suggestion back');
+    await page.locator('#tidyBody [data-tidy-ok^="hardware co"][data-tidy-ok$="|jtp"]').click();
+    await settle(page);
+    check(await st(page, 'Object.keys(state.tidyOk).some(k => k.indexOf("hardware co") === 0 && k.slice(-4) === "|jtp") && state.transactions.find(t => t.id === "jtx1").linkedExpenseId === "jtp"'), 'It\'s right did not keep it where it was');
+    check(await page.locator('#tidyBody [data-tidy-ok^="hardware co"][data-tidy-ok$="|jtp"]').count() === 0, 'the kept suggestion is still listed');
+    // Inside the pet line.
+    await page.locator('#tidyBody [data-tidy-line]').selectOption('jtp');
+    const shop = page.locator('#tidyBody [data-tidy-shop^="petshop one"]');
+    await shop.click();
+    check(await shop.getAttribute('aria-expanded') === 'true', 'the shop did not open');
+    await page.locator('#tidyBody [data-tidy-tick="none"]').click();
+    await page.locator('#tidyBody [data-tidy-tx]').first().check();
+    await page.locator('#tidyBody [data-tidy-to]').selectOption('__new');
+    await page.locator('#tidyBody [data-tidy-new-name]').fill('Biscuit treats');
+    await page.locator('#tidyBody [data-tidy-apply-move]').click();
+    await settle(page);
+    const made = await st(page, 'JSON.stringify((function(){ var l = state.shared.find(x => x.what === "Biscuit treats"); return l && { cls: l.classification, cat: l.category, n: state.transactions.filter(t => t.linkedExpenseId === l.id).length, rule: state.importRules.some(r => r.linkedExpenseId === l.id) }; })())');
+    check(made === JSON.stringify({ cls: 'Wants', cat: 'Pets', n: 1, rule: true }), 'the new line, its purchase or the rule is wrong: ' + made);
+    // Count another purchase as Wants, keeping it on the Needs line. The shop stays open: three of its four are left.
+    check(await shop.getAttribute('aria-expanded') === 'true', 'the shop closed though purchases are left in it');
+    await page.locator('#tidyBody [data-tidy-tick="none"]').click();
+    await page.locator('#tidyBody [data-tidy-tx]').first().check();
+    await page.locator('#tidyBody [data-tidy-class="Wants"]').click();
+    await settle(page);
+    check(await st(page, 'state.transactions.filter(t => t.linkedExpenseId === "jtp" && t.classification === "Wants").length') === 1, 'Count as Wants did not mark one purchase');
+    check(/1 purchase as Wants/.test(await page.locator('#tidyBody').innerText()), 'the line does not say one purchase counts as Wants');
+  },
   async addflow(page){
     await quiet(page);
     await go(page, 'properties');

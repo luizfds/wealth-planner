@@ -7,7 +7,7 @@ import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/repo
 import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
 import { RANGES, COMPARES, GROUPS, rangeWindow, compareWindow, monthsIn } from "../calc/reportframe.js";
-import { selectedYearWindow, periodsOf, transactionDisplayName } from "../calc/ledger.js";
+import { selectedYearWindow, periodsOf, transactionDisplayName, transactionClass } from "../calc/ledger.js";
 import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
 import { fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { yearEndHtml } from "./yearend.js";
@@ -31,7 +31,8 @@ function lineById(){ var m = {}; budgetLineItems().forEach(function(l){ if(l.id)
 function groupFn(group){
   var lines = lineById();
   var line = function(t){ return t.linkedExpenseId ? lines[t.linkedExpenseId] : null; };
-  if(group === "class") return function(t){ var l = line(t); return (l && l.classification && l.classification !== "N/A") ? l.classification : "Other"; };
+  // A purchase can be Needs or Wants itself, whatever its line is (Budget → Tidy up).
+  if(group === "class") return function(t){ return transactionClass(t, line(t)); };
   if(group === "line") return function(t){ var l = line(t); return l ? (l.what || "Line") : "One-off"; };
   if(group === "merchant") return function(t){ return transactionDisplayName(t, budgetLineItems()); };
   if(group === "account") return function(t){ return transactionAccount(t) || "No account"; };

@@ -1641,6 +1641,41 @@
   /* v3.100.0: Cash flow → Budget → Trim */
   .tr-note{ margin:0 0 6px; }
   .tr-all{ margin:8px 0 4px; }
+  /* Money → Budget → Tidy up (November 2026, components/tidy.js) */
+  .tidy-pill{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:999px; background: var(--brass-wash); color: var(--warn-ink); font-size:var(--fs-xs); font-weight:600; white-space:nowrap; }
+  .tidy-stray .rc-actions{ flex-wrap:wrap; }
+  .tidy-pick{ display:flex; align-items:center; gap:8px; margin:0 0 8px; font-size:var(--fs-sm); }
+  .tidy-pick .field-control{ flex:1 1 auto; min-width:0; max-width:320px; }
+  .tidy-pick + .tr-note .chip{ margin:2px 2px 2px 0; }
+  .tidy-shops{ display:flex; flex-direction:column; }
+  .tidy-shop{ border-bottom:1px dashed var(--border); }
+  .tidy-shop-head{ display:grid; grid-template-columns: minmax(0,1fr) 72px auto; gap:10px; align-items:center; width:100%; min-height:40px; padding:6px 0;
+    background:none; border:0; color: var(--ink); font: inherit; font-size:var(--fs-sm); text-align:left; cursor:pointer; }
+  .tidy-shop-head:focus-visible{ outline:none; box-shadow: var(--focus-ring); border-radius:var(--field-radius); }
+  .tidy-shop-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .tidy-shop-bar{ height:6px; border-radius:3px; background: var(--paper-sunken); overflow:hidden; }
+  .tidy-shop-bar > span{ display:block; height:100%; background: var(--brass); border-radius:3px; }
+  .tidy-shop-amt{ font-family: var(--font-num); font-weight:600; text-align:right; white-space:nowrap; }
+  .tidy-shop-amt small{ font-weight:400; color: var(--ink-soft); font-size:var(--fs-xs); }
+  .tidy-tag{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:999px; background: var(--paper-sunken); color: var(--ink-soft); font-size:var(--fs-xs); font-weight:400; }
+  .tidy-panel{ margin:0 0 10px; padding:8px 10px; border-radius:var(--inner-radius); background: var(--paper-sunken); font-size:var(--fs-sm); }
+  .tidy-panel-top{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; color: var(--ink-soft); margin-bottom:4px; }
+  .tidy-txs{ list-style:none; margin:0 0 8px; padding:0; max-height:280px; overflow-y:auto; }
+  .tidy-txs label{ display:grid; grid-template-columns: auto minmax(0,1fr) auto; gap:8px; align-items:center; min-height:44px; padding:2px 0; cursor:pointer; }
+  .tidy-tick{ display:flex; align-items:center; }
+  .tidy-tx-main{ display:flex; flex-direction:column; min-width:0; }
+  .tidy-tx-what{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tidy-tx-main small{ font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tidy-txs b{ font-family: var(--font-num); font-weight:600; }
+  .tidy-act{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding-top:8px; border-top:1px solid var(--border); margin-top:6px; }
+  .tidy-act .field-control{ flex:1 1 160px; min-width:0; max-width:260px; }
+  .tidy-act-label{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); min-width:72px; }
+  .tidy-teach{ display:flex; align-items:center; gap:6px; flex-basis:100%; min-height:32px; color: var(--ink-soft); }
+  @media (max-width: 560px){
+    .tidy-shop-head{ grid-template-columns: minmax(0,1fr) auto; }
+    .tidy-shop-bar{ display:none; }
+    .tidy-act .field-control{ max-width:none; }
+  }
   .tr-scen{ display:flex; align-items:center; gap:8px; font-size:var(--fs-sm); margin:2px 0 8px; }
   .tr-scen select{ max-width:100%; }
   .tr-flex{ list-style:none; margin:0; padding:0; }

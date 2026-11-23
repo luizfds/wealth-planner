@@ -5821,3 +5821,21 @@ says how sure it is and offers a one-tap fix with an undo, nothing changed until
 - an account named like a property manager's but typed as an ordinary one: the fix makes it one, linked to the property
   when there's just one (`makeAgentAccount`, shared with Accounts' type select).
 Tests: integrity, render smoke (Trim); journey checkfixes.
+
+## Tidy up: spending on the wrong line (November 2026)
+
+`[x]` A line was Needs or Wants as a whole and collected whatever was filed against it; nothing looked back. A household's
+pet line held the toys with the food and vet (all Needs), a hardware store sat under it, a bottle shop among the
+groceries while its other visits were under Drinks. Fixing one meant Transactions, a filter, select, bulk bar — and the
+import rule filed it the old way again next month.
+- **Looks misfiled** (`calc/tidy.js` `strays`): a shop nearly always on one line (≥ 4 purchases in the last year, ≥ 75%
+  on one line) with one or two on another. Move them, or "It's right" (`state.tidyOk`, never asked again). Not counted:
+  a split part, a description that restates a line's name, spending inside a trip on its line, a line named for the shop.
+  Also a check in Checks with a one-tap fix.
+- **Look inside a line**: a line's last year by shop; open one to move all of it (or the purchases ticked) to another line
+  or a new one (planned at what moved a month), teach the import to file the shop there, or count it as Needs or Wants.
+- **Needs or Wants on a purchase** (`t.classification`, migration 35): `transactionClass()` in calc/ledger.js; Reports'
+  Needs/Wants, the Year in review and the Wants insight read it. Also in the transaction editor and the bulk bar.
+- **A marker on each budget row** ("2 to check"), and "Tidy this line →" in an open row and in a line's breakdown.
+  The card starts folded (Simple mode's control budget on Budget); its header says how many to check.
+Tests: tidy, migrations (35), render smoke (Tidy up); journey tidyup.

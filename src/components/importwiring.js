@@ -435,6 +435,7 @@ export function wireImports(){
         renderBudgetFromHistory();
         showPage("expenses"); showExpensesSubpage("budget", { replace: true });
         var hb = document.getElementById("historyBudgetCard");
+        var hbWrap = hb && hb.closest("details.bh-all-suggest"); if(hbWrap) hbWrap.open = true;
         if(hb){ hb.open = true; setTimeout(function(){ hb.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120); }
       }
     }

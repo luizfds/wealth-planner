@@ -1153,8 +1153,8 @@ test("property Tax tab: the year's rental result line by line, and each owner's 
   assert.match(html, /Rent<\/span><b>\$24,000/);
   assert.match(html, /Expenses<\/span><b>−\$2,400/);
   assert.match(html, /Net rental income<\/span><b>\$21,600/);
-  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "loans", "income", "activity", "tax", "sale"]);
-  assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "loans", "income"]);
+  assert.deepEqual(propertyTabsFor(p).map(function(t){ return t.key; }), ["overview", "money", "loans", "income", "activity", "tax", "sale"]);
+  assert.deepEqual(propertyTabsFor({ kind: "PPOR" }).map(function(t){ return t.key; }), ["overview", "money", "loans", "income"]);
 });
 
 test("Keeping your data safe: backups, the folder option and the passcode", async function(){
@@ -3071,4 +3071,56 @@ test("Adjust the plan: far lines with Use typical, a pick shown in the plan, the
   assert.match(adjustHtml({ rows, left: 5000 }), /Groceries <small>· Essential<\/small><\/span><span class="ap-same">on plan/);
   Object.assign(adjustUi, { picked: {}, filter: "far" });
   assert.match(adjustHtml({ rows: [rows[2]], left: null }), /data-empty="done"/);
+});
+
+// November 2026: property money — a transaction's What it's for, a property's Money tab, the settlement check, beside Transactions.
+test("property money: What it's for, a property's Money, the settlement check and the aside build from data", async function(){
+  const pmv = await import("../src/components/propertymoney.js");
+  const pm = await import("../src/calc/propertymoney.js");
+  var st = { purchases: [{ id: "b1", what: "1 Example St", kind: "PPOR", price: 800000, deposit: 60000, settlementDate: "2027-01-15", costs: [{ id: "bp", what: "Building & pest inspection", amount: 0, kind: "purchase" }] }],
+    properties: [{ id: "ip1", what: "2 Sample Rd", kind: "IP", expenses: [{ id: "rep", what: "Repairs", amount: 500, freq: "Yearly" }], income: [], loans: [], ownership: {}, pmFee: { percent: 0, flat: 0 } }],
+    shared: [{ id: "rent", what: "Rent", amount: 1800, freq: "Monthly" }],
+    transactions: [{ id: "t1", date: "2026-11-09", amount: 500, what: "Building & pest report", account: "Card A" }, { id: "t2", date: "2026-11-02", amount: 300, what: "Plumber", linkedExpenseId: "rep" }],
+    incomeLog: [], tidyOk: {}, accounts: [] };
+  pmv.txForUi.mode[0] = "prop"; pmv.txForUi.prop = { 0: "b1" };
+  var html = pmv.txForHtml(st.transactions[0], 0, '<select class="tx-link field-control"></select>', st);
+  assert.match(html, /data-tx-for="prop"/);
+  assert.match(html, /data-tx-cost="deposit"[^>]*>Deposit <span>\$60,000<\/span>/);
+  pm.linkTransaction(st, st.transactions[0], { type: "purchase", id: "b1", cost: "bp" });
+  html = pmv.txForHtml(st.transactions[0], 0, "", st);
+  assert.match(html, /Marks Building &amp; pest inspection paid on the 1 Example St purchase/);
+  assert.match(pmv.propertySubHtml(st.transactions[1], st), /pm-chip is-ip.*2 Sample Rd.*Repairs/);
+  var money = pmv.propertyMoneyHtml(st.properties[0], st, "2026-11-23");
+  assert.match(money, /This financial year so far/);
+  assert.match(money, /Claimable this year so far/);
+  var f = { costs: [{ id: "bp", what: "Building & pest inspection", amount: 500, kind: "purchase" }], borrowed: 740000, lender: null, paidSoFar: 60500, cashNeeded: 30000 };
+  var sheet = pmv.settlementSheetHtml(pm.purchaseFromTransactions(st, st.purchases[0]).purchase, st, [{ ref: "shared:0", what: "Rent", last: "2026-11-01" }], f);
+  assert.match(sheet, /Cost base<\/span><b>\$800,500/);
+  assert.match(sheet, /data-settle-endrent="shared:0" checked/);
+  assert.match(pmv.propertyAsideHtml(st, "2026-11-23", function(){ return f; }), /\$60,500 paid <small>of \$90,500/);
+  assert.match(pmv.costTransactionsHtml(st, st.purchases[0], "bp"), /data-buy-unlink="0"/);
+  [html, money, sheet].forEach(function(h){ assert.doesNotMatch(h, /undefined|NaN/); });
+  pmv.txForUi.mode = {}; pmv.txForUi.prop = {};
+});
+
+// Round 3, board G: Patterns as one list — a category's amount, its usual by this day, a small line.
+test("Patterns lists each category against its usual by this day, and folds the quiet ones", async function(){
+  const m = await import("../src/components/expenses.js");
+  var keep = { tx: state.transactions, shared: state.shared };
+  try {
+    state.shared = [{ id: "g", what: "Groceries", category: "Groceries", amount: 1000, freq: "Monthly" }, { id: "c", what: "Cafés", category: "Eating out", amount: 100, freq: "Monthly" }];
+    state.transactions = [];
+    ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"].forEach(function(ym){
+      state.transactions.push({ id: "g" + ym, date: ym + "-10", amount: 900, linkedExpenseId: "g" });
+      if(ym !== "2026-11") state.transactions.push({ id: "c" + ym, date: ym + "-05", amount: 60, linkedExpenseId: "c" });
+    });
+    state.transactions.push({ id: "one", date: "2026-11-12", amount: 5000, what: "House deposit" });
+    var html = m.patternsListHtml("month", "2026-11-23");
+    assert.match(html, /Spent on your budget · this month so far/);
+    assert.match(html, /<b class="pat-amt">\$900<\/b>/);
+    assert.match(html, /about usual by the 23rd/);
+    assert.match(html, /1 more category with nothing yet by the 23rd/);
+    assert.doesNotMatch(html, /5,000|undefined|NaN/, "a one-off isn't a category's");
+    assert.match(m.patternsListHtml("six", "2026-11-23"), /A typical month · last 5 full months/);
+  } finally { state.transactions = keep.tx; state.shared = keep.shared; }
 });

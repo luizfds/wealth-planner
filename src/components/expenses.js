@@ -1647,6 +1647,7 @@ function showAllButtonHtml(key, hidden, open){
 // sections that read the month's transactions.
 export function renderActualVsPlannedPanel(){
   renderPropertyAside();
+  renderPatternLists();
   renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();
@@ -1661,6 +1662,67 @@ function renderPropertyAside(){
   var html = propertyAsideHtml(state, localDateStr(), purchaseCardFigures);
   body.innerHTML = html;
   card.hidden = !html;
+}
+// ---------------- Patterns as one list (round 3, board G) ----------------
+// Each category once: its amount for the span, a word against its usual, and its last six months as a small line.
+// This month compares the month so far with the same days of earlier months (never a whole one with part of one);
+// 6 months is a typical month over the last full ones, with a streak only when the months say so. One-offs (no line)
+// are out. The charts that used to be the whole card are folded under each list.
+function sparkSvg(values, up){
+  var vals = values.length ? values : [0], mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), r = (mx - mn) || 1;
+  var step = vals.length > 1 ? 60 / (vals.length - 1) : 0;
+  var pts = vals.map(function(v, i){ return (2 + i * step).toFixed(1) + "," + (21 - (v - mn) / r * 18).toFixed(1); }).join(" ");
+  return '<svg class="pat-spark' + (up ? " is-up" : "") + '" viewBox="0 0 64 24" width="64" height="24" aria-hidden="true"><polyline points="' + pts + '"/></svg>';
+}
+export function patternsListHtml(span, todayStr){
+  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
+    categoryFor: transactionCategory, uncategorisedLabel: UNCATEGORISED, todayStr: todayStr });
+  if(view.monthsCovered < 1 || !view.rows.length) return emptyStateHtml("Nothing spent on a budget line yet — log or import spending and each category shows here with its usual.", { add: "#quickLogBtn", label: "+ Log spend" });
+  var last = view.months.length - 1, comparing = view.monthsCovered >= 3, by = view.complete ? "" : " by the " + ordinal(view.throughDay);
+  var money = function(v){ return fmtCurrency0.format(Math.round(v)); };
+  var rows = view.rows.map(function(r){
+    var settled = view.complete ? r.values : r.values.slice(0, last);
+    var amt, note, warn = false;
+    if(span === "six"){
+      amt = settled.length ? settled.reduce(function(a, b){ return a + b; }, 0) / settled.length : 0;
+      var rising = comparing && r.risingStreak >= 2, falling = comparing && r.fallingStreak >= 2;
+      note = rising ? "rising — up " + r.risingStreak + " months running" : falling ? "settling — down " + r.fallingStreak + " months running" : "steady";
+      warn = rising;
+    } else {
+      amt = view.complete ? r.values[last] : r.mtdValues[last];
+      var usual = r.trend ? r.trend.average : null;
+      if(!comparing || usual == null) note = amt > 0 ? "no usual yet" : "none yet";
+      else {
+        var d = amt - usual, near = Math.max(30, usual * 0.1);
+        note = Math.abs(d) < near ? "about usual" + by : money(Math.abs(d)) + (d > 0 ? " above" : " under") + " usual" + by;
+        warn = d > Math.max(60, usual * 0.2);
+      }
+    }
+    return { r: r, amt: amt, note: note, warn: warn };
+  });
+  var quiet = rows.filter(function(x){ return x.amt < 0.5; }).length;
+  rows = rows.filter(function(x){ return x.amt >= 0.5; }).sort(function(a, b){ return b.amt - a.amt; });
+  var total = rows.reduce(function(s, x){ return s + x.amt; }, 0);
+  var head, vs = "", how;
+  if(span === "six"){
+    head = "A typical month · last " + (view.complete ? view.months.length : Math.max(1, last)) + " full months";
+    how = "The average of those months. The line beside each shows every one of them.";
+  } else {
+    head = "Spent on your budget · " + (view.complete ? "last month" : "this month so far");
+    var tt = view.totalsTrend;
+    if(comparing && tt){ var dd = tt.current - tt.average; vs = Math.abs(dd) < Math.max(50, tt.average * 0.05) ? "about usual" + by : money(Math.abs(dd)) + (dd > 0 ? " above" : " under") + " usual" + by; }
+    how = view.complete ? "Compared with your usual month." : "A month in progress is compared with your usual by this day of the month — never with a whole month.";
+  }
+  var list = '<ul class="pat-list">' + rows.map(function(x){
+    return '<li class="' + categoryColorClass(x.r.category) + '"><span class="pat-name"><b>' + escapeAttr(x.r.category) + '</b><small' + (x.warn ? ' class="is-warn"' : '') + '>' + escapeAttr(x.note) + '</small></span>' +
+      '<b class="pat-amt">' + money(x.amt) + '</b>' + sparkSvg(x.r.values, x.warn) + '</li>';
+  }).join("") + '</ul>' + (quiet ? '<p class="pat-quiet">' + quiet + ' more categor' + (quiet === 1 ? 'y' : 'ies') + ' with nothing ' + (span === "six" ? 'in these months' : 'yet' + by) + '.</p>' : '');
+  return '<div class="pat-head"><span class="pat-k">' + escapeAttr(head) + '</span><span class="pat-v"><b>' + money(total) + '</b>' + (vs ? '<span class="' + (/above/.test(vs) ? "is-warn" : "") + '">' + escapeAttr(vs) + '</span>' : '') + '</span><p class="pat-how">' + escapeAttr(how) + '</p></div>' +
+    '<div class="pat-cols" aria-hidden="true"><span>Category</span><span>' + (span === "six" ? "A month" : "So far") + '</span><span>6 months</span></div>' + list;
+}
+function renderPatternLists(){
+  if(typeof document === "undefined") return;
+  [["month", "patternsMonthList"], ["six", "patternsSixList"]].forEach(function(x){ var el = document.getElementById(x[1]); if(el) el.innerHTML = patternsListHtml(x[0]); });
 }
 // November 2026: Transactions' Patterns — one card, one span at a time. Remembered on this device.
 export var patternSpan = { span: "month" };

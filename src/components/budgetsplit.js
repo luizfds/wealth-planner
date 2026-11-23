@@ -117,6 +117,7 @@ export function inboxHtml(cards){
       '<button type="button" class="btn" data-inbox-no="' + escapeAttr(c.id) + '">' + escapeAttr(c.no.label) + '</button>' +
       '<button type="button" class="btn btn-ghost" data-inbox-later="' + escapeAttr(c.id) + '">Later</button></div>' +
     (c.why ? '<p class="bh-inbox-why">Why it\'s asking: ' + escapeAttr(c.why) + '</p>' : '') +
+    '<button type="button" class="link-btn bh-inbox-all" data-all-suggest>All suggestions →</button>' +
     (cards.length > 1 ? '<div class="bh-next"><span class="bh-kicker">Next</span>' + cards.slice(1, 4).map(function(n){ return '<span class="bh-next-item">' + escapeAttr(n.title) + '</span>'; }).join("") +
       (cards.length > 4 ? '<span class="bh-next-item">and ' + (cards.length - 4) + ' more</span>' : '') + '</div>' : '') +
   '</section>';

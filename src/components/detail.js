@@ -190,7 +190,10 @@ export function detailView(kind, id, today){
       var pot = potFor(line, state.transactions, today);
       var trips = potTrips(line, state.trips, state.transactions);
       potHtml = section("The pot", '<div class="dt-pot"><span>In the pot</span><b class="' + (pot.short ? "over" : "") + '">' + (pot.short ? money(-pot.balance) + " short" : money(pot.balance)) + '</b>' +
-          '<small>' + money(pot.monthly) + ' a month goes in; spending comes out. Judged over the year, never against this month.</small></div>' +
+          '<small>' + money(pot.monthly) + ' a month goes in; spending comes out. Judged over the year, never against this month.</small>' +
+          // Round 1, board 3: how far the pot goes at the rate it's spent, and last year against what a year puts by.
+          (spent12 > 0 && !pot.short ? '<small class="dt-pot-health">' + (pot.balance >= spent12 / 12 ? 'On track — covers about ' + Math.max(1, Math.round(pot.balance / (spent12 / 12) * 2) / 2) + ' months of a typical year\'s spending' : 'Running low — less than a month of a typical year\'s spending') + '.</small>' : '') + '</div>' +
+          (spent12 > 0 ? '<p class="dt-pot-year">The last 12 months you spent <b>' + money(spent12) + '</b> on it. ' + money(pot.monthly) + ' a month puts by ' + money(pot.monthly * 12) + (pot.monthly * 12 < spent12 * 0.95 ? ' — less than that, so the pot runs down.' : '.') + '</p>' : '') +
           facts([[line.potFrom ? "Held on " + fmtDate(pot.from, { year: true }) : "Started empty on " + fmtDate(pot.from, { year: true }), money(pot.start)], ["Put in since", "+" + money(pot.putIn)], ["Spent since", "−" + money(pot.spent)]])) +
         (trips.length ? section("Trips", '<ul class="dt-list">' + trips.map(function(x){
           return '<li>' + escapeAttr(x.trip.name || "Trip") + ' <small>' + escapeAttr(fmtDate(x.trip.from) + (x.trip.to && x.trip.to !== x.trip.from ? " – " + fmtDate(x.trip.to, { year: true }) : "")) + '</small> <b>' + money(x.spent) + '</b></li>';

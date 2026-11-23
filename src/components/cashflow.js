@@ -374,8 +374,16 @@ export function billsCalendarHtml(data, ym, today, opts){
   var paidSum = direct2.filter(function(b){ return b.paid; }).reduce(function(s, b){ return s + b.amount; }, 0) +
     pays.filter(function(p){ return p.paid; }).reduce(function(s, p){ return s + p.amount; }, 0) +
     autos.filter(function(p){ return p.status === "paid"; }).reduce(function(s, p){ return s + p.amount; }, 0);
+  // Round 3, board H: what's due in the next 14 days, when the month shown is this one.
+  var soonEnd = new Date(Date.parse(today + "T00:00:00Z") + 14 * 86400000).toISOString().slice(0, 10);
+  var soon = ym === today.slice(0, 7) ? direct2.filter(function(b){ return !b.paid; }).map(function(b){ return { date: b.date, amount: b.amount }; })
+    .concat(pays.filter(function(p){ return !p.paid; }).map(function(p){ return { date: p.date, amount: p.amount }; }))
+    .concat(autos.filter(function(p){ return p.status !== "paid" && p.status !== "skipped"; }).map(function(p){ return { date: p.date, amount: p.amount }; }))
+    .filter(function(x){ return x.date >= today && x.date <= soonEnd; }) : [];
+  var soonSum = soon.reduce(function(s, x){ return s + x.amount; }, 0);
   var hero = '<div class="bc-hero"><span class="bc-hero-k">Still to pay in ' + mon + '</span><b class="bc-hero-v">' + fmtCurrency0.format(leftSum) + '</b>' +
-    '<span class="bc-hero-sub">' + (left.length ? left.length + ' payment' + (left.length === 1 ? '' : 's') : 'nothing left') + (paidSum > 0 ? ' · ' + fmtCurrency0.format(paidSum) + ' paid so far' : '') + '</span></div>';
+    '<span class="bc-hero-sub">' + (left.length ? left.length + ' payment' + (left.length === 1 ? '' : 's') : 'nothing left') + (paidSum > 0 ? ' · ' + fmtCurrency0.format(paidSum) + ' paid so far' : '') + '</span>' +
+    (soon.length ? '<span class="bc-hero-soon"><b>' + fmtCurrency0.format(soonSum) + '</b> due in the next 14 days · ' + soon.length + ' payment' + (soon.length === 1 ? '' : 's') + '</span>' : '') + '</div>';
   var seg = function(key, label){ return '<button type="button" class="seg-option' + (view === key ? ' active' : '') + '" aria-pressed="' + (view === key) + '" data-bills-view="' + key + '">' + label + '</button>'; };
   var switcher = '<div class="seg-control bc-views" role="group" aria-label="Show bills as">' + seg("list", "List") + seg("calendar", "Calendar") + '</div>';
   var legend = '<ul class="bc-key" aria-label="Key"><li><i class="bc-key-due"></i>due</li><li><i class="bc-key-paid"></i>paid</li><li><i class="bc-key-overdue"></i>not logged yet</li><li><i class="bc-key-card"></i>card payment</li>' +

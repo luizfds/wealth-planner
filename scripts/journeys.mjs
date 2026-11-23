@@ -5716,6 +5716,7 @@ const JOURNEYS = {
       es.filter(e => e.getAttribute('role') !== 'img' || !e.getAttribute('aria-label') || e.getAttribute('aria-label') !== e.getAttribute('title')).length);
     check(badFigures === 0, 'chart figures are missing their exact accessible values');
     await page.locator('[data-pattern-span="six"]').click(); // the history is Patterns' 6 months (November 2026)
+    await page.evaluate(() => document.querySelectorAll('.pat-more').forEach(d => { d.open = true; }));
     const cdp = await page.context().newCDPSession(page);
     const ax = await cdp.send('Accessibility.getFullAXTree');
     check(ax.nodes.some(n => !n.ignored && n.role?.value === 'image' && /by month:/.test(n.name?.value || '')), 'spending history values are absent from the accessibility tree');
@@ -7019,6 +7020,7 @@ const JOURNEYS = {
     const counted = () => page.evaluate(() => parseInt(document.getElementById('tidyCount').textContent, 10) || 0);
     const before = await counted();
     check(await page.locator('.m-row .tidy-pill').count() >= 1, 'no budget row is marked with purchases to check');
+    await page.locator('#allSuggestions').evaluate(el => { el.open = true; }); // the old tools sit in All suggestions (round 2, board B)
     await page.locator('#tidyCard > summary').click();
     const move = page.locator('#tidyBody [data-tidy-move^="hardware co"][data-tidy-move$="|jtp"]');
     check(await move.count() === 1, 'the hardware store under the pet line was not offered to move');
@@ -7649,6 +7651,7 @@ const JOURNEYS = {
     page.setDefaultTimeout(10000);
     await go(page, "expenses", "data-expenses-sub", "budget");
     // The tools fold under "Tools" (November 2026): the card first, then the form's own fold.
+    await page.locator('#allSuggestions').evaluate(el => { el.open = true; });
     await page.locator('#recurringCard').evaluate(el => { el.open = true; });
     await page.locator('#recurringRuleForm').evaluate(el => el.closest('details').open = true);
     await page.locator('#recurringRuleForm [name="what"]').fill('Synthetic service');
@@ -7689,6 +7692,7 @@ const JOURNEYS = {
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     await go(page, "expenses", "data-expenses-sub", "budget");
     check(await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').category") === 'Synthetic category', 'rule edit did not persist locally');
+    await page.locator('#allSuggestions').evaluate(el => { el.open = true; });
     await page.locator('#recurringCard').evaluate(el => { el.open = true; });
     await page.locator('#recurringRuleForm').evaluate(el => el.closest('details').open = true);
     await page.locator('[data-rr-delete="' + id + '"]').click(); await answerDialog(page, true);
@@ -7701,6 +7705,7 @@ const JOURNEYS = {
     await page.evaluate(async() => (await import('/src/lib/activity.js')).noteChanges());
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
     await page.locator('[data-pattern-span="six"]').click(); // Patterns shows one span at a time (November 2026)
+    await page.evaluate(() => document.querySelectorAll('.pat-more').forEach(d => { d.open = true; }));
     const numbers=page.locator('.trend-numbers');
     await numbers.locator('summary').focus();await page.keyboard.press('Enter');
     const month=page.locator('[data-trend-month]');

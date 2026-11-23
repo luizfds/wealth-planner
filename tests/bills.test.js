@@ -33,6 +33,7 @@ test("a month's bills: paid when logged near the date, overdue when past and not
   var html = billsCalendarHtml(r, "2026-10", "2026-10-18", { view: "calendar" });
   assert.match(html, /Still to pay in October/);
   assert.match(html, /class="bc-key"/, "the calendar has a key");
+  assert.match(html, /<b>\$[\d,]+<\/b> due in the next 14 days · \d+ payment/, "what's due in the next 14 days, the month being this one");
   assert.match(html, /bc-bill paid" title="Phone \$50 — paid"/);
   assert.match(html, /1 regular line with no payment logged yet/);
   // 1 October 2026 is a Thursday: three blank cells before it

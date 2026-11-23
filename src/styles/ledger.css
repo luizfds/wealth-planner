@@ -2275,3 +2275,5 @@
   .settle-check small{ font-size:var(--fs-xs); color: var(--warn-ink); }
   .settle-date{ display:flex; flex-direction:column; gap:4px; }
   .settle-loose{ margin:0; font-size:var(--fs-sm); }
+  .bh-inbox-picks{ display:flex; flex-direction:column; gap:6px; margin:4px 0 10px; }
+  .bh-inbox-why{ margin:8px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); }

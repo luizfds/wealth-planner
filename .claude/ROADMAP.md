@@ -5898,3 +5898,17 @@ Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgetho
   insight say Essentials and Lifestyle.
 - **A misfiled card says what you called it** (`strays()` `typed`): a purchase typed "The Bakery" whose bank text was a
   gym's was moved onto the gym line from a card that showed only the bank's name.
+
+## Transactions & Bills: what happened, what's due — and nothing twice (November 2026)
+
+`[~]` The same treatment Budget had, measured on the household's backup (Transactions ~3,400px, Bills ~3,600px at
+390px). Mock-ups agreed on the design canvas (round 3, boards F–J):
+- **Transactions**: one month line — spent on the budget · one-offs (no line) · moved between your accounts (not
+  spending) · money in. Kind chips over the list (All · Spending · One-offs · Money in · Moved), search always there.
+  A transfer reads as one; a purchase on no line says one-off. Import folds away, with a way in from the list's tools.
+- **Patterns**: This month by category, This year so far and Spending over time become one card with a span switch;
+  one-offs out of all three; a streak that this month contradicts isn't claimed.
+- **Bills**: what's still to pay first, the calendar a view with a key, a card's bills one folded row. Spending
+  budgets leave (Budget's); Stopped? moves to the Budget inbox.
+- **Subscriptions**: things you subscribe to — a Subscriptions line, or a steady charge that isn't a bill — not
+  rates, insurance and internet. One row each, its actions behind a tap.

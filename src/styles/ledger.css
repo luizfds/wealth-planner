@@ -2234,7 +2234,6 @@
   .pm-icon.is-ip{ background: var(--ip-wash); color: var(--ip-ink); }
   .cf-prop-note{ margin:6px 0 4px; padding:10px 12px; border-radius: var(--inner-radius); background: var(--prop-wash); color: var(--prop-ink); font-size:var(--fs-xs); line-height:1.45; }
   .txfor{ display:flex; flex-direction:column; gap:8px; }
-  .txfor-seg{ display:grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
   .txfor-seg .seg-option{ min-height:44px; }
   .txfor-body{ display:flex; flex-direction:column; gap:8px; }
   .txfor-props{ display:flex; flex-direction:column; gap:8px; }

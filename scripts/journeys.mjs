@@ -6525,7 +6525,7 @@ const JOURNEYS = {
       try{
         const nav=await import('/src/components/nav.js');
         if(!await nav.showPage('income')) throw new Error('Navigation did not complete');
-        if(location.pathname!=='/expenses/budget' || !document.querySelector('#expensesSub-income').checkVisibility() || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
+        if(location.pathname!=='/expenses/income' || !document.querySelector('#expensesSub-income').checkVisibility() || document.body.dataset.currentPage!=='expenses') throw new Error('Page and route disagree after animation timeout');
       }finally{ document.startViewTransition=original; }
     });
   },

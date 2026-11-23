@@ -9,7 +9,7 @@
 function detailParent(detail, st){
   var kind = detail && detail.kind;
   if(kind === "transaction" || kind === "merchant") return { page: "expenses", sub: "spending", title: "Transactions" };
-  if(kind === "income") return { page: "expenses", sub: "income", title: "Money in" };   // #427: the top of Budget
+  if(kind === "income") return { page: "expenses", sub: "income", title: "Income" };   // Money → Income (November 2026)
   if(kind === "line") return { page: "expenses", sub: "budget", title: "Budget" };
   // #428: everything you own or owe is in the one Accounts list; its editing pages are behind it (Details → Manage).
   if(kind === "account" || kind === "debt" || kind === "asset" || kind === "property" || kind === "loan") return { page: "networth", sub: null, title: "Accounts" };

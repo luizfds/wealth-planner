@@ -44,7 +44,7 @@ const base = "http://127.0.0.1:" + server.address().port;
 
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks", "review"]],
-  ["expenses", "expenses-sub", ["budget", "spending", "bills"]],   // #427: Money in is the top of Budget
+  ["expenses", "expenses-sub", ["budget", "spending", "bills", "income"]],   // November 2026: Income is its own tab again
   ["networth", null, [null]],
   ["accounts", null, [null]],
   ["assets", "assets-sub", ["Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],   // #413: no Summary

@@ -23,7 +23,7 @@ import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
 import { renderDetail, logNetWorthSnapshot, renderCashFlowForecastPanel, liqUi } from "./dashboard.js";
 import { keepUi } from "../lib/keepui.js";
 import { setNetWorthFilter } from "./networth.js";
-import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis } from "./expenses.js";
+import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis, setLineView } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
 import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, goCrumb, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
 import { isSimple, setStoredMode, applyMode, endSimpleOffer } from "../lib/mode.js";
@@ -428,6 +428,17 @@ export function wireSubpages(){
   });  // One group card's head. Delegated off #sharedGroups because the whole list is rebuilt whenever
   // a budget line changes, so a listener bound to a head would be thrown away on the first edit.
   document.getElementById("sharedGroups").addEventListener("click", function(e){
+    // November 2026: which lines show, and their order — this device's view, not the household's data.
+    var lf = e.target.closest("[data-line-filter], [data-line-sort]");
+    if(lf){
+      var attr = lf.hasAttribute("data-line-filter") ? "data-line-filter" : "data-line-sort", value = lf.getAttribute(attr);
+      setLineView(attr === "data-line-filter" ? "filter" : "sort", value);
+      renderSharedGroups();
+      renderBudgetGroupByToggle();
+      var again = document.querySelector("#sharedGroups [" + attr + '="' + value + '"]');
+      if(again) again.focus();
+      return;
+    }
     var head = e.target.closest("[data-budget-group-toggle]");
     if(!head) return;
     toggleBudgetGroup(head.getAttribute("data-budget-group-toggle"));

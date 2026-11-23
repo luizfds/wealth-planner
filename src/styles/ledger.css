@@ -44,6 +44,10 @@
      otherwise cut off exactly that. A second line on the few rows that need one beats hiding it. */
   .budget-progress-text{ min-width:0; }
   .budget-progress-text.over{ color: var(--bad-ink); }
+  /* November 2026: nearly at the plan with days to go, and a line nothing's been spent on yet (words only, no bar). */
+  .budget-progress-fill.close{ background: var(--warn-ink); }
+  .budget-progress-text.close{ color: var(--warn-ink); }
+  .budget-progress.is-quiet .budget-progress-text{ color: var(--ink-soft); }
   /* A budget row with at least one transaction logged against it this month can expand in place
      to show exactly which ones — clicking anywhere on the row (not just the chevron) toggles it,
      matching the click-anywhere-on-the-row pattern used elsewhere (property-section-head,
@@ -1723,6 +1727,14 @@
   .bh-in b{ font-family: var(--font-num); font-weight:600; }
   .bh-in-go{ font-weight:600; color: var(--brass-strong); white-space:nowrap; }
   .bh-tools-head{ margin-top: 8px; }
+  /* The Lines list: which lines show, and their order (components/expenses.js lineView) */
+  .bl-bar{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin: 4px 0 12px; }
+  .bl-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .bl-chip{ min-height:36px; padding:0 12px; border-radius:999px; border:1px solid var(--border); background: var(--paper-raised); color: var(--ink); font: inherit; font-size:var(--fs-sm); cursor:pointer; }
+  .bl-chip span{ font-family: var(--font-num); color: var(--ink-soft); }
+  .bl-chip.is-on{ background: var(--ink); border-color: var(--ink); color: var(--paper-raised); font-weight:600; }
+  .bl-chip.is-on span{ color: inherit; }
+  .bl-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
 
   /* A set-aside line's pot on its Details page (components/detail.js) */
   .dt-pot{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }

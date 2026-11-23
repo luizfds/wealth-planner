@@ -2228,8 +2228,8 @@
 /* November 2026: property money (components/propertymoney.js). */
   .pm-chip{ display:inline-flex; align-items:center; gap:2px; padding:1px 8px; border-radius:999px; background: var(--prop-wash); color: var(--prop-ink); font-weight:600; font-size:var(--fs-xs); white-space:nowrap; }
   .pm-chip.is-ip{ background: var(--ip-wash); color: var(--ip-ink); }
-  .prop-icon{ width:36px; height:36px; flex:none; border-radius:999px; display:grid; place-items:center; background: var(--prop-wash); color: var(--prop-ink); font-weight:600; }
-  .prop-icon.is-ip{ background: var(--ip-wash); color: var(--ip-ink); }
+  .pm-icon{ width:36px; height:36px; flex:none; border-radius:999px; display:grid; place-items:center; background: var(--prop-wash); color: var(--prop-ink); font-weight:600; }
+  .pm-icon.is-ip{ background: var(--ip-wash); color: var(--ip-ink); }
   .cf-prop-note{ margin:6px 0 4px; padding:10px 12px; border-radius: var(--inner-radius); background: var(--prop-wash); color: var(--prop-ink); font-size:var(--fs-xs); line-height:1.45; }
   .txfor{ display:flex; flex-direction:column; gap:8px; }
   .txfor-seg{ display:grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
@@ -2238,8 +2238,8 @@
   .txfor-props{ display:flex; flex-direction:column; gap:8px; }
   .txfor-prop{ display:flex; align-items:center; gap:12px; min-height:60px; padding:8px 12px; border-radius:12px; border:1px solid var(--border); background: var(--paper-raised); color: var(--ink); font: inherit; text-align:left; cursor:pointer; }
   .txfor-prop.is-on{ border:2px solid var(--brass); padding:7px 11px; }
-  .txfor-prop-icon{ width:36px; height:36px; flex:none; border-radius:999px; display:grid; place-items:center; background: var(--prop-wash); color: var(--prop-ink); }
-  .txfor-prop.is-ip .txfor-prop-icon{ background: var(--ip-wash); color: var(--ip-ink); }
+  .txfor-pm-icon{ width:36px; height:36px; flex:none; border-radius:999px; display:grid; place-items:center; background: var(--prop-wash); color: var(--prop-ink); }
+  .txfor-prop.is-ip .txfor-pm-icon{ background: var(--ip-wash); color: var(--ip-ink); }
   .txfor-prop-text{ display:flex; flex-direction:column; min-width:0; }
   .txfor-prop-text small{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .txfor-costs{ display:flex; flex-wrap:wrap; gap:6px; }
@@ -2303,3 +2303,14 @@
   .pmoney-tax{ display:flex; flex-direction:column; gap:6px; padding:12px 16px; border-radius: var(--inner-radius); background: var(--prop-wash); color: var(--prop-ink); font-size:var(--fs-xs); line-height:1.5; }
   .pmoney-tax b{ font-size:var(--fs-sm); }
   .pmoney-tax.is-ip{ background: var(--good-wash); color: var(--good-ink); }
+  .pm-aside{ display:flex; flex-direction:column; gap:6px; padding:12px 0; border-top:1px solid var(--border); }
+  .pm-aside:first-child{ border-top:0; padding-top:0; }
+  .pm-aside-k, .pm-aside-sub{ font-size:var(--fs-sm); color: var(--ink-soft); }
+  .pm-aside-sub.is-good{ color: var(--good-ink); }
+  .pm-aside-v{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; }
+  .pm-aside-v small{ font-family: inherit; font-size:var(--fs-sm); font-weight:400; color: var(--ink-soft); }
+  .pm-aside-v.is-bad{ color: var(--bad-ink); } .pm-aside-v.is-good{ color: var(--good-ink); }
+  .pm-aside-bar{ display:block; height:8px; border-radius:999px; background: var(--border); overflow:hidden; }
+  .pm-aside-bar i{ display:block; height:100%; background: var(--prop-ink); }
+  .pm-aside .link-btn{ align-self:flex-start; min-height:44px; }
+  .txg-prop{ font-size:var(--fs-xs); white-space:nowrap; }

@@ -402,7 +402,7 @@ export function txViewToggleHtml(){
 // entries: cashflowEntries rows; opts: { transactions, lineOptions(id), accountOptions(name), today, picking }
 export function txGridHtml(entries, opts){
   var esc = escapeAttr;
-  var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line</th><th>Account</th><th class="num">Amount</th></tr></thead>';
+  var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line or property</th><th>Account</th><th class="num">Amount</th></tr></thead>';
   var newRow = '<tr class="txg-new">' + (opts.picking ? '<td></td>' : '') +
     '<td><input type="date" class="txg-new-date field-control field-compact" value="' + esc(opts.today) + '" aria-label="New transaction date"></td>' +
     '<td><input type="text" class="txg-new-what field-control field-compact" placeholder="New: what was it?" aria-label="New transaction description"></td>' +
@@ -420,7 +420,9 @@ export function txGridHtml(entries, opts){
       (opts.picking ? '<td class="txg-pick">' + selectBoxHtml(i) + '</td>' : '') +
       '<td><input type="date" class="tx-date field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.date || "") + '" aria-label="Date"></td>' +
       '<td><input type="text" class="tx-what field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.what || "") + '" placeholder="' + esc(e.label) + '" aria-label="Description"></td>' +
-      '<td><select class="tx-link field-control field-compact" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>' +
+      // November 2026: a property's money shows which property and what for — linked from its row's What it's for.
+      (opts.propertySub && t.forProperty ? '<td class="txg-prop">' + opts.propertySub(t) + '</td>' :
+      '<td><select class="tx-link field-control field-compact" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>') +
       '<td><select class="tx-account field-control field-compact" data-tx-index="' + i + '" aria-label="Account">' + opts.accountOptions(t.account || "") + '</select></td>' +
       '<td class="num"><input type="number" step="0.01" class="tx-amount field-control field-compact" data-tx-index="' + i + '" value="' + (Number(t.amount) || 0) + '" aria-label="Amount"></td></tr>';
   }).join("");

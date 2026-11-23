@@ -140,6 +140,7 @@ import { showPage, showExpensesSubpage } from "./nav.js";
 export function wireProperties(){
   // November 2026: a property's Money → its transactions, under Transactions' Property chip.
   document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest("[data-pm-open]")){ showPage("properties"); return; }
     var b = e.target.closest && e.target.closest("[data-pmoney-tx]");
     if(!b) return;
     txFilters.direction = "property";

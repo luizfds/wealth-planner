@@ -210,3 +210,33 @@ export function propertyMoneyHtml(p, st, today){
 }
 function act_share(act){ return act ? act.share : 1; }
 function fyStart(today){ var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)); return (m >= 7 ? y : y - 1) + "-07-01"; }
+
+// ---------------- Beside Transactions (board R): each property's money at a glance ----------------
+// figuresOf(purchase) → purchaseFigures as its transactions say (components/buying.js purchaseCardFigures).
+export function propertyAsideHtml(st, today, figuresOf){
+  st = st || state;
+  today = today || localDateStr();
+  var money = function(v){ return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(Math.round(v))); };
+  return propertyTargets(st).map(function(x){
+    if(x.kind === "purchase"){
+      var f = figuresOf(x.purchase), total = f.paidSoFar + f.cashNeeded;
+      var pct = total > 0 ? Math.round(f.paidSoFar / total * 100) : 0;
+      return '<section class="pm-aside"><span class="pm-aside-k">Buying ' + escapeAttr(x.name) + (x.purchase.settlementDate ? ' · settles ' + escapeAttr(shortDate(x.purchase.settlementDate)) : '') + '</span>' +
+        '<b class="pm-aside-v">' + money(f.paidSoFar) + ' paid <small>of ' + money(total) + '</small></b>' +
+        '<span class="pm-aside-bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span>' +
+        '<span class="pm-aside-sub">' + money(f.cashNeeded) + ' to bring at settlement</span>' +
+        '<button type="button" class="link-btn" data-pm-open="properties">Open the purchase →</button></section>';
+    }
+    if(x.kind === "investment"){
+      var act = propertyYearActual(x.property, actualFyFor(today, today), today, st, claimItems());
+      if(!act) return "";
+      var claim = -act.rows.slice(1).reduce(function(s, r){ return s + r.actual; }, 0);
+      return '<section class="pm-aside is-ip"><span class="pm-aside-k">' + escapeAttr(x.name) + ' · this year so far</span>' +
+        '<b class="pm-aside-v ' + (act.net < 0 ? "is-bad" : "is-good") + '">' + money(act.net) + '</b>' +
+        '<span class="pm-aside-sub">Rent ' + money(act.rows[0].actual) + ' · costs ' + money(-act.rows[1].actual) + ' · interest ' + money(-act.rows[2].actual) + '</span>' +
+        '<span class="pm-aside-sub is-good">' + money(claim) + ' claimable</span>' +
+        '<button type="button" class="link-btn" data-pm-open="properties">Open the property →</button></section>';
+    }
+    return "";
+  }).join("");
+}

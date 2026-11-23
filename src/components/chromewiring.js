@@ -4,6 +4,7 @@
 // refresh, the period selector and keyboard shortcuts.
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
+import { setLineProperty } from "../calc/propertymoney.js";
 import { onMoneyBlur } from "../lib/moneyfield.js";
 import { runManualUpdateCheck } from "./updates.js";
 import { cardPaymentsForMonth, usualCardSource } from "../calc/bills.js";
@@ -12,7 +13,7 @@ import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
 import { syncOn } from "../lib/foldersync.js";
 import { localDateStr } from "../lib/format.js";
 import { showToast } from "../lib/toast.js";
-import { state, persist } from "../state.js";
+import { state, persist, commit } from "../state.js";
 import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
 import { autoPricesNeeded } from "./autoprices.js";
 import { cashRateDue, readCashRateNow } from "./cashrate.js";
@@ -420,6 +421,13 @@ export function wireSubpages(){
   // a budget line changes, so a listener bound to a head would be thrown away on the first edit.
   document.getElementById("sharedGroups").addEventListener("click", function(e){
     // November 2026: which lines show, and their order — this device's view, not the household's data.
+    // November 2026: a line for a property (calc/propertymoney.js) — a home's stays household spending; an investment's is its.
+    var lp = e.target.closest("[data-line-property]");
+    if(lp){
+      var lpLine = (state.shared || []).find(function(l){ return l && l.id === lp.getAttribute("data-line-property-for"); });
+      if(lpLine){ setLineProperty(state, lpLine, lp.getAttribute("data-line-property")); commit(["shared"]); var lpAgain = document.querySelector('[data-line-property="' + lp.getAttribute("data-line-property") + '"][data-line-property-for="' + lpLine.id + '"]'); if(lpAgain) lpAgain.focus({ preventScroll: true }); }
+      return;
+    }
     var lf = e.target.closest("[data-line-filter], [data-line-sort]");
     if(lf){
       var attr = lf.hasAttribute("data-line-filter") ? "data-line-filter" : "data-line-sort", value = lf.getAttribute(attr);

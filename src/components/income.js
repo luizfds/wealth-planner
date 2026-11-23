@@ -17,7 +17,7 @@ import { renderTaxYear } from "./taxyear.js";
 import { SHOW_AS, showAsOption, fromMonthly, DEFAULT_HOURS_PER_WEEK } from "../calc/showas.js";
 import { emptyStateHtml } from "../lib/empty.js";
 
-// ---- Show as (v3.138.0): the Income tab read per year, month, fortnight, week, day or hour ----
+// ---- Show as (v3.138.0): the Income tab read per year, month, fortnight, week or hour ----
 // A way of reading, not data: kept per device, like the ⓘ preference. calc/showas.js converts.
 var SHOW_AS_KEY = "wealthPlanner.incomeShowAs";
 export function incomeShowAs(){ try { return showAsOption(localStorage.getItem(SHOW_AS_KEY)).key; } catch(e){ return "month"; } }

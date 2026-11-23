@@ -52,7 +52,7 @@ export function cashflowEntries(opts){
   return out.sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 }
 
-// f: { direction: "all" | "out" | "in" | "transfer", account, category, line, person, text, and since
+// f: { direction: "all" | "out" | "in" | "transfer" | "oneoff" | "budget" (spending on a line), account, category, line, person, text, and since
 // v3.168.0 min / max (the amount's size, so a refund of $40 is "from $30") and from / to (dates,
 // inclusive) — a trip arrives as from / to, see calc/txviews.js effectiveFilter }.
 // An account filter matches a transfer on either side — it moved money in or out of that account.
@@ -65,7 +65,10 @@ export function filterEntries(entries, f){
     if(f.to && e.date > f.to) return false;
     if(min != null && !isNaN(min) && Math.abs(e.amount) < min) return false;
     if(max != null && !isNaN(max) && Math.abs(e.amount) > max) return false;
-    if(f.direction && f.direction !== "all" && e.kind !== f.direction) return false;
+    // November 2026: "oneoff" is spending on no budget line — a home's purchase costs, a one-time repair.
+    if(f.direction === "oneoff"){ if(e.kind !== "out" || e.lineId) return false; }
+    else if(f.direction === "budget"){ if(e.kind !== "out" || !e.lineId) return false; }
+    else if(f.direction && f.direction !== "all" && e.kind !== f.direction) return false;
     if(f.account && e.account !== f.account && e.toAccount !== f.account) return false;
     if(f.category && e.category !== f.category) return false;
     if(f.line && e.lineId !== f.line) return false;
@@ -95,6 +98,23 @@ export function entryTotals(entries){
   var inn = 0, outt = 0;
   entries.forEach(function(e){ if(e.kind === "in") inn += e.amount; else if(e.kind === "out") outt += e.amount; });
   return { in: Math.round(inn * 100) / 100, out: Math.round(outt * 100) / 100, net: Math.round((inn - outt) * 100) / 100 };
+}
+
+// The period in one line (November 2026): what was spent on the budget's lines, what went on no line (a one-off), what
+// only moved between your own accounts (never spending), and what came in. → { budget, oneoff, oneoffCount, moved,
+// movedCount, in, counts: { all, out, budget, oneoff, in, transfer } } — counts for the kind chips over the list.
+export function periodSummary(entries){
+  var r = { budget: 0, oneoff: 0, oneoffCount: 0, moved: 0, movedCount: 0, in: 0, counts: { all: 0, out: 0, budget: 0, oneoff: 0, in: 0, transfer: 0 } };
+  (entries || []).forEach(function(e){
+    r.counts.all++;
+    if(e.kind === "out"){
+      r.counts.out++;
+      if(e.lineId){ r.budget += e.amount; r.counts.budget++; } else { r.oneoff += e.amount; r.oneoffCount++; r.counts.oneoff++; }
+    } else if(e.kind === "in"){ r.in += e.amount; r.counts.in++; }
+    else if(e.kind === "transfer"){ r.moved += e.amount; r.movedCount++; r.counts.transfer++; }
+  });
+  ["budget", "oneoff", "moved", "in"].forEach(function(k){ r[k] = Math.round(r[k] * 100) / 100; });
+  return r;
 }
 
 // ---------------- Transfers ----------------

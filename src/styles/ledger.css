@@ -148,6 +148,12 @@
 
   /* ---------------- Ledger tables ---------------- */
   .ledgers{ display:flex; flex-direction:column; gap:12px; }
+  /* November 2026: on a wide screen Transactions is the list on the left, Trips, Import and Patterns beside it. */
+  @media (min-width:1100px){
+    .tx-ledgers{ display:grid; grid-template-columns: minmax(0,1fr) minmax(320px,380px); align-items:start; }
+    .tx-ledgers > .record-list{ grid-column:1; grid-row: 1 / span 6; }
+    .tx-ledgers > :not(.record-list){ grid-column:2; }
+  }
   details.ledger{
     background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius);
     box-shadow: var(--shadow); overflow:hidden;
@@ -1189,6 +1195,14 @@
   .cf-own-dates{ font-size:var(--fs-sm); color: var(--ink-soft); align-self:center; }
   .budget-row-sv{ display:inline-block; margin:6px 0 2px; font-size:var(--fs-sm); }
   .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  /* November 2026: the period as one row of chips over the list, each a filter; it scrolls sideways on a phone. */
+  .cf-kinds{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:thin; margin:-6px -2px 0; padding:2px; }
+  .cf-kinds .bl-chip{ flex:none; white-space:nowrap; }
+  .cf-kinds .bl-chip.is-moved:not(.is-on){ color: var(--ink-soft); }
+  .cf-tag{ display:block; width:max-content; margin:2px 0 0 auto; padding:0 6px; border-radius:999px; background: var(--paper-sunken); color: var(--ink-soft); font-size:var(--fs-xs); font-weight:400; font-family: inherit; }
+  .cf-transfer .m-row-name, .cf-transfer .cf-amt{ color: var(--ink-soft); font-weight:400; }
+  .cf-moved{ font-style:italic; }
+  .pattern-spans{ margin:0 0 10px; }
   .cf-totals{ display:flex; gap:14px; flex-wrap:wrap; font-size:var(--fs-sm); color: var(--ink-soft); margin:6px 0 8px; }
   /* What came in, as a thin bar under it: in the space the line already had below it, so the list doesn't move. */
   .cf-totals:has(+ .vbar-wrap){ margin-bottom:4px; }
@@ -1201,7 +1215,7 @@
   .cf-kind{ flex:none; width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:var(--fs-sm); font-weight:600; background: var(--paper-sunken); color: var(--ink-soft); }
   .cf-kind.in{ background: var(--good-wash); color: var(--good-ink); }
   .cf-kind.transfer{ background: var(--brass-wash); color: var(--brass-strong); }
-  .cf-amt{ white-space:nowrap; font-variant-numeric: tabular-nums; }
+  .cf-amt{ white-space:nowrap; font-variant-numeric: tabular-nums; display:flex; flex-direction:column; align-items:flex-end; }
   .cf-amt.in{ color: var(--good-ink); }
   .cf-row-del{ flex:none; color: var(--ink-soft); }
   .cf-row-del:hover{ color: var(--bad-ink); }
@@ -1523,6 +1537,26 @@
   .bc-spend-bar{ grid-column: 1 / -1; height:5px; border-radius:3px; background: var(--border); overflow:hidden; }
   .bc-spend-bar i{ display:block; height:100%; background: var(--brass); }
   .bc-spend li.over .bc-spend-bar i{ background: var(--bad); }
+  /* November 2026: Bills — what's still to pay first, the list or the calendar, a card's bills folded. */
+  .bc-hero{ display:flex; flex-direction:column; gap:2px; margin:0 0 10px; }
+  .bc-hero-k{ font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bc-hero-v{ font-family: var(--font-num); font-size:var(--fs-2xl); font-weight:600; line-height:1.15; }
+  .bc-hero-sub{ font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bc-views{ margin:0 0 6px; }
+  .bc-card-fold{ margin-top:14px; border:1px solid var(--border); border-radius: var(--inner-radius); padding:0 12px; }
+  .bc-card-fold > summary{ display:flex; justify-content:space-between; align-items:center; gap:10px; min-height:52px; cursor:pointer; list-style:none; }
+  .bc-card-fold > summary::-webkit-details-marker{ display:none; }
+  .bc-card-fold-k{ display:flex; flex-direction:column; min-width:0; font-size:var(--fs-sm); }
+  .bc-card-fold-k small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bc-card-fold-v{ font-family: var(--font-num); }
+  .bc-card-fold .bc-list{ margin:0 0 10px; }
+  .bc-key{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 14px; margin:8px 0 0; padding:0; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bc-key li{ display:flex; align-items:center; gap:6px; }
+  .bc-key i{ width:10px; height:10px; border-radius:50%; background: var(--brass); }
+  .bc-key i.bc-key-paid{ background: var(--good); } .bc-key i.bc-key-overdue{ background: var(--bad); }
+  .bc-key i.bc-key-card{ background: var(--ink); border-radius:2px; }
+  .bc-key i.bc-key-oncard{ background:none; box-shadow: inset 0 0 0 1px var(--ink-soft); }
+  .bc-key i.bc-key-auto{ background:none; box-shadow: inset 0 0 0 2px var(--brass); }
   .bc-stopped{ list-style:none; margin:6px 0 0; padding:0; }
   .bc-stopped li{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:var(--fs-sm); padding:4px 0; border-bottom:1px dashed var(--border); }
   .bc-stopped .bc-end{ min-height:36px; flex-shrink:0; }
@@ -1943,27 +1977,24 @@
 /* v3.179.0 (item 205): Subscriptions on Cash flow → Bills */
 .sub-total{ margin:0 0 8px; font-size:var(--fs-sm); }
 .sub-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
-.sub-row{ display:grid; grid-template-columns: minmax(0,2fr) minmax(0,.8fr) minmax(0,1.1fr) minmax(0,1.4fr); gap:10px; align-items:center; padding:8px 0; border-bottom:1px dashed var(--border); font-size:var(--fs-sm); }
+/* November 2026: one row each, its actions behind a tap. */
+.sub-row{ border-bottom:1px dashed var(--border); font-size:var(--fs-sm); }
+.sub-fold > summary{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:10px; align-items:center; min-height:52px; padding:6px 0; cursor:pointer; list-style:none; }
+.sub-fold > summary::-webkit-details-marker{ display:none; }
 .sub-name{ display:flex; flex-direction:column; min-width:0; }
 .sub-name b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sub-name small, .sub-year small, .sub-cancel small{ color: var(--ink-soft); font-size:var(--fs-xs); }
+.sub-name small, .sub-year small{ color: var(--ink-soft); font-size:var(--fs-xs); }
 .sub-rise{ color: var(--warn-ink) !important; }
-.sub-year{ display:flex; flex-direction:column; text-align:right; font-variant-numeric: tabular-nums; }
-.sub-when{ color: var(--ink-soft); }
+.sub-remind{ color: var(--warn-ink); }
+.sub-year{ display:flex; flex-direction:column; text-align:right; }
+.sub-year b{ font-family: var(--font-num); }
 .sub-stopped{ color: var(--ink-soft); font-style:italic; }
-.sub-cancel{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
-.sub-cancel label{ display:flex; align-items:center; gap:6px; }
-.sub-cancel small, .sub-cancel .link-btn{ white-space:nowrap; }
+.sub-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:0 0 12px; }
+.sub-cancel{ display:flex; flex-direction:column; gap:4px; font-size:var(--fs-xs); color: var(--ink-soft); }
+.sub-cancel input[type="date"]{ min-width:0; max-width:180px; }
+.sub-actions .ledger-note{ flex:1 1 100%; }
 .sub-row.is-stopped .sub-name b, .sub-row.is-ignored .sub-name b{ color: var(--ink-soft); }
 .sub-row.is-ignored{ opacity:.6; }
-@media (max-width:700px){
-  .sub-row{ grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "name year" "when when" "cancel cancel"; row-gap:4px; }
-  .sub-name{ grid-area:name; } .sub-year{ grid-area:year; } .sub-when{ grid-area:when; font-size:var(--fs-xs); }
-  .sub-cancel{ grid-area:cancel; flex-direction:row; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px 10px; min-width:0; }
-  /* The date field gives way, so "Not a subscription" stays on screen at a phone's width rather than off its edge. */
-  .sub-cancel label{ min-width:0; flex:1 1 auto; }
-  .sub-cancel input[type="date"]{ min-width:0; max-width:160px; flex:1 1 auto; }
-}
 /* v3.202.0 (item 233): problems the app hit, in Settings → Keeping your data safe */
 .el-log{ margin-top:12px; }
 .el-log summary{ cursor:pointer; min-height:32px; }

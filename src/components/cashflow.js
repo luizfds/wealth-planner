@@ -63,11 +63,18 @@ export function viewsBarHtml(){
     : active ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-view-save>Save view</button>' : '';
   return '<div class="cf-views" role="group" aria-label="Saved views">' + (views.length ? '<span class="cf-views-k">Views</span>' : '') + chips + tail + '</div>';
 }
-export function directionControlHtml(){
-  var dirs = [["all", "All"], ["out", "Spending"], ["in", "Money in"], ["transfer", "Transfers"]];
-  return '<div class="seg-control cf-dir" role="group" aria-label="Show">' + dirs.map(function(d){
-    var on = txFilters.direction === d[0];
-    return '<button type="button" class="seg-option' + (on ? " active" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + d[0] + '">' + d[1] + '</button>';
+// November 2026: the period in one row of chips over the list — what the budget's lines took, one-offs (on no line),
+// money only moved between your own accounts (not spending — a card repayment), money in — each a filter. Always in
+// sight, not inside Filters; one row that scrolls sideways on a phone, so the list still starts in the top half.
+// s: calc/cashflowlist.js periodSummary over the period's entries.
+var KINDS = [["all", "All", null], ["budget", "On your budget", "budget"], ["oneoff", "One-offs", "oneoff"], ["transfer", "Moved, not spent", "moved"], ["in", "Money in", "in"]];
+export function kindChipsHtml(s){
+  s = s || { counts: {} };
+  var counts = s.counts || {};
+  return '<div class="cf-kinds" role="group" aria-label="Show" tabindex="-1">' + KINDS.map(function(k){
+    var on = txFilters.direction === k[0];
+    var fig = k[2] ? fmtCurrency0.format(s[k[2]] || 0) : String(counts.all || 0);
+    return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + (k[0] === "transfer" ? " is-moved" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + k[0] + '">' + k[1] + ' <span>' + fig + '</span></button>';
   }).join("") + '</div>';
 }
 export function filterBarHtml(entries, lines, options){
@@ -79,19 +86,18 @@ export function filterBarHtml(entries, lines, options){
     var d = describeFilter(k[0], txFilters[k[0]], { lineName: labelOf, tripName: tripName, date: fmtDate });
     return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + d.text) + '">' + escapeAttr(d.label + d.sep) + '<b>' + escapeAttr(d.value) + '</b> <span aria-hidden="true">✕</span></button>';
   }).join("") : '';
-  if(txFilters.direction !== 'all') chips += '<button type="button" class="cf-chip" data-cf-dir="all">' + escapeAttr({out: 'Spending', in: 'Money in', transfer: 'Transfers'}[txFilters.direction]) + ' ✕</button>';
   if(opts.scopeActive) chips += '<button type="button" class="cf-chip" data-tx-range="month">' + escapeAttr(opts.scopeLabel) + ' ✕</button>';
   if(chips) chips = '<div class="cf-chips">' + chips + '</div>';
-  var count = on.length + (txFilters.direction !== 'all' ? 1 : 0) + (opts.scopeActive ? 1 : 0);
+  var count = on.length + (opts.scopeActive ? 1 : 0);
   var controls = '<button type="button" class="btn btn-sm btn-ghost record-search-toggle" data-cf-search aria-label="Search transactions" aria-expanded="' + (txFilterPanel.search || !!txFilters.text) + '" aria-controls="cfSearchRow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg></button>' +
     '<button type="button" class="btn btn-sm btn-ghost cf-more-btn" data-cf-panel aria-expanded="' + txFilterPanel.open + '" aria-controls="cfFilterRow">Filters' + (count ? ' (' + count + ')' : '') + '</button>' +
-    listActionsHtml('Transaction tools', '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? 'Done selecting' : 'Select transactions') + '</button><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button>' + txViewToggleHtml());
+    listActionsHtml('Transaction tools', '<button type="button" class="btn btn-sm btn-ghost" data-cf-select aria-pressed="' + txSelect.on + '">' + (txSelect.on ? 'Done selecting' : 'Select transactions') + '</button><button type="button" class="btn btn-sm btn-ghost" data-cf-transfer>+ Transfer</button><button type="button" class="btn btn-sm btn-ghost" data-cf-import>Import a statement</button>' + txViewToggleHtml());
   return '<div class="cf-filters">' +
-    listToolbarHtml(opts.dateLabel || 'Transactions', opts.total || fmtCurrency0.format(0), controls, 'totalTransactionsAmount') +
+    listToolbarHtml(opts.dateLabel || 'Transactions', opts.total || fmtCurrency0.format(0), controls, 'totalTransactionsAmount', { totalLabel: 'Spending' }) +
     '<div id="cfSearchRow" class="record-search-row"' + (txFilterPanel.search || txFilters.text ? '' : ' hidden') + '><input type="search" class="field-control cf-search-input" data-cf-filter="text" value="' + escapeAttr(txFilters.text) + '" placeholder="Search name or account" aria-label="Search transactions"></div>' +
     (txFilterPanel.open ? '<div class="record-filter-panel" id="cfFilterRow">' +
       '<div class="record-filter-heading"><b>Filters</b><button type="button" class="btn btn-sm" data-cf-panel>Done</button></div>' +
-      '<div class="record-filter-choices">' + directionControlHtml() + (opts.scopeHtml || '') + '</div>' +
+      '<div class="record-filter-choices">' + (opts.scopeHtml || '') + '</div>' +
       viewsBarHtml() + '<div class="cf-filter-row">' +
       selectHtml("account", "Account", ch.accounts, txFilters.account) +
       selectHtml("category", "Category", ch.categories, txFilters.category) +
@@ -102,7 +108,7 @@ export function filterBarHtml(entries, lines, options){
       inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("from", "Date from", "date", txFilters.from) +
       inputHtml("to", "Date to", "date", txFilters.to) +
-    '</div></div>' : '') + chips +
+    '</div></div>' : '') + (opts.kinds || '') + chips +
     (txFiltersActive() || opts.scopeActive ? '<button type="button" class="btn btn-sm btn-ghost" data-cf-clear>Clear filters</button>' : '') +
     (txSelect.on ? '<button type="button" class="btn btn-sm" data-cf-select>Done selecting</button>' : '') +
   '</div>';
@@ -140,7 +146,7 @@ export function inRowHtml(e){
 export function transferRowHtml(e){
   return '<div class="m-row cf-row cf-transfer"><div class="m-row-summary cf-row-summary">' +
     '<span class="cf-kind transfer" aria-hidden="true">⇄</span>' +
-    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + '</div></div>' +
+    '<div class="cf-row-main"><div class="m-row-name">' + escapeAttr(e.label) + '</div><div class="m-row-sub">' + escapeAttr(e.account || "?") + ' → ' + escapeAttr(e.toAccount || "?") + ' · <span class="cf-moved">moved, not spent</span></div></div>' +
     '<div class="m-row-amt cf-amt">' + fmtCurrency2.format(e.amount) + '</div>' +
     '<button type="button" class="btn btn-danger btn-sm cf-row-del" data-cf-del-transfer="' + escapeAttr(e.ref) + '" aria-label="Delete this transfer" title="Delete">' + BIN + '</button></div></div>';
 }
@@ -265,8 +271,13 @@ export function budgetPlanHtml(opts){
 // The selected month as a calendar (Monday first), each day with its bills — ticked when paid,
 // red when past and unpaid — and the same list underneath, which is what a phone mostly reads.
 var CAL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-export function billsCalendarHtml(data, ym, today){
+// November 2026: what's still to pay first; the list or the calendar (with a key), one at a time; a card's bills one
+// folded row. Spending budgets left (they're Budget's), and Stopped? asks in the Budget inbox (calc/tidyinbox.js).
+export var billsView = { view: "list" };
+export function billsCalendarHtml(data, ym, today, opts){
+  opts = opts || {};
   today = today || localDateStr();
+  var view = (opts.view || billsView.view) === "calendar" ? "calendar" : "list";
   var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
   var mon = CAL_MONTHS[m - 1];
   function short(iso){ return Number(iso.slice(8, 10)) + ' ' + CAL_MONTHS[Number(iso.slice(5, 7)) - 1].slice(0, 3); }
@@ -307,7 +318,7 @@ export function billsCalendarHtml(data, ym, today){
       var parts = [];
       if(p.split){
         if(p.split.bills) parts.push(fmtCurrency0.format(p.split.bills) + ' bills');
-        if(p.split.spending) parts.push(fmtCurrency0.format(p.split.spending) + ' spending budgets');
+        if(p.split.spending) parts.push(fmtCurrency0.format(p.split.spending) + ' everyday spending');
         if(p.split.other) parts.push(fmtCurrency0.format(p.split.other) + ' other');
       }
       var sub = 'Everything charged ' + short(p.cycle.start) + ' – ' + short(p.cycle.end) + (p.paid ? '' : p.open ? ', so far' : '') + (parts.length ? ': ' + parts.join(' · ') : '');
@@ -326,8 +337,11 @@ export function billsCalendarHtml(data, ym, today){
   cardsUsed.forEach(function(c){
     var bills = onCard.filter(function(b){ return b.card === c; });
     var sum = bills.reduce(function(s, b){ return s + b.amount; }, 0);
-    list += '<h3 class="bc-sec">Bills on the ' + escapeAttr(c) + ' <span>' + fmtCurrency0.format(sum) + ' — charged here, paid together with everything else on the card</span></h3><ul class="bc-list is-card">' +
-      bills.map(function(b){ return row(b.date, escapeAttr(b.what), b.payOn ? 'with the ' + short(b.payOn) + ' payment' : '', st(b), b.amount); }).join("") + '</ul>';
+    var paidN = bills.filter(function(b){ return b.paid; }).length, toCome = bills.filter(function(b){ return !b.paid; });
+    var toComeSum = toCome.reduce(function(s, b){ return s + b.amount; }, 0);
+    list += '<details class="bc-card-fold"><summary><span class="bc-card-fold-k"><b>On the ' + escapeAttr(c) + ' · ' + bills.length + ' bill' + (bills.length === 1 ? '' : 's') + '</b>' +
+      '<small>' + (paidN ? paidN + ' charged' : 'none charged yet') + (toCome.length ? ' · ' + toCome.length + ' still to come, ' + fmtCurrency0.format(toComeSum) : '') + ' — paid with the card</small></span><b class="bc-card-fold-v">' + fmtCurrency0.format(sum) + '</b></summary>' +
+      '<ul class="bc-list is-card">' + toCome.concat(bills.filter(function(b){ return b.paid; })).map(function(b){ return row(b.date, escapeAttr(b.what), b.payOn ? 'with the ' + short(b.payOn) + ' payment' : '', st(b), b.amount); }).join("") + '</ul></details>';
   });
   // v3.101.0: what the property manager pays out of the rent — on the statement, not a debit.
   var byAgent = all.filter(function(b){ return b.agent; });
@@ -340,18 +354,6 @@ export function billsCalendarHtml(data, ym, today){
       }).join("") + '</ul>';
   }
   if(!list) list = '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + mon + '. A bill gets a day once a payment has been logged against its budget line.</p>';
-  var spend = (data.spending || []).length ? '<h3 class="bc-sec">Spending budgets in ' + mon + ' <span>not bills — many purchases, so no day</span></h3><ul class="bc-spend">' +
-    data.spending.map(function(sp){
-      var pct = sp.budget > 0 ? Math.min(100, Math.round(sp.spent / sp.budget * 100)) : 0;
-      var over = sp.budget > 0 && sp.spent > sp.budget;
-      return '<li' + (over ? ' class="over"' : '') + '><span class="bc-list-name">' + escapeAttr(sp.what) + '</span><b>' + fmtCurrency0.format(sp.spent) + ' <small>of ' + fmtCurrency0.format(sp.budget) + '</small></b>' +
-        '<span class="bc-spend-bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></li>';
-    }).join("") + '</ul>' : '';
-  var stopped = (data.stopped || []).length ? '<h3 class="bc-sec">Stopped? <span>no payment for a while, so left off the calendar</span></h3><ul class="bc-stopped">' +
-    data.stopped.map(function(sp){
-      return '<li><span class="bc-list-name">' + escapeAttr(sp.what) + '<small>Last paid ' + short(sp.last) + ' ' + sp.last.slice(0, 4) + '</small></span>' +
-        '<button type="button" class="link-btn bc-end" data-bc-end="' + escapeAttr(sp.id) + '" data-bc-end-date="' + escapeAttr(sp.last) + '">It ended then</button></li>';
-    }).join("") + '</ul>' : '';
   var undated = data.undated.length ? '<details class="bc-undated"><summary>' + data.undated.length + ' regular line' + (data.undated.length === 1 ? "" : "s") + ' with no payment logged yet, so no day</summary><p class="ledger-note" style="margin:4px 0">' +
     data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
   var kinds = (data.kinds || []).length ? '<details class="bc-kinds"><summary>Bill or spending budget? Change how a line is treated</summary><p class="ledger-note" style="margin:4px 0 6px">Worked out from what\'s logged: about one payment a period is a bill; many purchases of varying size is a spending budget.</p><ul>' +
@@ -361,13 +363,26 @@ export function billsCalendarHtml(data, ym, today){
         '<option value="bill"' + (k.setting === "bill" ? ' selected' : '') + '>Bill</option>' +
         '<option value="spending"' + (k.setting === "spending" ? ' selected' : '') + '>Spending budget</option></select></li>';
     }).join("") + '</ul></details>' : '';
-  var cardOut = pays.reduce(function(s, p){ return s + p.amount; }, 0);
-  var leaves = (data.directTotal != null ? data.directTotal : data.total) + cardOut;
-  var summary = pays.length
-    ? fmtCurrency0.format(leaves) + ' leaves your accounts: ' + fmtCurrency0.format(data.directTotal) + ' in bills, ' + fmtCurrency0.format(cardOut) + ' card payment' + (pays.length === 1 ? '' : 's')
-    : fmtCurrency0.format(data.paidTotal) + ' paid of ' + fmtCurrency0.format(data.total) + ' in dated bills';
-  return '<div class="bc-summary"><b>' + mon + ' ' + y + '</b><span>' + summary + '</span></div>' +
-    '<div class="bc-grid" role="group" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + list + spend + stopped + undated + kinds;
+  // What's still to leave your accounts this month: unpaid bills from them, unpaid card payments, automatic payments
+  // not yet confirmed. Paid is said beside it.
+  var direct2 = all.filter(function(b){ return !b.card && !b.agent; });
+  var left = direct2.filter(function(b){ return !b.paid; }).map(function(b){ return b.amount; })
+    .concat(pays.filter(function(p){ return !p.paid; }).map(function(p){ return p.amount; }))
+    .concat(autos.filter(function(p){ return p.status !== "paid" && p.status !== "skipped"; }).map(function(p){ return p.amount; }));
+  var leftSum = left.reduce(function(s, v){ return s + v; }, 0);
+  var paidSum = direct2.filter(function(b){ return b.paid; }).reduce(function(s, b){ return s + b.amount; }, 0) +
+    pays.filter(function(p){ return p.paid; }).reduce(function(s, p){ return s + p.amount; }, 0) +
+    autos.filter(function(p){ return p.status === "paid"; }).reduce(function(s, p){ return s + p.amount; }, 0);
+  var hero = '<div class="bc-hero"><span class="bc-hero-k">Still to pay in ' + mon + '</span><b class="bc-hero-v">' + fmtCurrency0.format(leftSum) + '</b>' +
+    '<span class="bc-hero-sub">' + (left.length ? left.length + ' payment' + (left.length === 1 ? '' : 's') : 'nothing left') + (paidSum > 0 ? ' · ' + fmtCurrency0.format(paidSum) + ' paid so far' : '') + '</span></div>';
+  var seg = function(key, label){ return '<button type="button" class="seg-option' + (view === key ? ' active' : '') + '" aria-pressed="' + (view === key) + '" data-bills-view="' + key + '">' + label + '</button>'; };
+  var switcher = '<div class="seg-control bc-views" role="group" aria-label="Show bills as">' + seg("list", "List") + seg("calendar", "Calendar") + '</div>';
+  var legend = '<ul class="bc-key" aria-label="Key"><li><i class="bc-key-due"></i>due</li><li><i class="bc-key-paid"></i>paid</li><li><i class="bc-key-overdue"></i>not logged yet</li><li><i class="bc-key-card"></i>card payment</li>' +
+    (onCard.length ? '<li><i class="bc-key-oncard"></i>charged to a card</li>' : '') + (autos.length ? '<li><i class="bc-key-auto"></i>automatic</li>' : '') + '</ul>';
+  var body = view === "calendar"
+    ? '<div class="bc-grid" role="group" aria-label="Bills in ' + mon + '">' + head + cells.join("") + '</div>' + legend + '<p class="ledger-note" style="margin:6px 0 0">Switch to List for each bill\'s amount and a Paid button.</p>'
+    : list;
+  return hero + switcher + body + undated + kinds;
 }
 
 // ---------------- The transaction table (v3.117.0) ----------------

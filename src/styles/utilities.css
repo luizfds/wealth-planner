@@ -65,6 +65,8 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 /* Leave room for fallback-font metrics: wrapping the count adds a row above the records. */
 .record-list .cf-totals{ gap:6px; }
 .record-list .record-toolbar{ padding-left:0; padding-right:0; }
+/* November 2026: Transactions' period chips sit right under its toolbar, so the list still starts in the top half. */
+.record-list .cf-filters > .record-toolbar{ padding-bottom:4px; }
 #assetsSub-Shares .record-toolbar, #assetsSub-Super .record-toolbar{ padding-left:var(--card-px); padding-right:var(--card-px); }
 #page-assets:has(#assetsSub-Shares:not([hidden]), #assetsSub-Super:not([hidden])) > #assetsPersonFilter{ display:none; }
 .record-filter-panel .shares-toolbar{ margin-bottom:8px; }

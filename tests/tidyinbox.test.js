@@ -74,3 +74,18 @@ test("a misfiled card says what you called it, when that isn't the bank's shop �
   assert.match(card.body, /You described it as “The Bakery” — check it's the same shop/);
   assert.doesNotMatch(card.body, /Probably a slip/);
 });
+
+// November 2026: Bills' "Stopped?" is asked here, once.
+test("a bill not paid for a while is asked about in the inbox, and ends at its last payment", function(){
+  var line = { id: "g", what: "Gym", amount: 20, freq: "Weekly" };
+  var cards = inboxCards({ stopped: [{ id: "g", what: "Gym", last: "2026-03-24" }], lines: [line] });
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].label, "Stopped?");
+  assert.match(cards[0].title, /Gym hasn't been paid since 24 Mar 2026/);
+  var undo = applyInboxAction({ transactions: [], shared: [line] }, cards[0].yes.act, { lineOf: function(){ return line; } });
+  assert.equal(line.endDate, "2026-03-24");
+  undo();
+  assert.equal("endDate" in line, false);
+  assert.deepEqual(inboxCards({ stopped: [{ id: "g", what: "Gym", last: "2026-03-24" }], lines: [line], ok: { "inbox:stopped|g": true } }), [], "answered, it doesn't come back");
+  assert.deepEqual(inboxCards({ stopped: [{ id: "x", what: "Gone", last: "2026-03-24" }], lines: [line] }), [], "a line that's gone isn't asked about");
+});

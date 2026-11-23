@@ -15,11 +15,11 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmt
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
-import { cashflowEntries, filterEntries, entryTotals } from "../calc/cashflowlist.js";
+import { cashflowEntries, filterEntries, entryTotals, periodSummary } from "../calc/cashflowlist.js";
 import { hasOwnDates } from "../calc/txviews.js";
 import { keepUi } from "../lib/keepui.js";
 import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
-import { txGrid, txGridHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, filterBarHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml } from "./cashflow.js";
+import { txGrid, txGridHtml, budgetPlanHtml, billsCalendarHtml, txFilters, txSelect, transferForm, splitEditing, currentTxFilter, filterBarHtml, dayHeaderHtml, totalsLineHtml, inRowHtml, transferRowHtml, selectBoxHtml, bulkBarHtml, transferFormHtml, splitEditorHtml, kindChipsHtml, txFiltersActive } from "./cashflow.js";
 import { modernPlainRowHtml, modernRowSummaryHtml, modernRowEditHtml, modernRowShellHtml, optionsHtml, hasEnded } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { parseCsv } from "../lib/backup.js";
@@ -1398,7 +1398,8 @@ function transactionRowHtml(t, idx){
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
     subLines: [transactionSummaryText(t)],
-    amountHtml: fmtCurrency2.format(Number(t.amount) || 0)
+    // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
+    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId ? '' : '<small class="cf-tag">one-off</small>')
   });
   // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
   // freshly-added transaction — picking a budget line first, before typing anything, mirrors the
@@ -1485,9 +1486,13 @@ function drawTransactions(){
   var inScope = all.filter(function(e){ return !win || (e.date >= win.start && e.date <= win.end); });
   var shown = filterEntries(inScope, currentTxFilter());
   var totals = entryTotals(shown);
+  // November 2026: the period as chips over the list — the budget's lines, one-offs, moved, money in (its own, whatever's
+  // filtered), each a filter.
+  var period = periodSummary(inScope);
+  var filtered = txFiltersActive();
   // The header figure stays what it always was — spending — but now follows the filters too.
   if(totalEl) totalEl.textContent = fmtCurrency0.format(totals.out);
-  var controlHtml = filterBarHtml(inScope, lines, { dateLabel:dateLabel, total: fmtCurrency0.format(totals.out), scopeActive: !ownDates && transactionsRange !== 'month', scopeLabel: win ? win.label : 'All dates',
+  var controlHtml = filterBarHtml(inScope, lines, { dateLabel:dateLabel, total: fmtCurrency0.format(totals.out), kinds: kindChipsHtml(period), scopeActive: !ownDates && transactionsRange !== 'month', scopeLabel: win ? win.label : 'All dates',
     scopeHtml: ownDates ? '<span class="cf-own-dates">Dates from the filter</span>' : transactionScopeControlHtml(transactionsRange) });
   var bulk = txSelect.on ? bulkBarHtml(transactionLinkOptionsHtml(null), transactionAccountOptionsHtml("")) : "";
   if(!shown.length){
@@ -1500,7 +1505,7 @@ function drawTransactions(){
   var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, TRANSACTIONS_RECENT_COUNT);
   // v3.117.0: the table, on a wide screen when chosen.
   if(txGrid.on && (typeof window === "undefined" || window.innerWidth > 720)){
-    container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length, shown) +
+    container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') +
       txGridHtml(visible, { transactions: state.transactions, lineOptions: transactionLinkOptionsHtml, accountOptions: transactionAccountOptionsHtml, today: localDateStr(), picking: txSelect.on }) +
       (hasMore ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' + (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) + '</button></div>' : '');
     return;
@@ -1525,7 +1530,7 @@ function drawTransactions(){
         (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +
       '</button></div>'
     : "";
-  container.innerHTML = top + controlHtml + bulk + totalsLineHtml(totals, shown.length, shown) + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 // The entries currently on screen that are spending rows — what "Select all shown" picks.
 export function visibleSpendingIndices(){
@@ -1596,6 +1601,23 @@ export function renderActualVsPlannedPanel(){
   renderSpendCategoryChart();
   renderSpendingTrends();
   renderYearSpending();
+  showPatternSpan(patternSpan.span);
+}
+// November 2026: Transactions' Patterns — one card, one span at a time. Remembered on this device.
+export var patternSpan = { span: "month" };
+try { var savedSpan = typeof localStorage !== "undefined" && localStorage.getItem("wealthPlanner.patternSpan"); if(savedSpan === "year" || savedSpan === "six") patternSpan.span = savedSpan; } catch(e){}
+export function showPatternSpan(span){
+  if(typeof document === "undefined") return;
+  var card = document.getElementById("patternsCard");
+  if(!card) return;
+  var btn = card.querySelector('[data-pattern-span="' + span + '"]');
+  // Simple mode puts 6 months away (data-level="advanced"): a remembered span with no button to show it falls back.
+  if(!btn || getComputedStyle(btn).display === "none") span = "month";
+  if(span !== patternSpan.span){ patternSpan.span = span; try { localStorage.setItem("wealthPlanner.patternSpan", span); } catch(e){} }
+  card.querySelectorAll("[data-pattern-span]").forEach(function(b){ var on = b.getAttribute("data-pattern-span") === span; b.classList.toggle("active", on); b.setAttribute("aria-pressed", String(on)); });
+  card.querySelectorAll("[data-pattern-pane]").forEach(function(p){ p.hidden = p.getAttribute("data-pattern-pane") !== span; });
+  var label = document.getElementById("patternsLabel");
+  if(label) label.textContent = span === "year" ? householdYearToDate().displayLabel : span === "six" ? "last 6 months" : monthPhrase(selectedMonth()).replace(/^in /, "");
 }
 
 
@@ -1950,6 +1972,11 @@ function trendSparkHtml(row, months, monthProgress){
 function trendAlertsHtml(rows){
   var alerts = [];
   rows.forEach(function(r){
+    // November 2026: a streak runs on whole months; this month, so far, can say the opposite ("Housing up 4 months
+    // running" beside "Housing ▼56%"). Then the streak isn't claimed — the row's own figure says what's happening.
+    var now = r.trend && r.trend.direction;
+    if(r.risingStreak >= 2 && now === "down") return;
+    if(r.fallingStreak >= 2 && now === "up") return;
     if(r.risingStreak >= 2){
       alerts.push({ cls: "up", text: r.category + " up " + r.risingStreak + " months running" });
     } else if(r.fallingStreak >= 2){
@@ -2001,7 +2028,8 @@ export function renderSpendingTrends(){ return keepUi(drawSpendingTrends); }
 function drawSpendingTrends(){
   var el = document.getElementById("spendingTrendsPanel");
   if(!el) return;
-  var view = spendingTrends(state.transactions, {
+  // November 2026: one-offs (on no budget line) out, as in the month's chart — a home's purchase costs aren't a "new" category.
+  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), {
     months: TRENDS_MONTHS,
     lookback: TRENDS_LOOKBACK,
     minSpend: TRENDS_MIN_SPEND,
@@ -2110,9 +2138,12 @@ export function renderYearSpending(){
   var byCategory = {};
   var order = [];
   var total = 0;
+  var oneOffYear = 0;
   txns.forEach(function(t){
     var amount = Number(t.amount) || 0;
     if(!amount) return;
+    // November 2026: one-offs out, as in the month's chart — said underneath.
+    if(!t.linkedExpenseId){ oneOffYear += amount; return; }
     var name = transactionCategory(t) || UNCATEGORISED;
     if(byCategory[name] == null){ byCategory[name] = 0; order.push(name); }
     byCategory[name] += amount;
@@ -2156,6 +2187,7 @@ export function renderYearSpending(){
   // v3.154.0: no stacked category bar here — Actual vs. planned above already draws one; these rows are the year's.
   panel.innerHTML = headline +
     '<div class="year-cat-rows">' + rows + '</div>' +
+    (Math.abs(oneOffYear) >= 0.5 ? '<p class="ledger-note cat-chart-oneoff">Not in these figures: <b>' + fmtCurrency0.format(oneOffYear) + '</b> of one-offs, on no budget line.</p>' : '') +
     (plannedTotal >= 1 ? '<p class="ledger-note help" style="margin:6px 0 0">Planned is each budget line\'s share of the year so far, from the day it starts to the day it ends. Bills that come once or twice a year are spread evenly, so one paid early reads as over plan until the year catches up.</p>' : '');
 }
 

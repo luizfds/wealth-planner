@@ -63,7 +63,8 @@ const LOCAL_SCROLL = [
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
   ".scenario-tradeoffs [role=region]",     // Home's scenario comparison table, every column a figure (#266)
-  ".table-scroll"                          // an import's review table (#265)
+  ".table-scroll",                         // an import's review table (#265)
+  ".cf-kinds"                              // Transactions' period chips, each a 44px filter, one row so the list starts in the top half
 ];
 const failures = [];
 const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});

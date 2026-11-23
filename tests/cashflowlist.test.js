@@ -2,8 +2,8 @@ import "./_env.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { state } from "../src/state.js";
-import { cashflowEntries, filterEntries, filterChoices, entryTotals, addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "../src/calc/cashflowlist.js";
-import { budgetPlanHtml } from "../src/components/cashflow.js";
+import { cashflowEntries, filterEntries, filterChoices, entryTotals, addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions, periodSummary } from "../src/calc/cashflowlist.js";
+import { budgetPlanHtml, kindChipsHtml } from "../src/components/cashflow.js";
 
 function withState(fn){
   var keep = { transactions: state.transactions, incomeLog: state.incomeLog, transfers: state.transfers, income: state.income };
@@ -104,4 +104,30 @@ test("the month planned: a normal month first, then the year's bonuses averaged 
   assert.match(html, /Once a year, averaged over twelve months/);
   assert.match(html, /Left over a month across the year<\/span><b><\/b><em class="pos">\$2,500/);
   assert.ok(html.indexOf("normal month") < html.indexOf("Bonus (after tax)"), "the bonus comes after the normal month");
+});
+
+// November 2026: the period in one line — the budget's lines, one-offs, money only moved, money in.
+test("the period's summary keeps one-offs and transfers apart from spending on the budget", function(){
+  var entries = [
+    { kind: "out", amount: 120, lineId: "groceries" },
+    { kind: "out", amount: 30, lineId: "cafes" },
+    { kind: "out", amount: 600, lineId: "" },
+    { kind: "transfer", amount: 1000, lineId: "" },
+    { kind: "in", amount: 4000, lineId: "net:Alex" }
+  ];
+  var s = periodSummary(entries);
+  assert.equal(s.budget, 150);
+  assert.equal(s.oneoff, 600);
+  assert.equal(s.moved, 1000);
+  assert.equal(s.in, 4000);
+  assert.deepEqual(s.counts, { all: 5, out: 3, budget: 2, oneoff: 1, in: 1, transfer: 1 });
+  assert.deepEqual(filterEntries(entries, { direction: "budget" }).map(function(e){ return e.amount; }), [120, 30]);
+  assert.deepEqual(filterEntries(entries, { direction: "oneoff" }).map(function(e){ return e.amount; }), [600]);
+  assert.equal(filterEntries(entries, { direction: "out" }).length, 3, "Spending still lists every purchase");
+  var html = kindChipsHtml(s);
+  assert.match(html, /data-cf-dir="budget">On your budget <span>\$150<\/span>/);
+  assert.match(html, /data-cf-dir="transfer">Moved, not spent <span>\$1,000<\/span>/);
+  assert.match(html, /data-cf-dir="all">All <span>5<\/span>/);
+  assert.doesNotMatch(html, /undefined|NaN/);
+  assert.match(kindChipsHtml(periodSummary([])), /One-offs <span>\$0<\/span>/, "every kind is always there to pick");
 });

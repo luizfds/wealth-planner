@@ -7,6 +7,7 @@
 //                a set-aside line spent every month
 //   drift        a plan far from what's spent, either way            (calc/trim.js spendingDrift) Use typical / Keep
 //   recurring    a charge repeating with no line for it              (calc/recurring.js)          Add a line / One-off
+//   stopped      a bill not paid for a while, with no end date       (calc/bills.js stopped)      It ended then / Still going
 // "No" is remembered (state.tidyOk), so a card that's been answered doesn't come back; "Later" is the session's.
 // Pure: inboxCards() takes the lists, applyInboxAction() the state it changes, and returns its undo.
 import { moveTransactions, undoChanges, markTidyOk } from "./tidy.js";
@@ -16,7 +17,7 @@ function money(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : 
 function plural(n, one, many){ return n + " " + (n === 1 ? one : (many || one + "s")); }
 var FREQ_WORD = { Weekly: "a week", Fortnightly: "a fortnight", Monthly: "a month", Quarterly: "a quarter", "Half-yearly": "a half-year", Yearly: "a year" };
 
-// input: { strays, hints, drift, recurring, lines, ok }. lines: the budget lines (for names). ok: state.tidyOk.
+// input: { strays, hints, drift, recurring, stopped, lines, ok }. lines: the budget lines (for names). ok: state.tidyOk.
 // → cards [{ id, kind, label, title, body, facts: [[label, value], [label, value]], yes: { label, act }, no: { label, act } }].
 export function inboxCards(input){
   input = input || {};
@@ -65,8 +66,21 @@ export function inboxCards(input){
       yes: { label: "Add it to Lifestyle", act: { type: "addLine", line: { what: r.name, classification: "Wants", category: r.category || "", amount: r.amount, freq: r.freq }, indices: r.indices || [] } },
       no: { label: "It's a one-off", act: { type: "ok", key: key } } });
   });
+  // November 2026: from Bills' "Stopped?" list — asked here, once, with the other things to tidy.
+  (input.stopped || []).forEach(function(x){
+    var key = "inbox:stopped|" + x.id;
+    if(ok[key] || !byId[x.id] || !x.last) return;
+    out.push({ id: key, kind: "stopped", label: "Stopped?",
+      title: x.what + " hasn't been paid since " + longDate(x.last),
+      body: "It's left off the Bills calendar until a payment comes. If it ended — a cancelled membership, a bill now paid another way — end the line there, so the plan stops counting it.",
+      facts: [["Last paid", longDate(x.last)], ["Line", name(x.id)]],
+      yes: { label: "It ended then", act: { type: "set", lineId: x.id, set: { endDate: x.last } } },
+      no: { label: "It's still going", act: { type: "ok", key: key } } });
+  });
   return out;
 }
+var MONTH_WORDS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function longDate(iso){ return Number(String(iso).slice(8, 10)) + " " + MONTH_WORDS[Number(String(iso).slice(5, 7)) - 1] + " " + String(iso).slice(0, 4); }
 
 // What a "yes" or "no" does, on the state it's handed (st.transactions, st.shared, budget lines by id via `lineOf`).
 // opts: { lineOf(id) → the line object, idFactory() → a new id }. → its undo, or null when there's nothing to do.

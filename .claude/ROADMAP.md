@@ -5898,3 +5898,24 @@ Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgetho
   insight say Essentials and Lifestyle.
 - **A misfiled card says what you called it** (`strays()` `typed`): a purchase typed "The Bakery" whose bank text was a
   gym's was moved onto the gym line from a card that showed only the bank's name.
+
+## Transactions & Bills: what happened, what's due — and nothing twice (November 2026)
+
+`[x]` The same treatment Budget had, measured on the household's backup at 390px: Transactions ~3,400px → ~1,700px,
+Bills ~3,600px → ~900px. Mock-ups agreed on the design canvas (round 3, boards F–J):
+- **Transactions**: the period is one row of chips over the list, each a figure and a filter — All · On your budget ·
+  One-offs · Moved, not spent · Money in (`periodSummary`, `kindChipsHtml`; filter directions `budget` and `oneoff`).
+  The chips scroll sideways on a phone (smoke's `LOCAL_SCROLL`): a summary card above the list put the first record
+  below the top half. The toolbar's figure says Spending, not Total. A transfer says "moved, not spent"; a purchase on no
+  line says one-off. Import is folded, with "Import a statement" in the list's tools. On a wide screen the list is on the
+  left, Trips, Import and Patterns beside it (`.tx-ledgers`).
+- **Patterns**: This month by category, This year so far and Spending over time are one card with a span switch
+  (`patternSpan`, remembered on the device; 6 months is advanced). One-offs are out of all three, each saying what was
+  left out. A streak this month contradicts ("Housing up 4 months running" beside "▼56%") isn't claimed.
+- **Bills**: "Still to pay in <month>" first, with what's paid; List or Calendar (`billsView`), the calendar with a key.
+  A card's bills are one folded row (charged, still to come). Spending budgets left (Budget's). Stopped? is a card in
+  the Budget inbox (`tidyinbox.js` `stopped`: It ended then / It's still going).
+- **Subscriptions**: `householdSubscriptions()` — a line in a Subscriptions category (found though its charges aren't
+  steady: a description that changes city, a foreign price, a yearly one), or a steady charge that isn't a bill by its
+  line or its name. Rates, insurance, internet and phone stay on Bills. One row each, folded, its cancel-by and "Not a
+  subscription" behind a tap; the card is folded with how many and what a year.

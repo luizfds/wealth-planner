@@ -51,7 +51,7 @@ test("bills the agent pays are their own group, never overdue, never upcoming", 
   assert.deepEqual(upcomingBills(items, tx, "2026-09-28", 14, { accounts: st.accounts, transfers: [] }), []);
   var html = billsCalendarHtml(r, "2026-10", "2026-10-21");
   assert.match(html, /Paid by the property manager/);
-  assert.match(html, /by-agent/);
+  assert.match(billsCalendarHtml(r, "2026-10", "2026-10-21", { view: "calendar" }), /by-agent/);
   assert.doesNotMatch(html, /From your accounts/);
   // Without the agent account the same bill is a direct debit to chase.
   var plain = billsForMonth(items, tx, "2026-10", "2026-10-21", { accounts: [st.accounts[0]], transfers: [] });

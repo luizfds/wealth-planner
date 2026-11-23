@@ -565,7 +565,7 @@
         <div class="page-intro-row">
           <p class="page-intro help">What you actually spent. Log it here and the Budget tab becomes a live picture of the month. <b>+ Log spend</b> is the quick way in: type the amount, tap which budget line it came out of, done. Add with full details opens every field: link, description, amount, date and account. A bill that fell due with nothing logged shows in the line above the list — tap it to confirm what was paid. The budget itself never moves — only this list does.</p>
         </div>
-        <div class="ledgers">
+        <div class="ledgers tx-ledgers">
           <section class="ledger record-list" aria-label="Transactions">
             <div class="ledger-body">
               <div id="txReviewBanner"></div>
@@ -582,7 +582,7 @@
             </summary>
             <div class="ledger-body" id="tripsBody"></div>
           </details>
-          <details class="ledger" id="bankImportCard" open>
+          <details class="ledger" id="bankImportCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import from your bank</h2></div>
             </summary>
@@ -604,52 +604,49 @@
               <input type="file" id="bankImportFile" accept=".csv,text/csv,.pdf,application/pdf,.ofx,.qfx,.qif,application/x-ofx,application/vnd.intu.qfx,application/qif" hidden>
             </div>
           </details>
-          <details class="ledger" open>
+          <!-- November 2026: This month by category, This year so far and Spending over time were three cards with three
+               charts and their own words, and they disagreed. One card now, one span at a time (components/expenses.js
+               patternSpan). One-offs are out of all three. -->
+          <details class="ledger" id="patternsCard" open>
             <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">This month by category</h2></div>
-            </summary>
-            <div class="ledger-body"><p class="ledger-note help">Spending on your budget lines in the selected month, by category. A purchase on no line — a one-off like a home's purchase costs — is left out and said underneath. How each line is going against its plan is on Budget.</p><div id="spendCategoryChart" hidden></div></div>
-          </details>
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">This year so far</h2></div>
-              <div class="ledger-total" id="yearSpendLabel"></div>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Patterns</h2></div>
+              <div class="ledger-total" id="patternsLabel"></div>
             </summary>
             <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Everything logged since your year began — the view a tax return, a yearly review or an insurance renewal is actually asked in. Change which twelve months this covers under Settings → Preferences. Export this year’s transactions downloads every logged transaction as a CSV, with dates, categories and linked budget lines.</p>
-              <div id="yearSpendPanel"></div>
-              <div class="ledger-footer">
-                <button class="btn btn-sm" id="exportYearTransactionsBtn">Export this year's transactions (CSV)</button>
+              <p class="ledger-note help" style="margin-left:0">Where the money on your budget lines went, by category. This month: the month in the header. This year: since your year began (change which twelve months under Settings → Preferences), against what the budget planned for the same stretch. 6 months: which categories are climbing and which are settling down — a month still running is compared with the same days of earlier months, never a whole one. A purchase on no budget line — a one-off like a home's purchase costs — is left out and said underneath.</p>
+              <div class="seg-control pattern-spans" role="group" aria-label="Span">
+                <button type="button" class="seg-option active" aria-pressed="true" data-pattern-span="month">This month</button>
+                <button type="button" class="seg-option" aria-pressed="false" data-pattern-span="year">This year</button>
+                <button type="button" class="seg-option" aria-pressed="false" data-pattern-span="six" data-level="advanced">6 months</button>
               </div>
-            </div>
-          </details>
-          <details class="ledger" open data-level="advanced">
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Spending over time</h2></div>
-              <div class="ledger-total">last 6 months</div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Everything else on this page compares you against a number you set. This compares you against yourself — which categories are climbing, and which are settling down. “None yet” means nothing logged in this category this month; “new” means there is no earlier month with spend to compare. The amount is spending so far this month. Comparisons use the same days of earlier months when this month is still running.</p>
-              <div id="spendingTrendsPanel"></div>
+              <div class="pattern-pane" data-pattern-pane="month"><div id="spendCategoryChart" hidden></div></div>
+              <div class="pattern-pane" data-pattern-pane="year" hidden>
+                <p class="ledger-note" style="margin:0 0 6px"><span id="yearSpendLabel"></span></p>
+                <div id="yearSpendPanel"></div>
+                <div class="ledger-footer">
+                  <button class="btn btn-sm" id="exportYearTransactionsBtn">Export this year's transactions (CSV)</button>
+                </div>
+              </div>
+              <div class="pattern-pane" data-pattern-pane="six" hidden><div id="spendingTrendsPanel"></div></div>
             </div>
           </details>
         </div>
         </div>
         <div class="expenses-subpage" id="expensesSub-bills" hidden>
         <div class="page-intro-row">
-          <p class="page-intro help">When each bill lands this month, from the last time it was paid — and which have been paid. Change the month with the period beside the page title.</p>
+          <p class="page-intro help">What's still to pay this month and when, from the last time each bill was paid — and which have been paid. A list, or the month as a calendar. Bills charged to a card fold into one row: they're paid with the card. Change the month with the period beside the page title.</p>
         </div>
         <div class="ledgers">
           <details class="ledger" open>
             <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Bills calendar</h2></div>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Bills</h2></div>
             </summary>
             <div class="ledger-body"><div id="billsCalendar"></div></div>
           </details>
-          <details class="ledger" open>
+          <details class="ledger" id="subscriptionsCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Subscriptions</h2></div>
-              <div class="ledger-total">every repeating charge</div>
+              <div class="ledger-total" id="subscriptionsLabel"></div>
             </summary>
             <div class="ledger-body"><div id="subscriptionsBody"></div></div>
           </details>

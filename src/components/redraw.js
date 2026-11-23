@@ -48,6 +48,7 @@ import { renderTaxYear } from "./taxyear.js";
 import { renderTrim } from "./trim.js";
 import { renderTidy } from "./tidy.js";
 import { renderBudgetSplit } from "./budgetsplit.js";
+import { renderAdjust } from "./adjustplan.js";
 import { renderCashRatePanel } from "./cashrate.js";
 
 // v3.205.0 (item 236a): a full redraw draws the page on screen and what's on every page; every other page is
@@ -196,6 +197,7 @@ function defineViews(){
   // inside each save took saving a transfer from about 225ms to over 400ms on the speed budget's slowed CPU (#267).
   defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"], { later: true });
   defineView("budgetSplit", ["expenses"], renderBudgetSplit, ["shared", "transactions", "home", "properties", "tidyOk", "scenarioChanges", "scenarios", "yearBasis"], { tabs: { expenses: ["expensesSub-budget"] } });
+  defineView("adjustPlan", ["expenses"], renderAdjust, ["shared", "transactions", "home", "properties", "scenarioChanges", "scenarios", "income", "tax"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("tidy", ["expenses"], renderTidy, ["transactions", "shared", "home", "properties", "tidyOk", "trips", "importRules"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);

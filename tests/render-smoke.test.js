@@ -3166,3 +3166,28 @@ test("Tidy up inside a line: the purchases its marker counts, with Move and It's
     assert.equal(tidyStraysForLineHtml("lh", list), "");
   } finally { state.shared = wasShared; state.transactions = wasTx; }
 });
+
+test("Adjust the plan: far lines with Use typical, a pick shown in the plan, the effect before Save; names escaped", async () => {
+  const { adjustHtml, adjustUi } = await import("../src/components/adjustplan.js");
+  const rows = [{ id: "s", what: "Online <shopping>", classification: "Wants", irregular: false, freq: "Monthly", planMonthly: 250, typical: 530, months: 12, far: true, diff: 280, amount: 530, note: "over the plan 11 of 12 months" },
+    { id: "f", what: "Card fee", classification: "Needs", irregular: false, freq: "Monthly", planMonthly: 150, typical: 0, months: 12, far: true, diff: -150, amount: 0, note: "nothing logged in 12 months — paid somewhere else?" },
+    { id: "g", what: "Groceries", classification: "Needs", irregular: false, freq: "Weekly", planMonthly: 1300, typical: 1300, months: 12, far: false, diff: 0, amount: 300, note: "spent in 12 of 12 months" }];
+  Object.assign(adjustUi, { picked: {}, filter: "far" });
+  let h = adjustHtml({ rows, left: 5000 });
+  assert.match(h, /Far from typical <span>2<\/span>/);
+  assert.match(h, /Online &lt;shopping> <small>· Lifestyle/);
+  assert.match(h, /data-adjust-pick="s" aria-pressed="false">Use \$530\/mo/);
+  assert.match(h, /data-adjust-pick="f" aria-pressed="false">Make it \$0/);
+  assert.doesNotMatch(h, /Groceries/);
+  assert.match(h, /data-adjust-save disabled>Pick a line to change/);
+  adjustUi.picked = { s: true };
+  h = adjustHtml({ rows, left: 5000 });
+  assert.match(h, /Plan <b class="ap-new">\$530\/mo/);
+  assert.match(h, /\+\$280\/mo/);
+  assert.match(h, /\$5,000 → \$4,720/);
+  assert.match(h, /data-adjust-save>Save 1 change/);
+  adjustUi.filter = "all";
+  assert.match(adjustHtml({ rows, left: 5000 }), /Groceries <small>· Essential<\/small><\/span><span class="ap-same">on plan/);
+  Object.assign(adjustUi, { picked: {}, filter: "far" });
+  assert.match(adjustHtml({ rows: [rows[2]], left: null }), /data-empty="done"/);
+});

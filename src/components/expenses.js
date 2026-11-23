@@ -424,7 +424,8 @@ export function renderSharedGroups(){
   var chip = function(key, label, n){ return '<button type="button" class="bl-chip' + (filter === key ? " is-on" : "") + '" data-line-filter="' + key + '" aria-pressed="' + (filter === key) + '">' + label + ' <span>' + n + '</span></button>'; };
   var seg = function(key, label){ return '<button type="button" class="seg-option' + (lineView.sort === key ? " active" : "") + '" data-line-sort="' + key + '" aria-pressed="' + (lineView.sort === key) + '">' + label + '</button>'; };
   var barHtml = '<div class="bl-bar"><div class="bl-chips" role="group" aria-label="Show lines">' + chip("look", "Needs a look", counts.look) + chip("spent", "Spent this month", counts.spent) + chip("all", "All", counts.all) + '</div>' +
-    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div></div>';
+    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div>' +
+    '<button type="button" class="link-btn bl-adjust" data-adjust-open>Adjust the plan →</button></div>';
   if(!shown.length){
     container.innerHTML = compositionHtml + barHtml + emptyStateHtml(filter === "look" ? "Nothing needs a look — every line is on track this month." : "Nothing spent on a line yet this month.", { attrs: { "data-line-filter": "all" }, label: "Show all lines" });
     renderPropertyExpensesSummary();

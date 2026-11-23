@@ -32,6 +32,8 @@ import { renderTrim, trimUi, trimScenario } from "./trim.js";
 import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
 import { renderBudgetSplit, budgetSplitUi, budgetSplitModel } from "./budgetsplit.js";
 import { applyInboxAction } from "../calc/tidyinbox.js";
+import { renderAdjust, adjustUi, adjustModel } from "./adjustplan.js";
+import { applyAdjust } from "../calc/adjustplan.js";
 import { classWord } from "../constants.js";
 import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
 
@@ -550,5 +552,44 @@ export function wireBudgetSplit(){
     commit(touched);
     focusInbox();
     showUndoToast(answer.act.type === "ok" ? "Kept as it is — it won't be asked again" : answer.label + " — done", function(){ undo(); commit(touched); focusInbox(); });
+  });
+}
+
+// ---------------- Money → Budget → Adjust the plan (November 2026) ----------------
+// Picks are this session's; Save sets every picked line to its typical amount — one commit, one undo.
+export function wireAdjust(){
+  var body = document.getElementById("adjustBody");
+  body.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b || b.disabled) return;
+    var f = b.getAttribute("data-adjust-filter");
+    if(f){ adjustUi.filter = f; renderAdjust(); var c = body.querySelector('[data-adjust-filter="' + f + '"]'); if(c) c.focus(); return; }
+    var pick = b.getAttribute("data-adjust-pick");
+    if(pick){
+      if(adjustUi.picked[pick]) delete adjustUi.picked[pick]; else adjustUi.picked[pick] = true;
+      renderAdjust();
+      var again = body.querySelector('[data-adjust-pick="' + CSS.escape(pick) + '"]');
+      if(again) again.focus();
+      return;
+    }
+    if(b.hasAttribute("data-adjust-save")){
+      var lines = loggableBudgetLineItems();
+      var r = applyAdjust(adjustModel().rows, adjustUi.picked, function(id){ return lines.find(function(l){ return l.id === id; }); });
+      if(!r.count) return;
+      adjustUi.picked = {};
+      commit(["shared", "home"]);
+      showUndoToast(r.count + " line" + (r.count === 1 ? "" : "s") + " set to what you typically spend", function(){ r.undo(); commit(["shared", "home"]); });
+    }
+  });
+  // "Adjust the plan →" in the Lines bar: open the card and bring it into view.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("[data-adjust-open]")) return;
+    var card = document.getElementById("adjustCard");
+    if(!card) return;
+    card.open = true;
+    renderAdjust();
+    alignTo(card);
+    var first = body.querySelector("[data-adjust-filter]");
+    if(first) first.focus({ preventScroll: true });
   });
 }

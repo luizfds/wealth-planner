@@ -1735,6 +1735,22 @@
   .bl-chip.is-on{ background: var(--ink); border-color: var(--ink); color: var(--paper-raised); font-weight:600; }
   .bl-chip.is-on span{ color: inherit; }
   .bl-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
+  .bl-adjust{ margin-left:auto; }
+  /* Adjust the plan (components/adjustplan.js) */
+  #adjustCard{ scroll-margin-top: 80px; }
+  .ap-rows{ list-style:none; margin:10px 0 0; padding:0; }
+  .ap-row{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:4px 10px; align-items:center; padding:10px 0; border-bottom:1px solid var(--paper-sunken); }
+  .ap-name{ font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ap-name small{ font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .ap-same{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .ap-sub{ grid-column: 1 / -1; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .ap-sub b{ color: var(--ink); font-family: var(--font-num); font-weight:600; }
+  .ap-sub b.ap-new{ color: var(--good-ink); }
+  .ap-foot{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; margin-top:10px; padding:12px 0 4px; background: var(--paper-raised); border-top:1px solid var(--border); }
+  .ap-foot > div{ display:flex; flex-direction:column; gap:2px; }
+  .ap-foot span{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .ap-foot b{ font-family: var(--font-num); font-weight:600; }
+  .ap-foot .btn{ margin-left:auto; }
 
   /* A set-aside line's pot on its Details page (components/detail.js) */
   .dt-pot{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }

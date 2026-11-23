@@ -901,6 +901,18 @@ export var MIGRATION_STEPS = [
     var ok = s.tidyOk && typeof s.tidyOk === "object" && !Array.isArray(s.tidyOk) ? s.tidyOk : {};
     s.tidyOk = {};
     Object.keys(ok).forEach(function(k){ if(ok[k] === true && k.indexOf("|") > 0) s.tidyOk[k] = true; });
+  } },
+  // November 2026 (calc/budgetsplit.js): a set-aside line is a pot, and can say what it held on a day — `potStart` on
+  // `potFrom`. Both or neither: a figure with no day, or a day that isn't one, goes, and the pot starts empty again.
+  { n: 36, name: "what a set-aside line's pot held, and when", run: function(s){
+    var fix = function(l){
+      if(!l || typeof l !== "object") return;
+      var start = Number(l.potStart), dated = typeof l.potFrom === "string" && /^\d{4}-\d{2}-\d{2}$/.test(l.potFrom);
+      if(dated && l.potStart !== "" && l.potStart != null && isFinite(start)) l.potStart = start;
+      else { delete l.potStart; delete l.potFrom; }
+    };
+    (Array.isArray(s.shared) ? s.shared : []).forEach(fix);
+    Object.keys(s.home && typeof s.home === "object" ? s.home : {}).forEach(function(k){ (Array.isArray(s.home[k]) ? s.home[k] : []).forEach(fix); });
   } }
 ];
 

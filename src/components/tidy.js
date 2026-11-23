@@ -3,13 +3,14 @@
 // Two parts. "Looks misfiled": a shop nearly always filed on one line, with one or two on another — move them, or
 // say it's right and it isn't asked again. "Look inside a line": everything a line collected over the last year, by
 // shop; open one to move all of it (or the purchases ticked) to another line or a new one, teach the import to file
-// that shop there from now on, or count those purchases as Needs or Wants whatever the line is.
+// that shop there from now on, or count those purchases as Essential or Lifestyle whatever the line is.
 import { state } from "../state.js";
 import { strays, strayCountByLine, lineMerchants, mixedLines, TIDY_MONTHS } from "../calc/tidy.js";
 import { transactionClass } from "../calc/ledger.js";
 import { loggableBudgetLineItems, transactionAccount } from "./expenses.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { classWord } from "../constants.js";
 import { emptyStateHtml } from "../lib/empty.js";
 
 // What's open, ticked and typed — this device's session only.
@@ -101,10 +102,10 @@ function lineInspectorHtml(lines, byId, today){
   var other = lineCls === "Needs" ? "Wants" : lineCls === "Wants" ? "Needs" : "";
   var otherN = groups.reduce(function(s, g){ return s + (other === "Wants" ? g.wants : other === "Needs" ? g.needs : g.wants + g.needs); }, 0);
   html += '<p class="ledger-note tr-note"><b>' + money(total) + '</b> over the last ' + TIDY_MONTHS + ' months, at ' + plural(groups.filter(function(g){ return g.key; }).length, "shop") +
-    (lineCls ? ' · the line counts as ' + escapeAttr(lineCls) + (otherN ? ', ' + plural(otherN, "purchase") + ' as ' + other : '') : '') + '. Open a shop to move it or count it as Needs or Wants.</p>';
+    (lineCls ? ' · the line counts as ' + escapeAttr(classWord(lineCls)) + (otherN ? ', ' + plural(otherN, "purchase") + ' as ' + classWord(other) : '') : '') + '. Open a shop to move it or count it as Essential or Lifestyle.</p>';
   html += '<div class="tidy-shops">' + groups.map(function(g){
     var open = tidyUi.openKey === g.key;
-    var tag = (g.wants ? '<span class="tidy-tag">' + g.wants + ' Wants</span>' : '') + (g.needs ? '<span class="tidy-tag">' + g.needs + ' Needs</span>' : '');
+    var tag = (g.wants ? '<span class="tidy-tag">' + g.wants + ' Lifestyle</span>' : '') + (g.needs ? '<span class="tidy-tag">' + g.needs + ' Essential</span>' : '');
     return '<div class="tidy-shop' + (open ? ' open' : '') + '">' +
       '<button type="button" class="tidy-shop-head" data-tidy-shop="' + escapeAttr(g.key) + '" aria-expanded="' + open + '">' +
         '<span class="tidy-shop-name">' + escapeAttr(g.label) + tag + '</span>' +
@@ -123,7 +124,7 @@ function shopPanelHtml(g, line, byId){
   var lines = Object.keys(byId).map(function(k){ return byId[k]; });
   var rows = txs.map(function(t){
     var cls = transactionClass(t, line);
-    var own = t.classification ? ' <span class="tidy-tag">' + escapeAttr(cls) + '</span>' : '';
+    var own = t.classification ? ' <span class="tidy-tag">' + escapeAttr(classWord(cls)) + '</span>' : '';
     var note = String(t.what || "").trim() && t.bankWhat && t.what.trim() !== String(t.bankWhat).trim() ? ' · ' + escapeAttr(t.what) : '';
     var acct = transactionAccount(t);
     // The tick in a span: a label directly around a checkbox becomes the phone's inline-flex touch target (phone.css),
@@ -143,11 +144,11 @@ function shopPanelHtml(g, line, byId){
     '<div class="tidy-act"><span class="tidy-act-label">Move to</span>' +
       '<select class="field-control" data-tidy-to aria-label="Move the ticked purchases to">' + lineOptionsHtml(lines, tidyUi.moveTo, { placeholder: "Choose a line…", except: line.id, newLine: true }) + '</select>' +
       (isNew ? '<input type="text" class="field-control" data-tidy-new-name value="' + escapeAttr(tidyUi.newName) + '" placeholder="' + escapeAttr((line.what || "Line") + " – " + g.label) + '" aria-label="New line name">' +
-        '<select class="field-control" data-tidy-new-class aria-label="New line counts as"><option' + (tidyUi.newClass === "Needs" ? " selected" : "") + '>Needs</option><option' + (tidyUi.newClass === "Wants" ? " selected" : "") + '>Wants</option></select>' : '') +
+        '<select class="field-control" data-tidy-new-class aria-label="New line is essential or lifestyle"><option value="Needs"' + (tidyUi.newClass === "Needs" ? " selected" : "") + '>Essential</option><option value="Wants"' + (tidyUi.newClass === "Wants" ? " selected" : "") + '>Lifestyle</option></select>' : '') +
       '<button type="button" class="btn btn-sm btn-primary" data-tidy-apply-move' + (picked && tidyUi.moveTo ? '' : ' disabled') + '>Move ' + picked + '</button>' + teach + '</div>' +
     '<div class="tidy-act"><span class="tidy-act-label">Count as</span>' +
-      '<button type="button" class="btn btn-sm" data-tidy-class="Needs"' + none + '>Needs</button>' +
-      '<button type="button" class="btn btn-sm" data-tidy-class="Wants"' + none + '>Wants</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-tidy-class=""' + none + '>As the line' + (line.classification && line.classification !== "N/A" ? ' (' + escapeAttr(line.classification) + ')' : '') + '</button></div>' +
+      '<button type="button" class="btn btn-sm" data-tidy-class="Needs"' + none + '>Essential</button>' +
+      '<button type="button" class="btn btn-sm" data-tidy-class="Wants"' + none + '>Lifestyle</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-tidy-class=""' + none + '>As the line' + (line.classification && line.classification !== "N/A" ? ' (' + escapeAttr(classWord(line.classification)) + ')' : '') + '</button></div>' +
   '</div>';
 }

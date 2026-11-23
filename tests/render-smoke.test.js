@@ -3093,13 +3093,13 @@ test("Tidy up: a misfiled purchase with Move / It's right, a line's shops, an op
     assert.match(tidyHtml([], "2026-11-20"), /data-empty="done"/, "nothing misfiled says so, with nothing to do");
     Object.assign(tidyUi, { lineId: "lp", openKey: "fern toys x", picked: { x2: true }, moveTo: "__new", newName: "", newClass: "Wants", teach: true });
     h = tidyHtml([], "2026-11-20");
-    assert.match(h, /3 shops · the line counts as Needs, 1 purchase as Wants/);
+    assert.match(h, /3 shops · the line counts as Essential, 1 purchase as Lifestyle/);
     assert.match(h, /data-tidy-shop="fern toys x" aria-expanded="true"/);
     assert.match(h, /Fern Toys &quot;x&quot;/);
     assert.match(h, /data-tidy-new-name/);
     assert.match(h, /File Fern Toys &quot;x&quot; there from future statements too/);
     assert.match(h, /data-tidy-class="Wants"/);
-    assert.match(h, /As the line \(Needs\)/);
+    assert.match(h, /As the line \(Essential\)/);
     const moveTo = h.slice(h.indexOf("data-tidy-to"), h.indexOf("</select>", h.indexOf("data-tidy-to")));
     assert.doesNotMatch(moveTo, /<option value="lp"/, "the line itself isn't a place to move to");
     assert.match(moveTo, /value="__new" selected>\+ A new line…/);
@@ -3110,4 +3110,27 @@ test("Tidy up: a misfiled purchase with Move / It's right, a line's shops, an op
     state.shared = wasShared; state.transactions = wasTx;
     Object.assign(tidyUi, { lineId: "", openKey: null, picked: {}, moveTo: "", newName: "" });
   }
+});
+
+test("Essentials & lifestyle: four figures, this month's bars, pots with a short one, hints with a fix, names escaped", async () => {
+  const { budgetSplitHtml } = await import("../src/components/budgetsplit.js");
+  const split = { essential: { planned: 6800, spent: 5900 }, lifestyle: { planned: 2700, spent: 3000 }, other: { planned: 0, spent: 0 },
+    setAside: { planned: 2200, essential: 200, lifestyle: 2000 }, total: 11700, lifestyleLeft: -300 };
+  const pot = (id, what, cls, balance) => ({ line: { id, what, classification: cls }, pot: { monthly: 100, spent: 50, from: "2025-12-31", balance, short: balance < 0 } });
+  const m = { ym: "2026-11", today: "2026-11-23", lines: 12, split, pots: [pot("t", "Trips <b>", "Wants", 4200), pot("c", "Car upkeep", "Needs", -120)],
+    hints: [{ id: "hint:setaside-monthly|x", lineId: "x", what: "Cafés & co", text: "set aside, but spent in 12 of the last 12 months", fix: { label: "Make it every month", set: { irregular: false } } }] };
+  const h = budgetSplitHtml(m);
+  assert.match(h, /Essentials · every month<\/span><b>\$6,800<\/b><small>58% of the plan/);
+  assert.match(h, /Lifestyle over this month<\/span><b class="over">\$300<\/b>/);
+  assert.match(h, /day 23 of 30/);
+  assert.match(h, /bs-bar-fig over">\$3,000 <small>of \$2,700/);
+  assert.match(h, /Trips &lt;b><\/button> <small>· Lifestyle/, "the pot's name escaped, and Essential/Lifestyle in words");
+  assert.match(h, /bs-pot-bal over">\$120 short/);
+  assert.match(h, /data-bs-fix="hint:setaside-monthly\|x">Make it every month/);
+  assert.match(h, /Cafés &amp; co/);
+  assert.match(h, /The whole plan <b>\$11,700\/mo/);
+  const empty = budgetSplitHtml(Object.assign({}, m, { pots: [], hints: [] }));
+  assert.match(empty, /Nothing set aside yet[^<]*<button type="button" class="link-btn empty-state-go" data-empty-scroll="#sharedGroups"/);
+  assert.doesNotMatch(empty, /Worth a look/);
+  assert.match(budgetSplitHtml(Object.assign({}, m, { lines: 0 })), /No budget lines yet[^<]*<button[^>]*data-empty-scroll="#sharedGroups"/);
 });

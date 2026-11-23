@@ -155,7 +155,7 @@ export function bulkBarHtml(lineOptionsHtml, accountOptionsHtml){
     '<button type="button" class="btn btn-sm btn-ghost" data-cf-pick-all>Select all shown</button>' +
     '<label class="cf-filter"><span>Line</span><select class="field-control" data-cf-bulk="line"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + lineOptionsHtml + '</select></label>' +
     '<label class="cf-filter"><span>Account</span><select class="field-control" data-cf-bulk="account"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option>' + accountOptionsHtml + '</select></label>' +
-    '<label class="cf-filter"><span>Counts as</span><select class="field-control" data-cf-bulk="class"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option><option value="">As its line</option><option>Needs</option><option>Wants</option></select></label>' +
+    '<label class="cf-filter"><span>Counts as</span><select class="field-control" data-cf-bulk="class"' + (n ? "" : " disabled") + '><option value="__keep">— keep —</option><option value="">As its line</option><option value="Needs">Essential</option><option value="Wants">Lifestyle</option></select></label>' +
     '<button type="button" class="btn btn-sm btn-primary" data-cf-bulk-apply' + (n ? "" : " disabled") + '>Apply</button>' +
     '<button type="button" class="btn btn-sm btn-danger cf-danger" data-cf-bulk-delete' + (n ? "" : " disabled") + '>Delete</button></div>';
 }

@@ -98,6 +98,8 @@
   .rule-seg.wants{ background: var(--brass); }
   .rule-seg.savings{ background: var(--good); }
   .rule-seg.na{ background: var(--ink-soft); }
+  /* November 2026: a set-aside pot — the colours of neither group, hatched (calc/budgetsplit.js). */
+  .rule-seg.setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 5px, #94a3b8 5px 8px); }
   .rule-target{ position:absolute; top:0; bottom:0; width:0; border-right: 1.5px dashed rgba(0,0,0,0.35); }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-target{ border-right-color: rgba(255,255,255,0.35); } }
   :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
@@ -130,6 +132,7 @@
      rgba(0,0,0,0), so a stacked chart that encodes identity in colour alone had a colourless key. */
   .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; background: var(--series-color, transparent); }
   .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
+  .rule-swatch.setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 3px, #94a3b8 3px 5px); }
 
   /* account bars */
   .acct-row{ display:grid; grid-template-columns: 92px 1fr 78px; align-items:center; gap:10px; margin-bottom:9px; font-size:var(--fs-sm); }
@@ -313,6 +316,7 @@
   .m-avatar.m-avatar-wants{ background: var(--brass); }
   .m-avatar.m-avatar-savings{ background: var(--good); }
   .m-avatar.m-avatar-na{ background: var(--ink-soft); }
+  .m-avatar.m-avatar-setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 5px, #64748b 5px 9px); }
   /* Grouped by category, a card's avatar takes the same cycling palette slot as its slice in the
      composition bar above, so the two read as the same thing. */
   .m-avatar.m-avatar-series{ background: var(--series-color); }
@@ -1641,6 +1645,52 @@
   /* v3.100.0: Cash flow → Budget → Trim */
   .tr-note{ margin:0 0 6px; }
   .tr-all{ margin:8px 0 4px; }
+  /* Money → Budget → Essentials & lifestyle (November 2026, components/budgetsplit.js) */
+  .bs-tiles{ display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:14px; }
+  .bs-tile{ display:flex; flex-direction:column; gap:3px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--inner-radius); background: var(--paper-raised); min-width:0; }
+  .bs-tile > span{ display:flex; align-items:center; gap:6px; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bs-tile b{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; }
+  .bs-tile small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bs-tile-key{ background: var(--brass-wash); border-color: transparent; }
+  .bs-tile b.over, .bs-bar-fig.over, .bs-pot-bal.over{ color: var(--bad-ink); }
+  .bs-swatch{ display:inline-block; width:10px; height:10px; border-radius:3px; flex:none; }
+  .bs-swatch.needs, .bs-fill.needs{ background:#6b7a8f; }
+  .bs-swatch.wants, .bs-fill.wants{ background: var(--brass); }
+  .bs-swatch.na, .bs-fill.na{ background: var(--ink-soft); }
+  .bs-swatch.setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 3px, #94a3b8 3px 5px); }
+  .bs-fill.over{ background: var(--bad); }
+  .bs-cols{ display:flex; flex-wrap:wrap; gap:14px 28px; }
+  .bs-sec{ flex: 1 1 300px; min-width:0; display:flex; flex-direction:column; gap:10px; }
+  .bs-sec h3{ margin:0; font-size:var(--fs-md); font-weight:600; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .bs-sec h3 small{ font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bs-bar{ display:flex; flex-direction:column; gap:4px; }
+  .bs-bar-top{ display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-sm); }
+  .bs-bar-name{ display:flex; align-items:center; gap:8px; font-weight:600; }
+  .bs-bar-fig{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
+  .bs-bar-fig small{ font-weight:400; color: var(--ink-soft); font-size:var(--fs-xs); }
+  .bs-track{ height:8px; border-radius:4px; background: var(--paper-sunken); overflow:hidden; }
+  .bs-fill{ height:100%; border-radius:4px; }
+  .bs-note{ margin:0; }
+  .bs-other{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bs-other b{ color: var(--ink); font-family: var(--font-num); font-weight:600; }
+  .bs-pots{ list-style:none; margin:0; padding:0; }
+  .bs-pots li{ display:grid; grid-template-columns: minmax(0,1fr) auto; gap:2px 12px; align-items:baseline; padding:8px 0; border-bottom:1px dashed var(--border); }
+  .bs-pot-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .bs-pot-name small{ font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bs-pot-bal{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
+  .bs-pot-sub{ grid-column: 1 / -1; font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bs-more{ align-self:flex-start; }
+  .bs-hints{ margin-top:14px; }
+  .bs-total{ margin:12px 0 0; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bs-total b{ color: var(--ink); font-family: var(--font-num); font-weight:600; }
+
+  /* A set-aside line's pot on its Details page (components/detail.js) */
+  .dt-pot{ display:flex; flex-direction:column; gap:2px; margin-bottom:10px; }
+  .dt-pot span{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .dt-pot b{ font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; }
+  .dt-pot b.over{ color: var(--bad-ink); }
+  .dt-pot small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+
   /* Money → Budget → Tidy up (November 2026, components/tidy.js) */
   .tidy-pill{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:999px; background: var(--brass-wash); color: var(--warn-ink); font-size:var(--fs-xs); font-weight:600; white-space:nowrap; }
   .tidy-stray .rc-actions{ flex-wrap:wrap; }

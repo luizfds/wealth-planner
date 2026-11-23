@@ -64,6 +64,8 @@ defineSection("income", {
 });
 defineSection("shared", {
   rows: function(){ return state.shared; },
+  // "+ Add expense" on the Set aside card: a Lifestyle pot (the card's key isn't a classification).
+  newRow: function(item, group){ if(group === "SetAside"){ item.classification = "Wants"; item.irregular = true; } },
   redraw: function(){ renderSharedGroups(); },
   inBudget: function(){ return true; },
   editor: { container: "sharedGroups", openState: modernSharedRowOpen }

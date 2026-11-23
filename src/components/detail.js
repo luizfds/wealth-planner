@@ -15,6 +15,8 @@ import { escapeAttr } from "../lib/html.js";
 import { renderLineChart, dateAxisFormat } from "../lib/charts.js";
 import { incomeSearchId } from "../lib/search.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { classWord } from "../constants.js";
+import { potFor, potTrips } from "../calc/budgetsplit.js";
 
 // ---------------- A page for every thing (v3.128.0) ----------------
 //
@@ -161,9 +163,21 @@ export function detailView(kind, id, today){
     var per = periodsOf(Number(line.amount) || 0, line.freq);
     var yearAgo = (Number(today.slice(0, 4)) - 1) + today.slice(4);
     var spent12 = ltx.filter(function(t){ return t.date > yearAgo && t.date <= today; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
-    return { title: line.what || "Budget line", kicker: "Budget line", history: null,
-      html: facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["A year", money(per.yearly)], ["Spent in the last 12 months", money(spent12)],
-          ["Category", escapeAttr(line.category || "")], ["Needs or wants", escapeAttr(line.classification || "") + (function(){
+    // November 2026 (calc/budgetsplit.js): a set-aside line is a pot — what's in it, what went in and out, and the trips.
+    var potHtml = "";
+    if(line.irregular && !line.computed){
+      var pot = potFor(line, state.transactions, today);
+      var trips = potTrips(line, state.trips, state.transactions);
+      potHtml = section("The pot", '<div class="dt-pot"><span>In the pot</span><b class="' + (pot.short ? "over" : "") + '">' + (pot.short ? money(-pot.balance) + " short" : money(pot.balance)) + '</b>' +
+          '<small>' + money(pot.monthly) + ' a month goes in; spending comes out. Judged over the year, never against this month.</small></div>' +
+          facts([[line.potFrom ? "Held on " + fmtDate(pot.from, { year: true }) : "Started empty on " + fmtDate(pot.from, { year: true }), money(pot.start)], ["Put in since", "+" + money(pot.putIn)], ["Spent since", "−" + money(pot.spent)]])) +
+        (trips.length ? section("Trips", '<ul class="dt-list">' + trips.map(function(x){
+          return '<li>' + escapeAttr(x.trip.name || "Trip") + ' <small>' + escapeAttr(fmtDate(x.trip.from) + (x.trip.to && x.trip.to !== x.trip.from ? " – " + fmtDate(x.trip.to, { year: true }) : "")) + '</small> <b>' + money(x.spent) + '</b></li>';
+        }).join("") + '</ul>') : "");
+    }
+    return { title: line.what || "Budget line", kicker: line.irregular ? "Set aside" : "Budget line", history: null,
+      html: potHtml + facts([["Planned", money(Number(line.amount) || 0) + " " + escapeAttr(String(line.freq || "").toLowerCase())], ["A year", money(per.yearly)], ["Spent in the last 12 months", money(spent12)],
+          ["Category", escapeAttr(line.category || "")], ["Essential or lifestyle", escapeAttr(line.classification ? classWord(line.classification) : "") + (line.irregular ? " · set aside" : "") + (function(){
             // Budget → Tidy up: purchases that count as the other one themselves.
             var own = ltx.filter(function(t){ return (t.classification === "Needs" || t.classification === "Wants") && t.classification !== line.classification; }).length;
             return own ? ' <small>(' + own + ' purchase' + (own === 1 ? '' : 's') + ' counted otherwise)</small>' : '';

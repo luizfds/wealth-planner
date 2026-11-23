@@ -5839,3 +5839,25 @@ import rule filed it the old way again next month.
 - **A marker on each budget row** ("2 to check"), and "Tidy this line →" in an open row and in a line's breakdown.
   The card starts folded (Simple mode's control budget on Budget); its header says how many to check.
 Tests: tidy, migrations (35), render smoke (Tidy up); journey tidyup.
+
+## Essentials, Lifestyle and Set aside (November 2026)
+
+`[x]` Needs and Wants mixed two questions into one label, and "No fixed timing" — the switch that made a line lumpy — sat
+under More options where nobody saw it. A household's backup had trips and cafés side by side as "Wants", pharmacy and
+medical as Wants, and eating out, cafés and delivery marked "no fixed timing" to stop the monthly bars shouting.
+- **Two answers per line**, side by side in its editor: *Essential or lifestyle* (stored Needs/Wants; Essential means
+  you'd still pay it if money got tight — `CLASS_WORDS` in constants.js) and *When it's spent*: every month, or set aside
+  (stored `irregular`). A set-aside line is a pot: its monthly amount goes in, spending comes out, judged over the year.
+  "In the pot today" (`potStart` on `potFrom`, migration 36) says what it already holds; blank starts it empty at the
+  start of its budget year (`calc/budgetsplit.js` `potFor`).
+- **The top of Money out** (`components/budgetsplit.js`): Essentials and Lifestyle every month, what's set aside, and
+  Lifestyle left this month (the header's month) as the figure to watch; this month's two bars (set-aside spending never
+  in them; a purchase on no line is "other" unless it says); the pots, a short one in red; and "Worth a look" — an
+  Essential in a chosen-spending category, a Lifestyle line that reads as essential, a set-aside line spent in 10+ of the
+  last 12 months — each one tap with an undo, or "It's right" (`state.tidyOk`).
+- **The Budget list** grouped Essentials · every month / Lifestyle · every month / Set aside (Group by "Essentials &
+  Lifestyle", was "Type"); a line that changes card takes its card open with it. "+ Add" on Set aside adds a Lifestyle pot.
+- **A pot's Details page**: what's in it, put in and spent since, and the trips that spent from it.
+- Money's screens say Essential/Lifestyle (the transaction editor's "Counts as", the bulk bar, Tidy up). Still to do:
+  the Dashboard's 50/30/20 card, Settings' Needs target and Reports' Needs/Wants grouping still say Needs/Wants.
+Tests: budgetsplit, migrations (36), render smoke; journey essentialssplit.

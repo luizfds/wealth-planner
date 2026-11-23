@@ -25,6 +25,10 @@ export var UNCATEGORISED = "Uncategorised";
 // 12-month cash flow forecast (calc/cashflow.js) — index 0 = January, matching Date#getMonth().
 export var MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 export var CLASSES = ["Needs","Wants","Savings","N/A"];
+// November 2026: what a classification is called on screen. The stored values stay Needs/Wants — Essential means you'd
+// still pay it if money got tight; Lifestyle is chosen and could be cut (calc/budgetsplit.js).
+export var CLASS_WORDS = { Needs: "Essential", Wants: "Lifestyle", Savings: "Savings", "N/A": "Other" };
+export function classWord(c){ return CLASS_WORDS[c] || CLASS_WORDS["N/A"]; }
 export var INCOME_TYPES = ["Net", "Gross"];
 export var SUPER_MODES = ["On top", "Included", "N/A"];
 export var SACRIFICE_MODES = ["Cash out", "Sacrifice %", "Sacrifice $"];

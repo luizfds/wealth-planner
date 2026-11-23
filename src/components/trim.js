@@ -71,7 +71,7 @@ export function trimHtml(r, scenario, today){
   }
   // 4. Which lines are flexible.
   html += '<details class="tr-mark"' + (trimUi.markOpen ? ' open' : '') + ' data-trim-mark><summary>Which lines are flexible?</summary>' +
-    '<p class="ledger-note">Flexible means it could be paused or cut if it had to be. Until you set one, Wants lines that are spent unevenly count as flexible.</p><ul>' +
+    '<p class="ledger-note">Flexible means it could be paused or cut if it had to be. Until you set one, Lifestyle lines that are spent unevenly count as flexible.</p><ul>' +
     r.wants.map(function(w){
       return '<li><label><input type="checkbox" data-trim-flex="' + escapeAttr(w.id) + '"' + (w.flexible ? ' checked' : '') + '> ' + escapeAttr(w.what) + '</label><small>' + money(w.yearly) + '/yr' + (w.inferred ? '' : ' · set by you') + '</small></li>';
     }).join("") + '</ul></details>';

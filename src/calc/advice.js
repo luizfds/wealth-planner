@@ -194,7 +194,7 @@ export function adviceFor(opts){
     });
     if(wants > 0 && outM > 0){
       var top = Object.keys(byCat).map(function(k){ return { k: k, v: byCat[k] }; }).sort(function(a, b){ return b.v - a.v; }).slice(0, 3);
-      add({ id: "wants", area: "cashflow", kind: "info", title: "Wants were " + Math.round(wants / outM * 100) + "% of spending",
+      add({ id: "wants", area: "cashflow", kind: "info", title: "Lifestyle was " + Math.round(wants / outM * 100) + "% of spending",
         detail: money(wants * 12 / months) + " a year, led by " + top.map(function(x){ return x.k + " (" + money(x.v * 12 / months) + ")"; }).join(", ") + ". Trimming them by a tenth would free about " + money(wants * 12 / months * 0.1) + " a year.",
         impactYearly: null, go: { page: "expenses", sub: "budget" } });
     }

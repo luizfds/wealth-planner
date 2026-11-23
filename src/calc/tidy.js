@@ -131,7 +131,14 @@ export function strays(transactions, lines, opts){
     lineIds.slice(1).forEach(function(lid){
       var few = g.byLine[lid];
       if(few.length > STRAY_MAX || ok[key + "|" + lid] || namedFor(lid, key)) return;
-      out.push({ id: key + "|" + lid, key: key, label: label, fromLineId: lid, toLineId: main,
+      // What someone typed for these, where it isn't the bank's shop: "The Bakery" on a purchase the bank calls a gym —
+      // the card says so, so a stray that isn't a slip isn't moved as one.
+      var typed = [];
+      few.forEach(function(r){
+        var own = String(r.t.what || "").trim();
+        if(r.t.bankWhat && own && own !== String(r.t.bankWhat).trim() && merchantGroupKey(own) !== key && typed.indexOf(own) === -1) typed.push(own);
+      });
+      out.push({ id: key + "|" + lid, key: key, label: label, fromLineId: lid, toLineId: main, typed: typed,
         txIds: few.map(function(r){ return r.t.id; }), count: few.length,
         total: round2(few.reduce(function(s, r){ return s + Number(r.t.amount); }, 0)), mainCount: mainN });
     });

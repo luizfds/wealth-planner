@@ -27,7 +27,7 @@ export var COMPARES = [
 ];
 export var GROUPS = [
   { key: "category", label: "Category" },
-  { key: "class", label: "Needs / Wants" },
+  { key: "class", label: "Essential / Lifestyle" },
   { key: "line", label: "Budget line" },
   { key: "merchant", label: "Merchant" },
   { key: "account", label: "Account" },

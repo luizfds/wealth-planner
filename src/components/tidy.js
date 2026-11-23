@@ -44,7 +44,7 @@ export function tidyStraysForLineHtml(lineId, list){
     mine.map(function(s){
       var to = (byId[s.toLineId] && byId[s.toLineId].what) || "another line";
       var when = s.txIds.map(function(id){ var t = txById[id]; return t ? fmtDate(t.date, { year: true }) + " " + fmtCurrency2.format(Number(t.amount) || 0) : ""; }).filter(Boolean).join(", ");
-      return '<div class="tidy-inrow-item"><span><b>' + escapeAttr(s.label) + '</b> <small>' + escapeAttr(when) + ' · your other ' + s.mainCount + ' ' + (s.mainCount === 1 ? "is" : "are") + ' on ' + escapeAttr(to) + '</small></span>' +
+      return '<div class="tidy-inrow-item"><span><b>' + escapeAttr(s.label) + '</b> <small>' + escapeAttr(when) + (s.typed && s.typed.length ? ' · you called it “' + escapeAttr(s.typed.join("”, “")) + '”' : '') + ' · your other ' + s.mainCount + ' ' + (s.mainCount === 1 ? "is" : "are") + ' on ' + escapeAttr(to) + '</small></span>' +
         '<span class="tidy-inrow-act"><button type="button" class="btn btn-sm" data-tidy-row-move="' + escapeAttr(s.id) + '">Move to ' + escapeAttr(to) + '</button>' +
         '<button type="button" class="btn btn-sm btn-ghost" data-tidy-row-ok="' + escapeAttr(s.id) + '">It\'s right</button></span></div>';
     }).join("") + '</div>';
@@ -85,7 +85,7 @@ export function tidyHtml(list, today){
     var shown = tidyUi.showAllStrays ? list : list.slice(0, STRAYS_SHOWN);
     html += shown.map(function(s){
       return '<div class="rc-row tidy-stray"><div class="rc-main"><b>' + escapeAttr(s.label) + '</b><small>' + escapeAttr(plural(s.count, "purchase")) + ' on ' + escapeAttr(name(s.fromLineId)) +
-          ' · your other ' + s.mainCount + ' ' + (s.mainCount === 1 ? "is" : "are") + ' on ' + escapeAttr(name(s.toLineId)) + '</small></div>' +
+          ' · your other ' + s.mainCount + ' ' + (s.mainCount === 1 ? "is" : "are") + ' on ' + escapeAttr(name(s.toLineId)) + (s.typed && s.typed.length ? ' · you called it “' + escapeAttr(s.typed.join("”, “")) + '”' : '') + '</small></div>' +
         '<span class="rc-amt">' + money(s.total) + '</span>' +
         '<div class="rc-actions"><button type="button" class="btn btn-sm" data-tidy-move="' + escapeAttr(s.id) + '">Move to ' + escapeAttr(name(s.toLineId)) + '</button>' +
           '<button type="button" class="btn btn-sm btn-ghost" data-tidy-ok="' + escapeAttr(s.id) + '">It\'s right</button>' +

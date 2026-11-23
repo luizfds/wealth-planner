@@ -282,7 +282,7 @@ export function incomeStatementReport(opts){
   });
   var lines = [
     ["pay", "Pay received"], ["rent", "Rent"], ["other", "Other money in"], ["in", "Total in", "total"],
-    ["Needs", "Needs"], ["Wants", "Wants"], ["Other", "Other spending"], ["loans", "Investment loan repayments"], ["out", "Total out", "total"],
+    ["Needs", "Essentials"], ["Wants", "Lifestyle"], ["Other", "Other spending"], ["loans", "Investment loan repayments"], ["out", "Total out", "total"],
     ["kept", "Kept", "total"], ["rate", "Savings rate", "pct"]
   ];
   var calc = function(g){
@@ -304,7 +304,7 @@ export function incomeStatementReport(opts){
       .concat([{ key: "total", label: "Total", num: true }, { key: "plan", label: "Plan", num: true }]),
     rows: rows, wide: true,
     chart: { type: "columns", series: ["Money in", "Money out"], items: months.map(function(ym, i){ return { label: ymLabel(ym), a: r2(cols[i].in), b: r2(cols[i].out), ym: ym }; }) },
-    note: "Money in is what's been logged as received; spending is logged transactions, by their budget line's Needs or Wants. Investment loan repayments are what's been transferred into a loan account linked to an investment property's loan; in the plan, each loan's repayment. Savings rate is kept ÷ money in, in %. Plan is the budget, the loan repayments and the expected income for the same number of months — a tax refund as last year's, and distributions, so it can sit a little off Home's figure, which estimates this year's refund." };
+    note: "Money in is what's been logged as received; spending is logged transactions, by their budget line's Essential or Lifestyle. Investment loan repayments are what's been transferred into a loan account linked to an investment property's loan; in the plan, each loan's repayment. Savings rate is kept ÷ money in, in %. Plan is the budget, the loan repayments and the expected income for the same number of months — a tax refund as last year's, and distributions, so it can sit a little off Home's figure, which estimates this year's refund." };
 }
 
 // Pay (with the employer's super) into tax, super and take-home; take-home and other money in into
@@ -334,7 +334,7 @@ export function moneyFlowReport(opts){
     { id: "pay", label: "Pay, with super", col: 0, value: pay },
     { id: "tax", label: "Tax", col: 1, value: taxV }, { id: "super", label: "Super", col: 1, value: superV }, { id: "take", label: "Take-home", col: 1, value: take },
     { id: "other", label: "Other money in", col: 1, value: other }, { id: "drawn", label: "Drawn from savings", col: 1, value: drawn },
-    { id: "Needs", label: "Needs", col: 2, value: spend.Needs }, { id: "Wants", label: "Wants", col: 2, value: spend.Wants },
+    { id: "Needs", label: "Essentials", col: 2, value: spend.Needs }, { id: "Wants", label: "Lifestyle", col: 2, value: spend.Wants },
     { id: "Other", label: "Other spending", col: 2, value: spend.Other }, { id: "kept", label: "Kept", col: 2, value: Math.max(0, kept) }
   ].filter(function(n){ return n.value > 0.5; });
   var links = [{ from: "pay", to: "tax", value: taxV }, { from: "pay", to: "super", value: superV }, { from: "pay", to: "take", value: take }];
@@ -350,7 +350,7 @@ export function moneyFlowReport(opts){
   return { key: "flow", frame: { range: true }, title: "Where the money goes", subtitle: win.label + (today < win.end ? " so far" : ""),
     chart: { type: "sankey", nodes: nodes, links: links }, columns: [{ key: "line", label: "" }, { key: "value", label: "Amount", num: true }], rows: rows,
     note: "Tax and super are the plan's for these months" + (recPay > 0 ? ", scaled to the pay actually received" : "") + "; take-home is " + (recPay > 0 ? "what was logged as received" : "the plan's") +
-      "; spending is logged transactions by their line's Needs or Wants. Other money in is rent, distributions, refunds and the rest logged as received." };
+      "; spending is logged transactions by their line's Essential or Lifestyle. Other money in is rent, distributions, refunds and the rest logged as received." };
 }
 
 // ---------------- Budget vs actual, and year on year (v3.120.0) ----------------
@@ -622,7 +622,7 @@ export function lenderPackReport(opts){
   rows.push({ cls: "head", cells: { item: "Spending" } });
   var sp = { Needs: 0, Wants: 0, Other: 0 };
   (state.transactions || []).forEach(function(x){ if(x.date >= win.start && x.date <= win.end) sp[classKey(classOf(x))] += Number(x.amount) || 0; });
-  row("Essentials (needs)", sp.Needs, sp.Needs / 12); row("Discretionary (wants)", sp.Wants, sp.Wants / 12);
+  row("Essentials", sp.Needs, sp.Needs / 12); row("Lifestyle", sp.Wants, sp.Wants / 12);
   if(sp.Other) row("Other spending", sp.Other, sp.Other / 12);
   var spent = sp.Needs + sp.Wants + sp.Other;
   row("Living expenses", spent, spent / 12, "total");

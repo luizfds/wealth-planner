@@ -55,8 +55,8 @@ test("the income statement: money in by kind, spending by Needs/Wants, kept and 
     const win = { start: "2026-08-01", end: "2026-08-31", label: "Aug" };
     const r = incomeStatementReport({ win, today: "2026-09-01", classOf: t => t.cls, budgetLines: [{ amount: 1500, freq: "Monthly", classification: "Needs" }] });
     const v = k => r.rows.find(x => x.cells.line === k).cells.total;
-    assert.deepEqual([v("Pay received"), v("Rent"), v("Total in"), v("Needs"), v("Wants"), v("Kept"), v("Savings rate")], [5000, 2000, 7000, 3000, 1000, 3000, 42.9]);
-    assert.equal(r.rows.find(x => x.cells.line === "Needs").cells.plan, 1500);
+    assert.deepEqual([v("Pay received"), v("Rent"), v("Total in"), v("Essentials"), v("Lifestyle"), v("Kept"), v("Savings rate")], [5000, 2000, 7000, 3000, 1000, 3000, 42.9]);
+    assert.equal(r.rows.find(x => x.cells.line === "Essentials").cells.plan, 1500);
     const f = moneyFlowReport({ win, today: "2026-09-01", classOf: t => t.cls });
     const node = id => f.chart.nodes.find(n => n.id === id);
     assert.equal(node("take").value, 5000, "take-home is the pay actually received");

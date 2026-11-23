@@ -10,7 +10,7 @@ import { recalcComputedItems, currentScenario } from "../calc/engine.js";
 import { periodsOf, resolveSharedAmount, appendHistorySnapshot, transactionDisplayName } from "../calc/ledger.js";
 import { sacrificeLabelToMode } from "../constants.js";
 import { exportIncomeCsv, exportExpensesCsv, exportAssetsCsv, exportPropertyLoansCsv } from "../lib/backup.js";
-import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { materializeRowEdit, editRowEditSource } from "../lib/ledger-table.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readNumberField, markField } from "../lib/validate.js";
@@ -19,7 +19,7 @@ import { redraw } from "../lib/views.js";
 import { state, persist, onPendingWork } from "../state.js";
 import { modernAssetRowOpen } from "./assets.js";
 import { renderCards, renderDetail } from "./dashboard.js";
-import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems } from "./expenses.js";
+import { patchSharedGroupTotals, renderSharedGroups, modernSharedRowOpen, renderActualVsPlannedPanel, transactionSummaryText, budgetLineItems, revealBudgetLine } from "./expenses.js";
 import { patchIncomeGroupTotals, patchSyntheticIncomeRows, renderTaxSuper, modernIncomeRowOpen } from "./income.js";
 import { renderProjectionOutputs, renderProjectionsWhenSeen } from "./projections.js";
 import { modernPropRowOpen } from "./properties.js";
@@ -148,7 +148,9 @@ function onLedgerInput(e){
     if(nameEl) nameEl.textContent = item.what;
   }
   else if(e.target.classList.contains("f-account")) item.account = e.target.value;
-  else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(isBudgetListSection(section)) structural = true; }
+  // A line that changes card (Essentials, Lifestyle, Set aside) takes its card open with it — the editor being typed
+  // into would otherwise vanish into a collapsed card.
+  else if(e.target.classList.contains("f-class")){ item.classification = e.target.value; if(isBudgetListSection(section)){ structural = true; revealBudgetLine(item.id); } }
   // Not structural: category is a reporting dimension, so it changes both by-category charts
   // but never which card this row sits in — no need to rebuild the list around it.
   else if(e.target.classList.contains("f-category")){ item.category = e.target.value; }
@@ -176,13 +178,23 @@ function onLedgerInput(e){
   else if(e.target.classList.contains("f-payweekday")){ item.payWeekday = e.target.value === "" ? null : Number(e.target.value); structural = true; }
   else if(e.target.classList.contains("f-payanchor")){ item.payAnchor = e.target.value || ""; structural = true; }
   else if(e.target.classList.contains("f-irregular")){
-    item.irregular = e.target.checked;
+    // A checkbox ("No fixed timing", income and property rows) or, on the Budget, "When it's spent".
+    item.irregular = e.target.type === "checkbox" ? e.target.checked : e.target.value === "setaside";
+    var potField = tr.querySelector(".f-potstart-field");
+    if(potField) potField.hidden = !item.irregular;
+    // On the Budget a set-aside line has its own card (Essentials & Lifestyle grouping).
+    if(e.target.type !== "checkbox" && isBudgetListSection(section) && (state.budgetGroupBy || "type") === "type"){ structural = true; revealBudgetLine(item.id); }
     // "Budget year" only means anything for a reserve line, so it lives behind this checkbox —
     // revealed in place rather than by re-rendering the row, which would close the editor the
     // user is standing in. (.m-edit-field sets no `display` of its own, so plain [hidden] works
     // here — see the CSS gotcha in CLAUDE.md for when it wouldn't.)
     var reserveField = tr.querySelector(".f-reserveyear-field");
-    if(reserveField) reserveField.hidden = !e.target.checked;
+    if(reserveField) reserveField.hidden = !item.irregular;
+  }
+  // What a set-aside line's pot holds today (calc/budgetsplit.js potFor). Blank: it starts empty again.
+  else if(e.target.classList.contains("f-potstart")){
+    if(!String(e.target.value).trim()){ delete item.potStart; delete item.potFrom; }
+    else { var potRead = readField(e.target, RULES.amount); if(!potRead) return; item.potStart = potRead.value; item.potFrom = localDateStr(); }
   }
   // structural: the collapsed row carries an "Ends …" note derived from this, and on the budget
   // pages an ended line is excluded from the projection — both need the row rebuilt, not patched.
@@ -263,7 +275,7 @@ function onLedgerInput(e){
   // v3.206.0 (item 236b): the cards and Home's detail only if they're on screen — on Cash flow they're left
   // stale for when Home or Plan opens, not redrawn on every keystroke. (Not a commit: that would redraw the
   // list being typed into; the list is patched above.)
-  redraw(["cards", "detail"]);
+  redraw(isBudgetListSection(section) ? ["cards", "detail", "budgetSplit"] : ["cards", "detail"]);
   renderTotals();
   if(sec.def.homeTotals) renderHomeBodyTotalsOnly();
   renderProjectionsWhenSeen();
@@ -318,7 +330,7 @@ function refreshAfterLedgerChange(section){
   rerenderTableFor(section);
   var sec = sectionOf(section);
   if(sec && sec.def.afterRemove) sec.def.afterRemove(sec.arg);
-  redraw(["cards", "detail"]); renderTotals(); renderHomeBodyTotalsOnly();
+  redraw(isBudgetListSection(section) ? ["cards", "detail", "budgetSplit"] : ["cards", "detail"]); renderTotals(); renderHomeBodyTotalsOnly();
   renderProjectionsWhenSeen();
   persist();
 }

@@ -29,6 +29,9 @@ import { refreshAfterLedgerChange } from "./rows.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTrim, trimUi, trimScenario } from "./trim.js";
 import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
+import { renderBudgetSplit, budgetSplitUi } from "./budgetsplit.js";
+import { budgetHints } from "../calc/budgetsplit.js";
+import { classWord } from "../constants.js";
 import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
 
 var trimBody;
@@ -434,7 +437,7 @@ export function wireTidy(){
       var cls = b.getAttribute("data-tidy-class");
       var undoC = setTransactionsClass(state.transactions, ids, cls);
       commit(["transactions"]);
-      showUndoToast(ids.length + (ids.length === 1 ? " purchase" : " purchases") + " at " + g.label + (cls ? " counted as " + cls : " back to counting as the line does"),
+      showUndoToast(ids.length + (ids.length === 1 ? " purchase" : " purchases") + " at " + g.label + (cls ? " counted as " + classWord(cls) : " back to counting as the line does"),
         function(){ undoChanges(undoC); commit(["transactions"]); });
       return;
     }
@@ -479,5 +482,36 @@ export function wireTidy(){
     // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
     if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
     openTidyAt(lineId, null);
+  });
+}
+
+// ---------------- Money → Budget → Essentials & lifestyle (November 2026) ----------------
+// "Worth a look": one tap sets what the hint says (Essential, Lifestyle, every month), with an undo; "It's right" keeps
+// the line as it is and the hint doesn't come back (state.tidyOk, shared with Tidy up).
+export function wireBudgetSplit(){
+  var body = document.getElementById("budgetSplitBody");
+  body.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b) return;
+    var more = b.getAttribute("data-bs-more");
+    if(more){ if(more === "pots") budgetSplitUi.allPots = !budgetSplitUi.allPots; else budgetSplitUi.allHints = !budgetSplitUi.allHints; renderBudgetSplit(); return; }
+    var okId = b.getAttribute("data-bs-ok");
+    if(okId){
+      var undoOk = markTidyOk(state, okId);
+      commit(["tidyOk"]);
+      showUndoToast("Kept as it is", function(){ undoOk(); commit(["tidyOk"]); });
+      return;
+    }
+    var fixId = b.getAttribute("data-bs-fix");
+    if(!fixId) return;
+    var lines = loggableBudgetLineItems();
+    var hint = budgetHints(lines, state.transactions, { today: localDateStr(), ok: state.tidyOk || {} }).find(function(h){ return h.id === fixId; });
+    var line = hint && lines.find(function(l){ return l.id === hint.lineId; });
+    if(!line) return;
+    var was = {};
+    Object.keys(hint.fix.set).forEach(function(k){ was[k] = line[k]; });
+    Object.assign(line, hint.fix.set);
+    commit(["shared", "home"]);
+    showUndoToast((line.what || "Line") + ": " + hint.fix.label.replace(/^Make it /, "now "), function(){ Object.assign(line, was); commit(["shared", "home"]); });
   });
 }

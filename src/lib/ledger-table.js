@@ -1,4 +1,4 @@
-import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS } from "../constants.js";
+import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS, classWord } from "../constants.js";
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "./format.js";
 import { escapeAttr } from "./html.js";
@@ -13,7 +13,7 @@ export function ledgerFieldId(item, section, idx, surface, name){
 }
 // November 2026 (the owner's chosen form style): every row editor's field is a floating-label box, and an amount of
 // money is a money box ("1,250.50" — read with its separators by lib/validate.js).
-var MONEY_FIELDS = { "f-amount": 1, "a-amount": 1, "v-purchaseprice": 1 };
+var MONEY_FIELDS = { "f-amount": 1, "a-amount": 1, "v-purchaseprice": 1, "f-potstart": 1 };
 export function ledgerFields(item, section, idx, surface){
   var prefix = ledgerFieldId(item, section, idx, surface, "");
   return function(name, label, options, layout){
@@ -68,10 +68,11 @@ export function historyTrendHtml(item){
 // surfaces can never drift apart on what these fields mean or how they're labeled. "Auto" (blank)
 // lets a less-than-monthly item's due month be inferred from the last time it was logged instead
 // of set explicitly.
-export function timingFieldsHtml(item, section, idx, surface){
+export function timingFieldsHtml(item, section, idx, surface, o){
   var field = ledgerFields(item, section, idx, surface);
-  return '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
-      '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>' +
+  // On the Budget the switch is "When it's spent", beside Essential or lifestyle (modernPlainRowHtml).
+  return (o && o.noIrregular ? '' : '<div class="m-edit-field span2"><label class="m-checkbox-field"><input type="checkbox" class="f-irregular"' + (item.irregular ? " checked" : "") +
+      '> No fixed timing (irregular) — a lumpy spend like Extras or property maintenance, budgeted as a smoothed reserve instead of expected every period</label></div>') +
     field("f-duemonth", "Due month", { type:"select", value:item.dueMonth || "", options:[{value:"",label:"Auto"}].concat(MONTH_NAMES.map(function(m,i){return {value:i+1,label:m};})), help:"For bills paid less often than monthly. Auto uses the last logged payment." }) +
     field("f-dueday", "Due day", { type:"number", value:item.dueDay || "", placeholder:"1", attrs:{min:1,max:31,step:1}, help:"Day of the month it is due. Used with Due month for the bills calendar until a payment is logged." }) +
     startDateFieldHtml(item, field) + endDateFieldHtml(item, field) +
@@ -329,19 +330,27 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   // With a Classification field, Account gets its own full-width row below (matches Expenses);
   // without one, there's room for Amount/Frequency/Account to share a single row instead.
   var field = ledgerFields(item, section, idx, opts.fieldScope);
-  var classField = opts.showClass ? field("f-class", "Classification", {type:"select",value:item.classification || "Needs",options:choices(CLASSES)}) : "";
+  // November 2026: Essential or Lifestyle (stored Needs/Wants, calc/budgetsplit.js) — and, on the Budget, every month or
+  // set aside, which used to be "No fixed timing" under More options. A set-aside line is a pot and says what it holds.
+  var classField = opts.showClass ? field("f-class", "Essential or lifestyle", {type:"select",value:item.classification || "Needs",options:CLASSES.map(function(c){ return { value: c, label: classWord(c) }; }),
+    help: opts.fieldScope === "budget" ? "Essential: you'd still pay it if money got tight." : ""}) : "";
+  var spendField = opts.fieldScope === "budget" && opts.showClass ? field("f-irregular", "When it's spent", {type:"select",value:item.irregular ? "setaside" : "monthly",
+      options:[{value:"monthly",label:"Every month"},{value:"setaside",label:"Set aside"}],
+      help:"Set aside: a monthly amount goes into a pot and spending comes out — judged over the year, never against this month."}) +
+    field("f-potstart", "In the pot today", {type:"number",value:item.potFrom ? item.potStart : "",placeholder:"0",
+      help: item.potFrom ? "Said on " + fmtDate(item.potFrom, { year: true }) + "." : "What's already put by for it. Blank starts it empty at the start of its budget year."}, {hidden:!item.irregular, className:"f-potstart-field"}) : "";
   var categoryField = opts.categories ? field("f-category", "Category", {type:"select",value:item.category || "",options:[{value:"",label:"— None —"}].concat(choices(opts.categories)),help:"Groups this line in spending charts. Manage categories in Settings → Categories."}) : "";
   var accountField = field("f-account", "Account", {value:item.account || "",attrs:{list:"acctSuggestions"}}, {className:opts.showClass ? "span3" : ""});
   var logField = opts.showLog ? '<div class="m-edit-field span2"><span class="field-label">Record a change</span>' + logControlsHtml(section, idx, item) + '</div>' : "";
   var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider ? rentLineFieldHtml(item,field) : "";
   var fieldsHtml =
     field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
-    classField + categoryField +
+    classField + spendField + categoryField +
     field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"},help:opts.amountHelp || ""}) +
     field("f-freq", "Frequency", {type:"select",value:item.freq,options:choices(FREQS)}) +
     accountField + rentLineField + logField + (opts.extraFieldsHtml || "");
   var flexField = opts.showClass ? field("f-flexkind", "Counts as", {type:"select",value:item.flexKind || "",options:[["","Worked out"],["fixed","Fixed bill"],["flex","Flexible"],["nonmonthly","Non-monthly"]].map(function(o){return {value:o[0],label:o[1]};}),help:"Where this line sits when Budget is grouped Flexible."}) : "";
-  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + flexField + timingFieldsHtml(item, section, idx, opts.fieldScope) + '</div></details>';
+  var moreOptionsHtml = '<details class="row-more-options"><summary>More options</summary><div class="m-edit-grid" style="margin-top:8px">' + flexField + timingFieldsHtml(item, section, idx, opts.fieldScope, { noIrregular: !!spendField }) + '</div></details>';
   // A visible "Done" (opts.showDone) — every field here already saves itself as you type, same as
   // any other row in the app, but on a full-screen mobile row editor there's otherwise nothing
   // that reads as "I'm finished, put this away" except the ✕ in the header, which reads more like

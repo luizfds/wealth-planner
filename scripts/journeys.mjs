@@ -6395,9 +6395,11 @@ const JOURNEYS = {
     await typeLineName(page, "demo-groceries", await stored(page,"state.shared.find(x=>x.id==='demo-groceries').what"), false);
     const row=page.locator('[data-line-id="demo-groceries"]');
     check(await row.locator('.f-freq').evaluate(el=>!!el.labels?.length), 'Frequency has no associated visible label');
+    // "When it's spent" (November 2026) — Set aside redraws the row, so before More options is opened.
+    await row.locator('.f-irregular').selectOption('setaside');
+    await settle(page);
     await row.locator('.row-more-options').evaluate(el=>el.open=true);
     await row.locator('.f-deductible').check();
-    await row.locator('.f-irregular').check();
     const inspect=()=>row.evaluate(root=>{
       const controls=[...root.querySelectorAll('.field-control')].filter(el=>el.getClientRects().length);
       return {count:controls.length,unlabelled:controls.filter(el=>!el.labels?.length || !el.labels[0].textContent.trim() || el.labels[0].control!==el).map(el=>el.className),
@@ -7045,10 +7047,60 @@ const JOURNEYS = {
     check(await shop.getAttribute('aria-expanded') === 'true', 'the shop closed though purchases are left in it');
     await page.locator('#tidyBody [data-tidy-tick="none"]').click();
     await page.locator('#tidyBody [data-tidy-tx]').first().check();
-    await page.locator('#tidyBody [data-tidy-class="Wants"]').click();
+    await page.locator('#tidyBody [data-tidy-class="Wants"]').click(); // Lifestyle
     await settle(page);
     check(await st(page, 'state.transactions.filter(t => t.linkedExpenseId === "jtp" && t.classification === "Wants").length') === 1, 'Count as Wants did not mark one purchase');
-    check(/1 purchase as Wants/.test(await page.locator('#tidyBody').innerText()), 'the line does not say one purchase counts as Wants');
+    check(/1 purchase as Lifestyle/.test(await page.locator('#tidyBody').innerText()), 'the line does not say one purchase counts as Lifestyle');
+  },
+  // Money → Budget → Essentials & lifestyle: a set-aside line spent every month is offered back as every month (and
+  // undone); a yearly Trips line set aside in its editor becomes a pot, says what it holds, and leaves the month's bars.
+  async essentialssplit(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'), s = m.state, today = new Date();
+      const day = i => { const d = new Date(today.getFullYear(), today.getMonth() - i, 10); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-10'; };
+      s.shared.push({ id: 'jsc', what: 'Cafés', category: 'Eating out', classification: 'Wants', amount: 200, freq: 'Monthly', irregular: true, account: '' },
+        { id: 'jst', what: 'Holidays', category: 'Travel', classification: 'Wants', amount: 9600, freq: 'Yearly', account: '' });
+      for(let i = 0; i < 12; i++) s.transactions.push({ id: 'jsx' + i, date: day(i), amount: 40, what: 'Fern Café', linkedExpenseId: 'jsc', account: '' });
+      s.tidyOk = {};
+      m.commit(['shared', 'transactions', 'tidyOk']);
+    });
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await waited(page, () => document.querySelectorAll('#budgetSplitBody .bs-tile').length === 4, 'the four figures');
+    check(/Lifestyle (left|over)/.test(await page.locator('#budgetSplitBody .bs-tile-key').innerText()), 'the headline is not Lifestyle left this month');
+    const fix = page.locator('#budgetSplitBody [data-bs-fix="hint:setaside-monthly|jsc"]');
+    if(!await fix.count()) await page.locator('#budgetSplitBody [data-bs-more="hints"]').click();
+    check(await fix.count() === 1, 'the set-aside line spent every month was not offered as every month');
+    await fix.click();
+    await settle(page);
+    check(await st(page, 'state.shared.find(l => l.id === "jsc").irregular') === false, 'Make it every month did not change the line');
+    await page.locator('#toastWrap .toast-undo-btn').click();
+    await settle(page);
+    check(await st(page, 'state.shared.find(l => l.id === "jsc").irregular') === true, 'Undo did not put it back');
+    // Holidays: set aside in its editor, with what the pot holds.
+    const lifestyle = () => page.evaluate(async () => Math.round((await import('/src/components/budgetsplit.js')).budgetSplitModel().split.lifestyle.planned));
+    const lifestyleBefore = await lifestyle();
+    const group = await page.evaluate(() => { const c = document.querySelector('[data-line-id="jst"]').closest('.m-card'); const h = c.querySelector('[data-budget-group-toggle]'); return h.getAttribute('aria-expanded') !== 'true' ? h.getAttribute('data-budget-group-toggle') : null; });
+    check(group === null || group === 'Wants', 'Holidays is not under Lifestyle every month but ' + group);
+    if(group) await page.locator('[data-budget-group-toggle="' + group + '"]').click();
+    await page.locator('[data-line-id="jst"] [data-row-toggle]').first().click();
+    const when = page.locator('[data-line-id="jst"] .f-irregular');
+    await settle(page);
+    await when.waitFor();
+    await when.selectOption('setaside');
+    await settle(page);
+    check(await st(page, 'state.shared.find(l => l.id === "jst").irregular') === true, 'When it\'s spent did not set it aside');
+    const potIn = page.locator('[data-line-id="jst"] .f-potstart');
+    await potIn.waitFor();
+    await potIn.fill('1900');
+    await potIn.press('Tab');
+    await settle(page);
+    check(await st(page, 'state.shared.find(l => l.id === "jst").potStart === 1900 && state.shared.find(l => l.id === "jst").potFrom === (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(new Date().getDate()).padStart(2, "0"))'), 'the pot did not keep what it holds, today');
+    await page.keyboard.press('Escape');
+    await waited(page, () => [...document.querySelectorAll('#budgetSplitBody .bs-pots li')].some(li => /Holidays/.test(li.textContent) && /\$1,900/.test(li.textContent)), 'Holidays to show as a pot holding $1,900');
+    check(await page.locator('#sharedGroups [data-budget-group-toggle="SetAside"]').getAttribute('aria-expanded') === 'true', 'the Set aside card did not open with the line moved into it');
+    const lifestyleAfter = await lifestyle();
+    check(lifestyleBefore - lifestyleAfter === 800, 'Lifestyle every month did not drop by the $800 a month now set aside: ' + lifestyleBefore + ' → ' + lifestyleAfter);
   },
   async addflow(page){
     await quiet(page);

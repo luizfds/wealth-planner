@@ -5842,7 +5842,7 @@ Tests: tidy, migrations (35), render smoke (Tidy up); journey tidyup.
 
 ## Essentials, Lifestyle and Set aside (November 2026)
 
-`[~]` Needs and Wants mixed two questions into one label, and "No fixed timing" — the switch that made a line lumpy — sat
+`[x]` Needs and Wants mixed two questions into one label, and "No fixed timing" — the switch that made a line lumpy — sat
 under More options where nobody saw it. A household's backup had trips and cafés side by side as "Wants", pharmacy and
 medical as Wants, and eating out, cafés and delivery marked "no fixed timing" to stop the monthly bars shouting.
 - **Two answers per line**, side by side in its editor: *Essential or lifestyle* (stored Needs/Wants; Essential means

@@ -40,7 +40,7 @@ import { wireSettings, wireActivity, wireErrorLog, renderSettingsTab } from "./c
 import { wireCards, wireMonthReview, wireBenchmarks, wireHomeArrange, wireHomeSummary } from "./components/homewiring.js";
 import { wireData, wireFirstRun, buildDemoState, hasRealUserData } from "./components/datawiring.js";
 import { wireNavigation, wireSubpages, wirePullToRefresh, wirePeriod, wireShortcuts, wireMoneyFields } from "./components/chromewiring.js";
-import { wireAdvice, wireBudgetHistory, wireTidy } from "./components/budgettoolswiring.js";
+import { wireAdvice, wireBudgetHistory, wireTidy, wireBudgetSplit } from "./components/budgettoolswiring.js";
 import { wireSafekeeping, keepNetWorthHistory } from "./components/safekeepingwiring.js";
 import { wireReports } from "./components/reportswiring.js";
 import { wireNotifications } from "./components/notifpanel.js";
@@ -212,6 +212,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   wireFirstRun();
   wireBudgetHistory();
   wireTidy();
+  wireBudgetSplit();
   wireTrades();
   wireRetirement();
   wireGoals();

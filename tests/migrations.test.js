@@ -346,3 +346,12 @@ test("step 35: a purchase's own Needs or Wants kept only when it's one of the tw
   assert.deepEqual(run(35, {}).tidyOk, {});
   assert.deepEqual(run(35, { tidyOk: ["x"] }).tidyOk, {});
 });
+
+test("step 36: a pot's starting figure kept only with its day; neither alone", function(){
+  const s = run(36, { shared: [{ id: "a", potStart: "1900", potFrom: "2026-01-01" }, { id: "b", potStart: 500 }, { id: "c", potFrom: "2026-01-01" }, { id: "d", potStart: "x", potFrom: "2026-01-01" }, { id: "e" }, null],
+    home: { Renting: [{ id: "h", potStart: 10, potFrom: "1 Jan" }] } });
+  assert.deepEqual(s.shared.slice(0, 5).map(l => [l.potStart, l.potFrom]), [[1900, "2026-01-01"], [undefined, undefined], [undefined, undefined], [undefined, undefined], [undefined, undefined]]);
+  assert.ok(!("potStart" in s.shared[1]) && !("potFrom" in s.shared[2]));
+  assert.ok(!("potStart" in s.home.Renting[0]));
+  assert.doesNotThrow(() => run(36, {}));
+});

@@ -1,6 +1,6 @@
 import { renderSubscriptions } from "./subscriptions.js";
 import { state, commit, genId } from "../state.js";
-import { CLASSES, FREQS, UNCATEGORISED } from "../constants.js";
+import { CLASSES, FREQS, UNCATEGORISED, classWord } from "../constants.js";
 import { TX_CLASSES, sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
 import { tidyMarkerHtml, tidyLinkHtml, strayCounts } from "./tidy.js";
@@ -39,10 +39,13 @@ function budgetGroupKeyOf(item, axis){
   axis = axis || state.budgetGroupBy;
   // v3.164.0 (item 194): the flexible view — Fixed bills / Flexible / Non-monthly (calc/flexbudget.js).
   if(axis === "flex") return flexKindOf(item);
-  return axis === "category"
-    ? ((item.category || "").trim() || UNCATEGORISED)
-    : (item.classification || "N/A");
+  if(axis === "category") return (item.category || "").trim() || UNCATEGORISED;
+  // November 2026 (calc/budgetsplit.js): a set-aside Essential or Lifestyle line is a pot, in a card of its own.
+  if(item.irregular && (item.classification === "Needs" || item.classification === "Wants")) return SET_ASIDE;
+  return item.classification || "N/A";
 }
+var SET_ASIDE = "SetAside";
+var TYPE_ORDER = ["Needs", "Wants", SET_ASIDE, "Savings", "N/A"];
 // Group order is the *stable* one — CLASSES order, or the user's own category list — not biggest
 // first. This is a list you edit: ordering it by amount would make cards jump around as you type
 // into them. The charts sort by size instead, because a chart is read, not edited.
@@ -52,8 +55,8 @@ function sharedGroupOrder(axis){
     return FLEX_KINDS.filter(function(k){ return lineItems.some(function(item){ return flexKindOf(item) === k; }); });
   }
   if((axis || state.budgetGroupBy) !== "category"){
-    return CLASSES.filter(function(cls){
-      return lineItems.some(function(item){ return (item.classification || "N/A") === cls; });
+    return TYPE_ORDER.filter(function(key){
+      return lineItems.some(function(item){ return budgetGroupKeyOf(item, "type") === key; });
     });
   }
   var used = {};
@@ -145,8 +148,8 @@ export function patchSharedGroupTotals(){
   var byKey = {};
   groups.forEach(function(g){ byKey[g.key] = g; });
   document.querySelectorAll("#sharedGroups .m-card").forEach(function(card){
-    var nameEl = card.querySelector(".m-card-name");
-    var group = nameEl && byKey[nameEl.textContent];
+    var head = card.querySelector("[data-budget-group-toggle]");
+    var group = head && byKey[head.getAttribute("data-budget-group-toggle")];
     var totalEl = card.querySelector(".m-card-total");
     if(totalEl && group) totalEl.innerHTML = fmtCurrency0.format(group.monthly) + "<span>/mo</span>";
   });
@@ -224,11 +227,14 @@ function classificationSwatchClass(cls){
   if(cls === "Needs") return "needs";
   if(cls === "Wants") return "wants";
   if(cls === "Savings") return "savings";
+  if(cls === SET_ASIDE) return "setaside";
   return "na";
 }
 
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
-function groupLabel(key){ return FLEX_LABELS[key] || (key === "N/A" ? "Other" : key); }
+// November 2026: Essentials and Lifestyle (stored Needs/Wants), each every month, then the set-aside pots.
+var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other" };
+export function groupLabel(key){ return FLEX_LABELS[key] || TYPE_LABELS[key] || key; }
 
 function sharedCompositionBarHtml(groups){
   // A $0 group has no slice and no business in the legend.
@@ -346,7 +352,7 @@ function drawBudgetPlan(){
   var income = scenarioIncomeRows({ scenario: scen }).map(function(r){
     return { label: (r.what || "Income") + (r.endDate ? " — until " + fmtDate(r.endDate) : ""), monthly: periodsOf(Number(r.amount) || 0, r.freq).monthly, oneOff: !!r.oneOff };
   });
-  var groups = computeSharedGroups().map(function(g){ return { label: g.key === "N/A" ? "Other" : g.key, monthly: g.monthly }; });
+  var groups = computeSharedGroups().map(function(g){ return { label: groupLabel(g.key), monthly: g.monthly }; });
   var grouped = groups.reduce(function(sum, g){ return sum + g.monthly; }, 0);
   var other = totals.expensesMonthly - grouped;
   el.innerHTML = budgetPlanHtml({ income: income, groups: groups, other: Math.abs(other) > 0.005 ? other : 0, net: totals.netMonthly, summary: true });
@@ -1109,7 +1115,7 @@ export function renderBudgetGroupByToggle(){
   if(el.hidden) return;
   el.innerHTML = (anyCategorised || groupCount > 0
     ? '<span class="groupby-label">Group by</span>' +
-      (anyCategorised ? [["type", "Type"], ["category", "Category"], ["flex", "Flexible"]] : [["type", "Type"], ["flex", "Flexible"]]).map(function(pair){
+      (anyCategorised ? [["type", "Essentials & Lifestyle"], ["category", "Category"], ["flex", "Flexible"]] : [["type", "Essentials & Lifestyle"], ["flex", "Flexible"]]).map(function(pair){
         var on = (state.budgetGroupBy === "category" || state.budgetGroupBy === "flex" ? state.budgetGroupBy : "type") === pair[0];
         return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
           ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
@@ -1314,9 +1320,9 @@ function txClassSelectHtml(t, idx){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var lineCls = linked && linked.classification && linked.classification !== "N/A" ? linked.classification : "";
   var own = TX_CLASSES.indexOf(t.classification) !== -1 ? t.classification : "";
-  return '<select class="tx-class field-control" data-tx-index="' + idx + '" aria-label="Counts as Needs or Wants">' +
-    '<option value=""' + (own ? '' : ' selected') + '>As its line' + (lineCls ? ' (' + escapeAttr(lineCls) + ')' : '') + '</option>' +
-    TX_CLASSES.map(function(c){ return '<option' + (own === c ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>';
+  return '<select class="tx-class field-control" data-tx-index="' + idx + '" aria-label="Counts as Essential or Lifestyle">' +
+    '<option value=""' + (own ? '' : ' selected') + '>As its line' + (lineCls ? ' (' + escapeAttr(classWord(lineCls)) + ')' : '') + '</option>' +
+    TX_CLASSES.map(function(c){ return '<option value="' + c + '"' + (own === c ? ' selected' : '') + '>' + classWord(c) + '</option>'; }).join("") + '</select>';
 }
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
@@ -1353,7 +1359,7 @@ function transactionRowHtml(t, idx){
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
     '<div class="m-edit-field"><label>Account</label>' + acctSelect + '</div>' +
-    // Budget → Tidy up: Needs or Wants on this purchase, whatever its line is (the dog's toys on a Needs line).
+    // Budget → Tidy up: Essential or Lifestyle on this purchase, whatever its line is (the dog's toys on an Essential line).
     '<div class="m-edit-field"><label>Counts as</label>' + txClassSelectHtml(t, idx) + '</div>' +
     // v3.170.0 (item 201): the receipt — a photo or PDF, kept on this device and in the backup.
     '<div class="m-edit-field span3"><label>Receipt</label>' + receiptsFieldHtml(txOwnerKey(t, idx), t.receipts) + '</div>';

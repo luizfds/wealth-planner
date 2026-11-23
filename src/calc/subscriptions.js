@@ -107,7 +107,9 @@ export function subscriptionList(transactions, today, notes, opts){
       var mine = (transactions || []).filter(function(t){ return t && t.linkedExpenseId === l.id && t.date && t.date <= today && Number(t.amount) > 0; })
         .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
       var lastT = mine[mine.length - 1], freq = l.freq || "Monthly";
-      var amount = lastT ? Number(lastT.amount) : Number(l.amount) || 0;
+      // One charge is everything on the line that day: a foreign price and its fee can arrive as two transactions, and
+      // taking the last of them read the fee as the subscription's price.
+      var amount = lastT ? mine.filter(function(t){ return t.date === lastT.date; }).reduce(function(s, t){ return s + Number(t.amount); }, 0) : Number(l.amount) || 0;
       if(!(amount > 0)) return;
       var step = { Weekly: 7, Fortnightly: 14, Monthly: 31, Quarterly: 92, "Half-yearly": 183, Yearly: 366 }[freq] || 31;
       var stopped = !!(lastT && addDays(lastT.date, Math.round(step * 2.5)) < today);

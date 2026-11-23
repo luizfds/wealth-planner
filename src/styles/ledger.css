@@ -1657,6 +1657,7 @@
   .bh-hero, .bh-sec, .bh-in{ background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius); padding:16px; }
   .bh-hero{ display:flex; flex-direction:column; gap:8px; }
   .bh-hero-top{ display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bh-h{ margin:0; font-size:var(--fs-sm); font-weight:400; color: var(--ink-soft); }
   .bh-left{ display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
   .bh-left b{ font-family: var(--font-num); font-size:var(--fs-3xl); font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
   .bh-left b.over{ color: var(--bad-ink); }

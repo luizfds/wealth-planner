@@ -5919,3 +5919,11 @@ Bills ~3,600px → ~900px. Mock-ups agreed on the design canvas (round 3, boards
   steady: a description that changes city, a foreign price, a yearly one), or a steady charge that isn't a bill by its
   line or its name. Rates, insurance, internet and phone stay on Bills. One row each, folded, its cancel-by and "Not a
   subscription" behind a tap; the card is folded with how many and what a year.
+
+## Property money: every dollar for a home or an investment says which property it's for (November 2026)
+
+`[~]` Mock-ups agreed on the design canvas (round 4, boards K–R): a transaction can be for a property — a home, an
+investment, or a purchase in progress and which of its costs it pays; property money is kept apart from spending; the
+Buying card is fed by the transactions that paid it; the Budget inbox suggests the link; a budget line can be for a
+property and Budget can group by property; a property's money in one place; settlement turns the linked costs into
+the cost base. Also: an audit of rounds 1–3 against what shipped.

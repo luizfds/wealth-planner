@@ -1,4 +1,5 @@
 import { confirmDialog } from "../lib/dialogs.js";
+import { requestCloseActiveOverlay } from "../lib/overlaystack.js";
 // ---------------- Budget tools, wired (v3.206.1, item 237) ----------------
 //
 // What the app notices and Ask Claude, Cash flow → Budget → Trim, a budget from history and recurring payments.
@@ -385,10 +386,23 @@ function openTidyAt(lineId, key){
   var card = document.getElementById("tidyCard");
   if(card) card.open = true;
   renderTidy();
-  var target = key != null ? document.querySelector('#tidyBody .tidy-shop.open') : document.querySelector("#tidyBody [data-tidy-line]");
-  var focusEl = key != null ? document.querySelector('#tidyBody .tidy-shop.open .tidy-shop-head') : target;
-  if(target && target.scrollIntoView) target.scrollIntoView({ block: "start", behavior: "smooth" });
+  var target = key != null ? document.querySelector('#tidyBody .tidy-shop.open') : document.querySelector("#tidyBody .tidy-pick");
+  var focusEl = key != null ? document.querySelector('#tidyBody .tidy-shop.open .tidy-shop-head') : document.querySelector("#tidyBody [data-tidy-line]");
   if(focusEl) focusEl.focus({ preventScroll: true });
+  alignTo(target);
+}
+// Straight there, then again once the page settles. A smooth scroll aims once at the start: views drawn as they come
+// into sight, and a row folding back into its list, then move the target — on a phone it ended 600px past it.
+function alignTo(target){
+  if(!target || !target.scrollIntoView) return;
+  target.scrollIntoView({ block: "start" });
+  [120, 450].forEach(function(ms){
+    setTimeout(function(){
+      if(!target.isConnected) return;
+      var top = target.getBoundingClientRect().top;
+      if(top < 40 || top > window.innerHeight / 2) target.scrollIntoView({ block: "start" });
+    }, ms);
+  });
 }
 export function wireTidy(){
   var body = document.getElementById("tidyBody");
@@ -478,10 +492,20 @@ export function wireTidy(){
     if(!open) return;
     e.preventDefault();
     var lineId = open.getAttribute("data-tidy-open");
-    var card = document.getElementById("tidyCard");
-    // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
-    if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
-    openTidyAt(lineId, null);
+    var go = function(){
+      var card = document.getElementById("tidyCard");
+      // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
+      if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
+      openTidyAt(lineId, null);
+    };
+    // From inside an open budget line — on a phone a sheet over the page — the sheet closes first (through its history
+    // entry), then Tidy up opens; opened behind the sheet, the link looked like it did nothing.
+    if(open.closest(".m-row.open")){
+      // Two frames: the closed row folds back into its list first, so the scroll is measured on the page as it will be.
+      requestCloseActiveOverlay().then(function(closed){ if(closed !== false) requestAnimationFrame(function(){ requestAnimationFrame(go); }); });
+      return;
+    }
+    go();
   });
 }
 

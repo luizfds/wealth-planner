@@ -1695,6 +1695,8 @@
   .tidy-pill{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:999px; background: var(--brass-wash); color: var(--warn-ink); font-size:var(--fs-xs); font-weight:600; white-space:nowrap; }
   .tidy-stray .rc-actions{ flex-wrap:wrap; }
   .tidy-pick{ display:flex; align-items:center; gap:8px; margin:0 0 8px; font-size:var(--fs-sm); }
+  /* Scrolled to from "Tidy this line" / "See": clear of the app's sticky header and the card's own sticky title. */
+  .tidy-pick, .tidy-shop{ scroll-margin-top: 136px; }
   .tidy-pick .field-control{ flex:1 1 auto; min-width:0; max-width:320px; }
   .tidy-pick + .tr-note .chip{ margin:2px 2px 2px 0; }
   .tidy-shops{ display:flex; flex-direction:column; }

@@ -1694,7 +1694,15 @@
   /* Money → Budget → Tidy up (November 2026, components/tidy.js) */
   .tidy-pill{ display:inline-block; margin-left:6px; padding:0 6px; border-radius:999px; background: var(--brass-wash); color: var(--warn-ink); font-size:var(--fs-xs); font-weight:600; white-space:nowrap; }
   .tidy-stray .rc-actions{ flex-wrap:wrap; }
+  /* Inside an open budget line: the purchases its "N to check" marker counts. */
+  .tidy-inrow{ display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:var(--inner-radius); background: var(--brass-wash); }
+  .tidy-inrow-title{ font-size:var(--fs-sm); font-weight:600; color: var(--warn-ink); }
+  .tidy-inrow-item{ display:flex; flex-direction:column; gap:6px; font-size:var(--fs-sm); }
+  .tidy-inrow-item small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .tidy-inrow-act{ display:flex; flex-wrap:wrap; gap:6px; }
   .tidy-pick{ display:flex; align-items:center; gap:8px; margin:0 0 8px; font-size:var(--fs-sm); }
+  /* Scrolled to from "Tidy this line" / "See": clear of the app's sticky header and the card's own sticky title. */
+  .tidy-pick, .tidy-shop{ scroll-margin-top: 136px; }
   .tidy-pick .field-control{ flex:1 1 auto; min-width:0; max-width:320px; }
   .tidy-pick + .tr-note .chip{ margin:2px 2px 2px 0; }
   .tidy-shops{ display:flex; flex-direction:column; }

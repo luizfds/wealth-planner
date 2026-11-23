@@ -28,9 +28,27 @@ export function currentStrays(today){
 // The marker on a budget row: how many of its purchases look misfiled. Plain text — the row's summary is itself a button.
 export function tidyMarkerHtml(lineId, counts){
   var n = counts && counts[lineId];
-  return n ? '<span class="tidy-pill" title="Purchases on this line that usually go on another — see Tidy up below">' + escapeAttr(n + " to check") + '</span>' : "";
+  return n ? '<span class="tidy-pill" title="Purchases on this line that usually go on another — open the line to see them">' + escapeAttr(n + " to check") + '</span>' : "";
 }
 export function strayCounts(today){ return strayCountByLine(currentStrays(today)); }
+// Inside an open budget line, first: the purchases its "N to check" marker counts — what, when, where they usually go —
+// with Move and It's right right there. The marker is plain text on a button-row, so this is where tapping it leads.
+export function tidyStraysForLineHtml(lineId, list){
+  var mine = (list || []).filter(function(s){ return s.fromLineId === lineId; });
+  if(!mine.length) return "";
+  var byId = lineMap(loggableBudgetLineItems());
+  var txById = {};
+  (state.transactions || []).forEach(function(t){ if(t && t.id) txById[t.id] = t; });
+  var n = mine.reduce(function(a, s){ return a + s.count; }, 0);
+  return '<div class="m-edit-field span3 tidy-inrow"><b class="tidy-inrow-title">' + escapeAttr(n === 1 ? "1 purchase here usually goes on another line" : n + " purchases here usually go on another line") + '</b>' +
+    mine.map(function(s){
+      var to = (byId[s.toLineId] && byId[s.toLineId].what) || "another line";
+      var when = s.txIds.map(function(id){ var t = txById[id]; return t ? fmtDate(t.date, { year: true }) + " " + fmtCurrency2.format(Number(t.amount) || 0) : ""; }).filter(Boolean).join(", ");
+      return '<div class="tidy-inrow-item"><span><b>' + escapeAttr(s.label) + '</b> <small>' + escapeAttr(when) + ' · your other ' + s.mainCount + ' ' + (s.mainCount === 1 ? "is" : "are") + ' on ' + escapeAttr(to) + '</small></span>' +
+        '<span class="tidy-inrow-act"><button type="button" class="btn btn-sm" data-tidy-row-move="' + escapeAttr(s.id) + '">Move to ' + escapeAttr(to) + '</button>' +
+        '<button type="button" class="btn btn-sm btn-ghost" data-tidy-row-ok="' + escapeAttr(s.id) + '">It\'s right</button></span></div>';
+    }).join("") + '</div>';
+}
 // Inside an open budget row: straight to this line in Tidy up.
 export function tidyLinkHtml(lineId){
   return lineId ? '<div class="m-edit-field span3"><button type="button" class="link-btn" data-tidy-open="' + escapeAttr(lineId) + '">Tidy this line — see where its money went →</button></div>' : "";

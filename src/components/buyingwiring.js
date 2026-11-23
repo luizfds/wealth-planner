@@ -3,7 +3,78 @@ import { state, commit, genId, setState } from "../state.js";
 import { syncDepositAsset, settlePurchase, removePurchase, setCostPaid, COMMON_PURCHASE_COSTS } from "../calc/purchase.js";
 import { localDateStr } from "../lib/format.js";
 import { showUndoToast } from "../lib/toast.js";
-import { buyUi } from "./buying.js";
+import { buyUi, purchaseCardFigures } from "./buying.js";
+import { linkTransaction, purchaseFromTransactions, moveToProperty } from "../calc/propertymoney.js";
+import { currentScenario } from "../calc/engine.js";
+import { markTidyOk } from "../calc/tidy.js";
+import { settleUi, settlementSheetHtml } from "./propertymoney.js";
+import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
+
+// November 2026: a transaction linked to a purchase's cost, or unlinked from it — one commit, with Undo.
+var LINK_KEYS = ["transactions", "purchases", "accounts"];
+function linkUndoable(t, target, message){
+  var undo = linkTransaction(state, t, target, { genId: genId, giveBack: function(p, c){ setCostPaid(state, p, c, false, undefined, localDateStr()); } });
+  commit(LINK_KEYS);
+  showUndoToast(message, function(){ undo(); commit(LINK_KEYS); });
+}
+// A rent line still running — offered to end at settlement (state.shared, and the household's own scenario rows).
+function rentLines(){
+  var out = [], scen = currentScenario();
+  (state.shared || []).forEach(function(l, i){ if(l && /\brent\b/i.test(l.what || "") && !l.endDate) out.push({ ref: "shared:" + i, line: l, what: l.what }); });
+  ((state.home && state.home[scen]) || []).forEach(function(l, i){ if(l && /\brent\b/i.test(l.what || "") && !l.endDate) out.push({ ref: "home:" + i, line: l, what: l.what }); });
+  out.forEach(function(r){ var last = (state.transactions || []).filter(function(t){ return t && t.linkedExpenseId && t.linkedExpenseId === r.line.id; }).map(function(t){ return t.date; }).sort().pop(); r.last = last || ""; });
+  return out;
+}
+function settleHost(){
+  var host = document.getElementById("settleHost");
+  if(!host){ host = document.createElement("div"); host.id = "settleHost"; document.body.appendChild(host); }
+  return host;
+}
+function renderSettle(){
+  var host = settleHost(), p = settleUi.open && findPurchase(settleUi.open);
+  host.innerHTML = p ? settlementSheetHtml(purchaseFromTransactions(state, p).purchase, state, rentLines(), purchaseCardFigures(p)) : "";
+  return host;
+}
+function openSettle(p){
+  settleUi.open = p.id;
+  var host = renderSettle();
+  pushActiveOverlay(function(){ settleUi.open = null; renderSettle(); var b = document.querySelector('[data-purchase="' + p.id + '"] [data-buy-settled]'); if(b) b.focus({ preventScroll: true }); });
+  var first = host.querySelector("[data-settle-go]");
+  if(first) first.focus({ preventScroll: true });
+}
+function settleNow(p){
+  var rents = rentLines().filter(function(r){ return settleUi.endRent[r.ref] !== false; });
+  var fed = purchaseFromTransactions(state, p).purchase;
+  var name = p.what || "The home";
+  settleUi.open = null;
+  requestCloseActiveOverlay();
+  undoable(name + " is settled — it's on Property now", ["purchases", "properties", "assets", "transactions", "shared", "home"], function(){
+    var prop = settlePurchase(state, fed, localDateStr(), genId);
+    moveToProperty(state, p.id, prop.id, fed);
+    rents.forEach(function(r){ r.line.endDate = settleUi.rentDate[r.ref] || p.settlementDate || localDateStr(); });
+  });
+}
+export function wireSettlement(){
+  document.addEventListener("click", function(e){
+    if(!settleUi.open) return;
+    var p = findPurchase(settleUi.open);
+    if(e.target.closest("[data-settle-close]") || e.target === e.target.closest("[data-settle-backdrop]")){ requestCloseActiveOverlay(); return; }
+    if(!p) return;
+    if(e.target.closest("[data-settle-go]")){ settleNow(p); return; }
+    var link = e.target.closest("[data-settle-link]");
+    if(link){
+      var t = state.transactions[Number(link.getAttribute("data-settle-link"))];
+      if(t){ linkUndoable(t, { type: "purchase", id: p.id, cost: link.getAttribute("data-settle-link-cost") || "new" }, "Linked to " + (p.what || "the purchase")); renderSettle(); }
+    }
+  });
+  document.addEventListener("change", function(e){
+    if(!settleUi.open) return;
+    var a = e.target.getAttribute && e.target.getAttribute("data-settle-endrent");
+    if(a){ settleUi.endRent[a] = e.target.checked; return; }
+    var d = e.target.getAttribute && e.target.getAttribute("data-settle-rentdate");
+    if(d) settleUi.rentDate[d] = e.target.value;
+  });
+}
 
 function findPurchase(id){ return (state.purchases || []).find(function(p){ return p.id === id; }); }
 
@@ -104,10 +175,25 @@ export function wireBuying(){
       undoable("Removed " + ((gone && gone.what) || "the cost"), ["purchases"], function(){ p.costs = p.costs.filter(function(x){ return x.id !== rowId; }); });
       return;
     }
-    if(e.target.closest("[data-buy-settled]")){
-      undoable((p.what || "The home") + " is settled — it's on Property now", ["purchases", "properties", "assets"], function(){
-        settlePurchase(state, p, localDateStr(), genId);
-      });
+    // November 2026: Settled opens a check first — the cost base from the transactions, the loan, what changes.
+    if(e.target.closest("[data-buy-settled]")){ openSettle(p); return; }
+    var unlink = e.target.closest("[data-buy-unlink]");
+    if(unlink){
+      var ut = state.transactions[Number(unlink.getAttribute("data-buy-unlink"))];
+      if(ut) linkUndoable(ut, { type: "oneoff" }, "Unlinked — it's a one-off again");
+      return;
+    }
+    var sug = e.target.closest("[data-buy-suggest]");
+    if(sug){
+      var st2 = state.transactions[Number(sug.getAttribute("data-buy-suggest"))];
+      if(st2) linkUndoable(st2, { type: "purchase", id: p.id, cost: sug.getAttribute("data-buy-suggest-cost") || "new" }, "Linked to " + (p.what || "the purchase"));
+      return;
+    }
+    var sugNo = e.target.closest("[data-buy-suggest-no]");
+    if(sugNo){
+      var undoOk = markTidyOk(state, sugNo.getAttribute("data-buy-suggest-no"));
+      commit(["tidyOk"]);
+      showUndoToast("Not this purchase — it won't be asked again", function(){ if(undoOk) undoOk(); commit(["tidyOk"]); });
       return;
     }
     if(e.target.closest("[data-buy-remove]")){

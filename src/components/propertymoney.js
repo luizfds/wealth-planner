@@ -4,7 +4,7 @@
 // costs fed by the transactions that paid them, the settlement checklist, a property's money. Listeners:
 // spendingwiring.js (a transaction), buyingwiring.js (a purchase), propertieswiring.js (a property).
 import { state } from "../state.js";
-import { propertyTargets, propertyOf, propertyCache, purchaseCostChoices, linkEffect, costTransactions, shortDate } from "../calc/propertymoney.js";
+import { propertyTargets, propertyOf, propertyCache, purchaseCostChoices, linkEffect, costTransactions, shortDate, settlementCheck, propertySuggestions } from "../calc/propertymoney.js";
 import { costAmount } from "../calc/purchase.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -122,3 +122,46 @@ export function propertyNoteHtml(txs, st){
   var said = parts.length > 1 ? parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] : parts[0];
   return '<p class="cf-prop-note">' + escapeAttr(said) + '. None of it is spending — it\'s the property\'s, so it stays out of your budget and Patterns. Open a property\'s page for all of its money.</p>';
 }
+
+// ---------------- Settlement: check these, then it's a property (board Q) ----------------
+// rentLines: [{ ref, what, last }] — a rent line still running, to end at settlement (asked, never assumed).
+export var settleUi = { open: null, endRent: {}, rentDate: {} };
+export function settlementSheetHtml(p, st, rentLines, figures){
+  st = st || state;
+  var chk = settlementCheck(st, p);
+  var price = Number(p.price) || 0;
+  var rows = chk.rows.filter(function(r){ return r.amount != null || figures.costs.some(function(c){ return c.id === r.raw.id && c.amount > 0; }); });
+  var costRows = rows.map(function(r){
+    var fc = figures.costs.find(function(c){ return c.id === r.raw.id; }) || {};
+    var amount = r.amount != null ? r.amount : fc.amount || 0;
+    return { what: r.what, amount: amount, linked: r.amount != null, note: r.amount != null ? r.note : (r.raw.auto ? "worked out — check the settlement statement" : r.note) };
+  });
+  var base = price + costRows.reduce(function(s, r){ return s + r.amount; }, 0);
+  var loanCosts = figures.costs.filter(function(c){ return c.kind === "loan" && c.amount > 0; });
+  var row = function(k, v, sub, cls, linked){ return '<div class="settle-row' + (cls ? " " + cls : "") + '"><span>' + escapeAttr(k) + (sub ? '<small' + (linked ? ' class="is-tx"' : '') + '>' + escapeAttr(sub) + '</small>' : '') + '</span><b>' + v + '</b></div>'; };
+  var when = p.settlementDate || "";
+  var rent = (rentLines || []).map(function(r){
+    var on = settleUi.endRent[r.ref] !== false, date = settleUi.rentDate[r.ref] || when;
+    return '<div class="settle-rent"><label class="settle-check"><input type="checkbox" data-settle-endrent="' + escapeAttr(r.ref) + '"' + (on ? ' checked' : '') + '> <span><b>End ' + escapeAttr(r.what) + '</b>' +
+      (r.last ? '<small>last paid ' + escapeAttr(shortDate(r.last)) + ' — change the date if your lease runs longer</small>' : '<small>change the date if your lease runs longer</small>') + '</span></label>' +
+      '<label class="settle-date"><span class="field-label">Ends</span><input type="date" class="field-control" data-settle-rentdate="' + escapeAttr(r.ref) + '" value="' + escapeAttr(date) + '"></label></div>';
+  }).join("");
+  var loose = propertyLooseOnes(st, p);
+  return '<div class="review-backdrop" data-settle-backdrop><div class="review-panel settle-panel" role="dialog" aria-modal="true" aria-labelledby="settleTitle">' +
+    '<div class="review-head"><h4 id="settleTitle">' + escapeAttr(p.what || "The home") + ' has settled</h4><button type="button" class="icon-btn" data-settle-close aria-label="Close">✕</button></div>' +
+    '<p class="settle-sub">' + (when ? escapeAttr(shortDate(when) + " " + when.slice(0, 4)) + " · " : "") + 'check these, then it becomes ' + (p.kind === "IP" ? "an investment" : "your home") + ' in the app.</p>' +
+    '<div class="settle-sec"><div class="settle-k"><b>Cost base</b><small>what it cost you</small></div><div class="settle-box">' +
+      row("Price", fmtCurrency0.format(price)) + costRows.map(function(r){ return row(r.what, fmtCurrency0.format(r.amount), r.note, "", r.linked); }).join("") +
+      row("Cost base", fmtCurrency0.format(base), "", "is-total") + '</div></div>' +
+    (figures.borrowed > 0 ? '<div class="settle-sec"><div class="settle-k"><b>The loan</b><small>' + (figures.lender ? "from the lender's letter" : "from the purchase") + '</small></div><div class="settle-box">' +
+      row("Borrowed", fmtCurrency0.format(figures.borrowed)) + (loanCosts.length ? row("Borrowing costs", fmtCurrency0.format(loanCosts.reduce(function(s, c){ return s + c.amount; }, 0)), loanCosts.map(function(c){ return c.what; }).join(", ")) : '') + '</div></div>' : '') +
+    '<div class="settle-sec"><b>What changes in the app</b><ul class="settle-list">' +
+      (Number(p.deposit) > 0 ? '<li><span aria-hidden="true">✓</span><span>The deposit held (' + fmtCurrency0.format(Number(p.deposit)) + ') goes into the property' + (chk.txs.length ? '; the purchase\'s ' + chk.txs.length + ' transaction' + (chk.txs.length === 1 ? '' : 's') + ' stay linked to it' : '') + '.</span></li>' : '') +
+      '<li><span aria-hidden="true">✓</span><span>' + (figures.borrowed > 0 ? 'The loan starts today, and its repayments with it.' : 'It joins your properties and net worth at its price.') + '</span></li>' +
+      ((st.shared || []).some(function(l){ return l && l.propertyId === p.id; }) ? '<li><span aria-hidden="true">✓</span><span>Its budget lines (' + escapeAttr((st.shared || []).filter(function(l){ return l && l.propertyId === p.id; }).map(function(l){ return l.what; }).join(", ")) + ') say which property they\'re for.</span></li>' : '') +
+    '</ul>' + rent +
+    (loose.length ? '<p class="settle-loose"><span aria-hidden="true">◦</span> ' + loose.length + ' transaction' + (loose.length === 1 ? ' is' : 's are') + ' still a one-off that may belong here: “' + escapeAttr(loose[0].t.what || "A transaction") + '” ' + fmtCurrency0.format(Number(loose[0].t.amount) || 0) + ', ' + escapeAttr(shortDate(loose[0].t.date)) + '. <button type="button" class="link-btn" data-settle-link="' + loose[0].index + '" data-settle-link-cost="' + escapeAttr(loose[0].cost || "new") + '">Link it</button></p>' : '') +
+    '</div>' +
+    '<div class="txr-actions"><button type="button" class="btn btn-ghost" data-settle-close>Not yet</button><button type="button" class="btn btn-primary" data-settle-go>It\'s ours — settle it</button></div></div></div>';
+}
+function propertyLooseOnes(st, p){ return propertySuggestions(st, p.settlementDate || new Date().toISOString().slice(0, 10), st.tidyOk || {}).filter(function(x){ return x.to.id === p.id; }); }

@@ -11,6 +11,7 @@ test("a part shows when the household has one, unless it said otherwise", functi
   assert.equal(partOn("property", renter), false);
   assert.equal(partOn("shares", renter), false);
   assert.equal(partOn("property", owner), true);
+  assert.equal(partOn("property", Object.assign({}, renter, { purchases: [{ id: "b1", what: "1 Example St" }] })), true, "a home being bought shows its Buying card");
   assert.equal(partOn("shares", owner), true);
   assert.equal(partOn("property", Object.assign({}, renter, { parts: { property: "on" } })), true, "said yes before adding one");
   assert.equal(partOn("shares", Object.assign({}, owner, { parts: { shares: "off" } })), false, "said no with one there");

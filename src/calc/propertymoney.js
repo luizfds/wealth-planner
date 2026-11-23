@@ -302,9 +302,10 @@ export function settlementCheck(st, p){
   return { rows: rows, txs: txs, linkedCount: f.count };
 }
 // After it settles, its transactions are the property's: forProperty points at the new property; the cost stays named.
-export function moveToProperty(st, purchaseId, propertyId){
+// purchase: the purchase itself, when it's already left state.purchases (it has, once settlePurchase has run).
+export function moveToProperty(st, purchaseId, propertyId, purchase){
   var moved = [];
-  var p = ((st.purchases) || []).find(function(x){ return x.id === purchaseId; });
+  var p = purchase || ((st.purchases) || []).find(function(x){ return x.id === purchaseId; });
   ((st.transactions) || []).forEach(function(t){
     if(!t || t.forProperty !== purchaseId) return;
     moved.push({ t: t, what: t.forWhat });

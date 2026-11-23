@@ -2251,3 +2251,27 @@
   .buy-cost-txs li{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:8px; align-items:center; padding:6px 10px; border-radius:10px; background: var(--paper-sunken); font-size:var(--fs-sm); }
   .buy-cost-txs small{ color: var(--ink-soft); font-size:var(--fs-xs); }
   .buy-cost-txs b{ font-family: var(--font-num); }
+  .buy-suggest{ display:flex; flex-direction:column; gap:6px; margin:10px 0; padding:12px 14px; border-radius: var(--inner-radius); background: var(--brass-wash); color: var(--ink); font-size:var(--fs-sm); }
+  .buy-suggest-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+  .settle-panel{ display:flex; flex-direction:column; gap:12px; }
+  .settle-sub{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+  .settle-sec{ display:flex; flex-direction:column; gap:8px; }
+  .settle-k{ display:flex; justify-content:space-between; align-items:baseline; }
+  .settle-k small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .settle-box{ border:1px solid var(--border); border-radius:12px; padding:0 12px; }
+  .settle-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; min-height:44px; padding:4px 0; border-top:1px solid var(--border); }
+  .settle-row:first-child{ border-top:0; }
+  .settle-row span{ display:flex; flex-direction:column; }
+  .settle-row small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .settle-row small.is-tx{ color: var(--good-ink); }
+  .settle-row b{ font-family: var(--font-num); font-weight:600; }
+  .settle-row.is-total{ border-top:2px solid var(--border); }
+  .settle-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; font-size:var(--fs-sm); line-height:1.45; }
+  .settle-list li{ display:flex; gap:8px; }
+  .settle-rent{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:flex-end; padding:10px 12px; border-radius:10px; background: var(--brass-wash); }
+  .settle-check{ display:flex; gap:8px; align-items:flex-start; flex:1 1 220px; font-size:var(--fs-sm); }
+  .settle-check input{ width:20px; height:20px; margin:0; flex:none; }
+  .settle-check span{ display:flex; flex-direction:column; }
+  .settle-check small{ font-size:var(--fs-xs); color: var(--warn-ink); }
+  .settle-date{ display:flex; flex-direction:column; gap:4px; }
+  .settle-loose{ margin:0; font-size:var(--fs-sm); }

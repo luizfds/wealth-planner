@@ -7119,6 +7119,37 @@ const JOURNEYS = {
     check(await page.locator('#tidyBody [data-tidy-line]').inputValue() === id, 'Tidy up did not open on the line');
     check(await page.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-tidy-line')), 'focus did not move to the line picker');
   },
+  // A budget line's "1 to check": opening the line shows that purchase first, with Move right there — the marker is
+  // plain text on the row, and opening the row used to show nothing about it.
+  async tidyinrow(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'), s = m.state, today = new Date();
+      const day = i => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 9); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      s.shared.push({ id: 'jrp', what: 'Biscuit', category: 'Pets', classification: 'Needs', amount: 120, freq: 'Monthly', account: '' },
+        { id: 'jrh', what: 'Home & garden', category: 'Home', classification: 'Wants', amount: 60, freq: 'Monthly', account: '' });
+      let n = 0;
+      const tx = (line, bank, amount) => s.transactions.push({ id: 'jrx' + (++n), date: day(n), amount, what: bank, bankWhat: bank, linkedExpenseId: line, account: '' });
+      tx('jrp', 'HARDWARE CO EXAMPLE TOWN', 30);
+      for(let i = 0; i < 5; i++) tx('jrh', 'HARDWARE CO EXAMPLE TOWN', 25);
+      s.tidyOk = {};
+      m.commit(['shared', 'transactions', 'tidyOk']);
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await page.evaluate(() => { const h = document.querySelector('[data-line-id="jrp"]').closest('.m-card').querySelector('[data-budget-group-toggle]'); if(h.getAttribute('aria-expanded') !== 'true') h.click(); });
+    const row = page.locator('[data-line-id="jrp"]');
+    check(/1 to check/.test(await row.locator('.tidy-pill').innerText()), 'the line is not marked 1 to check');
+    await row.locator('.tidy-pill').click();
+    const block = row.locator('.tidy-inrow');
+    await block.waitFor();
+    check(/Hardware/i.test(await block.innerText()) && /other 5 are on Home & garden/.test(await block.innerText()), 'the open line does not say which purchase, or where it usually goes');
+    await block.locator('[data-tidy-row-move]').click();
+    await waited(page, () => !document.querySelector('.m-row.open'), 'the line to close');
+    await settle(page);
+    check(await st(page, 'state.transactions.find(t => t.id === "jrx1").linkedExpenseId') === 'jrh', 'Move inside the line did not move it');
+    check(await page.locator('[data-line-id="jrp"] .tidy-pill').count() === 0, 'the line is still marked to check');
+  },
   async addflow(page){
     await quiet(page);
     await go(page, 'properties');

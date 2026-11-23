@@ -404,28 +404,29 @@ function alignTo(target){
     }, ms);
   });
 }
+// Move one misfiled purchase group (by its id) — or all of them (null) — to its usual line; with an undo.
+function tidyMoveStrays(id){
+  var all = currentStrays();
+  var chosen = id == null ? all : all.filter(function(s){ return s.id === id; });
+  if(!chosen.length) return;
+  var undo = [];
+  chosen.forEach(function(s){ undo = undo.concat(moveTransactions(state.transactions, s.txIds, s.toLineId)); });
+  commit(["transactions"]);
+  showUndoToast(chosen.length === 1 ? "Moved " + chosen[0].label + " to " + tidyLineName(chosen[0].toLineId) : "Moved " + undo.length + " purchases to their usual lines",
+    function(){ undoChanges(undo); commit(["transactions"]); });
+}
+function tidyKeepStray(id){
+  var undoOk = markTidyOk(state, id);
+  commit(["tidyOk"]);
+  showUndoToast("Kept where it is — it won't be asked again", function(){ undoOk(); commit(["tidyOk"]); });
+}
 export function wireTidy(){
   var body = document.getElementById("tidyBody");
   body.addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b || b.disabled) return;
-    if(b.hasAttribute("data-tidy-move") || b.hasAttribute("data-tidy-move-all")){
-      var all = currentStrays();
-      var chosen = b.hasAttribute("data-tidy-move-all") ? all : all.filter(function(s){ return s.id === b.getAttribute("data-tidy-move"); });
-      if(!chosen.length) return;
-      var undo = [];
-      chosen.forEach(function(s){ undo = undo.concat(moveTransactions(state.transactions, s.txIds, s.toLineId)); });
-      commit(["transactions"]);
-      showUndoToast(chosen.length === 1 ? "Moved " + chosen[0].label + " to " + tidyLineName(chosen[0].toLineId) : "Moved " + undo.length + " purchases to their usual lines",
-        function(){ undoChanges(undo); commit(["transactions"]); });
-      return;
-    }
-    if(b.hasAttribute("data-tidy-ok")){
-      var undoOk = markTidyOk(state, b.getAttribute("data-tidy-ok"));
-      commit(["tidyOk"]);
-      showUndoToast("Kept where it is — it won't be asked again", function(){ undoOk(); commit(["tidyOk"]); });
-      return;
-    }
+    if(b.hasAttribute("data-tidy-move") || b.hasAttribute("data-tidy-move-all")){ tidyMoveStrays(b.hasAttribute("data-tidy-move-all") ? null : b.getAttribute("data-tidy-move")); return; }
+    if(b.hasAttribute("data-tidy-ok")){ tidyKeepStray(b.getAttribute("data-tidy-ok")); return; }
     if(b.hasAttribute("data-tidy-see")){ openTidyAt(b.getAttribute("data-tidy-see"), b.getAttribute("data-tidy-key")); return; }
     if(b.hasAttribute("data-tidy-pick")){ openTidyAt(b.getAttribute("data-tidy-pick"), null); return; }
     if(b.hasAttribute("data-tidy-more")){ tidyUi.showAllStrays = !tidyUi.showAllStrays; renderTidy(); return; }
@@ -486,6 +487,17 @@ export function wireTidy(){
     }
   });
   body.addEventListener("input", function(e){ if(e.target.matches("[data-tidy-new-name]")) tidyUi.newName = e.target.value; });
+  // Move / It's right inside an open budget line (tidyStraysForLineHtml): the line's editor closes first — on a phone a
+  // sheet — so the list isn't rebuilt under it, then the same as in Tidy up.
+  document.addEventListener("click", function(e){
+    var b = e.target.closest("[data-tidy-row-move], [data-tidy-row-ok]");
+    if(!b) return;
+    e.preventDefault();
+    var move = b.getAttribute("data-tidy-row-move"), keep = b.getAttribute("data-tidy-row-ok");
+    var act = function(){ if(move) tidyMoveStrays(move); else tidyKeepStray(keep); };
+    if(b.closest(".m-row.open")) requestCloseActiveOverlay().then(function(closed){ if(closed !== false) act(); });
+    else act();
+  });
   // "Tidy this line →" from an open budget row (Budget) or a line's breakdown (Transactions).
   document.addEventListener("click", function(e){
     var open = e.target.closest("[data-tidy-open]");

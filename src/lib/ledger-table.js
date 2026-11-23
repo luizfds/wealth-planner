@@ -343,7 +343,7 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var accountField = field("f-account", "Account", {value:item.account || "",attrs:{list:"acctSuggestions"}}, {className:opts.showClass ? "span3" : ""});
   var logField = opts.showLog ? '<div class="m-edit-field span2"><span class="field-label">Record a change</span>' + logControlsHtml(section, idx, item) + '</div>' : "";
   var rentLineField = String(section || "").indexOf("propexp:") === 0 && rentLinesProvider ? rentLineFieldHtml(item,field) : "";
-  var fieldsHtml =
+  var fieldsHtml = (opts.leadFieldsHtml || "") +
     field("f-what", "Item name", {value:item.what || ""}, {className:"span3"}) +
     classField + spendField + categoryField +
     field("f-amount", "Amount", {type:"number",value:item.amount,attrs:{step:"0.01"},help:opts.amountHelp || ""}) +

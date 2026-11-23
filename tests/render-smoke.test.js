@@ -3134,3 +3134,19 @@ test("Essentials & lifestyle: four figures, this month's bars, pots with a short
   assert.doesNotMatch(empty, /Worth a look/);
   assert.match(budgetSplitHtml(Object.assign({}, m, { lines: 0 })), /No budget lines yet[^<]*<button[^>]*data-empty-scroll="#sharedGroups"/);
 });
+
+test("Tidy up inside a line: the purchases its marker counts, with Move and It's right, names escaped; nothing for a tidy line", async () => {
+  const { tidyStraysForLineHtml } = await import("../src/components/tidy.js");
+  const wasShared = state.shared, wasTx = state.transactions;
+  try {
+    state.shared = [{ id: "lp", what: "Biscuit", classification: "Needs", amount: 100, freq: "Monthly" }, { id: "lh", what: "Home & <garden>", classification: "Wants", amount: 50, freq: "Monthly" }];
+    state.transactions = [{ id: "x9", date: "2026-09-20", amount: 30, linkedExpenseId: "lp" }];
+    const list = [{ id: "hardware co|lp", key: "hardware co", label: "Hardware \"Co\"", fromLineId: "lp", toLineId: "lh", txIds: ["x9"], count: 1, total: 30, mainCount: 5 }];
+    const h = tidyStraysForLineHtml("lp", list);
+    assert.match(h, /1 purchase here usually goes on another line/);
+    assert.match(h, /Hardware &quot;Co&quot;<\/b> <small>20 Sep 2026 \$30\.00 · your other 5 are on Home &amp; &lt;garden>/);
+    assert.match(h, /data-tidy-row-move="hardware co\|lp">Move to Home &amp; &lt;garden>/);
+    assert.match(h, /data-tidy-row-ok="hardware co\|lp"/);
+    assert.equal(tidyStraysForLineHtml("lh", list), "");
+  } finally { state.shared = wasShared; state.transactions = wasTx; }
+});

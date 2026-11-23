@@ -3,7 +3,8 @@ import { state, commit, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED, classWord } from "../constants.js";
 import { TX_CLASSES, sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
 import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
-import { tidyMarkerHtml, tidyLinkHtml, strayCounts } from "./tidy.js";
+import { tidyMarkerHtml, tidyLinkHtml, currentStrays, tidyStraysForLineHtml } from "./tidy.js";
+import { strayCountByLine } from "../calc/tidy.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
 import { billsForMonth, billsToConfirm } from "../calc/bills.js";
@@ -383,7 +384,7 @@ export function renderSharedGroups(){
   // nothing, since it isn't a category you can put something into.
   var addPrefix = byCategory ? "sharedcat:" : "shared:";
   // Budget → Tidy up: how many of each line's purchases look misfiled, worked out once for every row.
-  var strayN = strayCounts();
+  var strayList = currentStrays(), strayN = strayCountByLine(strayList);
   container.innerHTML = compositionHtml + '<div class="m-people">' + groups.map(function(g, gi){
     var initial = (g.key === "N/A" || g.key === UNCATEGORISED) ? "–" : groupLabel(g.key).charAt(0);
     // Category avatars take the same cycling palette as the chart, so a card and its slice are
@@ -409,7 +410,7 @@ export function renderSharedGroups(){
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item) + tidyMarkerHtml(line.item.id, strayN), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: budgetRowProgressHtml(line.item) + tidyMarkerHtml(line.item.id, strayN), leadFieldsHtml: line.item.computed ? '' : tidyStraysForLineHtml(line.item.id, strayList), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
       '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>' +
     '</div>';
   }).join("") + '</div>';

@@ -1033,12 +1033,16 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     // Net worth is the glance's hero, a way to Accounts; the card that said it again under it went (the owner).
     assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth">[\s\S]*?<b>\$105(?:\.0)?k<\/b>/);
     assert.doesNotMatch(html, /data-home-card="nw"/);
-    // Today opens in colour: net worth the hero with its line; the three under it say what they are by colour.
+    // Net worth is the page's one hero, with its line; the app assessment (November 2026): each figure once, so the
+    // three tiles that said again what a card below says (the month, the next bill, Needs you's count) are gone.
     assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth"><svg class="home-glance-spark"[^>]*aria-hidden="true"/);
     assert.match(html, /<span class="home-glance-chip">▲ \$5,000 since 1 Aug<\/span>/);
-    assert.match(html, /class="home-glance-tile (is-good|is-bad)" data-glance-go="month"/);
-    assert.match(html, /class="home-glance-tile is-warn" data-glance-go="needs"><span class="home-glance-k">Next bill<\/span><b>Phone<\/b>/);
-    assert.match(html, /class="home-glance-tile is-alert" data-glance-go="needs"><span class="home-glance-k">Needs you<\/span><b>2<\/b>/);
+    assert.equal((html.match(/class="home-glance-tile/g) || []).length, 1, "the glance is net worth alone");
+    assert.doesNotMatch(html, /data-glance-go="(month|needs)"/);
+    // The month card says how it's going against the plan; what's left is Where you stand's, not said again here.
+    assert.doesNotMatch(html, /Left from received/);
+    assert.match(html, /data-home-card="month"><span class="home-k">[^<]+ <small class="home-k-sub">\d+ transactions? logged<\/small><\/span>/);
+    assert.match(html, /<div class="home-top">[\s\S]*data-home-card="glance"[\s\S]*<\/div>/);
     assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
     // Today leads with pictures: each bar says in words what it draws; each bill has a date chip.

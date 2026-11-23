@@ -757,19 +757,31 @@
 .home-glance-tile.is-warn{ --tile-bg: linear-gradient(160deg, #b45309, #92400e); }
 .home-glance-tile.is-quiet{ --tile-bg: linear-gradient(160deg, #475569, #334155); }
 /* A wide screen: the hero beside the three, one row. */
-@media (min-width: 900px){ .home-glance{ grid-template-columns: 2fr repeat(3, minmax(0,1fr)); } .home-glance-tile.is-hero{ grid-column:auto; } }
+/* November 2026 (the app assessment): the glance is net worth alone, the page's hero; beside Where you stand on a wide
+   screen, so the top of Today has no gaps, and stacked on a phone. */
+.home-glance{ grid-template-columns: 1fr; margin:0; }
+.home-top{ display:grid; grid-template-columns: 1fr; gap:12px; margin:0 0 14px; }
+.home-top > .home-standing{ margin:0; }
+@media (min-width: 1100px){
+  .home-top{ grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items:stretch; }
+  .home-top .home-glance-tile.is-hero{ height:100%; }
+  .home-top .hs-list{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.home-k-sub{ font-size:var(--fs-xs); font-weight:400; text-transform:none; letter-spacing:0; color: var(--ink-soft); margin-left:4px; }
 /* The narrowest phones: two to a row, Needs you across both. */
 @media (max-width: 359px){ .home-glance{ grid-template-columns: repeat(2, minmax(0,1fr)); } .home-glance-tile:last-child{ grid-column: 1 / -1; min-height:0; } }
 /* What needs you, tinted (the owner: colour where it means something): amber while something waits, red with a bill
    overdue or something urgent. A wash of the card, the words unchanged. */
-.home-card.attn-warn{ background: color-mix(in srgb, var(--warn-ink) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--warn-ink) 35%, var(--border)); }
+/* The colour system: a count of things to do isn't a warning — Needs you stays white with its count in Today's colour,
+   and turns red only when something is overdue or urgent (attn-bad). */
+.home-card.attn-warn{ background: var(--paper-raised); }
 .home-card.attn-bad{ background: color-mix(in srgb, var(--bad) 7%, var(--paper-raised)); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
 .home-glance[hidden]{ display:none; }
 .home-card[data-home-card]{ scroll-margin-top: calc(var(--topbar-h, 72px) + 12px); }
 .home-card[data-home-card]:focus{ outline:none; }
 .home-card[data-home-card]:focus-visible{ box-shadow: var(--focus-ring); }
 .home-count{ display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; margin-left:4px; border-radius:100px;
-  background: var(--brass-wash); color: var(--brass-strong); font-family: var(--font-num); font-size:var(--fs-xs); letter-spacing:0; vertical-align:1px; }
+  background: var(--tab-today-icon); color:#fff; font-family: var(--font-num); font-size:var(--fs-xs); letter-spacing:0; vertical-align:1px; }
 .home-sub{ margin:6px 0 0; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }
 .home-needs .home-bill-list li{ display:grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap:8px; align-items:center; font-size:var(--fs-sm); padding:5px 0; border-bottom:1px dashed var(--border); }
 .home-needs .home-bill-list li:last-child{ border-bottom:0; }

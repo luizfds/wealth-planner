@@ -7,7 +7,7 @@ import { ipExpenseItemsForClassification, fyLabel, loanBalance, ipProperties } f
 import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
-import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, runwayMonths, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
+import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
 import { monthlyCashFlowForecast } from "../calc/cashflow.js";
 import { liquidityForecast } from "../calc/liquidity.js";
 import { cashOnHand } from "./buying.js";
@@ -411,13 +411,10 @@ function drawDashboardStats(){
   var lastTile = isComparing
     ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small>' + tradeoffHtml + '</div>'
     : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
-  var runway = runwayMonths(t.expensesMonthly);
   var emergency = emergencyFund({ scenario: active });
   var riskHtml = dashboardRiskSignalsHtml(dashboardRiskSignals(t, emergency, nothingEntered));
-  // One reserve figure (Today showed it twice — 21.1 months here, 17.7 there — measuring different things unsaid): months
-  // of essential costs your cash and offsets cover, as Plan → Goals' emergency fund counts them; all spending under it.
-  var runwayTile = '<div class="stat-tile" data-home-card="runway" title="Cash and offsets ÷ a month of essential costs (as Plan → Goals counts them). Under it: cash, shares and offsets ÷ all of ' + escapeAttr(active) + '\'s monthly spending. A common rule of thumb is 3–6 months."><span>Reserve</span><b>' +
-    (emergency.coveredMonths == null ? "—" : fmtRunway.format(emergency.coveredMonths) + " mo") + '</b><small>of essential costs · cash + offsets</small><small>' + (runway == null ? "" : fmtRunway.format(runway) + " mo of all spending · with shares") + '</small><details><summary>Cash-flow and reserve risks</summary>' + riskHtml + '</details></div>';
+  // The app assessment (November 2026): the reserve in months is Where you stand's (Today's top), said once; its
+  // cash-flow and reserve risks sit under the planned surplus they come from.
   // Six tiles reading $0, $0/mo, $0 and an em-dash tell a first-time user nothing except that
   // they have entered nothing — which the setup panel above already says, with somewhere to go.
   // The tiles earn their space once they have values in them.
@@ -428,9 +425,8 @@ function drawDashboardStats(){
   }
   var statsHtml =
     '<div class="stat-tile" data-home-card="savings"><span>Planned monthly surplus</span><b' + (regularOf(t) < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' + fmtCurrency0.format(regularOf(t)) + '/mo</b><small>' + fmtPercent1.format(t.rate) + ' savings rate' + (t.oneOffYearly > 0.5 ? ' · a normal month' : '') + '</small>' +
-      '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button></div>' +
+      '<button type="button" class="calc-hint-link savings-why-btn" data-savings-why aria-controls="savingsBreakdown" aria-expanded="' + (savingsWhyOpen ? "true" : "false") + '">How it\'s worked out</button><details><summary>Cash-flow and reserve risks</summary>' + riskHtml + '</details></div>' +
     '<div class="stat-tile" data-home-card="projected" data-level="advanced"><span>Projected net worth</span><b title="' + fmtCurrency0.format(projected) + '">' + fmtCompact(projected) + '</b><small>in ' + horizon + ' years, ' + escapeAttr(active) + ', ' + (state.projection.realTerms !== false ? "today's" : "future") + ' dollars</small></div>' +
-    runwayTile +
     fiTileHtml(t) +
     taxTileHtml() +
     lastTile;

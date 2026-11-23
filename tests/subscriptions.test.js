@@ -148,3 +148,15 @@ test("subscriptions are what you subscribe to: a bill's line keeps its charges o
   assert.equal(isBillLike(null, "CITY COUNCIL RATES"), true);
   assert.equal(isBillLike({ category: "Subscriptions", what: "Phone app" }, ""), false, "the line's category decides");
 });
+
+// November 2026: a charge and its fee on the same day are one charge, not two.
+test("a Subscriptions line's charge is everything on it that day — a foreign price and its fee together", function(){
+  var tx = [
+    { date: "2026-10-04", what: "AI APP USD", amount: 20, linkedExpenseId: "ai" },
+    { date: "2026-10-04", what: "INTL TRANSACTION FEE", amount: 0.5, linkedExpenseId: "ai" }
+  ];
+  var st = { transactions: tx, subscriptionNotes: {}, shared: [{ id: "ai", what: "AI app", category: "Subscriptions", amount: 20, freq: "Monthly" }] };
+  var ai = householdSubscriptions(st, "2026-10-20").find(function(s){ return s.line === "ai"; });
+  assert.equal(ai.amount, 20.5);
+  assert.equal(ai.yearly, 246);
+});

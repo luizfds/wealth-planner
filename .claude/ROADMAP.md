@@ -5861,3 +5861,9 @@ medical as Wants, and eating out, cafés and delivery marked "no fixed timing" t
 - Money's screens say Essential/Lifestyle (the transaction editor's "Counts as", the bulk bar, Tidy up). Still to do:
   the Dashboard's 50/30/20 card, Settings' Needs target and Reports' Needs/Wants grouping still say Needs/Wants.
 Tests: budgetsplit, migrations (36), render smoke; journey essentialssplit.
+
+## An easier budget: one answer first, one place to tidy (November 2026)
+
+`[~]` Measured on a real backup at 390px, the Budget tab was ~9,700px (11 screens), 168 controls and 245 dollar figures;
+Money in filled the first ~3,400px; five totals disagreed; budget-vs-actual was split across two tabs; six cards asked
+for fixes; every line had its own window; every line had a bar, even "$0 of $201". Agreed from mock-ups (round 2).

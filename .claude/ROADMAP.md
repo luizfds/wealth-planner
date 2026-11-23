@@ -5953,7 +5953,16 @@ board's answer cards (`pillsHtml({ cards: true })`, each answer with what it mea
 
 ## The app assessment's first six (November 2026)
 
-`[~]` From the 23 November assessment, "Do first": a colour system (a colour per tab, per person, category colours used
-everywhere, green/amber/red kept for meaning); Today shows each figure once; Simple mode made real and the default for a
-new household; instructions moved into the dialogs that use them; one name for each place and no Day or Hour; Budget's
-one inbox, and Income without Budget's summary.
+`[x]` From the 23 November assessment, "Do first":
+- **Colour that means one thing** (docs/design/colour.md): a colour for each place (Today indigo, Money teal, Accounts
+  violet, Plan sky blue, More slate) on its nav mark, period chip, tabs' underline and one hero card; Essentials,
+  Lifestyle and Set aside in shades of Money's teal on every bar.
+- **Today shows each figure once:** net worth alone as the hero; Where you stand = left this month, lowest cash, runway,
+  rates +2%; the month card without its repeated figure; Plans without the Reserve tile (its risks under the surplus) and
+  without the Projection and Scenarios links; Needs you's count in Today's colour, red only for a problem.
+- **Simple mode** (already the default for a new household) also puts away Trips, Tax's Documents, Bills' "Bill or
+  spending budget?" and the scenarios tile.
+- **Instructions in pages:** checked — the bank guide, Trips and the AI key were already closed folds; nothing moved.
+- **Names:** the welcome page uses the tabs' names. Show as lost Day (Hour stays: it's each person's own hours).
+- **Budget's one place to sort things out:** its notices sit under the Tidy list (the page line isn't drawn there);
+  Income opens with income, "Your month, planned" folded under it.

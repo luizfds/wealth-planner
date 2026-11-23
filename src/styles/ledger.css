@@ -1196,11 +1196,9 @@
   .budget-row-sv{ display:inline-block; margin:6px 0 2px; font-size:var(--fs-sm); }
   .tx-controls-left{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   /* November 2026: the period as one row of chips over the list, each a filter; it scrolls sideways on a phone. */
-  .cf-kinds{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:0 -2px; padding:2px; }
-  .cf-kinds::-webkit-scrollbar{ display:none; }
+  .cf-kinds{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:thin; margin:-6px -2px 0; padding:2px; }
   .cf-kinds .bl-chip{ flex:none; white-space:nowrap; }
   .cf-kinds .bl-chip.is-moved:not(.is-on){ color: var(--ink-soft); }
-  @media (min-width:721px){ .cf-kinds{ flex-wrap:wrap; overflow-x:visible; } }
   .cf-tag{ display:block; width:max-content; margin:2px 0 0 auto; padding:0 6px; border-radius:999px; background: var(--paper-sunken); color: var(--ink-soft); font-size:var(--fs-xs); font-weight:400; font-family: inherit; }
   .cf-transfer .m-row-name, .cf-transfer .cf-amt{ color: var(--ink-soft); font-weight:400; }
   .cf-moved{ font-style:italic; }

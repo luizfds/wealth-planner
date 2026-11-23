@@ -90,6 +90,7 @@ for(const width of widths)for(const scheme of schemes){
   if(pg==='expenses' && sub==='spending'){
    const numbers=page.locator('.trend-numbers');
    if(await numbers.count()){
+    await page.locator('[data-pattern-span="six"]').click(); // Patterns shows one span at a time (November 2026)
     await numbers.evaluate(d=>d.open=true);
     if(width<768)await page.locator('[data-trend-month]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
     await scan('spending-numbers/default', '.trend-number-reading');

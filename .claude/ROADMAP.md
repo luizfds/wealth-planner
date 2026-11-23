@@ -5886,7 +5886,7 @@ Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgetho
 
 ## The budget's loose ends (November 2026)
 
-`[~]` What the easier budget left, checked against the household's backup after its first tidy-up:
+`[x]` What the easier budget left, checked against the household's backup after its first tidy-up:
 - **Transactions' "Actual vs. planned" list is gone** — Budget answers it now (what's left, Needs a look, each line in
   words, a line's sheet). The card is "This month by category"; `renderActualVsPlannedPanel` keeps its name and only
   redraws the bills calendar, the chart, the trends and the year (every edit that touches spending calls it). The tab

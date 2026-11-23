@@ -71,3 +71,22 @@ test("budgetHints: an Essential that reads as Lifestyle, the reverse, a set-asid
   const ok = {}; ok[h[0].id] = true;
   assert.ok(!budgetHints(lines, txs, { today: "2026-11-20", ok }).some(x => x.lineId === "a"));
 });
+
+test("lifestylePace: the month day by day, what's left a day, and whether it's on pace", async () => {
+  const { lifestylePace } = await import("../src/calc/budgetsplit.js");
+  const lines = [{ id: "out", classification: "Wants", amount: 3000, freq: "Monthly" }, { id: "rent", classification: "Needs", amount: 2000, freq: "Monthly" },
+    { id: "trip", classification: "Wants", amount: 1200, freq: "Monthly", irregular: true }];
+  const txs = [{ id: "a", linkedExpenseId: "out", date: "2026-11-02", amount: 500 }, { id: "b", linkedExpenseId: "out", date: "2026-11-09", amount: 700 },
+    { id: "c", linkedExpenseId: "rent", date: "2026-11-01", amount: 2000 }, { id: "d", linkedExpenseId: "trip", date: "2026-11-05", amount: 900 },
+    { id: "e", linkedExpenseId: "rent", date: "2026-11-06", amount: 100, classification: "Wants" }];
+  const p = lifestylePace(lines, txs, "2026-11", "2026-11-15");
+  assert.deepEqual([p.days, p.day, p.planned, p.spent, p.left, p.daysLeft], [30, 15, 3000, 1300, 1700, 15]);
+  assert.equal(p.byDay.length, 15);
+  assert.deepEqual([p.byDay[0], p.byDay[1], p.byDay[5], p.byDay[8], p.byDay[14]], [0, 500, 600, 1300, 1300], "the toys on the rent line count; the trip doesn't");
+  assert.equal(p.perDay, 113.33);
+  assert.equal(p.projected, 2600);
+  assert.equal(p.status, "under");
+  assert.equal(lifestylePace(lines, txs, "2026-11", "2026-11-03").status, "early");
+  assert.equal(lifestylePace(lines, txs, "2026-11", "2026-12-02").status, "past");
+  assert.equal(lifestylePace(lines, txs.concat([{ id: "f", linkedExpenseId: "out", date: "2026-11-14", amount: 900 }]), "2026-11", "2026-11-15").status, "over");
+});

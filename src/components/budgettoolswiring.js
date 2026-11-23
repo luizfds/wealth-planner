@@ -30,8 +30,8 @@ import { refreshAfterLedgerChange } from "./rows.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTrim, trimUi, trimScenario } from "./trim.js";
 import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
-import { renderBudgetSplit, budgetSplitUi } from "./budgetsplit.js";
-import { budgetHints } from "../calc/budgetsplit.js";
+import { renderBudgetSplit, budgetSplitUi, budgetSplitModel } from "./budgetsplit.js";
+import { applyInboxAction } from "../calc/tidyinbox.js";
 import { classWord } from "../constants.js";
 import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
 
@@ -521,33 +521,34 @@ export function wireTidy(){
   });
 }
 
-// ---------------- Money → Budget → Essentials & lifestyle (November 2026) ----------------
-// "Worth a look": one tap sets what the hint says (Essential, Lifestyle, every month), with an undo; "It's right" keeps
-// the line as it is and the hint doesn't come back (state.tidyOk, shared with Tidy up).
+// ---------------- Money → Budget: things to tidy, a card at a time (November 2026) ----------------
+// One inbox for misfiled purchases, Essential/Lifestyle and set-aside hints, plans far from spending and new repeating
+// charges (calc/tidyinbox.js). Each answer is one commit with an undo; "no" is remembered, Later lasts the session.
+var INBOX_TOUCHES = { move: ["transactions"], set: ["shared", "home"], amount: ["shared", "home"], addLine: ["shared", "transactions"], ok: ["tidyOk"] };
+function focusInbox(){
+  var b = document.querySelector("#bhInboxBody [data-inbox-yes]") || document.querySelector("#budgetSplitBody [data-inbox-toggle]");
+  if(b) b.focus({ preventScroll: true });
+}
 export function wireBudgetSplit(){
   var body = document.getElementById("budgetSplitBody");
   body.addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b) return;
-    var more = b.getAttribute("data-bs-more");
-    if(more){ if(more === "pots") budgetSplitUi.allPots = !budgetSplitUi.allPots; else budgetSplitUi.allHints = !budgetSplitUi.allHints; renderBudgetSplit(); return; }
-    var okId = b.getAttribute("data-bs-ok");
-    if(okId){
-      var undoOk = markTidyOk(state, okId);
-      commit(["tidyOk"]);
-      showUndoToast("Kept as it is", function(){ undoOk(); commit(["tidyOk"]); });
-      return;
-    }
-    var fixId = b.getAttribute("data-bs-fix");
-    if(!fixId) return;
+    if(b.hasAttribute("data-inbox-toggle")){ budgetSplitUi.inboxOpen = !budgetSplitUi.inboxOpen; renderBudgetSplit(); focusInbox(); return; }
+    if(b.getAttribute("data-bs-more") === "pots"){ budgetSplitUi.allPots = !budgetSplitUi.allPots; renderBudgetSplit(); return; }
+    var later = b.getAttribute("data-inbox-later");
+    if(later){ budgetSplitUi.later[later] = true; renderBudgetSplit(); focusInbox(); return; }
+    var yes = b.getAttribute("data-inbox-yes"), no = b.getAttribute("data-inbox-no");
+    if(!yes && !no) return;
+    var card = budgetSplitModel().inbox.find(function(c){ return c.id === (yes || no); });
+    if(!card) return;
+    var answer = yes ? card.yes : card.no;
     var lines = loggableBudgetLineItems();
-    var hint = budgetHints(lines, state.transactions, { today: localDateStr(), ok: state.tidyOk || {} }).find(function(h){ return h.id === fixId; });
-    var line = hint && lines.find(function(l){ return l.id === hint.lineId; });
-    if(!line) return;
-    var was = {};
-    Object.keys(hint.fix.set).forEach(function(k){ was[k] = line[k]; });
-    Object.assign(line, hint.fix.set);
-    commit(["shared", "home"]);
-    showUndoToast((line.what || "Line") + ": " + hint.fix.label.replace(/^Make it /, "now "), function(){ Object.assign(line, was); commit(["shared", "home"]); });
+    var undo = applyInboxAction(state, answer.act, { lineOf: function(id){ return lines.find(function(l){ return l.id === id; }); }, idFactory: function(){ return genId("exp"); } });
+    if(!undo) return;
+    var touched = INBOX_TOUCHES[answer.act.type] || ["*"];
+    commit(touched);
+    focusInbox();
+    showUndoToast(answer.act.type === "ok" ? "Kept as it is — it won't be asked again" : answer.label + " — done", function(){ undo(); commit(touched); focusInbox(); });
   });
 }

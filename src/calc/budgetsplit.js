@@ -56,16 +56,51 @@ export function monthSplit(lines, transactions, ym, opts){
   var lines2 = byId(lines);
   (transactions || []).forEach(function(t){
     if(!t || String(t.date || "").slice(0, 7) !== ym) return;
-    var line = t.linkedExpenseId ? lines2[t.linkedExpenseId] : null;
-    if(line && isSetAside(line)) return;
-    var cls = line ? transactionClass(t, line) : (t.classification === "Needs" || t.classification === "Wants" ? t.classification : "N/A");
-    out[kindOfClass(cls)].spent += num(t.amount);
+    var k = monthKindOfTx(t, lines2);
+    if(k) out[k].spent += num(t.amount);
   });
   ["essential", "lifestyle", "other"].forEach(function(k){ out[k].planned = r2(out[k].planned); out[k].spent = r2(out[k].spent); });
   out.setAside.planned = r2(out.setAside.planned); out.setAside.essential = r2(out.setAside.essential); out.setAside.lifestyle = r2(out.setAside.lifestyle);
   out.total = r2(out.essential.planned + out.lifestyle.planned + out.other.planned + out.setAside.planned);
   out.lifestyleLeft = r2(out.lifestyle.planned - out.lifestyle.spent);
   return out;
+}
+
+// Which of this month's figures a purchase counts in — "essential", "lifestyle" or "other" — or null for a set-aside
+// line's, which comes out of its pot. The one rule monthSplit and lifestylePace share.
+function monthKindOfTx(t, linesById){
+  var line = t.linkedExpenseId ? linesById[t.linkedExpenseId] : null;
+  if(line && isSetAside(line)) return null;
+  return kindOfClass(line ? transactionClass(t, line) : (t.classification === "Needs" || t.classification === "Wants" ? t.classification : "N/A"));
+}
+
+// Lifestyle's month, day by day — the figure to watch, and whether it's on pace.
+// → { days, day, planned, spent, left, daysLeft, perDay, byDay: [cumulative spent at the end of each day so far],
+//     projected, diff, status } — status "early" (before day 5: too soon to say), "under", "on" (within $25 or 2% of
+//     the plan), "over", or "past" (a finished month: spent against planned). `today` decides how far the month has got.
+export function lifestylePace(lines, transactions, ym, today, opts){
+  var split = opts && opts.split ? opts.split : monthSplit(lines, transactions, ym, opts);
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+  var days = new Date(y, m, 0).getDate();
+  var tym = String(today).slice(0, 7);
+  var day = tym === ym ? Number(String(today).slice(8, 10)) : (tym > ym ? days : 0);
+  var linesById = byId(lines), perDayRaw = [];
+  for(var i = 0; i < days; i++) perDayRaw.push(0);
+  (transactions || []).forEach(function(t){
+    if(!t || String(t.date || "").slice(0, 7) !== ym) return;
+    if(monthKindOfTx(t, linesById) !== "lifestyle") return;
+    var d = Number(String(t.date).slice(8, 10));
+    if(d >= 1 && d <= days) perDayRaw[d - 1] += num(t.amount);
+  });
+  var byDay = [], run = 0;
+  for(var j = 0; j < day; j++){ run += perDayRaw[j]; byDay.push(r2(run)); }
+  var planned = split.lifestyle.planned, spent = split.lifestyle.spent, left = r2(planned - spent);
+  var daysLeft = days - day;
+  var projected = day > 0 ? r2(spent / day * days) : 0;
+  var diff = r2(planned - projected);
+  var status = day >= days ? "past" : day < 5 ? "early" : Math.abs(diff) <= Math.max(25, planned * 0.02) ? "on" : diff > 0 ? "under" : "over";
+  return { days: days, day: day, planned: planned, spent: spent, left: left, daysLeft: daysLeft,
+    perDay: daysLeft > 0 ? r2(Math.max(0, left) / daysLeft) : 0, byDay: byDay, projected: projected, diff: diff, status: status };
 }
 
 // A set-aside line's pot on `today`. `potStart` is what it held on `potFrom` (set when someone says what's in it);

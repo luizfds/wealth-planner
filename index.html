@@ -438,12 +438,8 @@
           </div>
         </div>
         <div class="ledgers">
-          <details class="ledger" id="budgetSplitCard" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Essentials &amp; lifestyle</h2></div>
-            </summary>
-            <div class="ledger-body"><div id="budgetSplitBody"></div></div>
-          </details>
+          <!-- November 2026: one answer first — what's left for Lifestyle, the pace, what needs tidying, what's due, the pots. -->
+          <section class="bh-wrap" id="budgetSplitCard" aria-label="This month's budget"><div id="budgetSplitBody"></div></section>
           <details class="ledger" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Household budget</h2></div>
@@ -461,7 +457,8 @@
               </div>
             </div>
           </details>
-          <details class="ledger" id="historyBudgetCard" open>
+          <h2 class="money-head-title bh-tools-head">Tools</h2>
+          <details class="ledger" id="historyBudgetCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Build from what you've spent</h2></div>
               <div class="ledger-total" id="historyBudgetCount"></div>
@@ -482,7 +479,7 @@
             </summary>
             <div class="ledger-body"><div id="trimBody"></div></div>
           </details>
-          <details class="ledger" id="recurringCard" open>
+          <details class="ledger" id="recurringCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Recurring payments</h2></div>
               <div class="ledger-total" id="recurringCount"></div>

@@ -3112,27 +3112,43 @@ test("Tidy up: a misfiled purchase with Move / It's right, a line's shops, an op
   }
 });
 
-test("Essentials & lifestyle: four figures, this month's bars, pots with a short one, hints with a fix, names escaped", async () => {
-  const { budgetSplitHtml } = await import("../src/components/budgetsplit.js");
-  const split = { essential: { planned: 6800, spent: 5900 }, lifestyle: { planned: 2700, spent: 3000 }, other: { planned: 0, spent: 0 },
-    setAside: { planned: 2200, essential: 200, lifestyle: 2000 }, total: 11700, lifestyleLeft: -300 };
-  const pot = (id, what, cls, balance) => ({ line: { id, what, classification: cls }, pot: { monthly: 100, spent: 50, from: "2025-12-31", balance, short: balance < 0 } });
-  const m = { ym: "2026-11", today: "2026-11-23", lines: 12, split, pots: [pot("t", "Trips <b>", "Wants", 4200), pot("c", "Car upkeep", "Needs", -120)],
-    hints: [{ id: "hint:setaside-monthly|x", lineId: "x", what: "Cafés & co", text: "set aside, but spent in 12 of the last 12 months", fix: { label: "Make it every month", set: { irregular: false } } }] };
-  const h = budgetSplitHtml(m);
-  assert.match(h, /Essentials · every month<\/span><b>\$6,800<\/b><small>58% of the plan/);
-  assert.match(h, /Lifestyle over this month<\/span><b class="over">\$300<\/b>/);
-  assert.match(h, /day 23 of 30/);
-  assert.match(h, /bs-bar-fig over">\$3,000 <small>of \$2,700/);
-  assert.match(h, /Trips &lt;b><\/button> <small>· Lifestyle/, "the pot's name escaped, and Essential/Lifestyle in words");
-  assert.match(h, /bs-pot-bal over">\$120 short/);
-  assert.match(h, /data-bs-fix="hint:setaside-monthly\|x">Make it every month/);
-  assert.match(h, /Cafés &amp; co/);
-  assert.match(h, /The whole plan <b>\$11,700\/mo/);
-  const empty = budgetSplitHtml(Object.assign({}, m, { pots: [], hints: [] }));
-  assert.match(empty, /Nothing set aside yet[^<]*<button type="button" class="link-btn empty-state-go" data-empty-scroll="#sharedGroups"/);
-  assert.doesNotMatch(empty, /Worth a look/);
+test("Budget home: what's left for Lifestyle, the pace in words, the inbox, what's due, the pots, money in; names escaped", async () => {
+  const { budgetSplitHtml, inboxHtml, budgetSplitUi } = await import("../src/components/budgetsplit.js");
+  const split = { essential: { planned: 6800, spent: 5900 }, lifestyle: { planned: 2700, spent: 2060 }, other: { planned: 0, spent: 4000 },
+    setAside: { planned: 2200, essential: 200, lifestyle: 2000 }, total: 11700, lifestyleLeft: 640 };
+  const pace = { days: 30, day: 23, planned: 2700, spent: 2060, left: 640, daysLeft: 7, perDay: 91.43, byDay: Array.from({ length: 23 }, (_, i) => 90 * (i + 1)), projected: 2687, diff: 13, status: "on" };
+  const card = { id: "c1", kind: "misfiled", label: "Looks misfiled", title: "Hardware <Co>, $103, is on Pet", body: "Your other 10 visits there are on Home & garden.",
+    facts: [["On", "Pet"], ["Usually", "Home & garden"]], yes: { label: "Move to Home & garden", act: {} }, no: { label: "It's right", act: {} } };
+  const m = { ym: "2026-11", today: "2026-11-23", lines: 27, split, pace, inbox: [card, Object.assign({}, card, { id: "c2", title: "Second" })],
+    upcoming: [{ id: "b", what: "Rent & <co>", due: "2026-11-25", days: 2, amount: 1620 }],
+    pots: [{ line: { id: "t", what: "Trips <b>", classification: "Wants" }, pot: { monthly: 1700, balance: 4200, short: false } }, { line: { id: "c", what: "Car upkeep", classification: "Needs" }, pot: { monthly: 200, balance: -120, short: true } }],
+    moneyIn: { planned: 22000, received: 19000 } };
+  budgetSplitUi.inboxOpen = false;
+  let h = budgetSplitHtml(m);
+  assert.match(h, /Left for Lifestyle/);
+  assert.match(h, /<b class="">\$640<\/b><span>≈ \$91 a day for 7 days/);
+  assert.match(h, /role="img" aria-label="Lifestyle spending this month: \$2,060 by day 23 of 30/);
+  assert.match(h, /bh-pace-words good">Right on pace/);
+  assert.match(h, /Also spent this month on no budget line: <b>\$4,000<\/b>/);
+  assert.match(h, /data-inbox-toggle aria-expanded="false"[^>]*>.*2 things to tidy/);
+  assert.doesNotMatch(h, /data-inbox-yes/, "the inbox opens on a tap");
+  assert.match(h, /Wed 25<\/span><span class="bh-due-what">Rent &amp; &lt;co>/);
+  assert.match(h, /Trips &lt;b><\/span><b class="">\$4,200<\/b><small>Lifestyle · \$1,700\/mo/);
+  assert.match(h, /<b class="over">\$120 short<\/b>/);
+  assert.match(h, /data-go="expenses\/income"[^>]*>.*\$19,000 <small>of \$22,000 received/);
+  budgetSplitUi.inboxOpen = true;
+  h = budgetSplitHtml(m);
+  assert.match(h, /aria-expanded="true"/);
+  const ib = inboxHtml(m.inbox);
+  assert.match(ib, /1 of 2/);
+  assert.match(ib, /Hardware &lt;Co>, \$103, is on Pet/);
+  assert.match(ib, /data-inbox-yes="c1">Move to Home &amp; garden/);
+  assert.match(ib, /data-inbox-no="c1">It&#39;s right|data-inbox-no="c1">It's right/);
+  assert.match(ib, /data-inbox-later="c1"/);
+  assert.match(inboxHtml([]), /data-empty="done"/);
   assert.match(budgetSplitHtml(Object.assign({}, m, { lines: 0 })), /No budget lines yet[^<]*<button[^>]*data-empty-scroll="#sharedGroups"/);
+  assert.match(budgetSplitHtml(Object.assign({}, m, { pace: Object.assign({}, pace, { status: "over", diff: -300, left: -50 }) })), /At this pace, about \$300 over by the 30th/);
+  budgetSplitUi.inboxOpen = false;
 });
 
 test("Tidy up inside a line: the purchases its marker counts, with Move and It's right, names escaped; nothing for a tidy line", async () => {

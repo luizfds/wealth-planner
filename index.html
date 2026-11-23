@@ -502,19 +502,9 @@
         <!-- November 2026: Income is a tab again — Budget leads with spending; "Your month, planned" and money in live here. -->
         <div class="expenses-subpage" id="expensesSub-income" hidden>
         <div class="page-intro-row">
-          <p class="page-intro help">What comes in, what it's worth after tax, and what's actually arrived — and your month planned: money in, money out and what's left over.</p>
+          <p class="page-intro help">What comes in, what it's worth after tax, and what's actually arrived — then your month planned: money in, money out and what's left over.</p>
         </div>
         <div class="ledgers">
-          <details class="ledger" id="budgetPlanCard" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
-              <div class="ledger-total">Left over in a normal month <b id="budgetPlanNet">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Your regular monthly plan for <b id="budgetPlanScenario">—</b>. Change pay below and spending on Budget.</p>
-              <div id="budgetPlanBody"></div>
-            </div>
-          </details>
           <div class="money-in">
           <div class="money-head" id="moneyIn"><h2 class="money-head-title">Money in</h2>
             <p class="ledger-note help money-head-help" id="incomePageHelp">Your household income, and what it's really worth after tax. <span id="incomeExportHelp">Export CSV downloads every income row as a CSV file.</span> <span id="incomeTemplateHelp">Import template downloads a blank CSV shaped for importing income back in.</span> <span id="incomeImportHelp">Import CSV adds income rows from a CSV file shaped like the import template.</span></p>
@@ -559,6 +549,18 @@
               <div class="ledger-footer">
                 <button class="btn btn-sm" id="logReceivedBtn">+ Log income received</button>
               </div>
+            </div>
+          </details>
+          <!-- The app assessment (November 2026): Income opens with income; the month planned is under it, folded — it's
+               Budget's summary, kept here for the running balance line by line. -->
+          <details class="ledger" id="budgetPlanCard">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
+              <div class="ledger-total">Left over in a normal month <b id="budgetPlanNet">—</b></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Your regular monthly plan for <b id="budgetPlanScenario">—</b>. Change pay below and spending on Budget.</p>
+              <div id="budgetPlanBody"></div>
             </div>
           </details>
           </div>

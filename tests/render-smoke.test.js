@@ -3034,6 +3034,13 @@ test("Budget home: what's left for Lifestyle, the pace in words, the inbox, what
   assert.match(budgetSplitHtml(Object.assign({}, m, { lines: 0 })), /No budget lines yet[^<]*<button[^>]*data-empty-scroll="#sharedGroups"/);
   assert.match(budgetSplitHtml(Object.assign({}, m, { pace: Object.assign({}, pace, { status: "over", diff: -300, left: -50 }) })), /At this pace, about \$300 over by the 30th/);
   budgetSplitUi.inboxOpen = false;
+  // The app assessment: the answer on a band in Money's colour; Budget's notices under its Tidy list, one line opening
+  // the bell — the page's "N to look at" line isn't drawn on Budget as well (components/attentionline.js).
+  assert.match(h, /<section class="bh-hero" aria-label="This month"><div class="bh-band">/);
+  const withNotices = budgetSplitHtml(Object.assign({}, m, { notices: [{ title: "Over <b> budget" }, { title: "Two lines" }] }));
+  assert.match(withNotices, /<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog"><span class="bh-notices-n">2 notices<\/span><span class="bh-notices-top">Over &lt;b> budget<\/span>/);
+  assert.doesNotMatch(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [{ title: "One" }] })), /All tidy/, "not all tidy while a notice waits");
+  assert.match(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [] })), /All tidy/);
 });
 
 test("Tidy up inside a line: the purchases its marker counts, with Move and It's right, names escaped; nothing for a tidy line", async () => {

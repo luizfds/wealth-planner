@@ -23,7 +23,9 @@ export function renderAttentionLine(force){
   if(!force && key === lastKey && el.parentElement === page) return;
   lastKey = key;
   var html = "";
-  try { html = attentionLineHtml(viewItems(view)); } catch(e){ html = ""; }
+  // Budget says its notices under its own Tidy list (components/budgetsplit.js): one place to sort things out there.
+  var onBudget = view.page === "expenses" && (!view.sub || view.sub === "budget");
+  try { html = onBudget ? "" : attentionLineHtml(viewItems(view)); } catch(e){ html = ""; }
   if(el.parentElement !== page){
     var rails = page.querySelectorAll(":scope > .subnav");
     if(rails.length) rails[rails.length - 1].insertAdjacentElement("afterend", el); else page.insertAdjacentElement("afterbegin", el);

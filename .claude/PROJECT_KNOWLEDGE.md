@@ -857,7 +857,8 @@ be reverted without touching the others.
   matter in practice — same generator approach as the app icons (Playwright screenshot of an
   inline SVG: solid `background_color`-matching fill + centered brand mark), see
   `icons/splash/` generation notes in the shipping commit.
-- **Swipe gestures** (`src/lib/swipe.js`'s `onHorizontalSwipe`, wired from `app.js`): the Assets
+- **Swipe gestures** — November 2026: no page changes tab on a swipe any more (Money's tabs were the last, and it
+  felt random and fired on swipes meant for chips and charts). What's below is history. (`src/lib/swipe.js`'s `onHorizontalSwipe`, wired from `app.js`): the Assets
   subnav (Cash/Shares/Super/Vehicle/Other, no wraparound past either end) and Tax & Super's
   breakdown-flip cards (either swipe direction just toggles — there are only two faces, so there's
   no "which direction reveals what" to get wrong). Both gated to `max-width: 880px` — desktop

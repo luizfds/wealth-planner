@@ -11,7 +11,6 @@ import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } fr
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
 import { syncOn } from "../lib/foldersync.js";
 import { localDateStr } from "../lib/format.js";
-import { onHorizontalSwipe } from "../lib/swipe.js";
 import { showToast } from "../lib/toast.js";
 import { state, persist } from "../state.js";
 import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
@@ -43,7 +42,7 @@ import { chooseInvestmentProperty, openStatementForm } from "./rentstatement.js"
 import { readInput } from "../lib/validate.js";
 import { initSectionPickers } from "../lib/sectionpicker.js";
 
-var navMenuToggle, topbar, compact, EXPENSES_SUB_ORDER, periodBtn, periodMenu, GO_KEYS, goPending;
+var navMenuToggle, topbar, compact, periodBtn, periodMenu, GO_KEYS, goPending;
 
 // ---------------- Quick actions menu (#304: opened from the avatar menu, or by the button on a page with no action of its own) ----------------
 function openQuickActions(){
@@ -141,14 +140,6 @@ function firstVisibleAddButton(pageId){
   return Array.prototype.find.call(section.querySelectorAll("[data-add]"), function(el){
     return el.offsetParent !== null;
   }) || null;
-}
-function stepExpensesSubpage(step){
-  if(!window.matchMedia("(max-width: 880px)").matches) return;
-  var activeExpensesBtn = document.querySelector("#expensesSubnav .subnav-item.active");
-  var currentExpensesTab = activeExpensesBtn ? activeExpensesBtn.getAttribute("data-expenses-sub") : "budget";
-  var nextExpensesIndex = EXPENSES_SUB_ORDER.indexOf(currentExpensesTab) + step;
-  if(nextExpensesIndex < 0 || nextExpensesIndex >= EXPENSES_SUB_ORDER.length) return;
-  showExpensesSubpage(EXPENSES_SUB_ORDER[nextExpensesIndex]);
 }
 function setPeriodMenuOpen(open){
   periodMenu.hidden = !open;
@@ -460,13 +451,10 @@ export function wireSubpages(){
     var expensesSubBtn = e.target.closest("[data-expenses-sub]");
     if(!expensesSubBtn) return;
     showExpensesSubpage(expensesSubBtn.getAttribute("data-expenses-sub"));
-  });  // Same swipe-between-tabs affordance as Assets above, and same mobile-only guard: two tabs, so
-  // a swipe simply stops at either end rather than wrapping.
-  EXPENSES_SUB_ORDER = ["budget", "income", "spending", "bills"];
-  onHorizontalSwipe(document.getElementById("page-expenses"), {
-    onSwipeLeft: function(){ stepExpensesSubpage(1); },
-    onSwipeRight: function(){ stepExpensesSubpage(-1); }
   });
+  // November 2026: no swipe between Money's tabs. It was the one page a sideways swipe changed tab on, so it read as
+  // random, and it fired on swipes meant for what was under the thumb (a row of chips, a chart). Tabs are tapped,
+  // everywhere; a swipe belongs to the thing it starts on (a transaction's actions, the review card, a tax card).
 }
 
 export function wirePullToRefresh(){

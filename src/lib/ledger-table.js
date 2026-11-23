@@ -2,7 +2,7 @@ import { FREQS, CLASSES, MONTH_NAMES, DEDUCTION_LABELS, classWord } from "../con
 import { periodsOf, RESERVE_YEAR_BASES, resolveSharedAmount } from "../calc/ledger.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1, localDateStr, fmtDate } from "./format.js";
 import { escapeAttr } from "./html.js";
-import { fieldHtml } from "./field.js";
+import { fieldHtml, pillsHtml } from "./field.js";
 
 // Stable ids include the surface: the same property cost is editable from Budget and Property.
 // Keep the existing grid/conditional wrappers; fieldHtml owns the label, control, help and error.
@@ -332,11 +332,18 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
   var field = ledgerFields(item, section, idx, opts.fieldScope);
   // November 2026: Essential or Lifestyle (stored Needs/Wants, calc/budgetsplit.js) — and, on the Budget, every month or
   // set aside, which used to be "No fixed timing" under More options. A set-aside line is a pot and says what it holds.
-  var classField = opts.showClass ? field("f-class", "Essential or lifestyle", {type:"select",value:item.classification || "Needs",options:CLASSES.map(function(c){ return { value: c, label: classWord(c) }; }),
-    help: opts.fieldScope === "budget" ? "Essential: you'd still pay it if money got tight." : ""}) : "";
-  var spendField = opts.fieldScope === "budget" && opts.showClass ? field("f-irregular", "When it's spent", {type:"select",value:item.irregular ? "setaside" : "monthly",
-      options:[{value:"monthly",label:"Every month"},{value:"setaside",label:"Set aside"}],
-      help:"Set aside: a monthly amount goes into a pot and spending comes out — judged over the year, never against this month."}) +
+  // Round 1, board 2: on the Budget, the two questions are answer cards, each with what it means under it.
+  var cardsId = ledgerFieldId(item, section, idx, opts.fieldScope, "");
+  var CLASS_SUBS = { Needs: "Can't go without", Wants: "Chosen, could cut", Savings: "Put by for later", "N/A": "Not spending" };
+  var classField = !opts.showClass ? "" : opts.fieldScope === "budget"
+    ? '<div class="m-edit-field span3">' + pillsHtml({ id: cardsId + "f-class", name: cardsId + "f-class", label: "Is it essential?", className: "f-class", cards: true, value: item.classification || "Needs",
+        lead: "Essential means you'd still pay it if money got tight — a roof, food, power, getting to work, health, the pet's food and vet.",
+        options: CLASSES.map(function(c){ return { value: c, label: classWord(c), sub: CLASS_SUBS[c] }; }) }) + '</div>'
+    : field("f-class", "Essential or lifestyle", {type:"select",value:item.classification || "Needs",options:CLASSES.map(function(c){ return { value: c, label: classWord(c) }; })});
+  var spendField = opts.fieldScope === "budget" && opts.showClass ? '<div class="m-edit-field span3">' + pillsHtml({ id: cardsId + "f-irregular", name: cardsId + "f-irregular", label: "When does it get spent?", className: "f-irregular", cards: true,
+      value: item.irregular ? "setaside" : "monthly",
+      options: [{ value: "monthly", label: "Every month", sub: "Spent most months — counts against this month's budget" },
+        { value: "setaside", label: "Set aside", sub: "Lumpy — " + fmtCurrency0.format(monthly) + " a month goes into a pot, and spending comes out of it. Judged over the year, never against this month." }] }) + '</div>' +
     field("f-potstart", "In the pot today", {type:"number",value:item.potFrom ? item.potStart : "",placeholder:"0",
       help: item.potFrom ? "Said on " + fmtDate(item.potFrom, { year: true }) + "." : "What's already put by for it. Blank starts it empty at the start of its budget year."}, {hidden:!item.irregular, className:"f-potstart-field"}) : "";
   // Round 1, board 2: where the line shows, in one sentence — this month's figure, or its pot.

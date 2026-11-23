@@ -3124,3 +3124,15 @@ test("Patterns lists each category against its usual by this day, and folds the 
     assert.match(m.patternsListHtml("six", "2026-11-23"), /A typical month · last 5 full months/);
   } finally { state.transactions = keep.tx; state.shared = keep.shared; }
 });
+
+// Round 1, board 2: a budget line's two questions are answer cards — real radios with the field's class, a line under each.
+test("a budget line's editor asks Is it essential? and When does it get spent? as answer cards", async function(){
+  const { modernPlainRowHtml } = await import("../src/lib/ledger-table.js");
+  var html = modernPlainRowHtml({ id: "l1", what: "Trips", amount: 1700, freq: "Monthly", classification: "Wants", irregular: true }, 0, "shared", { 0: true },
+    { fieldScope: "budget", showClass: true, showDone: true, categories: [] });
+  assert.match(html, /field-pills is-cards/);
+  assert.match(html, /class="pill-input f-class"[^>]*value="Wants" checked><span><b>Lifestyle<\/b><small>Chosen, could cut<\/small>/);
+  assert.match(html, /class="pill-input f-irregular"[^>]*value="setaside" checked><span><b>Set aside<\/b><small>Lumpy — \$1,700 a month goes into a pot/);
+  assert.match(html, /Where it shows:<\/b> Set aside · Lifestyle — in its own pot/);
+  assert.doesNotMatch(html, /<select[^>]*f-class|<select[^>]*f-irregular|undefined|NaN/);
+});

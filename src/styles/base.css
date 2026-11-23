@@ -226,6 +226,14 @@
   .pill-input{ position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
   .pill:has(.pill-input:checked){ background: var(--ink); color: var(--paper-raised); }
   .pill:has(.pill-input:focus-visible){ box-shadow: var(--focus-ring); }
+  /* Round 1, board 2: pills as answer cards — each a card, what it means under it; the chosen one outlined. */
+  .field-pills.is-cards .pills{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
+  .pill.pill-card{ display:flex; align-items:flex-start; min-height:60px; padding:10px 14px; border-radius:14px; border:2px solid transparent; background: var(--paper-sunken); color: var(--ink); font-weight:400; }
+  .pill.pill-card > span{ display:flex; flex-direction:column; gap:2px; align-self:flex-start; }
+  .pill.pill-card b{ font-weight:600; font-size:var(--fs-md); }
+  .pill.pill-card small{ font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.4; }
+  .pill.pill-card:has(.pill-input:checked){ border-color: var(--brass); background: var(--paper-raised); color: var(--ink); }
+  .field-lead{ margin:2px 0 8px; }
   .switch-row{ display:flex; width:100%; box-sizing:border-box; align-items:center; justify-content:space-between; gap:12px; min-height:52px; padding:8px 14px;
     border-radius:14px; background: var(--paper-sunken); cursor:pointer; }
   .switch-text{ display:flex; flex-direction:column; min-width:0; }

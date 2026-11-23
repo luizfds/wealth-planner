@@ -95,12 +95,15 @@ export function pillsHtml(o){
     if(!ATTR_NAME.test(k)) throw new Error("Not an attribute name: " + k);
     return " " + k + '="' + escapeAttr(o.attrs[k]) + '"';
   }).join("");
-  return '<div class="field field-pills">' +
+  // November 2026 (round 1, board 2): o.cards — each answer a card, its `sub` the line under it ("Can't go without").
+  return '<div class="field field-pills' + (o.cards ? ' is-cards' : '') + '">' +
     '<span class="field-label" id="' + escapeAttr(id) + '-label">' + escapeAttr(o.label || "") + '</span>' +
+    (o.lead ? '<p class="field-help field-lead">' + escapeAttr(o.lead) + '</p>' : '') +
     '<div class="pills" role="radiogroup" aria-labelledby="' + escapeAttr(id) + '-label">' + (o.options || []).map(function(opt, i){
       var v = String(opt.value == null ? "" : opt.value);
-      return '<label class="pill"><input type="radio" class="pill-input' + (o.className ? " " + escapeAttr(o.className) : "") + '" id="' + escapeAttr(id + "-" + i) + '" name="' + escapeAttr(name) + '" value="' + escapeAttr(v) + '"' +
-        (v === value ? " checked" : "") + extra + '><span>' + escapeAttr(opt.label == null ? v : opt.label) + '</span></label>';
+      var text = escapeAttr(opt.label == null ? v : opt.label);
+      return '<label class="pill' + (o.cards ? ' pill-card' : '') + '"><input type="radio" class="pill-input' + (o.className ? " " + escapeAttr(o.className) : "") + '" id="' + escapeAttr(id + "-" + i) + '" name="' + escapeAttr(name) + '" value="' + escapeAttr(v) + '"' +
+        (v === value ? " checked" : "") + extra + '><span>' + (o.cards ? '<b>' + text + '</b>' + (opt.sub ? '<small>' + escapeAttr(opt.sub) + '</small>' : '') : text) + '</span></label>';
     }).join("") + '</div>' +
     (o.help ? '<p class="field-help">' + escapeAttr(o.help) + '</p>' : '') +
   '</div>';

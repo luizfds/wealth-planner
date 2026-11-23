@@ -1730,7 +1730,7 @@
   /* The Lines list: which lines show, and their order (components/expenses.js lineView) */
   .bl-bar{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; margin: 4px 0 12px; }
   .bl-chips{ display:flex; flex-wrap:wrap; gap:6px; }
-  .bl-chip{ min-height:36px; padding:0 12px; border-radius:999px; border:1px solid var(--border); background: var(--paper-raised); color: var(--ink); font: inherit; font-size:var(--fs-sm); cursor:pointer; }
+  .bl-chip{ min-height:44px; padding:0 14px; border-radius:999px; border:1px solid var(--border); background: var(--paper-raised); color: var(--ink); font: inherit; font-size:var(--fs-sm); cursor:pointer; }
   .bl-chip span{ font-family: var(--font-num); color: var(--ink-soft); }
   .bl-chip.is-on{ background: var(--ink); border-color: var(--ink); color: var(--paper-raised); font-weight:600; }
   .bl-chip.is-on span{ color: inherit; }

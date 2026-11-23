@@ -142,6 +142,8 @@ async function fresh(opts){
     localStorage.setItem("wealthPlanner.tour", "skipped");
     // #414: everything on screen, as before Simple mode; the simplemode journey switches.
     localStorage.setItem("wealthPlanner.mode", "advanced"); localStorage.setItem("wealthPlanner.modeOffer", "done");
+    // November 2026: every budget line listed, as before the Lines filter; budgethome switches it and checks the default.
+    localStorage.setItem("wealthPlanner.budgetLineFilter", "all");
     if(stored) localStorage.setItem("wealthPlanner.v1", stored);
     sessionStorage.setItem("journeyLoaded", "1");
   }, [opts.stored || null]);
@@ -347,12 +349,6 @@ async function openBillsToConfirm(page){
   await page.locator('#expenseReviewRoot .review-panel').waitFor();
 }
 async function go(page, pageId, subAttr, sub){
-  // #427: Income is no tab — Money in is the top of Budget, where every Income link lands.
-  if(pageId === 'expenses' && sub === 'income'){
-    await go(page, 'expenses', 'data-expenses-sub', 'budget');
-    await page.evaluate(() => document.getElementById('moneyIn').scrollIntoView({ block: 'start' }));
-    return;
-  }
   if(pageId === 'reports' && subAttr === 'data-report'){
     await go(page, 'reports');
     await page.locator('#reportsBody [data-report-choose]').first().click();
@@ -2679,8 +2675,11 @@ const JOURNEYS = {
     await go(page, 'reports', 'data-report', 'cashflow');
     await waited(page, () => Math.abs(document.querySelector('#reportsBody .rc svg').getScreenCTM().a-1)<0.02, 'a reopened report to fit');
     await page.evaluate(async () => {
-      const detail = await import('/src/components/detail.js');
-      detail.detailTarget.kind = 'line'; detail.detailTarget.id = 'demo-groceries';
+      // A shop's Details page draws the shared report chart (a line's draws its own 12 months against the plan).
+      const detail = await import('/src/components/detail.js'), st = (await import('/src/state.js')).state;
+      const ledger = await import('/src/calc/ledger.js'), lines = (await import('/src/components/expenses.js')).budgetLineItems();
+      const t = st.transactions.find(x => x.linkedExpenseId === 'demo-groceries');
+      detail.detailTarget.kind = 'merchant'; detail.detailTarget.id = ledger.transactionDisplayName(t, lines);
       detail.renderDetailPage();
       (await import('/src/components/nav.js')).showPage('detail');
     });
@@ -4448,7 +4447,8 @@ const JOURNEYS = {
   },
   async budgetclarity(page){
     await quiet(page);
-    await go(page,'expenses','data-expenses-sub','budget');
+    // November 2026: "Your month, planned" is on Money → Income.
+    await go(page,'expenses','data-expenses-sub','income');
     const plan=page.locator('#budgetPlanBody');
     check(await plan.locator('.bp-overview > div').count()===3,'monthly summary missing');
     check(await plan.locator('details[open]').count()===0,'statement details open by default');
@@ -5737,10 +5737,9 @@ const JOURNEYS = {
     // A link: Tax → Returns has no one to make a return for yet, and goes to Income to add them.
     await go(page, 'tax', 'data-tax-sub', 'returns');
     await click(page, '#page-tax .empty-state [data-go="expenses/income"]');
-    // #427: Income is Money in, the top of Budget — the link lands there, with it in view.
-    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="budget"][aria-current="page"]'));
-    check((await at()) === 'expenses/budget', 'Tax → Returns went to ' + await at() + ', not Money → Budget');
-    await until(page, () => { const r = document.getElementById('moneyIn').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight / 2; });
+    // November 2026: Income is its own Money tab again — the link lands on it.
+    await until(page, () => document.body.getAttribute('data-current-page') === 'expenses' && !!document.querySelector('[data-expenses-sub="income"][aria-current="page"]'));
+    check((await at()) === 'expenses/income', 'Tax → Returns went to ' + await at() + ', not Money → Income');
     // The page's own add: Spending's opens quick log, Accounts' a new account, People's a new person.
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
     await click(page, '#page-expenses .empty-state [data-empty-add="#quickLogBtn"]');
@@ -6468,7 +6467,7 @@ const JOURNEYS = {
     const scenarioName=await editor.getAttribute('data-edit-scenario');await editor.click();
     await page.locator('[data-sc-addsheet]').click();await page.locator('#addChangeRoot [data-sc-new="cost"]').click();
     await page.waitForFunction(()=>!document.querySelector('[data-acs-backdrop]'));
-    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/budget'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
+    const cases=[['pairedsettings','/settings/preferences'],['pairedpeople','/tax/people'],['settings','/settings/preferences'],['income','/expenses/income'],['projections','/plan/projections'],['people','/tax/people'],['checks','/dashboard/review']];
     for(const [route,expected]of cases){
       const before=await page.evaluate(async()=>({url:location.pathname,settings:(await import('/src/components/nav.js')).settingsSubpage(),tax:(await import('/src/components/nav.js')).taxSubpage(),plan:document.querySelector('#planSubnav .active')?.dataset.planSub,expense:document.querySelector('#expensesSubnav .active')?.dataset.expensesSub}));
       async function request(){await page.evaluate(async route=>{
@@ -7066,10 +7065,12 @@ const JOURNEYS = {
       m.commit(['shared', 'transactions', 'tidyOk']);
     });
     await go(page, 'expenses', 'data-expenses-sub', 'budget');
-    await waited(page, () => document.querySelectorAll('#budgetSplitBody .bs-tile').length === 4, 'the four figures');
-    check(/Lifestyle (left|over)/.test(await page.locator('#budgetSplitBody .bs-tile-key').innerText()), 'the headline is not Lifestyle left this month');
-    const fix = page.locator('#budgetSplitBody [data-bs-fix="hint:setaside-monthly|jsc"]');
-    if(!await fix.count()) await page.locator('#budgetSplitBody [data-bs-more="hints"]').click();
+    await waited(page, () => !!document.querySelector('#budgetSplitBody .bh-hero'), 'the answer at the top of Budget');
+    check(/Lifestyle/.test(await page.locator('#budgetSplitBody .bh-hero-top').innerText()), 'the headline is not about Lifestyle');
+    // The hint is a card in the inbox (November 2026): put the others off with Later until it's first.
+    await page.locator('#budgetSplitBody [data-inbox-toggle]').click();
+    const fix = page.locator('#budgetSplitBody [data-inbox-yes="hint:setaside-monthly|jsc"]');
+    for(let i = 0; i < 40 && !await fix.count() && await page.locator('#budgetSplitBody [data-inbox-later]').count(); i++){ await page.locator('#budgetSplitBody [data-inbox-later]').click(); await settle(page); }
     check(await fix.count() === 1, 'the set-aside line spent every month was not offered as every month');
     await fix.click();
     await settle(page);
@@ -7097,7 +7098,7 @@ const JOURNEYS = {
     await settle(page);
     check(await st(page, 'state.shared.find(l => l.id === "jst").potStart === 1900 && state.shared.find(l => l.id === "jst").potFrom === (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0") + "-" + String(new Date().getDate()).padStart(2, "0"))'), 'the pot did not keep what it holds, today');
     await page.keyboard.press('Escape');
-    await waited(page, () => [...document.querySelectorAll('#budgetSplitBody .bs-pots li')].some(li => /Holidays/.test(li.textContent) && /\$1,900/.test(li.textContent)), 'Holidays to show as a pot holding $1,900');
+    await waited(page, async () => (await import('/src/components/budgetsplit.js')).budgetSplitModel().pots.some(x => x.line.id === 'jst' && Math.round(x.pot.balance) === 1900), 'Holidays to be a pot holding $1,900');
     check(await page.locator('#sharedGroups [data-budget-group-toggle="SetAside"]').getAttribute('aria-expanded') === 'true', 'the Set aside card did not open with the line moved into it');
     const lifestyleAfter = await lifestyle();
     check(lifestyleBefore - lifestyleAfter === 800, 'Lifestyle every month did not drop by the $800 a month now set aside: ' + lifestyleBefore + ' → ' + lifestyleAfter);
@@ -7149,6 +7150,84 @@ const JOURNEYS = {
     await settle(page);
     check(await st(page, 'state.transactions.find(t => t.id === "jrx1").linkedExpenseId') === 'jrh', 'Move inside the line did not move it');
     check(await page.locator('[data-line-id="jrp"] .tidy-pill').count() === 0, 'the line is still marked to check');
+  },
+  // The easier Budget (November 2026): the answer first, the inbox a card at a time (a yes undone, a Later), the lines'
+  // filters remembered, Adjust the plan saved and undone, and Income on its own tab.
+  async budgethome(page){
+    await quiet(page);
+    // The list's own default — Needs a look — not the "all" every other journey starts with.
+    await page.evaluate(async () => { localStorage.removeItem('wealthPlanner.budgetLineFilter'); (await import('/src/components/expenses.js')).lineView.filter = 'look'; });
+    await page.evaluate(async () => {
+      const m = await import('/src/state.js'), s = m.state, today = new Date();
+      const day = i => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i * 9); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      s.shared.push({ id: 'jhp', what: 'Biscuit', category: 'Pets', classification: 'Needs', amount: 120, freq: 'Monthly', account: '' },
+        { id: 'jhh', what: 'Home & garden', category: 'Home', classification: 'Wants', amount: 60, freq: 'Monthly', account: '' });
+      let n = 0;
+      const tx = (line, bank, amount) => s.transactions.push({ id: 'jhx' + (++n), date: day(n), amount, what: bank, bankWhat: bank, linkedExpenseId: line, account: '' });
+      const ago = k => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - k); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      // Last month, not this one: a typical month leaves out the month that isn't over.
+      s.transactions.push({ id: 'jhx1', date: ago(today.getDate() + 5), amount: 3000, what: 'HARDWARE CO EXAMPLE TOWN', bankWhat: 'HARDWARE CO EXAMPLE TOWN', linkedExpenseId: 'jhp', account: '' });
+      n = 1;
+      for(let i = 0; i < 5; i++) tx('jhh', 'HARDWARE CO EXAMPLE TOWN', 25);
+      // Biscuit's own shop, months back, so Adjust has three months to go on.
+      [100, 130].forEach((k, i) => s.transactions.push({ id: 'jhf' + i, date: ago(k), amount: 100, what: 'Petshop One', linkedExpenseId: 'jhp', account: '' }));
+      s.tidyOk = {};
+      m.commit(['shared', 'transactions', 'tidyOk']);
+    });
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    await waited(page, () => !!document.querySelector('#budgetSplitBody .bh-hero'), 'the answer at the top of Budget');
+    check(/Lifestyle/.test(await page.locator('#budgetSplitBody .bh-hero-top').innerText()), 'the top does not lead with Lifestyle');
+    check(!(await page.locator('#incomeGroups').isVisible()), 'income is still on Budget');
+    // The inbox: the biggest misfiled purchase first — ours.
+    const count = () => page.evaluate(() => { const n = document.querySelector('#budgetSplitBody .bh-tidy-n'); return n ? Number(n.textContent) : 0; });
+    // Whether the hardware card is still in the inbox. (The count alone can move by more than one: moving a purchase changes
+    // what's typical on both lines, so a plan-drift card can come or go with it.)
+    const hasCard = () => page.evaluate(async () => (await import('/src/components/budgetsplit.js')).budgetSplitModel().inbox.some(c => c.kind === 'misfiled' && /\|jhp$/.test(c.id)));
+    check(await count() >= 1 && await hasCard(), 'the misfiled purchase is not in the inbox');
+    await page.locator('#budgetSplitBody [data-inbox-toggle]').click();
+    const yes = page.locator('#budgetSplitBody [data-inbox-yes]');
+    await yes.waitFor();
+    check(/Hardware/i.test(await page.locator('#budgetSplitBody .bh-inbox-title').innerText()), 'the first card is not the misfiled hardware purchase');
+    check(await page.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-inbox-yes')), 'focus did not land on the first answer');
+    await yes.click();
+    await settle(page);
+    check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhh', 'Move did not move it');
+    check(!(await hasCard()), 'the card stayed after its answer');
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await settle(page);
+    check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhp' && await hasCard(), 'Undo did not bring it back');
+    check(/Hardware/i.test(await page.locator('#budgetSplitBody .bh-inbox-title').innerText()), 'the card is not first again after the undo');
+    await page.locator('#budgetSplitBody [data-inbox-later]').click();
+    await settle(page);
+    const firstTitle = await page.locator('#budgetSplitBody .bh-inbox-title').count() ? await page.locator('#budgetSplitBody .bh-inbox-title').innerText() : '';
+    check(!/Hardware/i.test(firstTitle), 'Later did not put it off');
+    check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhp', 'Later changed something');
+    // The lines: filters remembered on this device.
+    await page.locator('#sharedGroups [data-line-filter="all"]').click();
+    await settle(page);
+    check(await page.locator('#sharedGroups [data-line-filter="all"]').getAttribute('aria-pressed') === 'true', 'All is not pressed');
+    check(await page.evaluate(() => localStorage.getItem('wealthPlanner.budgetLineFilter')) === 'all', 'the filter was not remembered');
+    check(await page.locator('#budgetGroupBy').isVisible(), 'grouping is hidden under All');
+    await page.locator('#sharedGroups [data-line-filter="look"]').click();
+    await settle(page);
+    check(!(await page.locator('#budgetGroupBy').isVisible()), 'grouping shows on a filtered list');
+    // Adjust the plan: Biscuit typically spends far more than its $120.
+    await page.locator('#sharedGroups [data-adjust-open]').click();
+    await waited(page, () => document.getElementById('adjustCard').open && !!document.querySelector('#adjustBody [data-adjust-pick="jhp"]'), 'Adjust the plan to offer Biscuit');
+    await page.locator('#adjustBody [data-adjust-pick="jhp"]').click();
+    check(/Save 1 change/.test(await page.locator('#adjustBody [data-adjust-save]').innerText()), 'Save does not count the pick');
+    await page.locator('#adjustBody [data-adjust-save]').click();
+    await settle(page);
+    const planned = await st(page, 'state.shared.find(l => l.id === "jhp").amount');
+    check(planned > 120, 'Save did not set the plan to what is typical: ' + planned);
+    await page.locator('#toastWrap .toast-undo-btn').last().click();
+    await settle(page);
+    check(await st(page, 'state.shared.find(l => l.id === "jhp").amount') === 120, 'Undo did not put the plan back');
+    // Income, on its own tab.
+    await go(page, 'expenses', 'data-expenses-sub', 'income');
+    await waited(page, () => !!document.querySelector('#incomeGroups') && document.querySelector('#incomeGroups').checkVisibility(), 'income on its own tab');
+    const path = await page.evaluate(() => location.pathname);
+    check(path === '/expenses/income', 'Income has no address of its own: ' + path);
   },
   async addflow(page){
     await quiet(page);
@@ -7508,6 +7587,8 @@ const JOURNEYS = {
   async recurringrules(page){
     page.setDefaultTimeout(10000);
     await go(page, "expenses", "data-expenses-sub", "budget");
+    // The tools fold under "Tools" (November 2026): the card first, then the form's own fold.
+    await page.locator('#recurringCard').evaluate(el => { el.open = true; });
     await page.locator('#recurringRuleForm').evaluate(el => el.closest('details').open = true);
     await page.locator('#recurringRuleForm [name="what"]').fill('Synthetic service');
     await page.evaluate(async () => (await import('/src/components/budgettoolswiring.js')).renderRecurring());
@@ -7547,6 +7628,8 @@ const JOURNEYS = {
     await page.waitForFunction(() => document.documentElement.hasAttribute('data-wp-ready'));
     await go(page, "expenses", "data-expenses-sub", "budget");
     check(await st(page, "state.recurringRules.find(r => r.what === 'Synthetic service').category") === 'Synthetic category', 'rule edit did not persist locally');
+    await page.locator('#recurringCard').evaluate(el => { el.open = true; });
+    await page.locator('#recurringRuleForm').evaluate(el => el.closest('details').open = true);
     await page.locator('[data-rr-delete="' + id + '"]').click(); await answerDialog(page, true);
     check(await st(page, "state.recurringRules.some(r => r.what === 'Synthetic service')") === false, 'rule deletion did not persist');
     check(await st(page, "state.transactions.length") === before + 2, 'deleting a rule deleted its historical payments');

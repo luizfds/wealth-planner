@@ -343,6 +343,9 @@ export function revealBudgetLine(lineId){
   if(!group) return false;
   if(!state.budgetGroupsCollapsed) state.budgetGroupsCollapsed = {};
   state.budgetGroupsCollapsed[group.key] = false;
+  // Arriving at one line (search, a Details page's Edit) shows the whole list — Needs a look may not hold it. For this
+  // visit only: the remembered choice stays as it was.
+  lineView.filter = "all";
   return true;
 }
 // Cash flow → Bills (v3.60.0) — calc/bills.js, laid out by components/cashflow.js.

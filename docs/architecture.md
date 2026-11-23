@@ -111,7 +111,8 @@ are resolved "newest wins" (`applyPageChange` bails if `currentPage` moved on).
 - **Investment returns** (`calc/investreturn.js`): money-weighted per holding, the same money in an index (the price
   file's weekly A200 / IVV), a target mix (`state.targetMix`), distributions ahead.
 - **On a phone**: rows and `.review-panel` dialogs are bottom sheets dragged closed by their head; Spending's rows swipe
-  left for Edit / Split / Delete; pulling the page down refreshes prices and sync.
+  left for Edit / Split / Delete; pulling the page down refreshes prices and sync. No page changes tab on a swipe —
+  tabs are tapped; a swipe belongs to the thing it starts on.
 - **The quick tour** (`lib/tour.js`, `components/tour.js`, `components/tourwiring.js`): a card that walks the menu with
   each place on screen behind it, ending on the first-month steps (`lib/setup.js`). Offered once on Home — after the
   setup sheet closes or the sample household loads, never beside the sheet — and always under the avatar menu. Its

@@ -109,6 +109,10 @@
        panels) get their own overscroll-behavior: contain below so their own bounce doesn't
        chain up into this page-level one either. */
     overscroll-behavior-y: none;
+    /* November 2026: and sideways — Chrome on Android reads a sideways swipe across the page as Back, which in this
+       app is the previous tab, so a swipe meant for a row of chips or a chart changed tab. (iOS Safari's swipe from the
+       very edge is the system's and stays.) */
+    overscroll-behavior-x: none;
   }
   body{ font-variant-numeric: tabular-nums; }
   body{

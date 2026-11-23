@@ -7451,6 +7451,24 @@ const JOURNEYS = {
     const subs = await page.locator('#subscriptionsLabel').textContent();
     check(subs === '' || /^\d+ · \$[\d,]+ a year$/.test(subs), 'the folded Subscriptions row does not say how many and what a year: ' + subs);
   },
+  // November 2026: a sideways swipe never changes tab — Money's was the only one, and it read as random.
+  async noswipetabs(page){
+    await go(page, 'expenses', 'data-expenses-sub', 'budget');
+    const cdp = await page.context().newCDPSession(page);
+    const swipe = async (x0, x1, y) => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] });
+      for(let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 + (x1 - x0) * i / 6, y }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await swipe(320, 60, 500);
+    await page.waitForTimeout(400);
+    check(await page.locator('#expensesSub-budget').isVisible(), 'a swipe left changed Money\'s tab: ' + page.url());
+    await go(page, 'expenses', 'data-expenses-sub', 'bills');
+    await swipe(60, 320, 500);
+    await page.waitForTimeout(400);
+    // Chrome on Android reads a sideways swipe as Back (the previous tab here) unless the page says overscroll-behavior-x: none.
+    check(await page.locator('#expensesSub-bills').isVisible(), 'a swipe right went back a tab: ' + page.url());
+  },
   async billpaid(page){
     await quiet(page);
     await page.evaluate(async () => {
@@ -8423,7 +8441,7 @@ const JOURNEYS = {
 // ---------------- Journeys ----------------
 const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["noswipetabs", "rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

@@ -120,7 +120,12 @@ test("the period's summary keeps one-offs and transfers apart from spending on t
   assert.equal(s.oneoff, 600);
   assert.equal(s.moved, 1000);
   assert.equal(s.in, 4000);
-  assert.deepEqual(s.counts, { all: 5, out: 3, budget: 2, oneoff: 1, in: 1, transfer: 1 });
+  assert.deepEqual(s.counts, { all: 5, out: 3, budget: 2, oneoff: 1, property: 0, in: 1, transfer: 1 });
+  // A property's money (a deposit) is its own: never spending, never a one-off.
+  var withDeposit = periodSummary(entries.concat([{ kind: "out", amount: 60000, lineId: "", property: true }]));
+  assert.deepEqual([withDeposit.property, withDeposit.oneoff, withDeposit.counts.property], [60000, 600, 1]);
+  assert.equal(entryTotals(entries.concat([{ kind: "out", amount: 60000, property: true }])).out, 750, "not in the spending total");
+  assert.deepEqual(filterEntries(entries.concat([{ kind: "out", amount: 60000, property: true }]), { direction: "property" }).map(e => e.amount), [60000]);
   assert.deepEqual(filterEntries(entries, { direction: "budget" }).map(function(e){ return e.amount; }), [120, 30]);
   assert.deepEqual(filterEntries(entries, { direction: "oneoff" }).map(function(e){ return e.amount; }), [600]);
   assert.equal(filterEntries(entries, { direction: "out" }).length, 3, "Spending still lists every purchase");

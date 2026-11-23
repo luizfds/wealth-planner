@@ -180,11 +180,8 @@ export function linkEffect(st, t, target){
 }
 
 // ---------------- The app suggests the link ----------------
-var PURCHASE_WORDS = [
-  [/\bdeposit\b/i, "deposit"], [/conveyanc|lawyer|solicitor|legal|settlement agent/i, "Conveyancer"], [/building.{0,6}pest|pest.{0,6}inspect|building inspect/i, "Building"],
-  [/stamp duty|transfer duty/i, "Stamp duty"], [/\blmi\b|mortgage insurance/i, "LMI"], [/valuation|valuer/i, "Valuation"], [/strata (search|report)/i, "Strata"],
-  [/settlement|home purchase|house purchase/i, ""]
-];
+var PURCHASE_WORDS = [/\bdeposit\b/i, /conveyanc|lawyer|solicitor|legal|settlement agent/i, /building.{0,6}pest|pest.{0,6}inspect|building inspect/i,
+  /stamp duty|transfer duty/i, /\blmi\b|mortgage insurance/i, /valuation|valuer/i, /strata (search|report)/i, /settlement|home purchase|house purchase/i];
 function addressWords(name){ return lower(name).split(/[^a-z0-9]+/).filter(function(w){ return w.length > 2 && !/^(st|street|rd|road|ave|avenue|dr|drive|the|and|unit|home|house)$/.test(w) && !/^\d+$/.test(w); }); }
 function merchantKey(t){ return lower(t.what || "").replace(/[^a-z ]+/g, " ").trim().split(/\s+/).slice(0, 2).join(" "); }
 function addDays(iso, n){ var d = new Date(String(iso).slice(0, 10) + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
@@ -215,10 +212,10 @@ export function propertySuggestions(st, today, ok){
       if(x.kind === "purchase"){
         var p = x.purchase, from = p.contractDate ? addDays(p.contractDate, -120) : addDays(today, -180), to = p.settlementDate ? addDays(p.settlementDate, 60) : today;
         if(t.date < from || t.date > to) return;
-        var word = PURCHASE_WORDS.find(function(w){ return w[0].test(text); });
+        var word = PURCHASE_WORDS.find(function(w){ return w.test(text); });
         if(!(named || word || /purchase|buying/.test(cat))) return;
         var cost = guessCost(p, text);
-        hit = { to: x, cost: cost, why: named ? "it mentions " + x.name + "." : word ? "“" + (text.match(word[0]) || [""])[0].trim().toLowerCase() + "” reads like a purchase cost, and you're buying " + x.name + "." : "its category says it's for a purchase." };
+        hit = { to: x, cost: cost, why: named ? "it mentions " + x.name + "." : word ? "“" + (text.match(word) || [""])[0].trim().toLowerCase() + "” reads like a purchase cost, and you're buying " + x.name + "." : "its category says it's for a purchase." };
       } else if(named){
         hit = { to: x, why: "it mentions " + x.name + "." };
       } else if(x.kind === "investment"){

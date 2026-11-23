@@ -1033,12 +1033,16 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     // Net worth is the glance's hero, a way to Accounts; the card that said it again under it went (the owner).
     assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth">[\s\S]*?<b>\$105(?:\.0)?k<\/b>/);
     assert.doesNotMatch(html, /data-home-card="nw"/);
-    // Today opens in colour: net worth the hero with its line; the three under it say what they are by colour.
+    // Net worth is the page's one hero, with its line; the app assessment (November 2026): each figure once, so the
+    // three tiles that said again what a card below says (the month, the next bill, Needs you's count) are gone.
     assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth"><svg class="home-glance-spark"[^>]*aria-hidden="true"/);
     assert.match(html, /<span class="home-glance-chip">▲ \$5,000 since 1 Aug<\/span>/);
-    assert.match(html, /class="home-glance-tile (is-good|is-bad)" data-glance-go="month"/);
-    assert.match(html, /class="home-glance-tile is-warn" data-glance-go="needs"><span class="home-glance-k">Next bill<\/span><b>Phone<\/b>/);
-    assert.match(html, /class="home-glance-tile is-alert" data-glance-go="needs"><span class="home-glance-k">Needs you<\/span><b>2<\/b>/);
+    assert.equal((html.match(/class="home-glance-tile/g) || []).length, 1, "the glance is net worth alone");
+    assert.doesNotMatch(html, /data-glance-go="(month|needs)"/);
+    // The month card says how it's going against the plan; what's left is Where you stand's, not said again here.
+    assert.doesNotMatch(html, /Left from received/);
+    assert.match(html, /data-home-card="month"><span class="home-k">[^<]+ <small class="home-k-sub">\d+ transactions? logged<\/small><\/span>/);
+    assert.match(html, /<div class="home-top">[\s\S]*data-home-card="glance"[\s\S]*<\/div>/);
     assert.doesNotMatch(html.replace(/<[^>]*>/g, ""), /\b\d{4}-\d{2}-\d{2}\b/);
     assert.match(html, /Phone<\/span><em class="">20 Oct<\/em><b>\$80<\/b>/);
     // Today leads with pictures: each bar says in words what it draws; each bill has a date chip.
@@ -3030,6 +3034,13 @@ test("Budget home: what's left for Lifestyle, the pace in words, the inbox, what
   assert.match(budgetSplitHtml(Object.assign({}, m, { lines: 0 })), /No budget lines yet[^<]*<button[^>]*data-empty-scroll="#sharedGroups"/);
   assert.match(budgetSplitHtml(Object.assign({}, m, { pace: Object.assign({}, pace, { status: "over", diff: -300, left: -50 }) })), /At this pace, about \$300 over by the 30th/);
   budgetSplitUi.inboxOpen = false;
+  // The app assessment: the answer on a band in Money's colour; Budget's notices under its Tidy list, one line opening
+  // the bell — the page's "N to look at" line isn't drawn on Budget as well (components/attentionline.js).
+  assert.match(h, /<section class="bh-hero" aria-label="This month"><div class="bh-band">/);
+  const withNotices = budgetSplitHtml(Object.assign({}, m, { notices: [{ title: "Over <b> budget" }, { title: "Two lines" }] }));
+  assert.match(withNotices, /<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog"><span class="bh-notices-n">2 notices<\/span><span class="bh-notices-top">Over &lt;b> budget<\/span>/);
+  assert.doesNotMatch(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [{ title: "One" }] })), /All tidy/, "not all tidy while a notice waits");
+  assert.match(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [] })), /All tidy/);
 });
 
 test("Tidy up inside a line: the purchases its marker counts, with Move and It's right, names escaped; nothing for a tidy line", async () => {

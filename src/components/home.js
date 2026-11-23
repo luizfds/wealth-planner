@@ -114,11 +114,9 @@ export function homeSummaryHtml(today, opts){
   // Spent against planned, tinted by pace: within the month's share gone is on track, a little over is a warning.
   var gone = monthGone(ym, today), pace = r.plannedSpend > 0 ? r.spent / r.plannedSpend : 0;
   var spendTone = r.spent > r.plannedSpend && r.plannedSpend > 0 ? "bad" : pace <= (gone != null ? gone : 1) + 0.05 ? "good" : pace <= (gone != null ? gone : 1) + 0.2 ? "warn" : "bad";
-  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
-    // With nothing logged as received, "kept" is just spending with a minus sign — say what's missing instead.
-    (r.incomeReceived === 0 && r.income.length
-      ? '<div class="home-left"><small>Left from received</small><b>—</b><em>log money in to see it</em></div>'
-      : '<div class="home-left"><small>Left from received</small><b class="home-big ' + (saved >= 0 ? "up" : "down") + '">' + (saved < 0 ? "−" : "") + money(Math.abs(saved)) + '</b><em>' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + ' logged</em></div>') +
+  // What's left is Where you stand's first figure (the app assessment: each figure once); the card under it says how
+  // the month is going against the plan — spent and received, each against what was planned.
+  var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + ' <small class="home-k-sub">' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + ' logged</small></span>' +
     meterHtml("Spent", r.spent, r.plannedSpend, spendTone, gone) +
     meterHtml("Received", r.incomeReceived, r.incomePlanned, "in", null) +
     (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '');
@@ -128,7 +126,7 @@ export function homeSummaryHtml(today, opts){
   var monthEmpty = !r.income.length && !r.incomePlanned && !r.plannedSpend && !r.transactions && !r.spent && !r.incomeReceived;
   if(monthEmpty) monthCard = '<div class="home-card home-month is-empty" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + '</span>' +
     emptyStateHtml("Nothing planned or logged yet — the month fills in from your pay and your budget.", { go: "expenses/income", label: "Go to Income →", className: "home-note" }) + '</div>';
-  // The planned surplus and the reserve are Plans & insights' (Today's tiles) — said once, not here as well.
+  // The planned surplus is Plans' tile and the reserve Where you stand's — each said once, not here as well.
   else monthCard += monthLink + '</div>';
 
   var bills = upcomingBills(opts.items || loggableBudgetLineItems(currentScenario()), state.transactions, today, 14);
@@ -159,11 +157,8 @@ export function homeSummaryHtml(today, opts){
     '<div class="home-needs-links">' + (more > 0 ? '<button type="button" class="link-btn home-todo-all" data-open-bell>All ' + todos.length + ' to-dos →</button>' : '') +
       '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="bills">' + (later > 0 ? later + ' more bill' + (later === 1 ? '' : 's') + ' in the next fortnight →' : 'Bills calendar →') + '</button></div></div>';
 
-  // The glance (the owner: one look at the top says where things stand): four figures, each a way to its card.
-  // November 2026, "Today opens in colour" (the owner chose it from three mock-ups): net worth is the hero — a gradient
-  // with its own line behind it — and the three under it are solid tiles whose colour is what they say: the month green
-  // while money is left (red once it isn't), the next bill amber, Needs you rose while something waits (green when clear).
-  var nextBill = bills[0];
+  // The glance: net worth as the page's one hero, in Today's colour (the app assessment, November 2026: the three tiles
+  // under it each said again what a card below says — the month, the next bill, Needs you's count — so they went).
   var glanceTile = function(go, look, label, value, sub, extra){
     return '<button type="button" class="home-glance-tile ' + look + '" data-glance-go="' + go + '">' + (extra || '') + '<span class="home-glance-k">' + label + '</span><b>' + value + '</b><small>' + sub + '</small></button>';
   };
@@ -174,17 +169,15 @@ export function homeSummaryHtml(today, opts){
         // Where the figure comes from (the card said "Recorded balances"), or how many of them are out of date.
         (stale ? '<span class="home-glance-stale">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : '<span class="home-glance-asof">Recorded balances</span>'), trend ? sparkHtml(trend.points) : '')
       ).replace('data-glance-go="nw"', 'data-home-go="networth"') +
-    (monthEmpty ? glanceTile("month", "is-quiet", mp === "this month" ? "This month" : escapeAttr(r.label), "—", "")
-      : glanceTile("month", saved >= 0 ? "is-good" : "is-bad", "Left " + (mp === "this month" ? "this month" : "in " + escapeAttr(r.label)), (saved < 0 ? "−" : "") + fmtCompact(Math.abs(saved)), money(r.spent) + " spent")) +
-    glanceTile("needs", nextBill ? "is-warn" : "is-quiet", "Next bill", nextBill ? escapeAttr(nextBill.what) : "None due", nextBill ? (nextBill.days < 0 ? "overdue" : nextBill.days === 0 ? "today" : nextBill.days === 1 ? "tomorrow" : shortDate(nextBill.due, today)) + " · " + money(nextBill.amount) : "in the next fortnight") +
-    glanceTile("needs", needsCount ? "is-alert" : "is-good", "Needs you", needsCount ? String(needsCount) : "✓", needsCount ? (todos.length ? todos.length + " to do" : "") + (todos.length && soon.length ? " · " : "") + (soon.length ? soon.length + " bill" + (soon.length === 1 ? "" : "s") + " this week" : "") : "all clear") +
   '</nav>';
 
   // Glance, then what needs you, then the month and net worth; goals, the year in review and the week's recap after.
   return (isPeriodToday() ? '' : '<p class="home-period-note">Showing ' + escapeAttr(r.label) + ' — net worth, bills and to-dos are always as of today.</p>') +
     // A household with nothing in it has nothing to glance at: its cards below say what to enter, each with where.
-    (opts.glance === false || (nwEmpty && monthEmpty) ? '' : glance) +
-    (opts.standing === false || (nwEmpty && monthEmpty) ? '' : standingCardHtml(todos)) +
+    // The hero and Where you stand side by side on a wide screen (dashboard.css .home-top), stacked on a phone.
+    '<div class="home-top">' + (opts.glance === false || (nwEmpty && monthEmpty) ? '' : glance) +
+    (opts.standing === false || (nwEmpty && monthEmpty) ? '' : standingCardHtml(todos, monthEmpty ? null
+      : { left: r.incomeReceived === 0 && r.income.length ? null : saved, spent: r.spent, planned: r.plannedSpend, label: mp === "this month" ? "this month" : "in " + r.label })) + '</div>' +
     (opts.autoPay === false ? '' : autoPayCardHtml(today)) +
     (opts.lowBalance === false ? '' : lowBalanceCardHtml(today)) +
     '<div class="home-grid">' + needsCard + monthCard + nwCard + '</div>' +
@@ -272,8 +265,10 @@ export function weekCardHtml(today, recap){
 // #457: where you stand — at most five decision figures (calc/standing.js), each from a calculation the app already
 // does, labelled with its period or scenario, a way to where it's worked out, and "not known" rather than $0.
 var STANDING_GO = { insights: ' data-home-go="dashboard" data-home-sub="insights"', budget: ' data-home-go="expenses" data-home-sub="budget"',
-  emergency: ' data-home-go="plan" data-home-sub="goals"', loans: ' data-home-go="properties"', accounts: ' data-home-go="accounts"', needs: ' data-glance-go="needs"' };
-export function standingCardHtml(todos){
+  emergency: ' data-home-go="plan" data-home-sub="goals"', loans: ' data-home-go="properties"', accounts: ' data-home-go="accounts"', needs: ' data-glance-go="needs"',
+  spending: ' data-home-go="expenses" data-home-sub="spending"', income: ' data-home-go="expenses" data-home-sub="income"' };
+// month: { left (null when nothing's been received), spent, planned, label } or null — homeSummaryHtml's month.
+export function standingCardHtml(todos, month){
   var figures;
   try {
     var scenario = currentScenario(), t = scenarioTotals(scenario);
@@ -283,8 +278,8 @@ export function standingCardHtml(todos){
     try { em = emergencyFund(); } catch(e){ em = null; }
     var hasLoans = (state.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return !l.endedOn && Number(l.balance) > 0; }); });
     try { stress = hasLoans ? rateStress(scenario, 2, t) : null; } catch(e){ stress = null; }
-    figures = standingFigures({ liquidity: liq, surplus: hasPlan && t && t.regularNetMonthly != null ? t.regularNetMonthly : null, scenario: scenario,
-      emergency: em, stress: stress, hasLoans: hasLoans, todos: todos || [],
+    figures = standingFigures({ month: month || null, liquidity: liq,
+      emergency: em, stress: stress, hasLoans: hasLoans,
       monthLabel: function(m){ return MONTHS[m.month - 1] + " " + String(m.year).slice(2); } });
   } catch(err){ return ""; }
   var val = function(f){

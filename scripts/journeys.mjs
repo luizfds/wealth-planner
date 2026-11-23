@@ -4448,8 +4448,10 @@ const JOURNEYS = {
   },
   async budgetclarity(page){
     await quiet(page);
-    // November 2026: "Your month, planned" is on Money → Income.
+    // November 2026: "Your month, planned" is on Money → Income, under the income and folded (the app assessment).
     await go(page,'expenses','data-expenses-sub','income');
+    check(await page.locator('#budgetPlanCard').evaluate(e=>!e.open),'the month planned opens before the income');
+    await page.locator('#budgetPlanCard > summary').click();
     const plan=page.locator('#budgetPlanBody');
     check(await plan.locator('.bp-overview > div').count()===3,'monthly summary missing');
     check(await plan.locator('details[open]').count()===0,'statement details open by default');

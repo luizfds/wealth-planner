@@ -18,7 +18,9 @@
     font-size:var(--fs-md); font-weight:600; color: var(--ink-soft); cursor:pointer;
   }
   .nav-item:hover{ background: var(--paper-sunken); color: var(--ink); }
-  .nav-item.active{ background: var(--brass-wash); color: var(--brass-strong); font-weight:600; }
+  .nav-item.active{ background: var(--own-wash, var(--brass-wash)); color: var(--own-ink, var(--brass-strong)); font-weight:600; }
+  /* November 2026: each of the four everyday places carries its tab's colour as a small mark. */
+  .app-nav > .nav-item[data-page]::before{ content:""; flex:none; width:9px; height:9px; border-radius:3px; background: var(--own-icon); }
   .nav-item:focus-visible{ box-shadow: var(--focus-ring); }
   .nav-icon{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; }
   /* #412: the sidebar's More — the same five a phone's More tab holds, quieter than the four everyday places. */
@@ -52,7 +54,7 @@
     border-bottom:2px solid transparent; margin-bottom:-1px;
   }
   .subnav-item:hover{ color: var(--ink); }
-  .subnav-item.active{ color: var(--brass-strong); border-bottom-color: var(--brass); }
+  .subnav-item.active{ color: var(--tab-ink); border-bottom-color: var(--tab-icon); }
   /* Inset so the ring isn't clipped by the rail's own overflow:hidden on the first/last tab. */
   .subnav-item:focus-visible{ box-shadow: inset var(--focus-ring); border-radius:6px; }
   /* #259: tabs where they fit; a labelled native picker where they do not. */
@@ -153,9 +155,9 @@
      it isn't today, so a past year can't be mistaken for now. */
   .period-wrap{ position:relative; }
   .period-btn{ display:inline-flex; align-items:center; gap:6px; min-height:34px; padding:5px 12px; border-radius:100px;
-    border:1px solid var(--border); background: var(--paper); color: var(--ink); font: 600 var(--fs-md)/1 "Inter", system-ui, sans-serif;
+    border:1px solid color-mix(in srgb, var(--tab-icon) 35%, transparent); background: var(--tab-wash); color: var(--tab-ink); font: 600 var(--fs-md)/1 "Inter", system-ui, sans-serif;
     font-variant-numeric: tabular-nums; cursor:pointer; white-space:nowrap; }
-  .period-btn:hover{ background: var(--paper-sunken); }
+  .period-btn:hover{ background: color-mix(in srgb, var(--tab-icon) 14%, var(--tab-wash)); }
   .period-btn:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .period-btn.is-past{ border-color: var(--brass-strong); background: var(--brass-wash); }
   .period-btn-flag{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--brass-strong); }
@@ -250,10 +252,11 @@
       display:flex; flex-direction:column; align-items:center; gap:4px; padding:7px 6px 6px; border-radius:13px;
       color: var(--ink-soft); text-align:center; transition: background .15s ease, color .15s ease;
     }
-    .mobile-tab-icon{ width:21px; height:21px; flex:none; }
+    .mobile-tab-icon{ width:21px; height:21px; flex:none; color: var(--own-icon); }
     .mobile-tab-label{ font-size:var(--fs-xs); font-weight:600; letter-spacing:.01em; }
     .mobile-tab:active .mobile-tab-pill{ background: var(--paper-sunken); }
-    .mobile-tab.active .mobile-tab-pill{ color: var(--brass-strong); background: var(--brass-wash); }
+    .mobile-tab.active .mobile-tab-pill{ color: var(--own-ink); background: var(--own-wash); }
+    .mobile-tab.active .mobile-tab-icon{ color: inherit; }
     /* .mobile-tab sets its own display, so [hidden] needs saying again. */
     .mobile-tab[hidden]{ display:none; }
     .mobile-more-panel{
@@ -568,3 +571,16 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
 .tour-foot{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:16px; }
 .tour-nav{ display:flex; gap:8px; margin-left:auto; }
 @media (prefers-reduced-motion: reduce){ .tour-spot{ transition:none; } }
+
+/* November 2026: the colour of each place (base.css's --tab-* families). The page showing sets --tab-*, which its
+   period chip, its tabs' underline and its hero card use; each nav entry sets --own-* for its own mark. */
+body[data-current-page="dashboard"]{ --tab-1: var(--tab-today-1); --tab-2: var(--tab-today-2); --tab-wash: var(--tab-today-wash); --tab-ink: var(--tab-today-ink); --tab-icon: var(--tab-today-icon); }
+body[data-current-page="expenses"]{ --tab-1: var(--tab-money-1); --tab-2: var(--tab-money-2); --tab-wash: var(--tab-money-wash); --tab-ink: var(--tab-money-ink); --tab-icon: var(--tab-money-icon); }
+body:is([data-current-page="networth"], [data-current-page="accounts"], [data-current-page="assets"], [data-current-page="properties"]){ --tab-1: var(--tab-accounts-1); --tab-2: var(--tab-accounts-2); --tab-wash: var(--tab-accounts-wash); --tab-ink: var(--tab-accounts-ink); --tab-icon: var(--tab-accounts-icon); }
+body[data-current-page="plan"]{ --tab-1: var(--tab-plan-1); --tab-2: var(--tab-plan-2); --tab-wash: var(--tab-plan-wash); --tab-ink: var(--tab-plan-ink); --tab-icon: var(--tab-plan-icon); }
+body:is([data-current-page="tax"], [data-current-page="reports"], [data-current-page="calc"], [data-current-page="settings"], [data-current-page="more"]){ --tab-1: var(--tab-more-1); --tab-2: var(--tab-more-2); --tab-wash: var(--tab-more-wash); --tab-ink: var(--tab-more-ink); --tab-icon: var(--tab-more-icon); }
+:is(.nav-item, .mobile-tab)[data-page="dashboard"]{ --own-wash: var(--tab-today-wash); --own-ink: var(--tab-today-ink); --own-icon: var(--tab-today-icon); }
+:is(.nav-item, .mobile-tab)[data-page="expenses"]{ --own-wash: var(--tab-money-wash); --own-ink: var(--tab-money-ink); --own-icon: var(--tab-money-icon); }
+:is(.nav-item, .mobile-tab)[data-page="networth"]{ --own-wash: var(--tab-accounts-wash); --own-ink: var(--tab-accounts-ink); --own-icon: var(--tab-accounts-icon); }
+:is(.nav-item, .mobile-tab)[data-page="plan"]{ --own-wash: var(--tab-plan-wash); --own-ink: var(--tab-plan-ink); --own-icon: var(--tab-plan-icon); }
+:is(.nav-item, .mobile-tab):is([data-page="more"], [data-page="tax"], [data-page="reports"], [data-page="calc"], [data-page="settings"], [data-more-go]){ --own-wash: var(--tab-more-wash); --own-ink: var(--tab-more-ink); --own-icon: var(--tab-more-icon); }

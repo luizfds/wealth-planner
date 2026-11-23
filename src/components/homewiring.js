@@ -129,7 +129,6 @@ export function wireCards(){
   // Projections itself had no reachable link from Dashboard at all, and lives behind the mobile
   // "More" tab (an occasional what-if page, not day-to-day data entry), so this is the one
   // one-tap bridge from the page everyone actually lands on first.
-  document.getElementById("dashboardProjectionsLink").addEventListener("click", function(){ showPage("projections"); });  // v3.33.0: tiles that open the panel behind them (FI → Insights, tax year → the worksheet).
   document.getElementById("dashboardStats").addEventListener("click", function(e){
     // #266: the scenario comparison's outcomes link to their assumptions — a scenario's own page, or Projections.
     var edit = e.target.closest("[data-edit-scenario]");

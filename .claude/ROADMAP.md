@@ -5950,3 +5950,19 @@ line; the charts fold under it); the old tools sit inside All suggestions (board
 shows (board 2); a pot says how far it goes and last year against what it puts by (board 3); Bills says what's due in
 the next 14 days (board H). The line editor's two questions — Is it essential? When does it get spent? — are the
 board's answer cards (`pillsHtml({ cards: true })`, each answer with what it means under it), not selects.
+
+## The app assessment's first six (November 2026)
+
+`[x]` From the 23 November assessment, "Do first":
+- **Colour that means one thing** (docs/design/colour.md): a colour for each place (Today indigo, Money teal, Accounts
+  violet, Plan sky blue, More slate) on its nav mark, period chip, tabs' underline and one hero card; Essentials,
+  Lifestyle and Set aside in shades of Money's teal on every bar.
+- **Today shows each figure once:** net worth alone as the hero; Where you stand = left this month, lowest cash, runway,
+  rates +2%; the month card without its repeated figure; Plans without the Reserve tile (its risks under the surplus) and
+  without the Projection and Scenarios links; Needs you's count in Today's colour, red only for a problem.
+- **Simple mode** (already the default for a new household) also puts away Trips, Tax's Documents, Bills' "Bill or
+  spending budget?" and the scenarios tile.
+- **Instructions in pages:** checked — the bank guide, Trips and the AI key were already closed folds; nothing moved.
+- **Names:** the welcome page uses the tabs' names. Show as lost Day (Hour stays: it's each person's own hours).
+- **Budget's one place to sort things out:** its notices sit under the Tidy list (the page line isn't drawn there);
+  Income opens with income, "Your month, planned" folded under it.

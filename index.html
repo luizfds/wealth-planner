@@ -259,18 +259,17 @@
           </div>
           <!-- Plans & insights: the planned figures as one grid, then every way further in as one row (they were a row of
                links above the tiles and two more under them). -->
-          <h2 class="home-section-title">Plans &amp; insights</h2>
+          <h2 class="home-section-title">Plans</h2>
           <div class="stat-row" id="dashboardStats"></div>
           <div class="savings-why" id="savingsBreakdown" hidden></div>
           <!-- v3.165.0: Insights panels brought onto Home are moved in here (lib/homelayout.js). -->
           <div class="detail-grid home-pinned" id="homePinned" hidden></div>
-          <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. -->
+          <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. Projection and
+               the scenarios side by side are Plan's tabs, one tap away (the app assessment, November 2026). -->
           <nav class="today-more" aria-label="More on Today">
             <button type="button" class="today-more-link" data-dashboard-sub="insights" data-level="advanced">Insights</button>
             <button type="button" class="today-more-link" data-dashboard-sub="review">Monthly review</button>
             <button type="button" class="today-more-link" data-dashboard-sub="benchmarks" data-level="advanced">How you compare</button>
-            <button type="button" class="today-more-link" id="dashboardProjectionsLink" data-level="advanced">Projection</button>
-            <button type="button" class="today-more-link" data-adv-go="plan" data-adv-sub="scenarios">Scenarios side by side</button>
           </nav>
         </div>
 
@@ -327,7 +326,7 @@
         <div class="subnav" id="taxSubnav" role="group" aria-label="Tax sections">
           <button type="button" class="subnav-item active" aria-current="page" data-tax-sub="year">This year</button>
           <button type="button" class="subnav-item" data-tax-sub="returns">Returns</button>
-          <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
+          <button type="button" class="subnav-item" data-tax-sub="documents" data-level="advanced">Documents</button>
           <button type="button" class="subnav-item" data-tax-sub="people">People</button>
         </div>
         <div class="tax-subpage" id="taxSub-year">
@@ -503,19 +502,9 @@
         <!-- November 2026: Income is a tab again — Budget leads with spending; "Your month, planned" and money in live here. -->
         <div class="expenses-subpage" id="expensesSub-income" hidden>
         <div class="page-intro-row">
-          <p class="page-intro help">What comes in, what it's worth after tax, and what's actually arrived — and your month planned: money in, money out and what's left over.</p>
+          <p class="page-intro help">What comes in, what it's worth after tax, and what's actually arrived — then your month planned: money in, money out and what's left over.</p>
         </div>
         <div class="ledgers">
-          <details class="ledger" id="budgetPlanCard" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
-              <div class="ledger-total">Left over in a normal month <b id="budgetPlanNet">—</b></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">Your regular monthly plan for <b id="budgetPlanScenario">—</b>. Change pay below and spending on Budget.</p>
-              <div id="budgetPlanBody"></div>
-            </div>
-          </details>
           <div class="money-in">
           <div class="money-head" id="moneyIn"><h2 class="money-head-title">Money in</h2>
             <p class="ledger-note help money-head-help" id="incomePageHelp">Your household income, and what it's really worth after tax. <span id="incomeExportHelp">Export CSV downloads every income row as a CSV file.</span> <span id="incomeTemplateHelp">Import template downloads a blank CSV shaped for importing income back in.</span> <span id="incomeImportHelp">Import CSV adds income rows from a CSV file shaped like the import template.</span></p>
@@ -562,6 +551,18 @@
               </div>
             </div>
           </details>
+          <!-- The app assessment (November 2026): Income opens with income; the month planned is under it, folded — it's
+               Budget's summary, kept here for the running balance line by line. -->
+          <details class="ledger" id="budgetPlanCard">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Your month, planned</h2></div>
+              <div class="ledger-total">Left over in a normal month <b id="budgetPlanNet">—</b></div>
+            </summary>
+            <div class="ledger-body">
+              <p class="ledger-note help" style="margin-left:0">Your regular monthly plan for <b id="budgetPlanScenario">—</b>. Change pay below and spending on Budget.</p>
+              <div id="budgetPlanBody"></div>
+            </div>
+          </details>
           </div>
         </div>
         </div>
@@ -580,7 +581,8 @@
               </div>
             </div>
           </section>
-          <details class="ledger" id="tripsCard">
+          <!-- Trips: a way to file a holiday's spending, used a few times a year — put away in Simple (the app assessment). -->
+          <details class="ledger" id="tripsCard" data-level="advanced">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Trips</h2></div>
             </summary>

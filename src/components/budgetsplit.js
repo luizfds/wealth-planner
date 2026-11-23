@@ -20,6 +20,7 @@ import { currentStrays } from "./tidy.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { viewItems } from "../lib/attention.js";
 
 // This device's session: the inbox open or not, the cards put off for later, every pot shown.
 export var budgetSplitUi = { inboxOpen: false, later: {}, allPots: false, pick: {} };
@@ -51,7 +52,11 @@ export function budgetSplitModel(today){
     property: propertySuggestions(state, today, state.tidyOk || {}), propLines: lineSuggestions(state, state.tidyOk || {}), lines: lines, ok: state.tidyOk || {} })
     .filter(function(c){ return !budgetSplitUi.later[c.id]; });
   var income = incomeActuals(ym).filter(function(t){ return !t.irregular; });
-  return { ym: ym, today: today, lines: lines.length, split: split,
+  // The app assessment (November 2026): Budget has one place for what to sort out. The notices about it (the page's
+  // "N to look at" line everywhere else — components/attentionline.js leaves it off Budget) are said under the Tidy list.
+  var notices = [];
+  try { var here = viewItems({ page: "expenses", sub: "budget" }, today); notices = here.todo.concat(here.know); } catch(e){ notices = []; }
+  return { ym: ym, today: today, lines: lines.length, split: split, notices: notices,
     pace: lifestylePace(lines, state.transactions, ym, today, { split: split }),
     pots: pots(lines, state.transactions, today, { monthlyOf: monthlyOf }),
     inbox: cards,
@@ -131,24 +136,29 @@ export function budgetSplitHtml(m){
   var hasLifestyle = s.lifestyle.planned > 0;
   var words = paceWords(p);
   // 1. The answer.
-  var hero = '<section class="bh-hero" aria-label="This month">' +
+  // November 2026: the answer sits on a band in Money's colour (the colour system); the split under it stays on white.
+  var hero = '<section class="bh-hero" aria-label="This month"><div class="bh-band">' +
     // The section's heading (h2): the Lines, Coming up and Pots under it are h3, so the page reads in order.
     '<div class="bh-hero-top"><h2 class="bh-h">' + (hasLifestyle ? (p.left < 0 ? "Lifestyle over the plan" : "Left for Lifestyle") : "Spent on Lifestyle") + (isNow ? "" : " · " + escapeAttr(monthPhrase(m.ym))) + '</h2><span>' + escapeAttr(when) + '</span></div>' +
     '<div class="bh-left"><b class="' + (hasLifestyle && p.left < 0 ? "over" : "") + '">' + money(hasLifestyle ? Math.abs(p.left) : p.spent) + '</b>' +
       (hasLifestyle && isNow && p.left > 0 && p.daysLeft > 0 ? '<span>≈ ' + money(p.perDay) + ' a day for ' + p.daysLeft + ' day' + (p.daysLeft === 1 ? '' : 's') + '</span>' : '') + '</div>' +
     (hasLifestyle ? paceSvgHtml(p) + '<p class="bh-pace-words ' + words.cls + '">' + escapeAttr(words.text) + '</p>' : '<p class="ledger-note">No Lifestyle lines are spent every month yet — mark a line Lifestyle to see what\'s left.</p>') +
+    '</div>' +
     '<div class="bh-minis">' + miniBar("Essentials", "needs", s.essential.spent, s.essential.planned) + miniBar("Lifestyle", "wants", s.lifestyle.spent, s.lifestyle.planned) + '</div>' +
     (s.other.spent > 0.5 ? '<p class="bh-note">Also spent ' + escapeAttr(isNow ? "this month" : monthPhrase(m.ym)) + ' on no budget line: <b>' + money(s.other.spent) + '</b> — a one-off isn\'t in these figures. It\'s on Spending.</p>' : '') +
     '<p class="bh-note">Essential: ' + escapeAttr(ESSENTIAL_MEANS) + '. Set-aside spending comes out of its pot, not these figures.</p>' +
   '</section>';
   // 2. What needs you.
-  var n = m.inbox.length;
+  var n = m.inbox.length, notices = m.notices || [];
   var inbox = '<div class="bh-inbox">' +
     (n ? '<button type="button" class="bh-tidy" data-inbox-toggle aria-expanded="' + !!budgetSplitUi.inboxOpen + '" aria-controls="bhInboxBody">' +
         '<span class="bh-tidy-n" aria-hidden="true">' + n + '</span><span class="bh-tidy-text"><b>' + (n === 1 ? "1 thing to tidy" : n + " things to tidy") + '</b><small>' + escapeAttr(m.inbox[0].label + (n > 1 ? " and " + (n - 1) + " more" : "")) + '</small></span>' +
         '<span class="bh-tidy-go">' + (budgetSplitUi.inboxOpen ? "Close" : "Review") + '</span></button>' +
         '<div id="bhInboxBody"' + (budgetSplitUi.inboxOpen ? '' : ' hidden') + '>' + (budgetSplitUi.inboxOpen ? inboxHtml(m.inbox) : '') + '</div>'
-      : emptyStateHtml("All tidy — nothing to look at.", { done: true, className: "bh-inbox-done" })) +
+      : (notices.length ? '' : emptyStateHtml("All tidy — nothing to look at.", { done: true, className: "bh-inbox-done" }))) +
+    // The notices about the budget, one line under the Tidy list: it opens the bell showing only them (notifpanel.js).
+    (notices.length ? '<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog"><span class="bh-notices-n">' +
+        (notices.length === 1 ? "1 notice" : notices.length + " notices") + '</span><span class="bh-notices-top">' + escapeAttr(notices[0].title) + '</span><span aria-hidden="true">›</span></button>' : '') +
   '</div>';
   // 3. What's coming.
   var dueTotal = m.upcoming.reduce(function(t, b){ return t + (Number(b.amount) || 0); }, 0);

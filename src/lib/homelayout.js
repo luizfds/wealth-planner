@@ -11,8 +11,8 @@
 var KEY = "wealthPlanner.homeLayout";
 
 export var HOME_CARDS = [
-  { key: "glance", label: "At a glance (the four figures at the top)", group: "strip" },
-  { key: "standing", label: "Where you stand (cash low point, a normal month, runway, rates, what's next)", group: "strip" },
+  { key: "glance", label: "Net worth (the card at the top)", group: "strip" },
+  { key: "standing", label: "Where you stand (left this month, cash low point, runway, rates)", group: "strip" },
   { key: "autopay", label: "Automatic payments to confirm (on the day)", group: "strip" },
   { key: "lowbal", label: "Balance ahead (when an account nears its buffer)", group: "strip" },
   // Needs you is the bills due this week and the to-dos in one card (it was "Bills — next 2 weeks" and "To do").
@@ -24,9 +24,8 @@ export var HOME_CARDS = [
   { key: "week", label: "Your week (expandable recap)", group: "strip" },
   { key: "savings", label: "Planned monthly surplus", group: "figures" },
   { key: "projected", label: "Projected net worth", group: "figures" },
-  { key: "runway", label: "Reserve", group: "figures" },
   { key: "fi", label: "Financial independence", group: "figures" },
-  { key: "tax", label: "Tax return", group: "figures" },
+  { key: "tax", label: "Tax estimate (between tax seasons)", group: "figures" },
   { key: "scenarios", label: "Scenarios", group: "figures" }
 ];
 // Insights panels that can come onto Home, by the id of the element their renderer fills.

@@ -27,7 +27,8 @@ export function inboxCards(input){
   (input.strays || []).forEach(function(s){
     out.push({ id: s.id, kind: "misfiled", label: "Looks misfiled",
       title: s.label + ", " + money(s.total) + ", is on " + name(s.fromLineId),
-      body: "Your other " + plural(s.mainCount, "visit") + " there " + (s.mainCount === 1 ? "is" : "are") + " on " + name(s.toLineId) + ". Probably a slip.",
+      body: (s.typed && s.typed.length ? "You described it as “" + s.typed.join("”, “") + "” — check it's the same shop before moving it. " : "") +
+        "Your other " + plural(s.mainCount, "visit") + " there " + (s.mainCount === 1 ? "is" : "are") + " on " + name(s.toLineId) + "." + (s.typed && s.typed.length ? "" : " Probably a slip."),
       facts: [["On", name(s.fromLineId)], ["Usually", name(s.toLineId)]],
       yes: { label: "Move to " + name(s.toLineId), act: { type: "move", ids: s.txIds, to: s.toLineId } },
       no: { label: "It's right", act: { type: "ok", key: s.id } } });

@@ -1,8 +1,8 @@
 import { renderSubscriptions } from "./subscriptions.js";
 import { state, commit, genId } from "../state.js";
 import { CLASSES, FREQS, UNCATEGORISED, classWord } from "../constants.js";
-import { TX_CLASSES, sumField, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, sumTransactionsByExpense, currentStatementCycle, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow, isPeriodToday, monthAnchorDate } from "../calc/ledger.js";
-import { merchantGroups, worthShowingMerchants, recentMerchants } from "../calc/merchants.js";
+import { TX_CLASSES, sumFieldForScenario, resolveSharedAmount, periodsOf, budgetCycleFor, reserveCycleFor, transactionDisplayName, transactionsInMonth, transactionsInRange, plannedToDateByCategory, refundableTransactions, householdYearWindow, householdYearToDate, householdYearProgress, householdYearBasis, HOUSEHOLD_YEAR_BASES, selectedMonth, monthPhrase, selectedYearWindow } from "../calc/ledger.js";
+import { recentMerchants } from "../calc/merchants.js";
 import { tidyMarkerHtml, tidyLinkHtml, currentStrays, tidyStraysForLineHtml } from "./tidy.js";
 import { strayCountByLine } from "../calc/tidy.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
@@ -920,7 +920,7 @@ export function quickLogContextText(item){
       : "Recorded as a refund on a one-off — it comes back off the month's total.";
   }
   if(!item) return "One-off spend — not counted against any budget line.";
-  var spent = monthTransactionsForExpense(item.id).reduce(function(sum, pair){ return sum + (Number(pair.t.amount) || 0); }, 0);
+  var spent = transactionsInMonth(state.transactions, selectedMonth()).reduce(function(sum, t){ return t.linkedExpenseId === item.id ? sum + (Number(t.amount) || 0) : sum; }, 0);
   var planned = resolveSharedAmount(item, currentScenario());
   var monthlyPlanned = periodsOf(planned, item.freq).monthly;
   return fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(monthlyPlanned) + " logged " + monthPhrase(selectedMonth());
@@ -1563,160 +1563,6 @@ export function deleteTransaction(idx){
 // Session-only (not persisted) — which budget rows are expanded to show their own this-month
 // transactions, keyed by the shared expense's id ("__unlinked" for the Uncategorized row).
 // Mirrors modernSharedRowOpen's lifetime/shape: re-read on every render, reset on reload.
-export var budgetRowTxnsOpen = {};
-// Real state.transactions[] indices (not positions in some filtered array) are what
-// data-tx-del/deleteTransaction expect, so this keeps {t, i} pairs the same way
-// renderTransactions() does, rather than returning bare transactions like sumTransactionsByExpense
-// does — that's fine for a sum, but this list needs a working Delete button on each row.
-// Range-based rather than month-based because the two kinds of row in this panel are measured
-// over different windows: a regular line against its own billing cycle inside this month, an
-// irregular one against its whole reserve year (see reserveYearWindowFor). The drill-down has to
-// use the same window as the figure on the row it hangs off, or the transactions listed won't add
-// up to the "actual" they are supposed to explain.
-function rangeTransactionsForExpense(expenseId, startStr, endStr){
-  var pairs = [];
-  state.transactions.forEach(function(t, i){
-    var d = t.date || "";
-    if(d < startStr || d > endStr) return;
-    var matches = expenseId === "__unlinked" ? !t.linkedExpenseId : t.linkedExpenseId === expenseId;
-    if(matches) pairs.push({ t: t, i: i });
-  });
-  return pairs.sort(function(a, b){ return (b.t.date || "") < (a.t.date || "") ? -1 : ((b.t.date || "") > (a.t.date || "") ? 1 : 0); });
-}
-function monthTransactionsForExpense(expenseId){
-  var monthStr = selectedMonth();
-  return rangeTransactionsForExpense(expenseId, monthStr + "-01", monthStr + "-31");
-}
-// Same caret markup on every expandable row in this panel — regular, irregular and Uncategorized.
-function budgetRowChevHtml(){
-  return '<svg class="budget-row-chev" width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg>';
-}
-// One row builder for both halves of this panel.
-//
-// These were two hand-written builders drifting side by side, and that split produced two
-// user-reported gaps in a row: the irregular rows had no progress bar at all until v3.7.0, and no
-// transaction drill-down until v3.8.0 — both times because a change was made to the regular
-// builder and the irregular one simply never got it. Nothing about a row's *markup* ever actually
-// depended on which kind of line it was.
-//
-// The only real difference is which window the line is judged over, and that was already solved in
-// the calc layer: budgetCycleFor() and reserveCycleFor() return the same
-// {start, end, label, target} shape, so `cycle` is the entire branch. Everything downstream —
-// what counts as spent, what the sub-line says, which transactions the drill-down lists — reads
-// off that one object.
-//
-// The one difference that is real and deliberate is kept, and now keys off data rather than which
-// function happened to build the row: a reserve line gets no green for being under budget.
-// Spending less than a *whole year's* travel allowance in February is not an achievement, it is
-// the normal state of affairs, and colouring it green every month would make the colour mean
-// nothing on the rows where being under really is good news.
-export function budgetComparisonRowHtml(item){
-  var cycle = item.irregular ? reserveCycleFor(item) : budgetCycleFor(item, state.transactions);
-  var planned = Math.round(cycle.target * 100) / 100;
-  var actual = Math.round(spentInCycle(item, cycle) * 100) / 100;
-  var delta = actual - planned;
-  var color = delta > 0.5 ? "var(--bad-ink)" : (delta < -0.5 && !cycle.reserve ? "var(--good-ink)" : "");
-  var pct = planned > 0 ? Math.min(100, (actual / planned) * 100) : (actual > 0 ? 100 : 0);
-  var remaining = planned - actual;
-  // The period lives in the "planned <label>" half, so this half doesn't repeat it.
-  var remainingLabel = remaining >= 0 ? (fmtCurrency0.format(remaining) + " left") : (fmtCurrency0.format(-remaining) + " over");
-  // Drilled over the row's own cycle, not the calendar month. That is what an irregular row needs
-  // (its spend can be one receipt from eleven months ago), and it quietly fixes the regular rows
-  // too: a quarterly line reading "$230 actual … Aug–Oct" used to open onto September alone, so
-  // the list you were shown did not add up to the figure it was sitting under.
-  var txnPairs = rangeTransactionsForExpense(item.id, cycle.start, cycle.end);
-  // Only worth expanding once something is actually logged against it — nothing to drill into
-  // otherwise, so a row with $0 actual stays a plain, non-interactive row.
-  var isExpandable = txnPairs.length > 0;
-  var isOpen = isExpandable && !!budgetRowTxnsOpen[item.id];
-  return '<div class="budget-row' + (isExpandable ? " is-expandable" : "") + (isOpen ? " open" : "") + '"' +
-      (isExpandable ? ' data-budget-row-toggle="' + escapeAttr(item.id) + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>' +
-    '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(item.what) + '">' + categoryIconHtml(item.category, { small: true }) + escapeAttr(item.what) + '</span>' +
-      // v3.158.0 (item 188): "$1,095 of $1,200" — what's left or over is the figure on the right; the
-      // window is named only when it isn't this month. The whole sentence stays in the tooltip.
-      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)"' + figureAttrs(item.what + ': ' + fmtCurrency0.format(actual) + ' actual / ' + fmtCurrency0.format(planned) + ' planned ' + cycle.label + ' — ' + remainingLabel) + '>' +
-        fmtCurrency0.format(actual) + ' of ' + fmtCurrency0.format(planned) + (cycle.label && cycle.label !== "this month" ? ' ' + escapeAttr(cycle.label) : '') + '</span>' +
-      '<span class="acct-amt"' + (color ? ' style="color:' + color + '"' : '') + '>' + (delta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(delta)) + '</span>' + (isExpandable ? budgetRowChevHtml() : "") + '</div>' +
-    '<div class="budget-bar-track"><div class="budget-bar-fill' + (delta > 0.5 ? " over" : "") + '" style="width:' + pct + '%"></div></div>' +
-    (isOpen ? budgetRowTxnListHtml(txnPairs, item, cycle) : '') +
-  '</div>';
-}
-// The expand panel's own transaction rows — deliberately read-only (date/description/amount +
-// Delete) rather than the full editable tx-row shape from the Transactions list below: this is a
-// "what's actually logged against this line" drill-down, not a second place to edit everything.
-// data-tx-del reuses the exact same global delete handler the Transactions list already wires up
-// (app.js binds it on document, not scoped to #transactionsTable), so Delete here works for free.
-// Where the money in this line actually went, above the individual transactions.
-//
-// This is the answer to "how much am I spending at Amazon / on delivery / at cafés", and the
-// reason it lives *inside* a budget line rather than as a page-wide merchant chart: on a
-// well-named line like "Internet" every transaction is the same bill and a merchant chart would
-// only restate the line's own name. It earns its place exactly where a line is a catch-all — a
-// household had five Amazon orders and a pair of shoes inside one "Misc." row, and nothing
-// anywhere said so.
-function budgetRowMerchantsHtml(pairs){
-  var groups = merchantGroups(pairs.map(function(p){ return p.t; }));
-  if(!worthShowingMerchants(groups, pairs.length)) return "";
-  // Capped, with the remainder folded into one honest "N others" row rather than dropped — a
-  // breakdown whose parts don't add up to the line's total is worse than no breakdown.
-  var TOP = 5;
-  var shown = groups.slice(0, TOP);
-  var rest = groups.slice(TOP);
-  var restTotal = rest.reduce(function(sum, g){ return sum + g.total; }, 0);
-  var restCount = rest.reduce(function(sum, g){ return sum + g.count; }, 0);
-  var rows = shown.map(function(g){
-    return '<div class="budget-row-merchant">' +
-      '<span class="budget-row-merchant-name" title="' + escapeAttr(g.label) + '">' + escapeAttr(g.label) + '</span>' +
-      '<span class="budget-row-merchant-bar"><span style="width:' + Math.round(g.share * 100) + '%"></span></span>' +
-      '<span class="budget-row-merchant-amt">' + fmtCurrency0.format(g.total) + (g.count > 1 ? ' <small>×' + g.count + '</small>' : '') + '</span>' +
-    '</div>';
-  }).join("");
-  if(rest.length){
-    rows += '<div class="budget-row-merchant">' +
-      '<span class="budget-row-merchant-name" style="font-style:italic">' + rest.length + ' other' + (rest.length === 1 ? "" : "s") + '</span>' +
-      '<span class="budget-row-merchant-bar"></span>' +
-      '<span class="budget-row-merchant-amt">' + fmtCurrency0.format(restTotal) + (restCount > 1 ? ' <small>×' + restCount + '</small>' : '') + '</span>' +
-    '</div>';
-  }
-  return '<div class="budget-row-merchants"><div class="budget-row-merchants-title">Where it went</div>' + rows + '</div>';
-}
-function budgetRowTxnListHtml(pairs, item, cycle){
-  var rows = pairs.map(function(pair){
-    return '<div class="budget-row-txn">' +
-      '<span class="budget-row-txn-date">' + escapeAttr(fmtDate(pair.t.date || "", { year: true })) + '</span>' +
-      '<span class="budget-row-txn-what" title="' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '">' + escapeAttr(transactionDisplayName(pair.t, state.shared)) + '</span>' +
-      '<span class="budget-row-txn-amt">' + fmtCurrency2.format(Number(pair.t.amount) || 0) + '</span>' +
-      '<button type="button" class="btn btn-danger btn-sm row-del" data-tx-del="' + pair.i + '" aria-label="Delete transaction">✕</button>' +
-    '</div>';
-  }).join("");
-  // v3.168.0: the same rows in Spending, where they can be filtered further or saved as a view.
-  var more = item && cycle ? '<button type="button" class="link-btn budget-row-sv" data-sv data-sv-line="' + escapeAttr(item.id) + '" data-sv-from="' + escapeAttr(cycle.start) + '" data-sv-to="' + escapeAttr(cycle.end) + '">Show these in Transactions →</button>' : '';
-  // Budget → Tidy up: the same line over a whole year, with moving and Needs/Wants per shop.
-  var tidy = item && item.id && !item.computed ? '<button type="button" class="link-btn budget-row-sv" data-tidy-open="' + escapeAttr(item.id) + '">Tidy this line →</button>' : '';
-  return budgetRowMerchantsHtml(pairs) + '<div class="budget-row-txns">' + rows + '</div>' + more + tidy;
-}
-// Items marked "no fixed timing" (Extras, property maintenance, etc.) are lumpy by nature — a
-// $0 actual most months is expected, not a budget miss. Comparing them against this month's
-// slice of their budget (like every regular item below) produced a false "over/under budget"
-// reading almost every month; comparing year-to-date actual against a full year's budget instead
-// only flags a real problem (spending more than the whole year's allowance, this early in the
-// year) and stays quiet the rest of the time. Rendered as its own section regardless of whether
-// anything's been logged this month, since it's answering a different question ("on track for
-// the year") than the month-by-month panel above it.
-export function irregularBudgetSectionHtml(irregularItems){
-  if(!irregularItems.length) return "";
-  var cappedIrr = capList(irregularItems.map(function(item){
-    var cycle = reserveCycleFor(item), spent = spentInCycle(item, cycle);
-    return { item: item, size: Math.max(spent, cycle.target), over: spent - cycle.target };
-  }), LIST_CAP, listsShowAll.irr);
-  var rows = cappedIrr.shown.map(function(x){ return budgetComparisonRowHtml(x.item); }).join("") +
-    showAllButtonHtml("irr", cappedIrr.hidden, listsShowAll.irr && irregularItems.length > LIST_CAP + 2);
-  // No period in the heading any more — rows can each be on a different one, and a heading that
-  // named only one of them would be wrong for the rest.
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>Irregular / reserve budgets</span></div>' +
-    '<p class="ledger-note help" style="margin:0 0 8px">Marked "no fixed timing" — compared against a full year\'s budget instead of this month\'s, since these aren\'t expected on any particular schedule. Each line names the twelve months it\'s measured over; change that with "Budget year" on the row. Tap a line to see the transactions behind it.</p>' +
-    rows + '</div>';
-}
 // What these budget lines actually put on this month's bills: every monthly (and sub-monthly) line
 // plus only those less-than-monthly lines whose cycle opens this month. This is the denominator a
 // single month's real spend can honestly be judged against — the smoothed sum over-states quiet
@@ -1742,127 +1588,16 @@ function showAllButtonHtml(key, hidden, open){
   return hidden ? '<button type="button" class="btn btn-sm btn-ghost list-all-btn" data-list-all="' + key + '">Show all (' + hidden + ' more)</button>' : '';
 }
 
-function billedThisMonth(items){
-  return items.reduce(function(sum, item){
-    var cycle = budgetCycleFor(item, state.transactions);
-    return cycle.dueThisMonth ? sum + cycle.target : sum;
-  }, 0);
-}
+// November 2026: Transactions' "Actual vs. planned" list is gone — Budget answers it (what's left, Needs a look, each
+// line in words, a line's own sheet). The name stays: every edit that changes spending calls it, and it redraws the
+// sections that read the month's transactions.
 export function renderActualVsPlannedPanel(){
   renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();
   renderYearSpending();
-  var el = document.getElementById("actualVsPlannedPanel");
-  if(!el) return;
-  // Only lines you can log against. A computed line always reads "$0 actual of $X planned" —
-  // nobody logs a mortgage direct debit — and this panel exists to answer "how am I tracking",
-  // which a permanent, unfixable miss the size of a loan repayment actively obscures. Same
-  // reasoning as the overdue queue; the Budget tab's own total still counts them, because there
-  // the question is what the month costs, not what's been recorded.
-  var budgetItems = loggableBudgetLineItems();
-  var regularItems = budgetItems.filter(function(item){ return !item.irregular; });
-  var irregularItems = budgetItems.filter(function(item){ return item.irregular; });
-  var irregularIds = {};
-  irregularItems.forEach(function(item){ irregularIds[item.id] = true; });
-  var irregularSection = irregularBudgetSectionHtml(irregularItems);
-  var allMonthTxns = transactionsInMonth(state.transactions);
-  // This month's aggregate/per-row breakdown only ever concerns regular (predictable) items —
-  // an irregular item's own transaction, if one lands this month, is reported in the year-to-date
-  // section above instead, not folded into "this month" actual (which would otherwise read as a
-  // budget miss against a monthly slice that was never a real expectation for that item).
-  var monthTxns = allMonthTxns.filter(function(t){ return !t.linkedExpenseId || !irregularIds[t.linkedExpenseId]; });
-  var byExpense = sumTransactionsByExpense(monthTxns);
-  // Every budget line, not just state.shared: a household whose only lines are housing and an
-  // investment property's costs has plenty to report on, and used to be told to go add one.
-  if(!budgetItems.length && !allMonthTxns.length){
-    el.innerHTML = '<p class="ledger-note" style="margin:0">Add a budget line on the Budget tab, then log spend against it to see where the month is going.</p>';
-    return;
-  }
-  // With shared expenses defined but nothing logged yet this month, the full row-by-row
-  // breakdown below is pure noise — every single row would repeat the Shared Expenses list above
-  // at "$0 actual / $X planned", telling you nothing you don't already know from that list. Skip
-  // straight to a compact nudge instead. Credit statement cycles still get their own section
-  // regardless — a card's current bill runs on its own cycle dates, not the calendar month, so it
-  // can be genuinely nonzero even with nothing logged today.
-  if(!monthTxns.length){
-    var plannedTotalEmpty = Math.round(billedThisMonth(regularItems) * 100) / 100;
-    var mpE = monthPhrase(selectedMonth());
-    el.innerHTML =
-      '<p class="ledger-note" style="margin:0 0 12px">Nothing logged ' + (mpE === "this month" ? "yet this month" : mpE) + ' — ' + fmtCurrency0.format(plannedTotalEmpty) + ' is billed ' + mpE + '. Tap <b>+ Log spend</b> above and this fills in with where the month is actually going.</p>' +
-      creditStatementCyclesHtml() + irregularSection;
-    return;
-  }
-  // Rounded to cents before any comparison/formatting below — periodsOf()'s weekly-then-back
-  // conversion leaves a float epsilon (e.g. 2.4900000000000007) that can land a genuinely-exact
-  // $0.50 delta a hair under the ">0.5" thresholds and, worse, make the displayed whole-dollar
-  // "over"/"left" figure not match the difference between the whole-dollar actual/planned figures
-  // shown right next to it (e.g. "$3 actual / $2 planned — $0 over").
-  var plannedTotal = Math.round(billedThisMonth(regularItems) * 100) / 100;
-  // The smoothed average is still the right long-run number (it's what drives cash flow and
-  // projections), so it stays on screen as a reference — just no longer as the denominator a
-  // single month's real spend gets judged against.
-  var smoothedMonthly = Math.round(sumField(regularItems, "monthly") * 100) / 100;
-  var actualTotal = Math.round(monthTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0) * 100) / 100;
-  var overallDelta = actualTotal - plannedTotal;
-  // Framed from a spending point of view: spending less than planned is "good" (green), more is
-  // "bad" (red) — the inverse of the up/down convention used for asset values elsewhere in the
-  // app, where "up" is always good. Both read correctly for what they each represent.
-  var overallColor = overallDelta > 0.5 ? "var(--bad-ink)" : (overallDelta < -0.5 ? "var(--good-ink)" : "");
-  var overallPct = plannedTotal > 0 ? Math.min(100, (actualTotal / plannedTotal) * 100) : (actualTotal > 0 ? 100 : 0);
-  // Only lines something was actually logged against this month. Every regular line's planned
-  // figure and its progress against it now lives on the line's own row in the Budget tab (see
-  // budgetRowProgressHtml), so listing all of them again here produced a second, longer copy of
-  // that list where all but a handful of rows read "$0 actual / $X planned" — telling you nothing
-  // the Budget tab doesn't already say, and burying the few rows that did move. What's left is
-  // the one thing the Budget tab can't answer: where this month's money actually went.
-  var spentItems = regularItems.filter(function(item){ return Math.round((byExpense[item.id] || 0) * 100) / 100 !== 0; });
-  var capped = capList(spentItems.map(function(item){
-    var spent = byExpense[item.id] || 0;
-    return { item: item, size: Math.abs(spent), over: spent - billedThisMonth([item]) };
-  }), LIST_CAP, listsShowAll.avp);
-  var rows = capped.shown.map(function(x){ return budgetComparisonRowHtml(x.item); }).join("") +
-    showAllButtonHtml("avp", capped.hidden, listsShowAll.avp && spentItems.length > LIST_CAP + 2);
-  var unlinkedTotal = byExpense.__unlinked || 0;
-  var unlinkedPairs = unlinkedTotal ? monthTransactionsForExpense("__unlinked") : [];
-  var unlinkedOpen = unlinkedPairs.length > 0 && !!budgetRowTxnsOpen.__unlinked;
-  var unlinkedChev = unlinkedPairs.length ? budgetRowChevHtml() : "";
-  var unlinkedRow = unlinkedTotal
-    ? '<div class="budget-row' + (unlinkedPairs.length ? " is-expandable" : "") + (unlinkedOpen ? " open" : "") + '"' +
-        (unlinkedPairs.length ? ' data-budget-row-toggle="__unlinked" role="button" tabindex="0" aria-expanded="' + unlinkedOpen + '"' : '') + '>' +
-        '<div class="acct-row"><span class="acct-name" style="font-style:italic">Uncategorized (one-off)</span><span></span>' +
-        '<span class="acct-amt">' + fmtCurrency0.format(unlinkedTotal) + '</span>' + unlinkedChev + '</div>' +
-        (unlinkedOpen ? budgetRowTxnListHtml(unlinkedPairs) : '') +
-      '</div>'
-    : "";
-  var mp = monthPhrase(selectedMonth());
-  el.innerHTML =
-    '<div class="fire-stat-row"><span>' + (mp === "this month" ? "This month" : mp.slice(3)) + ' — spent vs. billed</span><b' + (overallColor ? ' style="color:' + overallColor + '"' : '') + '>' + fmtCurrency0.format(actualTotal) + ' / ' + fmtCurrency0.format(plannedTotal) + '</b></div>' +
-    '<div class="fire-bar-track"><div class="fire-bar-fill' + (overallDelta > 0.5 ? " over" : "") + '" style="width:' + overallPct + '%"></div></div>' +
-    '<p class="fire-note" style="margin:2px 0 12px">' + (overallDelta >= 0 ? "+" : "−") + fmtCurrency0.format(Math.abs(overallDelta)) + (overallDelta > 0.5 ? " over what's billed " + mp + "." : overallDelta < -0.5 ? " under what's billed " + mp + "." : " right on what's billed " + mp + ".") + ' Smoothed: ' + fmtCurrency0.format(smoothedMonthly) + '/mo.</p>' +
-    '<div class="ledger-note" style="margin:0 0 6px">Tap a line for its transactions.</div>' +
-    rows + unlinkedRow +
-    creditStatementCyclesHtml() + irregularSection;
 }
 
-// A credit card's bill is charges grouped by its own statement cycle, not the calendar month —
-// see calc/ledger.js's currentStatementCycle(). Logging "the bill" as its own transaction would
-// double-count what's already logged per-purchase, so this is a pure rollup of existing
-// transactions attributed (directly or via a linked expense) to a credit-type account.
-function creditStatementCyclesHtml(){
-  var creditAccounts = state.accounts.filter(function(a){ return a.type === "credit"; });
-  if(!creditAccounts.length) return "";
-  var rows = creditAccounts.map(function(a){
-    var cycle = currentStatementCycle(a.statementStartDay || 1, monthAnchorDate());
-    var cycleTxns = transactionsInRange(state.transactions, cycle.start, cycle.end)
-      .filter(function(t){ return transactionAccount(t) === a.name; });
-    var total = cycleTxns.reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
-    return '<div class="acct-row"><span class="acct-name" title="' + escapeAttr(a.name) + '">' + escapeAttr(a.name) + '</span>' +
-      '<span style="font-size:var(--fs-xs);color:var(--ink-soft)">' + fmtDate(cycle.start) + ' – ' + fmtDate(cycle.end) + ' · ' + cycleTxns.length + ' charge' + (cycleTxns.length === 1 ? "" : "s") + '</span>' +
-      '<span class="acct-amt">' + fmtCurrency0.format(total) + '</span></div>';
-  }).join("");
-  return '<div style="margin-top:16px"><div class="fire-stat-row" style="margin-bottom:2px"><span>' + (isPeriodToday() ? 'Card statements so far' : 'Card statements open on ' + monthAnchorDate()) + '</span></div>' + rows + '</div>';
-}
 
 // ---------------- Accounts: named money sources, used to group transactions into a credit card's statement cycle ----------------
 // ---------------- Categories: the "where does it go" rollup ----------------
@@ -2093,7 +1828,15 @@ export function renderSpendCategoryChart(){
   var monthTxns = transactionsInMonth(state.transactions);
   var byCategory = {};
   var order = [];
+  // November 2026: a purchase on no budget line is a one-off — a home's purchase costs were nearly half a real month's
+  // chart. It's left out and said underneath, by category, so the chart shows where the budget's money went.
+  var oneOff = {}, oneOffTotal = 0;
   monthTxns.forEach(function(t){
+    if(!t.linkedExpenseId){
+      var v = Math.round((Number(t.amount) || 0) * 100) / 100;
+      if(v){ var c = transactionCategory(t) || "no category"; oneOff[c] = (oneOff[c] || 0) + v; oneOffTotal += v; }
+      return;
+    }
     var name = transactionCategory(t) || UNCATEGORISED;
     var value = Math.round((Number(t.amount) || 0) * 100) / 100;
     if(!value) return;
@@ -2103,8 +1846,12 @@ export function renderSpendCategoryChart(){
   var groups = order.map(function(name){ return { key: name, monthly: byCategory[name] }; })
     .sort(function(a, b){ return b.monthly - a.monthly; });
   var html = categoryChartHtml(groups, "");
-  el.innerHTML = html ? '<div class="cat-chart-title" title="Spent by category ' + escapeAttr(monthPhrase(selectedMonth())) + '">By category</div>' + html : "";
-  el.hidden = !html;
+  var oneOffNames = Object.keys(oneOff).sort(function(a, b){ return oneOff[b] - oneOff[a]; });
+  var note = Math.abs(oneOffTotal) >= 0.5 ? '<p class="ledger-note cat-chart-oneoff">Not in the chart: <b>' + fmtCurrency0.format(oneOffTotal) + '</b> on no budget line (' +
+    oneOffNames.slice(0, 3).map(function(c){ return escapeAttr(c) + ' ' + fmtCurrency0.format(oneOff[c]); }).join(", ") + (oneOffNames.length > 3 ? ', and ' + (oneOffNames.length - 3) + ' more' : '') + ').</p>' : '';
+  el.innerHTML = html ? '<div class="cat-chart-title" title="Spent by category ' + escapeAttr(monthPhrase(selectedMonth())) + '">By category</div>' + html + note
+    : (note ? emptyStateHtml("Nothing spent on a budget line yet " + monthPhrase(selectedMonth()) + ".", { done: true }) + note : "");
+  el.hidden = !el.innerHTML;
 }
 // ---------------- Spending over time ----------------
 //

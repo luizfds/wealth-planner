@@ -5882,5 +5882,19 @@ Now ~3,700px on that phone (2,450px at 1280px), opening on the lines that need a
   All, Use $X, the effect on the plan and a normal month's left over before Save. Nothing logged is never offered as $0.
 - **A line's Details page as one sheet**: this month, 12 months against the plan, where it goes (strays flagged),
   recent, Make the plan typical / Edit / Log spend / Tidy.
-Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgethome. Not done: the Spending tab's
-category chart still counts one-offs; Dashboard and Reports still say Needs/Wants.
+Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgethome.
+
+## The budget's loose ends (November 2026)
+
+`[x]` What the easier budget left, checked against the household's backup after its first tidy-up:
+- **Transactions' "Actual vs. planned" list is gone** — Budget answers it now (what's left, Needs a look, each line in
+  words, a line's sheet). The card is "This month by category"; `renderActualVsPlannedPanel` keeps its name and only
+  redraws the bills calendar, the chart, the trends and the year (every edit that touches spending calls it). The tab
+  went from ~4,600px to ~3,400px at 390px.
+- **One-offs out of the category chart**: a purchase on no line (a home's purchase costs were nearly half a real
+  month) is left out and said underneath, by category.
+- **One vocabulary**: Today's 50/30/20 card, the scenario comparison, the emergency fund, Settings' target, Reports
+  (Essential / Lifestyle grouping; the stored Needs/Wants still drive the maths through `classOf`), Trim and the
+  insight say Essentials and Lifestyle.
+- **A misfiled card says what you called it** (`strays()` `typed`): a purchase typed "The Bakery" whose bank text was a
+  gym's was moved onto the gym line from a card that showed only the bank's name.

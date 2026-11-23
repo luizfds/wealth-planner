@@ -61,3 +61,16 @@ test("a no is remembered, so the card doesn't come back; its undo brings it back
   assert.equal(Object.keys(st.tidyOk).length, 0);
   assert.equal(applyInboxAction(st, { type: "amount", lineId: "gone", amount: 1 }, { lineOf: () => undefined }), null);
 });
+
+test("a misfiled card says what you called it, when that isn't the bank's shop — and doesn't call it a slip", async () => {
+  const { strays } = await import("../src/calc/tidy.js");
+  const L = [{ id: "gym", what: "Gym", classification: "Wants" }, { id: "cafe", what: "Cafés", classification: "Wants" }];
+  const txs = [1, 2, 3, 4].map(i => ({ id: "g" + i, linkedExpenseId: "gym", date: "2026-10-0" + i, amount: 40, what: "FITCO 1234", bankWhat: "FITCO 1234" }))
+    .concat([{ id: "c1", linkedExpenseId: "cafe", date: "2026-10-09", amount: 12, what: "The Bakery", bankWhat: "FITCO 1234" }]);
+  const s = strays(txs, L, { today: "2026-11-01" });
+  assert.equal(s.length, 1);
+  assert.deepEqual(s[0].typed, ["The Bakery"]);
+  const card = inboxCards({ strays: s, lines: L })[0];
+  assert.match(card.body, /You described it as “The Bakery” — check it's the same shop/);
+  assert.doesNotMatch(card.body, /Probably a slip/);
+});

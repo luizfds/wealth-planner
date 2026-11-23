@@ -21,7 +21,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint, txViewForm } from "./cashflow.js";
 import { afterReceivedChange } from "./cashflowwiring.js";
-import { trendDisplay, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, budgetRowTxnsOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
+import { trendDisplay, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
 import { firstRun, firstRunHtml } from "./firstrun.js";
 import { offerTour } from "./tourwiring.js";
 import { renderHomeSummary } from "./home.js";
@@ -123,7 +123,7 @@ function onCashflowListClick(e){
     if(lineSel !== "__keep") changes.linkedExpenseId = lineSel;
     if(acctSel !== "__keep") changes.account = acctSel;
     if(classSel !== "__keep") changes.classification = classSel;
-    if(!Object.keys(changes).length){ showToast("Choose a line, an account or Needs/Wants to set"); return; }
+    if(!Object.keys(changes).length){ showToast("Choose a line, an account or Essential/Lifestyle to set"); return; }
     var before = idxs.map(function(i){ return { i: i, t: Object.assign({}, state.transactions[i]) }; });
     var n = bulkEditTransactions(idxs, changes);
     txSelect.picked = {};
@@ -467,24 +467,6 @@ export function wireSpending(){
     e.preventDefault();
     el.value = String(n);
     el.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  // Actual vs. planned: click a budget row (that has at least one transaction logged against it
-  // this month) to expand it in place and see exactly which transactions make up its "actual"
-  // figure — no need to separately scroll the Transactions list below to find them.
-  document.getElementById("actualVsPlannedPanel").addEventListener("click", function(e){
-    if(e.target.closest("[data-tx-del]")) return; // let the delete handler above own this click
-    var toggleRow = e.target.closest("[data-budget-row-toggle]");
-    if(!toggleRow) return;
-    var key = toggleRow.getAttribute("data-budget-row-toggle");
-    budgetRowTxnsOpen[key] = !budgetRowTxnsOpen[key];
-    renderActualVsPlannedPanel();
-  });
-  document.getElementById("actualVsPlannedPanel").addEventListener("keydown", function(e){
-    if(e.key !== "Enter" && e.key !== " ") return;
-    var toggleRow = e.target.closest("[data-budget-row-toggle]");
-    if(!toggleRow) return;
-    e.preventDefault();
-    toggleRow.click();
   });
   document.addEventListener("input", function(e){
     if(!e.target.closest("#transactionsTable")) return;

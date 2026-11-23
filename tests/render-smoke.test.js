@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { state } from "../src/state.js";
 import { categoryIconHtml, categoryColorClass } from "../src/lib/caticons.js";
 import { modernPlainRowHtml, modernRowShellHtml, optionsHtml, historyTrendHtml } from "../src/lib/ledger-table.js";
-import { categoryChartHtml, categoryLookPickerHtml, irregularBudgetSectionHtml, budgetComparisonRowHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
+import { categoryChartHtml, categoryLookPickerHtml, transactionAccountOptionsHtml, budgetLineOptgroupsHtml, lineMatchesFilter, sortedCategories } from "../src/components/expenses.js";
 import { todaysMixHtml } from "../src/components/assets.js";
 import { sparklineHtml, sparklinePlaceholderHtml, dateAxisFormat } from "../src/lib/charts.js";
 import { parseAmountInput } from "../src/lib/format.js";
@@ -265,125 +265,6 @@ test("timeRangeControlHtml marks the selection and can omit windows", function()
   assert.ok(html.indexOf('data-tx-range="all"') !== -1);
   assert.match(timeRangeControlHtml("3m", "shares-change-window", {picker:false}), /time-range-control range-strip/);
   assert.doesNotMatch(html, /range-strip/, "other range controls retain the adaptive picker");
-});
-
-// Actual vs. planned: an irregular (reserve) row is drillable, and over its own year.
-//
-// These rows rendered as a flat bar with no expander at all, so the transactions making up their
-// "actual" figure had nowhere to be seen — the one case where that matters most, since an
-// irregular line's spend can be a single receipt from eleven months ago rather than something
-// sitting in this month's Transactions list.
-//
-// The window is the row's reserve year, not the calendar month, so these use today's date, which
-// falls inside all three bases (calendar, financial, rolling12) whichever one a row is set to.
-function reserveItem(overrides){
-  return Object.assign({
-    id: "irr1", what: "Trips", classification: "Wants", category: "Travel",
-    account: "Everyday", amount: 20000, freq: "Yearly", irregular: true, history: []
-  }, overrides || {});
-}
-const TODAY_ISO = new Date().toLocaleDateString("en-CA");
-
-test("irregularBudgetSectionHtml renders a reserve row", () => {
-  const prev = state.transactions;
-  state.transactions = [];
-  try {
-    const html = irregularBudgetSectionHtml([reserveItem()]);
-    assert.match(html, /<div/);
-    assert.match(html, /Trips/);
-    assert.match(html, /budget-bar-fill/);
-  } finally { state.transactions = prev; }
-});
-
-test("an irregular row with spend in its reserve year is expandable", () => {
-  const prev = state.transactions;
-  state.transactions = [{ date: TODAY_ISO, amount: 1200, what: "Flights", linkedExpenseId: "irr1" }];
-  try {
-    const html = irregularBudgetSectionHtml([reserveItem()]);
-    assert.match(html, /data-budget-row-toggle="irr1"/);
-    assert.match(html, /is-expandable/);
-    assert.match(html, /aria-expanded="false"/);
-  } finally { state.transactions = prev; }
-});
-
-test("an irregular row with nothing logged stays a plain row", () => {
-  const prev = state.transactions;
-  // Linked to a different line, so this row's own reserve year is empty.
-  state.transactions = [{ date: TODAY_ISO, amount: 1200, what: "Flights", linkedExpenseId: "other" }];
-  try {
-    const html = irregularBudgetSectionHtml([reserveItem()]);
-    assert.ok(!html.includes("data-budget-row-toggle"), "should carry no toggle");
-    assert.ok(!html.includes("is-expandable"), "should not be marked expandable");
-  } finally { state.transactions = prev; }
-});
-
-test("an irregular row ignores spend outside its reserve year", () => {
-  const prev = state.transactions;
-  // Ten years back is outside every reserve-year basis.
-  const longAgo = String(Number(TODAY_ISO.slice(0, 4)) - 10) + TODAY_ISO.slice(4);
-  state.transactions = [{ date: longAgo, amount: 1200, what: "Flights", linkedExpenseId: "irr1" }];
-  try {
-    const html = irregularBudgetSectionHtml([reserveItem()]);
-    assert.ok(!html.includes("data-budget-row-toggle"), "out-of-window spend should not make it expandable");
-  } finally { state.transactions = prev; }
-});
-
-// ---------------- One row builder for both kinds of budget line ----------------
-// Regular and irregular rows were two hand-written builders drifting side by side, and that split
-// produced two reported gaps in a row (no progress bar on irregular rows until v3.7.0, no
-// drill-down until v3.8.0) — each time because a change landed on one builder and not the other.
-// They share one now, with `cycle` as the only branch.
-
-// A quarterly line whose cycle opened two months ago, so "inside the cycle" and "inside this
-// calendar month" are genuinely different windows — which is the whole point of the drill-down
-// reading off cycle.start/end rather than the month.
-function quarterlyItem(){
-  const now = new Date(); now.setHours(0, 0, 0, 0);
-  const cycleStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  return { id: "q1", what: "Gas", amount: 230, freq: "Quarterly", irregular: false,
-           dueMonth: cycleStart.getMonth() + 1, classification: "Needs", category: "", history: [] };
-}
-function isoInMonthsBack(n, day){
-  const d = new Date(); d.setHours(0, 0, 0, 0);
-  return new Date(d.getFullYear(), d.getMonth() - n, day).toLocaleDateString("en-CA");
-}
-
-test("a multi-month cycle drills into its whole cycle, not just this month", () => {
-  const prev = state.transactions;
-  // One charge last month: inside the quarterly cycle, outside the calendar month. Counted in the
-  // row's "actual" either way, so listing only this month left the list not adding up to the
-  // figure sitting above it.
-  state.transactions = [{ id: "t1", date: isoInMonthsBack(1, 15), amount: 117, what: "Gas (last month)", linkedExpenseId: "q1" }];
-  try {
-    const html = budgetComparisonRowHtml(quarterlyItem());
-    assert.match(html, /is-expandable/, "a charge inside the cycle must make the row drillable");
-    assert.match(html, /data-budget-row-toggle="q1"/);
-  } finally { state.transactions = prev; }
-});
-
-test("a charge outside the cycle entirely does not make the row drillable", () => {
-  const prev = state.transactions;
-  state.transactions = [{ id: "t1", date: isoInMonthsBack(11, 15), amount: 117, what: "Ancient", linkedExpenseId: "q1" }];
-  try {
-    const html = budgetComparisonRowHtml(quarterlyItem());
-    assert.ok(!html.includes("data-budget-row-toggle"), "out-of-cycle spend is not this cycle's");
-  } finally { state.transactions = prev; }
-});
-
-test("under budget reads as good news on a regular line but not on a reserve line", () => {
-  const prev = state.transactions;
-  state.transactions = [];
-  try {
-    // Regular monthly line, nothing spent: genuinely under this month's bill, so green.
-    const regular = budgetComparisonRowHtml({ id: "r1", what: "Internet", amount: 99, freq: "Monthly",
-      irregular: false, classification: "Needs", category: "", history: [] });
-    assert.match(regular, /var\(--good-ink\)/);
-    // Reserve line, nothing spent: being under a whole year's allowance is the normal state of
-    // affairs, not an achievement, so no green.
-    const reserve = budgetComparisonRowHtml({ id: "i1", what: "Trips", amount: 20000, freq: "Yearly",
-      irregular: true, classification: "Wants", category: "", history: [] });
-    assert.ok(!reserve.includes("var(--good-ink)"), "a reserve line under budget is not good news");
-  } finally { state.transactions = prev; }
 });
 
 // ---------------- A deleted account's name survives on the rows that used it ----------------
@@ -2700,7 +2581,7 @@ test("budget comparison has explicit amounts and a text alternative to its rings
   const {budgetComparisonHtml}=await import("../src/components/budgetcomparison.js");
   const name=state.scenarios[0];
   const html=budgetComparisonHtml(name,name,'Example <scenario>');
-  assert.match(html,/Example &lt;scenario/);assert.match(html,/Needs change/);
+  assert.match(html,/Example &lt;scenario/);assert.match(html,/Essentials change/);
   assert.match(html,/Other spending \/ allocations/);assert.match(html,/Loan principal is not added again/);
   assert.doesNotMatch(html,/NaN|Infinity|undefined/);
 });
@@ -2904,17 +2785,17 @@ test("the take-home for a Needs target: every state in words, the scenario's nam
   const was = state.needsTarget; state.needsTarget = 50;
   try {
     const html = needsTargetCompareHtml({ needs: 3000, income: 7000 }, { needs: 4200, income: 7000 }, 'Buy <b>"home"</b>');
-    assert.match(html, /Take-home for Needs at 50%/);
+    assert.match(html, /Take-home for Essentials at 50%/);
     assert.match(html, /Within 50% — no more take-home needed/);
     assert.match(html, /\$8,400\/mo take-home — \$1,400\/mo more, 20% above today’s|\$8,400\/mo take-home — \$1,400\/mo more, 20% above today's/);
-    assert.match(html, /needs \$1,400\/mo more take-home than today to keep Needs at 50%/);
+    assert.match(html, /needs \$1,400\/mo more take-home than today to keep Essentials at 50%/);
     assert.ok(!html.includes('<b>"home"</b>') && html.includes("Buy &lt;b>&quot;home&quot;&lt;/b>"), "the scenario's name is escaped");
     assert.match(html, /a pay rise before tax would have to be larger/);
     assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 9000, income: 6000 }, 50)), /\$3,000\/mo more than the whole take-home/);
     assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 3000, income: 0 }, 50)), /No take-home in a normal month/);
-    assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 0, income: 5000 }, 50)), /Nothing is classed as Needs/);
+    assert.match(needsTargetLinesHtml(needsTargetFor({ needs: 0, income: 5000 }, 50)), /Nothing is marked Essential/);
     const field = needsTargetFieldHtml("needsTargetX");
-    assert.match(field, /<label class="field-label" for="needsTargetX">Needs at most/);
+    assert.match(field, /<label class="field-label" for="needsTargetX">Essentials at most/);
     assert.match(field, /data-needs-target/);
     assert.match(field, /value="50"/);
     for(const h of [html, needsTargetLinesHtml(needsTargetFor({}, 50))]) assert.ok(!/NaN|Infinity|undefined/.test(h), h);
@@ -2945,7 +2826,7 @@ test("how the year adds up: in, spending, interest, kept, where it went, unaccou
     missing: { balances: ['Card <b>"A"</b> — no balances recorded, so its change isn\'t known'], months: [{ ym: "2025-10", label: "October 2025" }] }, complete: false };
   const html = reconcileHtml(r);
   assert.match(html, /<details class="yr-recon"><summary>How it adds up<\/summary>/);
-  assert.match(html, /Spending \(Needs \$18,000 · Wants \$12,000\)<\/dt><dd>−\$30,000/);
+  assert.match(html, /Spending \(Essentials \$18,000 · Lifestyle \$12,000\)<\/dt><dd>−\$30,000/);
   assert.match(html, /Loan interest and fees \(as the bank charged\)<\/dt><dd>−\$12,000/);
   assert.match(html, /Kept<\/dt><dd>\+\$54,000/);
   assert.match(html, /Loans paid down<\/dt><dd>−\$2,000/);

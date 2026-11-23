@@ -660,8 +660,8 @@ export function renderDetail(){
     '<div class="rule-target" style="left:80%"></div>';
 
   document.getElementById("ruleLegend").innerHTML =
-    '<div class="rule-legend-item"><span class="rule-swatch needs"></span>Needs <b>' + fmtCurrency0.format(needs) + '</b> · target 50%</div>' +
-    '<div class="rule-legend-item"><span class="rule-swatch wants"></span>Wants <b>' + fmtCurrency0.format(wants) + '</b> · target 30%</div>' +
+    '<div class="rule-legend-item"><span class="rule-swatch needs"></span>Essentials <b>' + fmtCurrency0.format(needs) + '</b> · target 50%</div>' +
+    '<div class="rule-legend-item"><span class="rule-swatch wants"></span>Lifestyle <b>' + fmtCurrency0.format(wants) + '</b> · target 30%</div>' +
     '<div class="rule-legend-item"><span class="rule-swatch savings"></span>Savings <b>' + fmtCurrency0.format(savings) + '</b> · target 20%</div>';
 
   var acctMap = sumByAccount(combined, "monthly");

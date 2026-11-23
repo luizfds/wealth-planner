@@ -7,6 +7,7 @@ import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/repo
 import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
 import { RANGES, COMPARES, GROUPS, rangeWindow, compareWindow, monthsIn } from "../calc/reportframe.js";
+import { classWord } from "../constants.js";
 import { selectedYearWindow, periodsOf, transactionDisplayName, transactionClass } from "../calc/ledger.js";
 import { reportChartHtml, fitReportCharts } from "../lib/reportcharts.js";
 import { fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
@@ -46,7 +47,7 @@ function budgetByGroup(group, win, today){
   var months = monthsIn(win, today).length || 1;
   var out = {};
   budgetLineItems().forEach(function(l){
-    var k = group === "class" ? (l.classification && l.classification !== "N/A" ? l.classification : "Other")
+    var k = group === "class" ? (l.classification && l.classification !== "N/A" ? classWord(l.classification) : "Other")
       : group === "line" ? (l.what || "Line") : group === "account" ? (l.account || "No account") : ((l.category || "").trim() || "Uncategorised");
     out[k] = (out[k] || 0) + periodsOf(Number(l.amount) || 0, l.freq).monthly * months;
   });
@@ -57,7 +58,8 @@ export function reportOpts(today){
   today = today || localDateStr();
   var f = reportFrame;
   var win = rangeWindow(f.range, today, { yearWin: selectedYearWindow(today), from: f.from, to: f.to });
-  var groupOf = groupFn(f.group);
+  // Grouped by class, a report shows Essential / Lifestyle; the year's own maths (classOf) keeps the stored Needs/Wants.
+  var groupOf = f.group === "class" ? (function(raw){ return function(t){ return classWord(raw(t)) || raw(t); }; })(groupFn("class")) : groupFn(f.group);
   var o = { today: today, win: win, categoryOf: transactionCategory, groupOf: groupOf, groupLabel: (GROUPS.find(function(g){ return g.key === f.group; }) || {}).label,
     classOf: groupFn("class"), budgetLines: budgetLineItems(), yearWin: selectedYearWindow(today) };
   if(f.compare === "budget"){
@@ -193,7 +195,7 @@ function signed(v){ return (v < 0 ? "−" : v > 0 ? "+" : "") + fmtCurrency0.for
 export function reconcileHtml(r, print){
   if(!r) return "";
   var line = function(label, v, cls){ return '<div' + (cls ? ' class="' + cls + '"' : '') + '><dt>' + escapeAttr(label) + '</dt><dd>' + escapeAttr(v) + '</dd></div>'; };
-  var spendBits = [["Needs", r.spending.needs], ["Wants", r.spending.wants], ["Other", r.spending.other]].filter(function(x){ return x[1]; })
+  var spendBits = [["Essentials", r.spending.needs], ["Lifestyle", r.spending.wants], ["Other", r.spending.other]].filter(function(x){ return x[1]; })
     .map(function(x){ return x[0] + " " + fmtCurrency0.format(x[1]); }).join(" · ");
   var gap = r.unaccounted, big = Math.abs(gap) >= Math.max(500, Math.abs(r.kept) * 0.05);
   var body = '<dl class="yr-recon-lines">' +

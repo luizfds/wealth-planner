@@ -737,9 +737,9 @@ const JOURNEYS = {
     const name = await openBuy();
     const block = page.locator('.needs-target');
     const text = await block.innerText();
-    check(/Take-home for Needs at 50%/.test(text), 'the default target is not 50%: ' + text.slice(0, 120));
+    check(/Take-home for Essentials at 50%/.test(text), 'the default target is not 50%: ' + text.slice(0, 120));
     check(text.includes(name) && /Current \/ baseline/.test(text), 'baseline and scenario are not both shown');
-    check(/Needs are \$[\d,]+\/mo, [\d.]+% of \$[\d,]+\/mo take-home/.test(text), 'Needs and their share of take-home are not said');
+    check(/Essentials are \$[\d,]+\/mo, [\d.]+% of \$[\d,]+\/mo take-home/.test(text), 'Essentials and their share of take-home are not said');
     check(!/NaN|Infinity|undefined/.test(text), 'the block shows NaN/Infinity');
     // Its figures are the comparison's own: Needs and take-home match the rings above.
     const figures = await page.evaluate(async n => { const e = await import('/src/calc/engine.js'); const c = e.scenarioBudgetComposition(n); return { needs: Math.round(c.needs), income: Math.round(c.income) }; }, name);
@@ -748,7 +748,7 @@ const JOURNEYS = {
     // Change the target here: saved, the block says the new target, and Preferences shows it.
     const field = block.locator('[data-needs-target]');
     await field.fill('60'); await field.press('Enter'); await field.dispatchEvent('change');
-    await waited(page, () => /Take-home for Needs at 60%/.test(document.querySelector('.needs-target')?.innerText || ''), 'the block at 60%');
+    await waited(page, () => /Take-home for Essentials at 60%/.test(document.querySelector('.needs-target')?.innerText || ''), 'the block at 60%');
     check(await stored(page, 'state.needsTarget') === 60, 'the target was not saved');
     // Out of range: said beside the field, nothing saved.
     const again = page.locator('.needs-target [data-needs-target]');
@@ -759,12 +759,12 @@ const JOURNEYS = {
     const pref = page.locator('#needsTargetPref [data-needs-target]');
     await pref.waitFor();
     check(await pref.inputValue() === '60', 'Preferences does not show the saved target');
-    check(await page.locator('label[for="needsTargetPrefInput"]').innerText() === 'Needs at most', 'Preferences\' field is not labelled');
+    check(await page.locator('label[for="needsTargetPrefInput"]').innerText() === 'Essentials at most', 'Preferences\' field is not labelled');
     await pref.fill('50'); await pref.dispatchEvent('change');
     await eventually(async () => await stored(page, 'state.needsTarget') === 50);
     check(await stored(page, 'state.needsTarget') === 50, 'Preferences did not save the target');
     await openBuy();
-    check(/Take-home for Needs at 50%/.test(await page.locator('.needs-target').innerText()), 'the scenario does not follow Preferences');
+    check(/Take-home for Essentials at 50%/.test(await page.locator('.needs-target').innerText()), 'the scenario does not follow Preferences');
     // Four widths, both themes: nothing wider than the page.
     if(process.env.NEEDS_A11Y){ const axe = await import('axe-core'); await page.evaluate(axe.default.source); }
     for(const width of [320, 390, 768, 1280]) for(const theme of ['light', 'dark']){

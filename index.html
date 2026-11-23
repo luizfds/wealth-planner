@@ -326,7 +326,7 @@
         <div class="subnav" id="taxSubnav" role="group" aria-label="Tax sections">
           <button type="button" class="subnav-item active" aria-current="page" data-tax-sub="year">This year</button>
           <button type="button" class="subnav-item" data-tax-sub="returns">Returns</button>
-          <button type="button" class="subnav-item" data-tax-sub="documents">Documents</button>
+          <button type="button" class="subnav-item" data-tax-sub="documents" data-level="advanced">Documents</button>
           <button type="button" class="subnav-item" data-tax-sub="people">People</button>
         </div>
         <div class="tax-subpage" id="taxSub-year">
@@ -579,7 +579,8 @@
               </div>
             </div>
           </section>
-          <details class="ledger" id="tripsCard">
+          <!-- Trips: a way to file a holiday's spending, used a few times a year — put away in Simple (the app assessment). -->
+          <details class="ledger" id="tripsCard" data-level="advanced">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Trips</h2></div>
             </summary>

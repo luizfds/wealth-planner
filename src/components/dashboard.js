@@ -409,8 +409,8 @@ function drawDashboardStats(){
     tradeoffHtml = scenarioTradeoffHtml(comparisonRows, state.baselineScenario || active, comparisonNotes, horizon);
   }
   var lastTile = isComparing
-    ? '<div class="stat-tile" data-home-card="scenarios"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small>' + tradeoffHtml + '</div>'
-    : '<div class="stat-tile" data-home-card="scenarios"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
+    ? '<div class="stat-tile" data-home-card="scenarios" data-level="advanced"><span>Scenarios compared</span><b>' + state.scenarios.length + '</b><small>' + state.scenarios.map(escapeAttr).join(", ") + '</small>' + tradeoffHtml + '</div>'
+    : '<div class="stat-tile" data-home-card="scenarios" data-level="advanced"><span>Scenario</span><b>' + escapeAttr(active) + '</b><small>add another in Plan → Scenarios to compare options</small></div>';
   var emergency = emergencyFund({ scenario: active });
   var riskHtml = dashboardRiskSignalsHtml(dashboardRiskSignals(t, emergency, nothingEntered));
   // The app assessment (November 2026): the reserve in months is Where you stand's (Today's top), said once; its

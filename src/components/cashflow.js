@@ -357,7 +357,7 @@ export function billsCalendarHtml(data, ym, today, opts){
   if(!list) list = '<p class="ledger-note" style="margin:8px 0 0">No dated bills in ' + mon + '. A bill gets a day once a payment has been logged against its budget line.</p>';
   var undated = data.undated.length ? '<details class="bc-undated"><summary>' + data.undated.length + ' regular line' + (data.undated.length === 1 ? "" : "s") + ' with no payment logged yet, so no day</summary><p class="ledger-note" style="margin:4px 0">' +
     data.undated.map(function(u){ return escapeAttr(u.what); }).join(", ") + '</p></details>' : '';
-  var kinds = (data.kinds || []).length ? '<details class="bc-kinds"><summary>Bill or spending budget? Change how a line is treated</summary><p class="ledger-note" style="margin:4px 0 6px">Worked out from what\'s logged: about one payment a period is a bill; many purchases of varying size is a spending budget.</p><ul>' +
+  var kinds = (data.kinds || []).length ? '<details class="bc-kinds" data-level="advanced"><summary>Bill or spending budget? Change how a line is treated</summary><p class="ledger-note" style="margin:4px 0 6px">Worked out from what\'s logged: about one payment a period is a bill; many purchases of varying size is a spending budget.</p><ul>' +
     data.kinds.map(function(k){
       return '<li><span>' + escapeAttr(k.what) + '</span><select class="bc-kind field-control" data-bc-kind="' + escapeAttr(k.id) + '" aria-label="' + escapeAttr(k.what) + ' — bill or spending budget">' +
         '<option value=""' + (!k.setting ? ' selected' : '') + '>Auto (' + (k.auto === "spending" ? "spending" : "bill") + ')</option>' +

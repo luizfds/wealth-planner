@@ -21,7 +21,7 @@ import { refreshNotifPanel } from "./notifpanel.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
-import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
+import { loggableBudgetLineItems, budgetLineItems, openQuickLog, setQuickLogLink, renderQuickLogSheet } from "./expenses.js";
 import { taxUi } from "./income.js";
 import { showPage, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { recurringHtml, recurringDismissed, recurringOpen, catchAllShown } from "./recurring.js";
@@ -33,6 +33,7 @@ import { renderTidy, tidyUi, currentStrays } from "./tidy.js";
 import { renderBudgetSplit, budgetSplitUi, budgetSplitModel } from "./budgetsplit.js";
 import { applyInboxAction } from "../calc/tidyinbox.js";
 import { renderAdjust, adjustUi, adjustModel } from "./adjustplan.js";
+import { renderDetailPage } from "./detail.js";
 import { applyAdjust } from "../calc/adjustplan.js";
 import { classWord } from "../constants.js";
 import { lineMerchants, moveTransactions, setTransactionsClass, undoChanges, markTidyOk, tidyMove, TIDY_MONTHS } from "../calc/tidy.js";
@@ -507,6 +508,11 @@ export function wireTidy(){
     e.preventDefault();
     var lineId = open.getAttribute("data-tidy-open");
     var go = function(){
+      // From a line's Details page: Money first — a page change applies inside a view transition, so after it's done.
+      if(document.body.getAttribute("data-current-page") !== "expenses"){
+        Promise.resolve(showPage("expenses")).then(function(){ showExpensesSubpage("budget"); requestAnimationFrame(function(){ requestAnimationFrame(function(){ openTidyAt(lineId, null); }); }); });
+        return;
+      }
       var card = document.getElementById("tidyCard");
       // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
       if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
@@ -580,6 +586,19 @@ export function wireAdjust(){
       commit(["shared", "home"]);
       showUndoToast(r.count + " line" + (r.count === 1 ? "" : "s") + " set to what you typically spend", function(){ r.undo(); commit(["shared", "home"]); });
     }
+  });
+  // A line's Details page: "Make the plan $X/mo" (its typical month, in its own frequency) and "Log spend" on it.
+  document.addEventListener("click", function(e){
+    var typ = e.target.closest("[data-line-typical]"), log = e.target.closest("[data-line-log]");
+    if(log){ openQuickLog(); setQuickLogLink(log.getAttribute("data-line-log")); renderQuickLogSheet(); return; }
+    if(!typ) return;
+    var id = typ.getAttribute("data-line-typical"), line = loggableBudgetLineItems().find(function(l){ return l.id === id; });
+    if(!line) return;
+    var was = line.amount;
+    line.amount = Number(typ.getAttribute("data-line-typical-amount")) || 0;
+    commit(["shared", "home"]);
+    renderDetailPage();
+    showUndoToast((line.what || "Line") + " planned at what you typically spend", function(){ line.amount = was; commit(["shared", "home"]); renderDetailPage(); });
   });
   // "Adjust the plan →" in the Lines bar: open the card and bring it into view.
   document.addEventListener("click", function(e){

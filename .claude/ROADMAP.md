@@ -5950,3 +5950,10 @@ line; the charts fold under it); the old tools sit inside All suggestions (board
 shows (board 2); a pot says how far it goes and last year against what it puts by (board 3); Bills says what's due in
 the next 14 days (board H). The line editor's two questions — Is it essential? When does it get spent? — are the
 board's answer cards (`pillsHtml({ cards: true })`, each answer with what it means under it), not selects.
+
+## The app assessment's first six (November 2026)
+
+`[~]` From the 23 November assessment, "Do first": a colour system (a colour per tab, per person, category colours used
+everywhere, green/amber/red kept for meaning); Today shows each figure once; Simple mode made real and the default for a
+new household; instructions moved into the dialogs that use them; one name for each place and no Day or Hour; Budget's
+one inbox, and Income without Budget's summary.

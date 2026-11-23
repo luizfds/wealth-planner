@@ -8,16 +8,19 @@
 //   drift        a plan far from what's spent, either way            (calc/trim.js spendingDrift) Use typical / Keep
 //   recurring    a charge repeating with no line for it              (calc/recurring.js)          Add a line / One-off
 //   stopped      a bill not paid for a while, with no end date       (calc/bills.js stopped)      It ended then / Still going
+//   property     a transaction that reads like a property's          (calc/propertymoney.js)      Link it / Not this property
+//   propline     a rates or insurance line, with more than one property it could be for         Our home / The investment
 // "No" is remembered (state.tidyOk), so a card that's been answered doesn't come back; "Later" is the session's.
 // Pure: inboxCards() takes the lists, applyInboxAction() the state it changes, and returns its undo.
 import { moveTransactions, undoChanges, markTidyOk } from "./tidy.js";
+import { linkTransaction, setLineProperty, purchaseCostChoices, shortDate } from "./propertymoney.js";
 import { periodsOf } from "./ledger.js";
 
 function money(n){ var v = Math.round(Number(n) || 0); return (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("en-AU"); }
 function plural(n, one, many){ return n + " " + (n === 1 ? one : (many || one + "s")); }
 var FREQ_WORD = { Weekly: "a week", Fortnightly: "a fortnight", Monthly: "a month", Quarterly: "a quarter", "Half-yearly": "a half-year", Yearly: "a year" };
 
-// input: { strays, hints, drift, recurring, stopped, lines, ok }. lines: the budget lines (for names). ok: state.tidyOk.
+// input: { strays, hints, drift, recurring, stopped, property, propLines, lines, ok }. lines: the budget lines (for names). ok: state.tidyOk.
 // → cards [{ id, kind, label, title, body, facts: [[label, value], [label, value]], yes: { label, act }, no: { label, act } }].
 export function inboxCards(input){
   input = input || {};
@@ -33,6 +36,30 @@ export function inboxCards(input){
       facts: [["On", name(s.fromLineId)], ["Usually", name(s.toLineId)]],
       yes: { label: "Move to " + name(s.toLineId), act: { type: "move", ids: s.txIds, to: s.toLineId } },
       no: { label: "It's right", act: { type: "ok", key: s.id } } });
+  });
+  // November 2026: for a property? A purchase's card can pick which of its costs (`picks`, `pick` the guess).
+  (input.property || []).forEach(function(x){
+    var t = x.t, amt = money(t.amount), purchase = x.to.kind === "purchase";
+    var picks = purchase ? purchaseCostChoices(x.to.purchase).map(function(c){ return { value: c.id, label: c.what }; }).concat([{ value: "new", label: "+ New cost" }]) : null;
+    var target = purchase ? { type: "purchase", id: x.to.id, cost: x.cost || "new" } : { type: "property", id: x.to.id, lineId: x.lineId || "" };
+    out.push({ id: x.id, kind: "property", label: "For a property?",
+      title: "“" + (t.what || "A transaction") + "” " + amt + " on " + shortDate(t.date) + " — for " + (purchase ? "the " + x.to.name + " purchase" : x.to.name) + "?",
+      body: purchase ? "It looks like a cost of buying " + x.to.name + (x.to.purchase.settlementDate ? " (settles " + shortDate(x.to.purchase.settlementDate) + ")" : "") + ". Linked, it's kept out of your spending and marks the cost paid."
+        : "Linked, it counts in " + x.to.name + "'s year and its tax schedule, not your household budget.",
+      facts: [["Now", x.now], ["Would be", x.to.name + " · " + (purchase ? "purchase" : (x.lineWhat || "other cost"))]],
+      picks: picks, pick: purchase ? (x.cost || "new") : "", why: x.why,
+      yes: { label: purchase ? "Link to the purchase" : "Link to " + x.to.name, act: { type: "linkProp", index: x.index, target: target } },
+      no: { label: "Not this property", act: { type: "ok", key: x.id } } });
+  });
+  (input.propLines || []).forEach(function(x){
+    var l = x.line;
+    out.push({ id: x.id, kind: "propline", label: "A line for a property?",
+      title: (l.what || "A line") + " — which property is this line for?",
+      body: "A line for a property wears its chip and shows on its page" + (x.investment ? "; for an investment, it counts on its tax schedule" : "") + ".",
+      facts: [["Line", (l.what || "A line") + " · " + money(l.amount) + " " + (FREQ_WORD[l.freq] || "")], ["Paid from", l.account || "—"]],
+      why: "“" + (l.what || "") + "” is a property's cost and you have more than one.",
+      yes: { label: x.home.name + (x.home.kind === "investment" ? "" : " (our home)"), act: { type: "lineProp", lineId: l.id, propertyId: x.home.id } },
+      no: x.investment ? { label: x.investment.name, act: { type: "lineProp", lineId: l.id, propertyId: x.investment.id } } : { label: "Not a property's", act: { type: "ok", key: x.id } } });
   });
   (input.hints || []).forEach(function(h){
     var kind = { "essential-lifestyle": "Essential or lifestyle?", "lifestyle-essential": "Essential or lifestyle?", "setaside-monthly": "Spent every month" }[h.kind] || "Worth a look";
@@ -88,6 +115,8 @@ export function applyInboxAction(st, act, opts){
   opts = opts || {};
   if(!act) return null;
   if(act.type === "ok") return markTidyOk(st, act.key);
+  if(act.type === "linkProp"){ var lt = st.transactions[act.index]; return lt ? linkTransaction(st, lt, act.target, opts) : null; }
+  if(act.type === "lineProp"){ var pl = (st.shared || []).find(function(l){ return l && l.id === act.lineId; }); return pl ? setLineProperty(st, pl, act.propertyId) : null; }
   if(act.type === "move"){
     var moved = moveTransactions(st.transactions, act.ids, act.to);
     return moved.length ? function(){ undoChanges(moved); } : null;

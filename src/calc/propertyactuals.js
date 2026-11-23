@@ -64,9 +64,11 @@ export function propertyLedger(p, start, end, st, items){
   (st.transactions || []).forEach(function(t){
     if(!within(t.date, start, end)) return;
     var lid = t.linkedExpenseId, line = lid && (own[lid] || claimed[lid]);
-    if(!line && !stmtTx[t.id]) return;
+    // November 2026 (calc/propertymoney.js): a cost of this investment with no line for it — "Other cost".
+    var other = !line && p.kind === "IP" && t.forProperty === p.id && !t.forCost;
+    if(!line && !stmtTx[t.id] && !other) return;
     push({ key: "tx:" + t.id, date: t.date, gross: Number(t.amount) || 0, share: line && !own[lid] ? deductibleShare(line) : 1, side: "cost",
-      line: line ? rentLineFor(line) : rentLineForExpense(t.what), source: line ? (own[lid] ? "payment" : "claimed") : "statementBill",
+      line: line ? rentLineFor(line) : rentLineForExpense(t.what), source: line ? (own[lid] ? "payment" : "claimed") : other ? "payment" : "statementBill",
       what: t.what || (line && line.what) || "Payment", ref: { kind: "tx", id: t.id, statementId: stmtTx[t.id] || null }, lineId: line ? lid : null });
   });
   (p.loans || []).forEach(function(l){

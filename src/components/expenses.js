@@ -16,6 +16,9 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals, periodSummary } from "../calc/cashflowlist.js";
+import { propertyCache, isPropertyMoney, propertyTargets, targetById } from "../calc/propertymoney.js";
+import { txForHtml, propertySubHtml, propertyNoteHtml, propertyAsideHtml } from "./propertymoney.js";
+import { purchaseCardFigures } from "./buying.js";
 import { hasOwnDates } from "../calc/txviews.js";
 import { keepUi } from "../lib/keepui.js";
 import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
@@ -36,8 +39,30 @@ import { emptyStateHtml } from "../lib/empty.js";
 // parameter at all because the budget-line *pickers* want the category axis regardless of that
 // toggle (see loggableGroups) — a dropdown grouped Needs/Wants is two headings over forty
 // options, which is the scrolling problem the grouping was meant to solve.
+// November 2026: grouped by property — the property a line is for (an investment's own lines, or line.propertyId).
+var NO_PROPERTY = "NoProperty";
+function propertyKeyOf(item){
+  if(item.propertyId && targetById(state, item.propertyId)) return item.propertyId;
+  var ip = ipProperties().find(function(p){ return (p.expenses || []).indexOf(item) !== -1; });
+  return ip ? ip.id : NO_PROPERTY;
+}
+// November 2026: the property a line is for — its chip on the row, and "For a property" in its editor (household lines).
+function linePropertyChipHtml(item){
+  var key = propertyKeyOf(item), x = key !== NO_PROPERTY && targetById(state, key);
+  return x ? ' <span class="pm-chip' + (x.kind === "investment" ? " is-ip" : "") + '"><span aria-hidden="true">⌂ </span>' + escapeAttr(x.name) + '</span>' : '';
+}
+function linePropertyFieldHtml(item, section){
+  var targets = propertyTargets(state);
+  if(section !== "shared" || item.computed || !targets.length) return '';
+  var chip = function(id, label){ var on = (item.propertyId || "") === id; return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-line-property="' + escapeAttr(id) + '" data-line-property-for="' + escapeAttr(item.id) + '">' + label + '</button>'; };
+  var x = item.propertyId && targetById(state, item.propertyId);
+  return '<div class="m-edit-field span3"><span class="field-label" id="lineprop-' + escapeAttr(item.id) + '">For a property</span><div class="bl-chips" role="group" aria-labelledby="lineprop-' + escapeAttr(item.id) + '">' + chip("", "None") +
+    targets.map(function(t){ return chip(t.id, '<span aria-hidden="true">⌂ </span>' + escapeAttr(t.name) + ' · ' + (t.kind === "investment" ? "investment" : t.kind === "purchase" ? "buying" : "home")); }).join("") + '</div>' +
+    '<p class="field-help">' + (x && x.kind === "investment" ? "The property's: claimable on its tax schedule, and on its Money tab." : x ? "Still household spending — it says which home, and shows on its Money tab." + (x.kind === "purchase" && x.purchase.settlementDate && !item.startDate ? " Starts at settlement? Set its start date to " + escapeAttr(fmtDate(x.purchase.settlementDate, { year: true })) + "." : "") : "A home's rates or insurance stay household spending and wear its chip; an investment's line is the property's, claimable.") + '</p></div>';
+}
 function budgetGroupKeyOf(item, axis){
   axis = axis || state.budgetGroupBy;
+  if(axis === "property") return hasEnded(item) ? ENDED : propertyKeyOf(item);
   // v3.164.0 (item 194): the flexible view — Fixed bills / Flexible / Non-monthly (calc/flexbudget.js).
   if(axis === "flex") return flexKindOf(item);
   if(axis === "category") return (item.category || "").trim() || UNCATEGORISED;
@@ -54,6 +79,13 @@ var TYPE_ORDER = ["Needs", "Wants", SET_ASIDE, "Savings", "N/A", ENDED];
 // into them. The charts sort by size instead, because a chart is read, not edited.
 function sharedGroupOrder(axis){
   var lineItems = allBudgetLines().map(function(line){ return line.item; });
+  if((axis || state.budgetGroupBy) === "property"){
+    var usedP = {};
+    lineItems.forEach(function(item){ usedP[budgetGroupKeyOf(item, "property")] = true; });
+    // Homes (and one being bought) first, then investments, then the rest of the household, then what's ended.
+    var props = propertyTargets(state).sort(function(a, b){ return (a.home === b.home ? 0 : a.home ? -1 : 1); }).map(function(x){ return x.id; });
+    return props.filter(function(id){ return usedP[id]; }).concat(usedP[NO_PROPERTY] ? [NO_PROPERTY] : [], usedP[ENDED] ? [ENDED] : []);
+  }
   if((axis || state.budgetGroupBy) === "flex"){
     return FLEX_KINDS.filter(function(k){ return lineItems.some(function(item){ return flexKindOf(item) === k; }); });
   }
@@ -238,7 +270,12 @@ function classificationSwatchClass(cls){
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
 // November 2026: Essentials and Lifestyle (stored Needs/Wants), each every month, then the set-aside pots.
 var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other", Ended: "Ended · in no total" };
-export function groupLabel(key){ return FLEX_LABELS[key] || TYPE_LABELS[key] || key; }
+export function groupLabel(key){
+  if(key === NO_PROPERTY) return "Not for a property";
+  var x = state.budgetGroupBy === "property" && targetById(state, key);
+  if(x) return x.name + " · " + (x.kind === "investment" ? "investment" : x.kind === "purchase" ? (x.home ? "your home, buying" : "investment, buying") : "your home");
+  return FLEX_LABELS[key] || TYPE_LABELS[key] || key;
+}
 
 function sharedCompositionBarHtml(groups){
   // A $0 group has no slice and no business in the legend.
@@ -394,8 +431,8 @@ export function renderSharedGroups(){
   // One bar, and it always splits the money the same way the cards below it do. This is what the
   // toggle really buys: the alternative was showing both splits at once, and two stacked
   // percentage-labelled bars compete for a single glance instead of answering one question each.
-  var byFlex = state.budgetGroupBy === "flex";
-  var compositionHtml = byFlex ? flexSummaryHtml()
+  var byFlex = state.budgetGroupBy === "flex", byProperty = state.budgetGroupBy === "property";
+  var compositionHtml = byProperty ? "" : byFlex ? flexSummaryHtml()
     : byCategory
     ? categoryChartHtml(groups.map(function(g){ return { key: g.key, monthly: g.monthly }; }), "/mo")
     : sharedCompositionBarHtml(groups);
@@ -442,7 +479,8 @@ export function renderSharedGroups(){
       : byCategory
       ? (g.key === UNCATEGORISED ? "m-avatar-neutral" : "m-avatar-series series-color-" + (gi % 8))
       : "m-avatar-" + classificationSwatchClass(g.key);
-    var addValue = byFlex || (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
+    var addValue = byFlex || byProperty || (byCategory && g.key === UNCATEGORISED) ? "shared" : addPrefix + g.key;
+    var propX = byProperty && targetById(state, g.key);
     // Collapsed by default (see migrateState). A 37-line budget is 4,023px of rows on a 390px
     // screen — you cannot reach Groceries without scrolling past thirty other things. Collapsed,
     // the same budget is seven headers that each still state their own monthly total, so the shape
@@ -454,13 +492,13 @@ export function renderSharedGroups(){
       '<div class="m-card-head" data-budget-group-toggle="' + escapeAttr(g.key) + '" role="button" tabindex="0" aria-expanded="' + (!collapsed) + '">' +
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
       // v3.157.0: grouped by category, a card wears the category's icon.
-      (byCategory && g.key !== UNCATEGORISED ? categoryIconHtml(g.key) : '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>') +
+      (propX ? '<span class="pm-icon' + (propX.kind === "investment" ? " is-ip" : "") + '" aria-hidden="true">⌂</span>' : byCategory && g.key !== UNCATEGORISED ? categoryIconHtml(g.key) : '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>') +
       '<div class="m-card-name">' + escapeAttr(groupLabel(g.key)) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
       // special-casing anywhere downstream, since every handler already keys off data-section.
-      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: (status[line.section + ":" + line.idx] || lineStatus(line.item)).html + tidyMarkerHtml(line.item.id, strayN), leadFieldsHtml: line.item.computed ? '' : tidyStraysForLineHtml(line.item.id, strayList), extraFieldsHtml: line.item.id ? '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
+      '<div class="m-rows">' + g.members.map(function(line){ return modernPlainRowHtml(line.item, line.idx, line.section, modernSharedRowOpen, {fieldScope:"budget", amountHelp:"A negative amount reduces planned spending. It does not log a refund.", showClass:true, showDone:true, categories: sortedCategories(), activeScenario: currentScenario(), extraSubLine: (status[line.section + ":" + line.idx] || lineStatus(line.item)).html + tidyMarkerHtml(line.item.id, strayN) + (byProperty ? '' : linePropertyChipHtml(line.item)), leadFieldsHtml: line.item.computed ? '' : tidyStraysForLineHtml(line.item.id, strayList), extraFieldsHtml: line.item.id ? linePropertyFieldHtml(line.item, line.section) + '<div class="m-edit-field span3"><span class="field-label">Receipts</span>' + receiptsFieldHtml("line:" + line.item.id, line.item.receipts, { label: "Attach a receipt or invoice" }) + '</div>' + (line.item.computed ? '' : tidyLinkHtml(line.item.id)) : ''}); }).join("") + '</div>' +
       (g.key === ENDED ? '' : '<button type="button" class="m-add-row" data-add="' + escapeAttr(addValue) + '">+ Add expense</button>') +
     '</div>';
   }).join("") + '</div>';
@@ -1139,7 +1177,7 @@ export function renderQuickLogSheet(){
 export var transactionsShowAll = false;
 // Persisted rather than session-only (see state.js) — so this both writes and re-renders.
 export function setBudgetGroupBy(value){
-  state.budgetGroupBy = value === "category" || value === "flex" ? value : "type";
+  state.budgetGroupBy = value === "category" || value === "flex" || value === "property" ? value : "type";
   renderSharedGroups();
   renderBudgetGroupByToggle();
   commit(["budgetGroupBy"]);
@@ -1167,8 +1205,9 @@ export function renderBudgetGroupByToggle(){
   if(el.hidden) return;
   el.innerHTML = (anyCategorised || groupCount > 0
     ? '<span class="groupby-label">Group by</span>' +
-      (anyCategorised ? [["type", "Essentials & Lifestyle"], ["category", "Category"], ["flex", "Flexible"]] : [["type", "Essentials & Lifestyle"], ["flex", "Flexible"]]).map(function(pair){
-        var on = (state.budgetGroupBy === "category" || state.budgetGroupBy === "flex" ? state.budgetGroupBy : "type") === pair[0];
+      (anyCategorised ? [["type", "Essentials & Lifestyle"], ["category", "Category"], ["flex", "Flexible"]] : [["type", "Essentials & Lifestyle"], ["flex", "Flexible"]])
+        .concat(propertyTargets(state).length ? [["property", "Property"]] : []).map(function(pair){
+        var on = (state.budgetGroupBy === "category" || state.budgetGroupBy === "flex" || state.budgetGroupBy === "property" ? state.budgetGroupBy : "type") === pair[0];
         return '<button type="button" class="groupby-option' + (on ? " is-selected" : "") + '"' +
           ' data-budget-groupby="' + pair[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + pair[1] + '</button>';
       }).join("")
@@ -1376,6 +1415,10 @@ function txClassSelectHtml(t, idx){
     '<option value=""' + (own ? '' : ' selected') + '>As its line' + (lineCls ? ' (' + escapeAttr(classWord(lineCls)) + ')' : '') + '</option>' +
     TX_CLASSES.map(function(c){ return '<option value="' + c + '"' + (own === c ? ' selected' : '') + '>' + classWord(c) + '</option>'; }).join("") + '</select>';
 }
+// One property lookup per list draw, not per row (calc/propertymoney.js propertyCache).
+var propCache = { at: null, cache: null };
+function propertyCacheFor(){ if(propCache.at !== state.transactions){ propCache.at = state.transactions; propCache.cache = propertyCache(state); } return propCache.cache; }
+export function resetPropertyCache(){ propCache.at = null; }
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
@@ -1392,14 +1435,16 @@ function transactionRowHtml(t, idx){
   '</div>';
   var linkSelect = '<select class="tx-link field-control" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account field-control" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
+  var propSub = propertySubHtml(t, state, propertyCacheFor());
   var summary = modernRowSummaryHtml({
-    leadHtml: categoryIconHtml(transactionCategory(t)),
+    leadHtml: propSub ? '<span class="pm-icon' + (/is-ip/.test(propSub) ? ' is-ip' : '') + '" aria-hidden="true">⌂</span>' : categoryIconHtml(transactionCategory(t)),
     name: transactionDisplayName(t, state.shared),
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
-    subLines: [transactionSummaryText(t)],
+    // November 2026: a property's money says which property and what for (calc/propertymoney.js).
+    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t)],
     // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
-    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId ? '' : '<small class="cf-tag">one-off</small>')
+    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub ? '' : '<small class="cf-tag">one-off</small>')
   });
   // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
   // freshly-added transaction — picking a budget line first, before typing anything, mirrors the
@@ -1407,7 +1452,8 @@ function transactionRowHtml(t, idx){
   // obvious way to connect the transaction to a budget line at all. This is the deliberate
   // long-form path ("Add with full details"); the sheet is the everyday one.
   var fieldsHtml =
-    '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
+    // November 2026: What it's for — a budget line, a property (and which of its costs or lines), or a one-off.
+    txForHtml(t, idx, linkSelect, state) +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
@@ -1471,8 +1517,10 @@ function drawTransactions(){
   var totalEl = document.getElementById("totalTransactionsAmount");
   if(!container) return;
   var lines = budgetLineItems();
+  resetPropertyCache();
+  var pc = propertyCacheFor();
   var all = cashflowEntries({ lines: lines, accountOf: transactionAccount, categoryOf: transactionCategory,
-    nameOf: function(t){ return transactionDisplayName(t, state.shared); } });
+    nameOf: function(t){ return transactionDisplayName(t, state.shared); }, isPropertyMoney: function(t){ return isPropertyMoney(t, state, pc); } });
   var ownDates = hasOwnDates(txFilters);
   var dateLabel = transactionDatesLabel(transactionsRange, ownDates ? currentTxFilter() : null);
   var top = (transferForm.open ? transferFormHtml() : "");
@@ -1506,7 +1554,7 @@ function drawTransactions(){
   // v3.117.0: the table, on a wide screen when chosen.
   if(txGrid.on && (typeof window === "undefined" || window.innerWidth > 720)){
     container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') +
-      txGridHtml(visible, { transactions: state.transactions, lineOptions: transactionLinkOptionsHtml, accountOptions: transactionAccountOptionsHtml, today: localDateStr(), picking: txSelect.on }) +
+      txGridHtml(visible, { transactions: state.transactions, lineOptions: transactionLinkOptionsHtml, propertySub: function(t){ return propertySubHtml(t, state, pc); }, accountOptions: transactionAccountOptionsHtml, today: localDateStr(), picking: txSelect.on }) +
       (hasMore ? '<div class="ledger-footer"><button type="button" class="btn btn-sm btn-ghost" data-tx-show-all-toggle="' + (transactionsShowAll ? "0" : "1") + '">' + (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) + '</button></div>' : '');
     return;
   }
@@ -1530,7 +1578,8 @@ function drawTransactions(){
         (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +
       '</button></div>'
     : "";
-  container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  var propNote = txFilters.direction === "property" ? propertyNoteHtml(shown.filter(function(e){ return e.kind === "out"; }).map(function(e){ return state.transactions[e.ref]; }), state) : '';
+  container.innerHTML = top + controlHtml + bulk + propNote + (filtered && !propNote ? totalsLineHtml(totals, shown.length, shown) : '') + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 // The entries currently on screen that are spending rows — what "Select all shown" picks.
 export function visibleSpendingIndices(){
@@ -1597,11 +1646,83 @@ function showAllButtonHtml(key, hidden, open){
 // line in words, a line's own sheet). The name stays: every edit that changes spending calls it, and it redraws the
 // sections that read the month's transactions.
 export function renderActualVsPlannedPanel(){
+  renderPropertyAside();
+  renderPatternLists();
   renderBillsCalendar();
   renderSpendCategoryChart();
   renderSpendingTrends();
   renderYearSpending();
   showPatternSpan(patternSpan.span);
+}
+// November 2026: beside Transactions, each property's money at a glance — only when there's a property.
+function renderPropertyAside(){
+  if(typeof document === "undefined") return;
+  var card = document.getElementById("propertyMoneyCard"), body = document.getElementById("propertyMoneyBody");
+  if(!card || !body) return;
+  var html = propertyAsideHtml(state, localDateStr(), purchaseCardFigures);
+  body.innerHTML = html;
+  card.hidden = !html;
+}
+// ---------------- Patterns as one list (round 3, board G) ----------------
+// Each category once: its amount for the span, a word against its usual, and its last six months as a small line.
+// This month compares the month so far with the same days of earlier months (never a whole one with part of one);
+// 6 months is a typical month over the last full ones, with a streak only when the months say so. One-offs (no line)
+// are out. The charts that used to be the whole card are folded under each list.
+function sparkSvg(values, up){
+  var vals = values.length ? values : [0], mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), r = (mx - mn) || 1;
+  var step = vals.length > 1 ? 60 / (vals.length - 1) : 0;
+  var pts = vals.map(function(v, i){ return (2 + i * step).toFixed(1) + "," + (21 - (v - mn) / r * 18).toFixed(1); }).join(" ");
+  return '<svg class="pat-spark' + (up ? " is-up" : "") + '" viewBox="0 0 64 24" width="64" height="24" aria-hidden="true"><polyline points="' + pts + '"/></svg>';
+}
+export function patternsListHtml(span, todayStr){
+  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
+    categoryFor: transactionCategory, uncategorisedLabel: UNCATEGORISED, todayStr: todayStr });
+  if(view.monthsCovered < 1 || !view.rows.length) return emptyStateHtml("Nothing spent on a budget line yet — log or import spending and each category shows here with its usual.", { add: "#quickLogBtn", label: "+ Log spend" });
+  var last = view.months.length - 1, comparing = view.monthsCovered >= 3, by = view.complete ? "" : " by the " + ordinal(view.throughDay);
+  var money = function(v){ return fmtCurrency0.format(Math.round(v)); };
+  var rows = view.rows.map(function(r){
+    var settled = view.complete ? r.values : r.values.slice(0, last);
+    var amt, note, warn = false;
+    if(span === "six"){
+      amt = settled.length ? settled.reduce(function(a, b){ return a + b; }, 0) / settled.length : 0;
+      var rising = comparing && r.risingStreak >= 2, falling = comparing && r.fallingStreak >= 2;
+      note = rising ? "rising — up " + r.risingStreak + " months running" : falling ? "settling — down " + r.fallingStreak + " months running" : "steady";
+      warn = rising;
+    } else {
+      amt = view.complete ? r.values[last] : r.mtdValues[last];
+      var usual = r.trend ? r.trend.average : null;
+      if(!comparing || usual == null) note = amt > 0 ? "no usual yet" : "none yet";
+      else {
+        var d = amt - usual, near = Math.max(30, usual * 0.1);
+        note = Math.abs(d) < near ? "about usual" + by : money(Math.abs(d)) + (d > 0 ? " above" : " under") + " usual" + by;
+        warn = d > Math.max(60, usual * 0.2);
+      }
+    }
+    return { r: r, amt: amt, note: note, warn: warn };
+  });
+  var quiet = rows.filter(function(x){ return x.amt < 0.5; }).length;
+  rows = rows.filter(function(x){ return x.amt >= 0.5; }).sort(function(a, b){ return b.amt - a.amt; });
+  var total = rows.reduce(function(s, x){ return s + x.amt; }, 0);
+  var head, vs = "", how;
+  if(span === "six"){
+    head = "A typical month · last " + (view.complete ? view.months.length : Math.max(1, last)) + " full months";
+    how = "The average of those months. The line beside each shows every one of them.";
+  } else {
+    head = "Spent on your budget · " + (view.complete ? "last month" : "this month so far");
+    var tt = view.totalsTrend;
+    if(comparing && tt){ var dd = tt.current - tt.average; vs = Math.abs(dd) < Math.max(50, tt.average * 0.05) ? "about usual" + by : money(Math.abs(dd)) + (dd > 0 ? " above" : " under") + " usual" + by; }
+    how = view.complete ? "Compared with your usual month." : "A month in progress is compared with your usual by this day of the month — never with a whole month.";
+  }
+  var list = '<ul class="pat-list">' + rows.map(function(x){
+    return '<li class="' + categoryColorClass(x.r.category) + '"><span class="pat-name"><b>' + escapeAttr(x.r.category) + '</b><small' + (x.warn ? ' class="is-warn"' : '') + '>' + escapeAttr(x.note) + '</small></span>' +
+      '<b class="pat-amt">' + money(x.amt) + '</b>' + sparkSvg(x.r.values, x.warn) + '</li>';
+  }).join("") + '</ul>' + (quiet ? '<p class="pat-quiet">' + quiet + ' more categor' + (quiet === 1 ? 'y' : 'ies') + ' with nothing ' + (span === "six" ? 'in these months' : 'yet' + by) + '.</p>' : '');
+  return '<div class="pat-head"><span class="pat-k">' + escapeAttr(head) + '</span><span class="pat-v"><b>' + money(total) + '</b>' + (vs ? '<span class="' + (/above/.test(vs) ? "is-warn" : "") + '">' + escapeAttr(vs) + '</span>' : '') + '</span><p class="pat-how">' + escapeAttr(how) + '</p></div>' +
+    '<div class="pat-cols" aria-hidden="true"><span>Category</span><span>' + (span === "six" ? "A month" : "So far") + '</span><span>6 months</span></div>' + list;
+}
+function renderPatternLists(){
+  if(typeof document === "undefined") return;
+  [["month", "patternsMonthList"], ["six", "patternsSixList"]].forEach(function(x){ var el = document.getElementById(x[1]); if(el) el.innerHTML = patternsListHtml(x[0]); });
 }
 // November 2026: Transactions' Patterns — one card, one span at a time. Remembered on this device.
 export var patternSpan = { span: "month" };

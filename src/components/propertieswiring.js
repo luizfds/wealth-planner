@@ -135,7 +135,18 @@ function offerStatementUndo(prop, rec, household){
 }
 
 var propertyStatementReads = new WeakMap(), statementSaveRevision = 0;
+import { txFilters } from "./cashflow.js";
+import { showPage, showExpensesSubpage } from "./nav.js";
 export function wireProperties(){
+  // November 2026: a property's Money → its transactions, under Transactions' Property chip.
+  document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest("[data-pm-open]")){ showPage("properties"); return; }
+    var b = e.target.closest && e.target.closest("[data-pmoney-tx]");
+    if(!b) return;
+    txFilters.direction = "property";
+    showPage("expenses");
+    showExpensesSubpage("spending");
+  });
   onSaved(function(){ statementSaveRevision++; });
   onStateReplaced(function(){ agentStatementUi.reviews = {}; });
 

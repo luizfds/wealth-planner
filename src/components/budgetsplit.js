@@ -8,6 +8,7 @@
 import { state } from "../state.js";
 import { monthSplit, pots, budgetHints, lifestylePace, classWord, ESSENTIAL_MEANS } from "../calc/budgetsplit.js";
 import { inboxCards } from "../calc/tidyinbox.js";
+import { propertySuggestions, lineSuggestions } from "../calc/propertymoney.js";
 import { trimReport, spendingDrift } from "../calc/trim.js";
 import { unbudgetedRecurring } from "../calc/recurring.js";
 import { upcomingBills, billsForMonth } from "../calc/bills.js";
@@ -21,7 +22,7 @@ import { escapeAttr } from "../lib/html.js";
 import { emptyStateHtml } from "../lib/empty.js";
 
 // This device's session: the inbox open or not, the cards put off for later, every pot shown.
-export var budgetSplitUi = { inboxOpen: false, later: {}, allPots: false };
+export var budgetSplitUi = { inboxOpen: false, later: {}, allPots: false, pick: {} };
 var POTS_SHOWN = 4;
 var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -46,7 +47,8 @@ export function budgetSplitModel(today){
   var drift = [];
   try { drift = spendingDrift(trimReport({ today: today })); } catch(e){ drift = []; }
   var cards = inboxCards({ strays: currentStrays(today), hints: budgetHints(lines, state.transactions, { today: today, ok: state.tidyOk || {} }),
-    drift: drift, recurring: unbudgetedRecurring(state.transactions, today), stopped: stoppedBills(lines, today), lines: lines, ok: state.tidyOk || {} })
+    drift: drift, recurring: unbudgetedRecurring(state.transactions, today), stopped: stoppedBills(lines, today),
+    property: propertySuggestions(state, today, state.tidyOk || {}), propLines: lineSuggestions(state, state.tidyOk || {}), lines: lines, ok: state.tidyOk || {} })
     .filter(function(c){ return !budgetSplitUi.later[c.id]; });
   var income = incomeActuals(ym).filter(function(t){ return !t.irregular; });
   return { ym: ym, today: today, lines: lines.length, split: split,
@@ -106,9 +108,16 @@ export function inboxHtml(cards){
     '<div class="bh-inbox-top"><span class="bh-kicker">' + escapeAttr(c.label) + '</span><span class="bh-count">1 of ' + cards.length + '</span></div>' +
     '<h3 class="bh-inbox-title">' + escapeAttr(c.title) + '</h3><p class="bh-inbox-body">' + escapeAttr(c.body) + '</p>' +
     '<dl class="bh-inbox-facts">' + c.facts.map(function(f){ return '<div><dt>' + escapeAttr(f[0]) + '</dt><dd>' + escapeAttr(f[1]) + '</dd></div>'; }).join("") + '</dl>' +
+    // November 2026: a purchase's card picks which of its costs (the guess first, changeable).
+    (c.picks ? '<div class="bh-inbox-picks"><span class="field-label" id="pick-' + escapeAttr(c.id) + '">Which cost</span><div class="bl-chips" role="group" aria-labelledby="pick-' + escapeAttr(c.id) + '">' + c.picks.map(function(p){
+      var on = (budgetSplitUi.pick[c.id] || c.pick) === p.value;
+      return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-inbox-pick="' + escapeAttr(p.value) + '" data-inbox-pick-for="' + escapeAttr(c.id) + '">' + escapeAttr(p.label) + '</button>';
+    }).join("") + '</div></div>' : '') +
     '<div class="bh-inbox-act"><button type="button" class="btn btn-primary" data-inbox-yes="' + escapeAttr(c.id) + '">' + escapeAttr(c.yes.label) + '</button>' +
       '<button type="button" class="btn" data-inbox-no="' + escapeAttr(c.id) + '">' + escapeAttr(c.no.label) + '</button>' +
       '<button type="button" class="btn btn-ghost" data-inbox-later="' + escapeAttr(c.id) + '">Later</button></div>' +
+    (c.why ? '<p class="bh-inbox-why">Why it\'s asking: ' + escapeAttr(c.why) + '</p>' : '') +
+    '<button type="button" class="link-btn bh-inbox-all" data-all-suggest>All suggestions →</button>' +
     (cards.length > 1 ? '<div class="bh-next"><span class="bh-kicker">Next</span>' + cards.slice(1, 4).map(function(n){ return '<span class="bh-next-item">' + escapeAttr(n.title) + '</span>'; }).join("") +
       (cards.length > 4 ? '<span class="bh-next-item">and ' + (cards.length - 4) + ' more</span>' : '') + '</div>' : '') +
   '</section>';

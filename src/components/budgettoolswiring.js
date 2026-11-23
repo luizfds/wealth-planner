@@ -14,6 +14,7 @@ import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/r
 import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
 import { setLeanLevel, leanLevel, trimReport, setLinesToSpending } from "../calc/trim.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format.js";
+import { setCostPaid } from "../calc/purchase.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { setNoticeDismissed } from "../lib/attention.js";
@@ -387,6 +388,7 @@ function tidyLineName(id){ var l = budgetLineItems().find(function(x){ return x.
 function openTidyAt(lineId, key){
   tidyUi.lineId = lineId || ""; tidyUi.openKey = key == null ? null : key; tidyResetShop();
   var card = document.getElementById("tidyCard");
+  openAllSuggestions(card);
   if(card) card.open = true;
   renderTidy();
   var target = key != null ? document.querySelector('#tidyBody .tidy-shop.open') : document.querySelector("#tidyBody .tidy-pick");
@@ -514,6 +516,7 @@ export function wireTidy(){
         return;
       }
       var card = document.getElementById("tidyCard");
+      openAllSuggestions(card);
       // From Transactions: the Budget tab shows first (synchronously — same page, no view transition).
       if(card && card.closest("[hidden]")) showExpensesSubpage("budget");
       openTidyAt(lineId, null);
@@ -532,7 +535,10 @@ export function wireTidy(){
 // ---------------- Money → Budget: things to tidy, a card at a time (November 2026) ----------------
 // One inbox for misfiled purchases, Essential/Lifestyle and set-aside hints, plans far from spending and new repeating
 // charges (calc/tidyinbox.js). Each answer is one commit with an undo; "no" is remembered, Later lasts the session.
-var INBOX_TOUCHES = { move: ["transactions"], set: ["shared", "home"], amount: ["shared", "home"], addLine: ["shared", "transactions"], ok: ["tidyOk"] };
+// The old tools sit inside All suggestions (round 2, board B): one opened from elsewhere opens it too.
+function openAllSuggestions(card){ var wrap = card && card.closest("details.bh-all-suggest"); if(wrap) wrap.open = true; }
+var INBOX_TOUCHES = { move: ["transactions"], set: ["shared", "home"], amount: ["shared", "home"], addLine: ["shared", "transactions"], ok: ["tidyOk"],
+  linkProp: ["transactions", "purchases", "accounts"], lineProp: ["shared"] };
 function focusInbox(){
   var b = document.querySelector("#bhInboxBody [data-inbox-yes]") || document.querySelector("#budgetSplitBody [data-inbox-toggle]");
   if(b) b.focus({ preventScroll: true });
@@ -544,6 +550,9 @@ export function wireBudgetSplit(){
     if(!b) return;
     if(b.hasAttribute("data-inbox-toggle")){ budgetSplitUi.inboxOpen = !budgetSplitUi.inboxOpen; renderBudgetSplit(); focusInbox(); return; }
     if(b.getAttribute("data-bs-more") === "pots"){ budgetSplitUi.allPots = !budgetSplitUi.allPots; renderBudgetSplit(); return; }
+    if(b.hasAttribute("data-all-suggest")){ var all = document.getElementById("allSuggestions"); if(all){ all.open = true; all.scrollIntoView({ behavior: "smooth", block: "start" }); var sm = all.querySelector("summary"); if(sm) sm.focus({ preventScroll: true }); } return; }
+    var pick = b.getAttribute("data-inbox-pick");
+    if(pick !== null){ budgetSplitUi.pick[b.getAttribute("data-inbox-pick-for")] = pick; renderBudgetSplit(); var same = document.querySelector('[data-inbox-pick="' + pick + '"]'); if(same) same.focus({ preventScroll: true }); return; }
     var later = b.getAttribute("data-inbox-later");
     if(later){ budgetSplitUi.later[later] = true; renderBudgetSplit(); focusInbox(); return; }
     var yes = b.getAttribute("data-inbox-yes"), no = b.getAttribute("data-inbox-no");
@@ -551,8 +560,11 @@ export function wireBudgetSplit(){
     var card = budgetSplitModel().inbox.find(function(c){ return c.id === (yes || no); });
     if(!card) return;
     var answer = yes ? card.yes : card.no;
+    // A purchase's card: the cost picked on it, not only the guess.
+    if(yes && card.picks && answer.act.type === "linkProp") answer = { label: answer.label, act: { type: "linkProp", index: answer.act.index, target: Object.assign({}, answer.act.target, { cost: budgetSplitUi.pick[card.id] || card.pick }) } };
     var lines = loggableBudgetLineItems();
-    var undo = applyInboxAction(state, answer.act, { lineOf: function(id){ return lines.find(function(l){ return l.id === id; }); }, idFactory: function(){ return genId("exp"); } });
+    var undo = applyInboxAction(state, answer.act, { lineOf: function(id){ return lines.find(function(l){ return l.id === id; }); }, idFactory: function(){ return genId("exp"); },
+      genId: genId, giveBack: function(p, c){ setCostPaid(state, p, c, false, undefined, localDateStr()); } });
     if(!undo) return;
     var touched = INBOX_TOUCHES[answer.act.type] || ["*"];
     commit(touched);

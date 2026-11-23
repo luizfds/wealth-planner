@@ -5919,3 +5919,33 @@ Bills ~3,600px → ~900px. Mock-ups agreed on the design canvas (round 3, boards
   steady: a description that changes city, a foreign price, a yearly one), or a steady charge that isn't a bill by its
   line or its name. Rates, insurance, internet and phone stay on Bills. One row each, folded, its cancel-by and "Not a
   subscription" behind a tap; the card is folded with how many and what a year.
+
+## Property money: every dollar for a home or an investment says which property it's for (November 2026)
+
+`[x]` Mock-ups agreed on the design canvas (round 4, boards K–R), built to them:
+- **K** A transaction's editor asks **What it's for**: Budget line · A property · One-off. A property is a purchase in
+  progress (then which of its costs, or a new one), an investment (one of its lines, or "Other cost"), or a home. What a
+  link does is said before it's made (`linkEffect`). `t.forProperty` / `t.forCost` / `t.forWhat`; migration 37.
+- **L** Property money is its own chip and never spending (`cashflowEntries` `property`, `periodSummary.property`); a
+  row wears its property's chip and what it's for; under the chip, what it was for by property.
+- **M** The Buying card reads each cost from the transactions that paid it (`purchaseFromTransactions` — a copy; the
+  stored costs aren't changed), the deposit from its own, Unlink on each; a hand-ticked cost's balance is given back
+  when its transaction is linked. A one-off that looks like the purchase's is offered on the card.
+- **N** The Budget inbox asks "For a property?" (`propertySuggestions`: the address, a purchase word in the purchase's
+  dates, a shop linked to an investment twice) with the cost picked on the card, and "Which property is this line for?"
+  for a rates or insurance line when there's more than one property (`lineSuggestions`).
+- **O** A budget line can be for a property (`line.propertyId`, chips in its editor): a home's stays household
+  spending; an investment's is claimable (`claimProperty`). Budget groups by Property.
+- **P** Every property has a **Money** tab: its year (an investment's from `propertyYearActual`), its lines planned
+  and spent, its transactions, what's claimable — or, for a home, kept for the record. An investment's cost with no line
+  counts in its ledger.
+- **Q** Settled opens a check: the cost base from the transactions, the loan, what changes, Rent ended on a date you can
+  change, a loose one-off to link. The transactions move to the new property with their cost's name (`moveToProperty`).
+- **R** Beside Transactions (and on a wide screen, beside the list), each property at a glance; the table's line column
+  shows a property's chip.
+- A home being bought turns the property part on — its Buying card was hidden until it settled.
+
+Rounds 1–3 checked against their boards: Patterns is one list (board G — amount, usual by this day, six months as a
+line; the charts fold under it); the old tools sit inside All suggestions (board B); the line editor says where a line
+shows (board 2); a pot says how far it goes and last year against what it puts by (board 3); Bills says what's due in
+the next 14 days (board H). Still as built: the line editor's two questions are selects, not the board's answer cards.

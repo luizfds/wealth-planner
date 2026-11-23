@@ -339,6 +339,13 @@ export function modernPlainRowHtml(item, idx, section, openState, opts){
       help:"Set aside: a monthly amount goes into a pot and spending comes out — judged over the year, never against this month."}) +
     field("f-potstart", "In the pot today", {type:"number",value:item.potFrom ? item.potStart : "",placeholder:"0",
       help: item.potFrom ? "Said on " + fmtDate(item.potFrom, { year: true }) + "." : "What's already put by for it. Blank starts it empty at the start of its budget year."}, {hidden:!item.irregular, className:"f-potstart-field"}) : "";
+  // Round 1, board 2: where the line shows, in one sentence — this month's figure, or its pot.
+  if(spendField){
+    var kindWord = classWord(item.classification || "Needs");
+    spendField += '<p class="m-edit-field span3 field-help where-it-shows"><b>Where it shows:</b> ' + (item.irregular
+      ? 'Set aside · ' + escapeAttr(kindWord) + ' — in its own pot, not in this month\'s ' + escapeAttr(kindWord) + ' figure. On Plan, scenarios still count ' + fmtCurrency0.format(monthly) + ' a month.'
+      : 'Every month · ' + escapeAttr(kindWord) + ' — counts in this month\'s ' + escapeAttr(kindWord) + ' figure.') + '</p>';
+  }
   var categoryField = opts.categories ? field("f-category", "Category", {type:"select",value:item.category || "",options:[{value:"",label:"— None —"}].concat(choices(opts.categories)),help:"Groups this line in spending charts. Manage categories in Settings → Categories."}) : "";
   var accountField = field("f-account", "Account", {value:item.account || "",attrs:{list:"acctSuggestions"}}, {className:opts.showClass ? "span3" : ""});
   var logField = opts.showLog ? '<div class="m-edit-field span2"><span class="field-label">Record a change</span>' + logControlsHtml(section, idx, item) + '</div>' : "";

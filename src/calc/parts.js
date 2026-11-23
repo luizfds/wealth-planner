@@ -16,7 +16,8 @@ export var PARTS = [
 
 export function partHasData(key, st){
   st = st || {};
-  if(key === "property") return (st.properties || []).length > 0;
+  // November 2026: a home being bought is property too — its Buying card was hidden until it settled.
+  if(key === "property") return (st.properties || []).length > 0 || (st.purchases || []).length > 0;
   if(key === "shares") return (st.assets || []).some(function(a){ return a && a.category === "Shares"; });
   return true;
 }

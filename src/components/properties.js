@@ -36,6 +36,7 @@ import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
 import { loanInterestCharged, loanFeesCharged, bankRepaymentNudge } from "../calc/loancharges.js";
 import { propertyActivityHtml } from "./propertyactivity.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { propertyMoneyHtml } from "./propertymoney.js";
 import { fieldHtml, pillsHtml, switchHtml } from "../lib/field.js";
 
 // Real-world payment cadences (loan repayments, and how a property manager actually disburses
@@ -821,7 +822,8 @@ export function propertySummaryHtml(p){
   '</dl>';
 }
 export function propertyTabsFor(p){
-  var t = [{ key: "overview", label: "Overview" }, { key: "loans", label: "Loans" }, { key: "income", label: "Income & costs" }];
+  // November 2026 (calc/propertymoney.js): every dollar for it in one place — Money.
+  var t = [{ key: "overview", label: "Overview" }, { key: "money", label: "Money" }, { key: "loans", label: "Loans" }, { key: "income", label: "Income & costs" }];
   // Item 244: an investment property's Activity — everything logged for it this year.
   if(p.kind === "IP") t.push({ key: "activity", label: "Activity" }, { key: "tax", label: "Tax" }, { key: "sale", label: "Sale" });
   return t;
@@ -1018,6 +1020,7 @@ function propertyCardBodyHtml(p, colorIdx){
       valuePurchaseHtml(p)) +
     acquisitionCostsSectionHtml(p)  +
     (p.kind === "IP" ? ownershipSectionHtml(p) : "") + '</div>') +
+    panel("money", propertyMoneyHtml(p, state)) +
     panel("loans", propertySectionHtml(p, "loans",
       '<div class="property-section-title">Loans</div>',
       '<div class="m-card" id="propLoanRows_' + escapeAttr(p.id) + '">' + modernLoanListHtml(p) + '</div>' +

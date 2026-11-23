@@ -67,11 +67,12 @@ export function viewsBarHtml(){
 // money only moved between your own accounts (not spending — a card repayment), money in — each a filter. Always in
 // sight, not inside Filters; one row that scrolls sideways on a phone, so the list still starts in the top half.
 // s: calc/cashflowlist.js periodSummary over the period's entries.
-var KINDS = [["all", "All", null], ["budget", "On your budget", "budget"], ["oneoff", "One-offs", "oneoff"], ["transfer", "Moved, not spent", "moved"], ["in", "Money in", "in"]];
+var KINDS = [["all", "All", null], ["budget", "On your budget", "budget"], ["property", "Property", "property"], ["oneoff", "One-offs", "oneoff"], ["transfer", "Moved, not spent", "moved"], ["in", "Money in", "in"]];
 export function kindChipsHtml(s){
   s = s || { counts: {} };
   var counts = s.counts || {};
-  return '<div class="cf-kinds" role="group" aria-label="Show" tabindex="-1">' + KINDS.map(function(k){
+  // Property only when there is some: most households have none, and the row should stay one row.
+  return '<div class="cf-kinds" role="group" aria-label="Show" tabindex="-1">' + KINDS.filter(function(k){ return k[0] !== "property" || counts.property || txFilters.direction === "property"; }).map(function(k){
     var on = txFilters.direction === k[0];
     var fig = k[2] ? fmtCurrency0.format(s[k[2]] || 0) : String(counts.all || 0);
     return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + (k[0] === "transfer" ? " is-moved" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + k[0] + '">' + k[1] + ' <span>' + fig + '</span></button>';
@@ -373,8 +374,16 @@ export function billsCalendarHtml(data, ym, today, opts){
   var paidSum = direct2.filter(function(b){ return b.paid; }).reduce(function(s, b){ return s + b.amount; }, 0) +
     pays.filter(function(p){ return p.paid; }).reduce(function(s, p){ return s + p.amount; }, 0) +
     autos.filter(function(p){ return p.status === "paid"; }).reduce(function(s, p){ return s + p.amount; }, 0);
+  // Round 3, board H: what's due in the next 14 days, when the month shown is this one.
+  var soonEnd = new Date(Date.parse(today + "T00:00:00Z") + 14 * 86400000).toISOString().slice(0, 10);
+  var soon = ym === today.slice(0, 7) ? direct2.filter(function(b){ return !b.paid; }).map(function(b){ return { date: b.date, amount: b.amount }; })
+    .concat(pays.filter(function(p){ return !p.paid; }).map(function(p){ return { date: p.date, amount: p.amount }; }))
+    .concat(autos.filter(function(p){ return p.status !== "paid" && p.status !== "skipped"; }).map(function(p){ return { date: p.date, amount: p.amount }; }))
+    .filter(function(x){ return x.date >= today && x.date <= soonEnd; }) : [];
+  var soonSum = soon.reduce(function(s, x){ return s + x.amount; }, 0);
   var hero = '<div class="bc-hero"><span class="bc-hero-k">Still to pay in ' + mon + '</span><b class="bc-hero-v">' + fmtCurrency0.format(leftSum) + '</b>' +
-    '<span class="bc-hero-sub">' + (left.length ? left.length + ' payment' + (left.length === 1 ? '' : 's') : 'nothing left') + (paidSum > 0 ? ' · ' + fmtCurrency0.format(paidSum) + ' paid so far' : '') + '</span></div>';
+    '<span class="bc-hero-sub">' + (left.length ? left.length + ' payment' + (left.length === 1 ? '' : 's') : 'nothing left') + (paidSum > 0 ? ' · ' + fmtCurrency0.format(paidSum) + ' paid so far' : '') + '</span>' +
+    (soon.length ? '<span class="bc-hero-soon"><b>' + fmtCurrency0.format(soonSum) + '</b> due in the next 14 days · ' + soon.length + ' payment' + (soon.length === 1 ? '' : 's') + '</span>' : '') + '</div>';
   var seg = function(key, label){ return '<button type="button" class="seg-option' + (view === key ? ' active' : '') + '" aria-pressed="' + (view === key) + '" data-bills-view="' + key + '">' + label + '</button>'; };
   var switcher = '<div class="seg-control bc-views" role="group" aria-label="Show bills as">' + seg("list", "List") + seg("calendar", "Calendar") + '</div>';
   var legend = '<ul class="bc-key" aria-label="Key"><li><i class="bc-key-due"></i>due</li><li><i class="bc-key-paid"></i>paid</li><li><i class="bc-key-overdue"></i>not logged yet</li><li><i class="bc-key-card"></i>card payment</li>' +
@@ -401,7 +410,7 @@ export function txViewToggleHtml(){
 // entries: cashflowEntries rows; opts: { transactions, lineOptions(id), accountOptions(name), today, picking }
 export function txGridHtml(entries, opts){
   var esc = escapeAttr;
-  var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line</th><th>Account</th><th class="num">Amount</th></tr></thead>';
+  var head = '<thead><tr>' + (opts.picking ? '<th class="txg-pick"></th>' : '') + '<th>Date</th><th>Description</th><th>Line or property</th><th>Account</th><th class="num">Amount</th></tr></thead>';
   var newRow = '<tr class="txg-new">' + (opts.picking ? '<td></td>' : '') +
     '<td><input type="date" class="txg-new-date field-control field-compact" value="' + esc(opts.today) + '" aria-label="New transaction date"></td>' +
     '<td><input type="text" class="txg-new-what field-control field-compact" placeholder="New: what was it?" aria-label="New transaction description"></td>' +
@@ -419,7 +428,9 @@ export function txGridHtml(entries, opts){
       (opts.picking ? '<td class="txg-pick">' + selectBoxHtml(i) + '</td>' : '') +
       '<td><input type="date" class="tx-date field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.date || "") + '" aria-label="Date"></td>' +
       '<td><input type="text" class="tx-what field-control field-compact" data-tx-index="' + i + '" value="' + esc(t.what || "") + '" placeholder="' + esc(e.label) + '" aria-label="Description"></td>' +
-      '<td><select class="tx-link field-control field-compact" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>' +
+      // November 2026: a property's money shows which property and what for — linked from its row's What it's for.
+      (opts.propertySub && t.forProperty ? '<td class="txg-prop">' + opts.propertySub(t) + '</td>' :
+      '<td><select class="tx-link field-control field-compact" data-tx-index="' + i + '" aria-label="Budget line">' + opts.lineOptions(t.linkedExpenseId) + '</select></td>') +
       '<td><select class="tx-account field-control field-compact" data-tx-index="' + i + '" aria-label="Account">' + opts.accountOptions(t.account || "") + '</select></td>' +
       '<td class="num"><input type="number" step="0.01" class="tx-amount field-control field-compact" data-tx-index="' + i + '" value="' + (Number(t.amount) || 0) + '" aria-label="Amount"></td></tr>';
   }).join("");

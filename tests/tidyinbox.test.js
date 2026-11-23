@@ -89,3 +89,25 @@ test("a bill not paid for a while is asked about in the inbox, and ends at its l
   assert.deepEqual(inboxCards({ stopped: [{ id: "g", what: "Gym", last: "2026-03-24" }], lines: [line], ok: { "inbox:stopped|g": true } }), [], "answered, it doesn't come back");
   assert.deepEqual(inboxCards({ stopped: [{ id: "x", what: "Gone", last: "2026-03-24" }], lines: [line] }), [], "a line that's gone isn't asked about");
 });
+
+// November 2026: for a property? — a purchase's cost picked on the card; a rates line for one of two properties.
+test("a transaction that reads like a purchase's cost is asked about, and links to the cost picked", async function(){
+  var pm = await import("../src/calc/propertymoney.js");
+  var st = { purchases: [{ id: "b1", what: "1 Example St", kind: "PPOR", settlementDate: "2027-01-15", contractDate: "2026-10-01", costs: [{ id: "conv", what: "Conveyancer" }] }],
+    properties: [{ id: "ip1", what: "2 Sample Rd", kind: "IP", expenses: [] }],
+    shared: [{ id: "r", what: "Council rates", amount: 500, freq: "Quarterly" }],
+    transactions: [{ id: "t", date: "2026-11-20", amount: 600, what: "EXAMPLE LAWYERS TRUST" }] };
+  var cards = inboxCards({ property: pm.propertySuggestions(st, "2026-11-23", {}), propLines: pm.lineSuggestions(st, {}), lines: [] });
+  assert.deepEqual(cards.map(c => c.kind), ["property", "propline"]);
+  var c = cards[0];
+  assert.match(c.title, /“EXAMPLE LAWYERS TRUST” \$600 on 20 Nov — for the 1 Example St purchase\?/);
+  assert.deepEqual([c.pick, c.picks.map(p => p.label)], ["conv", ["Deposit", "Conveyancer", "+ New cost"]]);
+  var undo = applyInboxAction(st, c.yes.act, {});
+  assert.deepEqual([st.transactions[0].forProperty, st.transactions[0].forCost], ["b1", "conv"]);
+  undo();
+  assert.ok(!("forProperty" in st.transactions[0]));
+  var line = cards[1];
+  assert.deepEqual([line.yes.label, line.no.label], ["1 Example St (our home)", "2 Sample Rd"]);
+  applyInboxAction(st, line.no.act, {});
+  assert.deepEqual([st.shared[0].propertyId, st.shared[0].claimProperty], ["ip1", "ip1"]);
+});

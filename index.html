@@ -465,7 +465,10 @@
             </summary>
             <div class="ledger-body"><div id="adjustBody"></div></div>
           </details>
-          <h2 class="money-head-title bh-tools-head">Tools</h2>
+          <!-- November 2026 (round 2, board B): the old tools stay — inside, as All suggestions. Each comes up in Things to
+               tidy one card at a time; here is every one of them, the way they were. -->
+          <details class="bh-all-suggest" id="allSuggestions">
+          <summary class="bh-all-suggest-head"><span><b>All suggestions</b><small>Build from what you've spent · Tidy up · Trim · Recurring payments — each also comes up in Things to tidy, one at a time</small></span></summary>
           <details class="ledger" id="historyBudgetCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Build from what you've spent</h2></div>
@@ -493,6 +496,7 @@
               <div class="ledger-total" id="recurringCount"></div>
             </summary>
             <div class="ledger-body"><div id="recurringBody"></div></div>
+          </details>
           </details>
         </div>
         </div>
@@ -619,7 +623,8 @@
                 <button type="button" class="seg-option" aria-pressed="false" data-pattern-span="year">This year</button>
                 <button type="button" class="seg-option" aria-pressed="false" data-pattern-span="six" data-level="advanced">6 months</button>
               </div>
-              <div class="pattern-pane" data-pattern-pane="month"><div id="spendCategoryChart" hidden></div></div>
+              <div class="pattern-pane" data-pattern-pane="month"><div id="patternsMonthList"></div>
+                <details class="pat-more"><summary>As a chart, for the month in the header</summary><div id="spendCategoryChart" hidden></div></details></div>
               <div class="pattern-pane" data-pattern-pane="year" hidden>
                 <p class="ledger-note" style="margin:0 0 6px"><span id="yearSpendLabel"></span></p>
                 <div id="yearSpendPanel"></div>
@@ -627,8 +632,16 @@
                   <button class="btn btn-sm" id="exportYearTransactionsBtn">Export this year's transactions (CSV)</button>
                 </div>
               </div>
-              <div class="pattern-pane" data-pattern-pane="six" hidden><div id="spendingTrendsPanel"></div></div>
+              <div class="pattern-pane" data-pattern-pane="six" hidden><div id="patternsSixList"></div>
+                <details class="pat-more"><summary>Month by month</summary><div id="spendingTrendsPanel"></div></details></div>
             </div>
+          </details>
+          <!-- November 2026: each property's money at a glance (components/propertymoney.js propertyAsideHtml). -->
+          <details class="ledger" id="propertyMoneyCard" open hidden data-part="property">
+            <summary>
+              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Property</h2></div>
+            </summary>
+            <div class="ledger-body" id="propertyMoneyBody"></div>
           </details>
         </div>
         </div>

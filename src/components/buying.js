@@ -15,6 +15,8 @@ import { escapeAttr } from "../lib/html.js";
 import { fieldHtml, pillsHtml, switchHtml } from "../lib/field.js";
 import { stackBarHtml } from "../lib/bars.js";
 import { keepUi } from "../lib/keepui.js";
+import { purchaseFromTransactions, propertySuggestions, costTransactions, shortDate } from "../calc/propertymoney.js";
+import { costTransactionsHtml } from "./propertymoney.js";
 
 var STATES = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"];
 function money(n){ return fmtCurrency0.format(Math.round(Number(n) || 0)); }
@@ -42,10 +44,13 @@ function costRowHtml(p, c, fc, autoFigure, accounts){
   var base = "buy-" + p.id + "-" + c.id, fa = function(k){ return { "data-cost-field": k }; };
   var kind = fc.kind, financed = fc.financed, withheld = fc.withheld && !financed;
   var chips = [];
+  // November 2026: paid by a transaction — its date and account say so (calc/propertymoney.js).
+  var txs = costTransactions(state, p.id, c.id), last = txs[txs.length - 1];
   if(autoFigure) chips.push('<span class="bc-chip">Worked out</span>');
   if(financed) chips.push('<span class="bc-chip in">Added to the loan</span>');
   else if(withheld) chips.push('<span class="bc-chip in">Taken from the loan</span>');
-  else if(c.paid) chips.push('<span class="bc-chip good">Paid</span>');
+  else if(txs.length) chips.push('<span class="bc-chip good">Paid · ' + (txs.length > 1 ? txs.length + ' transactions' : escapeAttr(shortDate(last.date)) + (last.account ? ', ' + escapeAttr(last.account) : '')) + '</span>');
+  else if(c.paid) chips.push('<span class="bc-chip good">Paid · no transaction</span>');
   if(c.tbc) chips.push('<span class="bc-chip warn">Amount to come</span>');
   if(fc.unclassified) chips.push('<span class="bc-chip warn">Purchase or loan?</span>');
   var shown = c.tbc && !(fc.amount > 0) ? "To come" : money(fc.amount);
@@ -69,9 +74,9 @@ function costRowHtml(p, c, fc, autoFigure, accounts){
       pillsHtml({ id: base + "-kind", label: "It's for", name: base + "-kind", value: fc.unclassified ? "" : kind, attrs: fa("kind"), options: [{ value: "purchase", label: "The purchase" }, { value: "loan", label: "The loan" }],
         help: fc.unclassified ? "Its name doesn't say — choose, so it goes to the right place at settlement." : "" }) +
       pillsHtml({ id: base + "-with", label: "Paid with", name: base + "-with", value: paidWith, attrs: fa("paidWith"), options: withOpts, help: withHelp }) +
-      (fc.withheld ? "" : (accounts.length ? fieldHtml({ id: base + "-from", label: "Paid from", type: "select", box: true, value: c.paidFrom || "", options: acctOpts, attrs: fa("paidFrom"),
+      (fc.withheld ? "" : txs.length ? costTransactionsHtml(state, p, c.id) : costTransactionsHtml(state, p, c.id) + (accounts.length ? fieldHtml({ id: base + "-from", label: "Paid from", type: "select", box: true, value: c.paidFrom || "", options: acctOpts, attrs: fa("paidFrom"),
           help: "Ticked Paid, it comes off this account's balance; unticked, it goes back." }) : "") +
-        switchHtml({ id: base + "-paid", label: "Paid", sub: c.paid ? (c.paidTaken ? money(c.paidTaken) + " taken off the account" : "Counted in what's paid so far") : "Not yet — counted in cash at settlement", checked: !!c.paid, attrs: fa("paid") })) +
+        switchHtml({ id: base + "-paid", label: "Paid another way", sub: c.paid ? (c.paidTaken ? money(c.paidTaken) + " taken off the account" : "Counted in what's paid so far — no transaction of yours") : "Not yet — counted in cash at settlement. Paid by the lender or from someone else's account? Tick it.", checked: !!c.paid, attrs: fa("paid") })) +
       '<button type="button" class="btn btn-danger btn-sm" data-buy-cost-del aria-label="' + escapeAttr("Remove " + (c.what || "cost")) + '">Remove</button>' +
     '</div></details></li>';
 }
@@ -99,6 +104,10 @@ function reconHtml(p, f){
 
 // One purchase's card. `cash` is the cash on hand (cashOnHand()); `today` an ISO date.
 export function purchaseCardHtml(p, cash, today){
+  // November 2026: the costs as the transactions that paid them say (calc/propertymoney.js) — recorded once.
+  var fed = purchaseFromTransactions(state, p);
+  var stored = p;
+  p = fed.purchase;
   var f = purchaseFigures(p, today, cash);
   var byId = {};
   f.costs.forEach(function(c){ byId[c.id] = c; });
@@ -121,7 +130,7 @@ export function purchaseCardHtml(p, cash, today){
   // What's borrowed when a cost is added to the loan: the loan, what's added, and the two together.
   var borrowedLine = f.financed > 0 ? '<p class="buy-borrowed">Loan ' + money(f.loan) + ' + ' + money(f.financed) + ' added = <b>' + money(f.borrowed) + '</b> borrowed' + (f.lvr != null ? ' · ' + Math.round(f.lvr * 1000) / 10 + '% of the price' : '') + '</p>' : '';
   var tiles = '<div class="buy-tiles">' +
-    '<div class="buy-tile"><span>Paid so far</span><b>' + money(f.paidSoFar) + '</b><small>deposit ' + money(f.deposit) + ' · costs ' + money(f.costsPaid) + '</small></div>' +
+    '<div class="buy-tile"><span>Paid so far</span><b>' + money(f.paidSoFar) + '</b><small>' + (fed.count ? 'from ' + fed.count + ' of your transactions' : 'deposit ' + money(f.deposit) + ' · costs ' + money(f.costsPaid)) + '</small></div>' +
     '<div class="buy-tile ' + (f.short == null ? '' : covered ? 'is-good' : 'is-short') + '"><span>Cash at settlement</span><b>' + money(f.cashNeeded) + '</b>' +
       '<small>' + (f.short == null ? 'the balance and costs still to pay' : covered ? 'covered by ' + money(f.cashOnHand) + ' in cash and offsets' : money(f.short) + ' more than the ' + money(f.cashOnHand) + ' in cash and offsets') + '</small></div>' +
   '</div>';
@@ -157,8 +166,12 @@ export function purchaseCardHtml(p, cash, today){
   };
   var said = [money(f.costsPaid) + ' paid', money(f.costsToPay) + ' to pay'].concat(f.financed ? [money(f.financed) + ' added to the loan'] : [])
     .concat(f.withheld - f.financed > 0.5 ? [money(f.withheld - f.financed) + ' taken from the loan'] : []).concat(f.toConfirm ? [f.toConfirm + ' to confirm'] : []);
-  var costs = '<div class="buy-costs"><h4 class="buy-sub">Costs <small>' + said.join(" · ") + '</small></h4>' +
-    group("purchase", "For the purchase") + group("loan", "For the loan") +
+  var depTx = costTransactions(state, p.id, "deposit");
+  var depositRow = '<div class="bc-group"><div class="fsec">The deposit <small class="bc-total">' + money(f.deposit) + '</small></div><ul class="buy-cost-list"><li><details class="buy-cost' + (depTx.length ? ' is-paid' : '') + '" data-buy-cost="deposit"' + (buyUi.open.deposit ? ' open' : '') + '>' +
+    '<summary><span class="bc-name">Deposit<small>' + (depTx.length ? '<span class="bc-chip good">Paid · ' + depTx.length + ' transaction' + (depTx.length === 1 ? '' : 's') + '</span>' : '<span class="bc-chip">Typed under The purchase</span>') + '</small></span><b class="bc-amt">' + money(f.deposit) + '</b></summary>' +
+    '<div class="bc-edit">' + costTransactionsHtml(state, p, "deposit") + '<p class="field-help">Held by the agent or a solicitor until settlement — counted in your net worth as “Deposit held”. Its amount is the one under The purchase.</p></div></details></li></ul></div>';
+  var costs = '<div class="buy-costs"><h4 class="buy-sub">Deposit and costs <small>' + said.join(" · ") + '</small></h4>' +
+    depositRow + group("purchase", "For the purchase") + group("loan", "For the loan") +
     '<div class="bc-add"><span class="bc-add-k">Add</span>' + commonCostsToAdd(p).map(function(q){
       return '<button type="button" class="bc-quick" data-buy-cost-quick="' + escapeAttr(q.what) + '">+ ' + escapeAttr(q.what) + '</button>';
     }).join("") + '<button type="button" class="bc-quick" data-buy-cost-add>+ Another</button></div></div>';
@@ -166,9 +179,23 @@ export function purchaseCardHtml(p, cash, today){
     '<button type="button" class="btn btn-primary" data-buy-settled>Settled — make it a property</button>' +
     '<button type="button" class="btn btn-danger btn-sm" data-buy-remove>Remove</button></div>';
   return '<section class="buy-card" data-purchase="' + escapeAttr(p.id) + '" data-part="property" aria-label="' + escapeAttr("Buying " + name) + '">' + hero +
-    '<div class="buy-body">' + bar + borrowedLine + tiles + fields + costs + reconHtml(p, f) + actions + '</div></section>';
+    '<div class="buy-body">' + bar + borrowedLine + tiles + suggestBannerHtml(stored, today) + fields + costs + reconHtml(p, f) + actions + '</div></section>';
 }
 
+// The purchase's figures as its transactions say — for the settlement sheet.
+export function purchaseCardFigures(p){ return purchaseFigures(purchaseFromTransactions(state, p).purchase, localDateStr(), cashOnHand()); }
+// November 2026: a transaction that looks like this purchase's and isn't linked yet — the first, with one tap to link it.
+function suggestBannerHtml(p, today){
+  var list = propertySuggestions(state, today || localDateStr(), state.tidyOk || {}).filter(function(x){ return x.to.id === p.id; });
+  if(!list.length) return "";
+  var x = list[0], t = x.t;
+  var label = x.cost ? "Link to " + (x.costName || "the cost") : "Link as a new cost";
+  return '<div class="buy-suggest" role="group" aria-label="' + escapeAttr(list.length + " transaction" + (list.length === 1 ? " looks" : "s look") + " like this purchase") + '">' +
+    '<b>' + list.length + ' transaction' + (list.length === 1 ? ' looks' : 's look') + ' like this purchase</b>' +
+    '<span>“' + escapeAttr(t.what || "A transaction") + '” ' + money(t.amount) + ' on ' + escapeAttr(shortDate(t.date)) + (x.costName ? ' — the ' + escapeAttr(x.costName.toLowerCase()) + '?' : '') + '</span>' +
+    '<span class="buy-suggest-actions"><button type="button" class="btn btn-sm btn-primary" data-buy-suggest="' + x.index + '" data-buy-suggest-cost="' + escapeAttr(x.cost || "new") + '">' + escapeAttr(label) + '</button>' +
+    '<button type="button" class="btn btn-sm btn-ghost" data-buy-suggest-no="' + escapeAttr(x.id) + '">Not this purchase</button></span></div>';
+}
 export function buyingHtml(purchases, cash, today){
   return (purchases || []).map(function(p){ return purchaseCardHtml(p, cash, today); }).join("");
 }

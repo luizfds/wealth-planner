@@ -39,6 +39,8 @@
     --brass-wash: #dbeafe;
     --good: #10b981;
     --good-wash: #d1fae5;
+    /* November 2026: property money — a home (or one being bought) and an investment. */
+    --prop-ink: #5b21b6; --prop-wash: #ede9fe; --ip-ink: #075985; --ip-wash: #e0f2fe;
     --bad: #ef4444;
     --bad-strong: #b91c1c; /* White badge text needs 4.5:1 in both themes. */
     --bad-wash: #fee2e2;
@@ -68,6 +70,7 @@
       --brass-wash: #14213f;
       --good: #10b981;
       --good-wash: #0f2922;
+      --prop-ink: #c4b5fd; --prop-wash: #2a2145; --ip-ink: #7dd3fc; --ip-wash: #10283a;
       --bad: #ef4444;
       --bad-wash: #2c1417;
       /* text-strength good / bad / warn */
@@ -90,6 +93,7 @@
     --brass-wash: #14213f;
     --good: #10b981;
     --good-wash: #0f2922;
+    --prop-ink: #c4b5fd; --prop-wash: #2a2145; --ip-ink: #7dd3fc; --ip-wash: #10283a;
     --bad: #ef4444;
     --bad-wash: #2c1417;
     /* text-strength good / bad / warn */

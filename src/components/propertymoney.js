@@ -4,9 +4,13 @@
 // costs fed by the transactions that paid them, the settlement checklist, a property's money. Listeners:
 // spendingwiring.js (a transaction), buyingwiring.js (a purchase), propertieswiring.js (a property).
 import { state } from "../state.js";
-import { propertyTargets, propertyOf, propertyCache, purchaseCostChoices, linkEffect, costTransactions, shortDate, settlementCheck, propertySuggestions } from "../calc/propertymoney.js";
+import { propertyTargets, propertyOf, propertyCache, purchaseCostChoices, linkEffect, costTransactions, shortDate, settlementCheck, propertySuggestions, propertyYear } from "../calc/propertymoney.js";
+import { propertyYearActual, actualFyFor } from "../calc/propertyactuals.js";
+import { claimItems } from "../calc/claims.js";
+import { periodsOf } from "../calc/ledger.js";
+import { emptyStateHtml } from "../lib/empty.js";
 import { costAmount } from "../calc/purchase.js";
-import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 
 // Which "What it's for" a transaction's editor shows, by its index, this visit — before a property's been picked.
@@ -165,3 +169,44 @@ export function settlementSheetHtml(p, st, rentLines, figures){
     '<div class="txr-actions"><button type="button" class="btn btn-ghost" data-settle-close>Not yet</button><button type="button" class="btn btn-primary" data-settle-go>It\'s ours — settle it</button></div></div></div>';
 }
 function propertyLooseOnes(st, p){ return propertySuggestions(st, p.settlementDate || new Date().toISOString().slice(0, 10), st.tidyOk || {}).filter(function(x){ return x.to.id === p.id; }); }
+
+// ---------------- A property's money (board P): its year, its lines, its transactions, what's claimable ----------------
+export function propertyMoneyHtml(p, st, today){
+  st = st || state;
+  today = today || localDateStr();
+  var fy = actualFyFor(today, today);
+  var act = p.kind === "IP" ? propertyYearActual(p, fy, today, st, claimItems()) : null;
+  var win = act ? { start: act.start, end: act.end } : { start: fyStart(today), end: today };
+  var y = propertyYear(st, p.id, win, { planOf: function(l){ return periodsOf(Number(l.amount) || 0, l.freq).yearly; } });
+  var money = function(v){ return (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(Math.round(v))); };
+  var hero, tax;
+  if(act){
+    var rent = act.rows[0].actual, costs = act.rows[1].actual, interest = act.rows[2].actual;
+    var months = Math.max(1, Math.round(act.share * 12));
+    var claim = -act.rows.slice(1).reduce(function(s, r){ return s + r.actual; }, 0);
+    hero = '<section class="pmoney-hero"><span class="pmoney-k">This financial year so far</span><b class="pmoney-v ' + (act.net < 0 ? "is-bad" : "is-good") + '">' + money(act.net) + '</b>' +
+      '<span class="pmoney-sub">what it ' + (act.net < 0 ? "cost you" : "made") + ' after rent — about ' + money(act.net / months) + ' a month</span>' +
+      '<div class="pmoney-split"><div><span>Rent in</span><b class="is-good">' + money(rent) + '</b></div><div><span>Costs, on its lines and off them</span><b>' + money(costs) + '</b></div><div><span>Loan interest</span><b>' + money(interest) + '</b></div></div></section>';
+    tax = '<section class="pmoney-tax is-ip"><b>Claimable this year so far: ' + money(claim) + '</b><span>Its costs, interest and the rest against rent of ' + money(rent) + ' — ' + (act.net < 0 ? 'a ' + money(-act.net) + ' loss that comes off your taxable income' : 'a ' + money(act.net) + ' gain that\'s taxed') + '. Each linked transaction is on the rental schedule under its heading (Tax → Rental), with its receipt.</span></section>';
+  } else {
+    var costBase = (Number(p.purchasePrice) || 0) + (p.acquisitionCosts || []).reduce(function(s, c){ return s + (Number(c.amount) || 0); }, 0);
+    hero = '<section class="pmoney-hero"><span class="pmoney-k">Its running costs this year so far</span><b class="pmoney-v">' + money(y.lines.filter(function(l){ return l.household; }).reduce(function(s, l){ return s + l.spent; }, 0)) + '</b>' +
+      '<span class="pmoney-sub">on the budget lines that say they\'re for it — household spending</span>' +
+      (costBase > 0 ? '<div class="pmoney-split"><div><span>Cost base</span><b>' + money(costBase) + '</b></div></div>' : '') + '</section>';
+    tax = '<section class="pmoney-tax"><b>Your home: kept for the record</b><span>A home you live in isn\'t taxed when sold, so these aren\'t claimed — its purchase costs are kept as its cost base, in case it\'s ever rented out or partly used for income.</span></section>';
+  }
+  var lines = '<section class="pmoney-sec"><div class="pmoney-sec-head"><h4>Its lines</h4><small>plan · spent this year</small></div>' +
+    (y.lines.length ? '<ul class="pmoney-lines">' + y.lines.map(function(l){
+      var over = l.planYear > 0 && l.spent > l.planYear * act_share(act) + 0.5;
+      return '<li><span><b>' + escapeAttr(l.what) + '</b><small' + (over ? ' class="is-warn"' : '') + '>' + (l.household ? "a household line" : "the property's") + (over ? " · over the plan so far" : "") + '</small></span><span class="pmoney-fig"><b>' + money(l.spent) + '</b><small>of ' + money(l.planYear) + ' a year</small></span></li>';
+    }).join("") + '</ul>' : emptyStateHtml("No lines for " + (p.what || "this property") + " yet. A budget line (rates, insurance, strata) can say which property it's for — open it on Budget.", { go: "expenses/budget", label: "Go to Budget →" })) + '</section>';
+  var txs = '<section class="pmoney-sec"><div class="pmoney-sec-head"><h4>Transactions</h4><small>' + y.txs.length + ' this year</small></div>' +
+    (y.txs.length ? '<ul class="pmoney-txs">' + y.txs.slice(0, 6).map(function(t){
+      var o = propertyOf(t, st);
+      return '<li><span class="pmoney-date">' + escapeAttr(shortDate(t.date)) + '</span><span><span>' + escapeAttr(t.what || "Transaction") + '</span><small>' + escapeAttr((o && o.what) || "") + (t.account ? ' · ' + escapeAttr(t.account) : '') + '</small></span><b>' + fmtCurrency0.format(Number(t.amount) || 0) + '</b></li>';
+    }).join("") + '</ul><button type="button" class="link-btn" data-pmoney-tx="' + escapeAttr(p.id) + '">See them in Transactions →</button>'
+      : '<p class="field-help">None linked this year. In Transactions, open one and pick What it\'s for → A property.</p>') + '</section>';
+  return '<div class="pmoney">' + hero + lines + txs + tax + '</div>';
+}
+function act_share(act){ return act ? act.share : 1; }
+function fyStart(today){ var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)); return (m >= 7 ? y : y - 1) + "-07-01"; }

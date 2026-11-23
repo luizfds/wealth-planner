@@ -131,12 +131,14 @@ export function budgetSplitHtml(m){
   var hasLifestyle = s.lifestyle.planned > 0;
   var words = paceWords(p);
   // 1. The answer.
-  var hero = '<section class="bh-hero" aria-label="This month">' +
+  // November 2026: the answer sits on a band in Money's colour (the colour system); the split under it stays on white.
+  var hero = '<section class="bh-hero" aria-label="This month"><div class="bh-band">' +
     // The section's heading (h2): the Lines, Coming up and Pots under it are h3, so the page reads in order.
     '<div class="bh-hero-top"><h2 class="bh-h">' + (hasLifestyle ? (p.left < 0 ? "Lifestyle over the plan" : "Left for Lifestyle") : "Spent on Lifestyle") + (isNow ? "" : " · " + escapeAttr(monthPhrase(m.ym))) + '</h2><span>' + escapeAttr(when) + '</span></div>' +
     '<div class="bh-left"><b class="' + (hasLifestyle && p.left < 0 ? "over" : "") + '">' + money(hasLifestyle ? Math.abs(p.left) : p.spent) + '</b>' +
       (hasLifestyle && isNow && p.left > 0 && p.daysLeft > 0 ? '<span>≈ ' + money(p.perDay) + ' a day for ' + p.daysLeft + ' day' + (p.daysLeft === 1 ? '' : 's') + '</span>' : '') + '</div>' +
     (hasLifestyle ? paceSvgHtml(p) + '<p class="bh-pace-words ' + words.cls + '">' + escapeAttr(words.text) + '</p>' : '<p class="ledger-note">No Lifestyle lines are spent every month yet — mark a line Lifestyle to see what\'s left.</p>') +
+    '</div>' +
     '<div class="bh-minis">' + miniBar("Essentials", "needs", s.essential.spent, s.essential.planned) + miniBar("Lifestyle", "wants", s.lifestyle.spent, s.lifestyle.planned) + '</div>' +
     (s.other.spent > 0.5 ? '<p class="bh-note">Also spent ' + escapeAttr(isNow ? "this month" : monthPhrase(m.ym)) + ' on no budget line: <b>' + money(s.other.spent) + '</b> — a one-off isn\'t in these figures. It\'s on Spending.</p>' : '') +
     '<p class="bh-note">Essential: ' + escapeAttr(ESSENTIAL_MEANS) + '. Set-aside spending comes out of its pot, not these figures.</p>' +

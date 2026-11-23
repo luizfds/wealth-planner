@@ -98,12 +98,12 @@
   .rule-seg .seg-label{ padding:0 5px; border-radius:4px; background: rgba(255,255,255,.88); color:#0f172a; line-height:1.45; }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-seg .seg-label{ background: rgba(15,23,42,.82); color:#f1f5f9; } }
   :root[data-theme="dark"] .rule-seg .seg-label{ background: rgba(15,23,42,.82); color:#f1f5f9; }
-  .rule-seg.needs{ background: #6b7a8f; }
-  .rule-seg.wants{ background: var(--brass); }
+  .rule-seg.needs{ background: var(--grp-essential); }
+  .rule-seg.wants{ background: var(--grp-lifestyle); }
   .rule-seg.savings{ background: var(--good); }
   .rule-seg.na{ background: var(--ink-soft); }
   /* November 2026: a set-aside pot — the colours of neither group, hatched (calc/budgetsplit.js). */
-  .rule-seg.setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 5px, #94a3b8 5px 8px); }
+  .rule-seg.setaside{ background: repeating-linear-gradient(-45deg, var(--grp-setaside) 0 5px, color-mix(in srgb, var(--grp-setaside) 55%, var(--paper-raised)) 5px 8px); }
   .rule-target{ position:absolute; top:0; bottom:0; width:0; border-right: 1.5px dashed rgba(0,0,0,0.35); }
   @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .rule-target{ border-right-color: rgba(255,255,255,0.35); } }
   :root[data-theme="dark"] .rule-target{ border-right-color: rgba(255,255,255,0.35); }
@@ -135,8 +135,8 @@
   /* Same story as .rule-seg above: every legend swatch in the v2.99.0 charts computed to
      rgba(0,0,0,0), so a stacked chart that encodes identity in colour alone had a colourless key. */
   .rule-swatch{ width:9px; height:9px; border-radius:3px; flex:none; background: var(--series-color, transparent); }
-  .rule-swatch.needs{ background:#6b7a8f; } .rule-swatch.wants{ background:var(--brass); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
-  .rule-swatch.setaside{ background: repeating-linear-gradient(-45deg, var(--ink-soft) 0 3px, #94a3b8 3px 5px); }
+  .rule-swatch.needs{ background: var(--grp-essential); } .rule-swatch.wants{ background: var(--grp-lifestyle); } .rule-swatch.savings{ background:var(--good); } .rule-swatch.na{ background:var(--ink-soft); }
+  .rule-swatch.setaside{ background: repeating-linear-gradient(-45deg, var(--grp-setaside) 0 3px, color-mix(in srgb, var(--grp-setaside) 55%, var(--paper-raised)) 3px 5px); }
 
   /* account bars */
   .acct-row{ display:grid; grid-template-columns: 92px 1fr 78px; align-items:center; gap:10px; margin-bottom:9px; font-size:var(--fs-sm); }
@@ -635,8 +635,8 @@
     display:inline-block; font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.05em; font-weight:600;
     padding:3px 10px; border-radius:100px; margin-bottom:10px; color:#fff;
   }
-  .review-card-badge.needs{ background:#6b7a8f; }
-  .review-card-badge.wants{ background: var(--brass); }
+  .review-card-badge.needs{ background: var(--grp-essential); }
+  .review-card-badge.wants{ background: var(--grp-lifestyle); color:#042f2e; }
   .review-card-badge.savings{ background: var(--good); }
   .review-card-badge.na{ background: var(--ink-soft); }
   .review-card-name{ font-size:var(--fs-lg); font-weight:600; color: var(--ink); margin-bottom:4px; }
@@ -1419,12 +1419,13 @@
   .dt-tx .detail-link{ text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); }
   /* v3.129.0: Net worth — one list of everything owned and owed, under one rail. */
   .nw-page{ max-width:900px; }
-  .nw-head{ display:flex; flex-wrap:wrap; gap:10px 28px; margin:4px 0 12px; }
+  .nw-head{ display:flex; flex-wrap:wrap; gap:10px 28px; margin:4px 0 12px; padding:18px 20px; border-radius: var(--card-radius); color:#fff;
+    background: linear-gradient(135deg, var(--tab-1) 0%, var(--tab-2) 100%); box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--tab-1) 80%, transparent); }
   .nw-head div{ display:flex; flex-direction:column; }
-  .nw-head span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+  .nw-head span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: rgba(255,255,255,.85); }
   .nw-head b{ font-family: var(--font-num); font-size:var(--fs-2xl); }
   .nw-head div:first-child b{ font-size:var(--fs-3xl); }
-  .nw-est{ font-size:var(--fs-sm); color: var(--ink-soft); max-width:340px; }
+  .nw-est{ font-size:var(--fs-sm); color: rgba(255,255,255,.88); max-width:340px; }
   .nw-bar{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 8px; background: var(--paper-sunken); }
   .nw-legend{ list-style:none; display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 18px; padding:0; font-size:var(--fs-sm); color: var(--ink-soft); }
   .nw-legend b{ font-family: var(--font-num); font-weight:600; color: var(--ink); }
@@ -1691,12 +1692,18 @@
   .bh-col{ display:flex; flex-direction:column; gap:12px; min-width:0; }
   @media (min-width: 1024px){ .bh-grid{ grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); align-items:start; } }
   .bh-hero, .bh-sec, .bh-in{ background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius); padding:16px; }
-  .bh-hero{ display:flex; flex-direction:column; gap:8px; }
+  .bh-hero{ display:flex; flex-direction:column; gap:8px; padding:0 0 16px; overflow:hidden; }
+  /* November 2026: the answer on a band in the page's tab colour; white text is 5:1 or better on both ends. */
+  .bh-band{ display:flex; flex-direction:column; gap:8px; padding:16px; color:#fff;
+    background: linear-gradient(135deg, var(--tab-1) 0%, var(--tab-2) 100%); }
+  .bh-hero > :not(.bh-band){ margin-left:16px; margin-right:16px; }
+  .bh-band .bh-hero-top, .bh-band .bh-h, .bh-band .bh-left span, .bh-band .bh-pace-key, .bh-band .ledger-note{ color: rgba(255,255,255,.88); }
   .bh-hero-top{ display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-sm); color: var(--ink-soft); }
   .bh-h{ margin:0; font-size:var(--fs-sm); font-weight:400; color: var(--ink-soft); }
   .bh-left{ display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
   .bh-left b{ font-family: var(--font-num); font-size:var(--fs-3xl); font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
   .bh-left b.over{ color: var(--bad-ink); }
+  .bh-band .bh-left b.over{ color:#fecaca; }
   .bh-left span{ font-size:var(--fs-sm); color: var(--ink-soft); }
   .bh-pace{ display:block; width:100%; height:96px; overflow:visible; }
   .bh-pace-grid{ stroke: var(--border); stroke-width:1; }
@@ -1705,10 +1712,17 @@
   .bh-pace-ahead{ fill:none; stroke: var(--brass); stroke-width:1.5; stroke-dasharray:2 4; vector-effect: non-scaling-stroke; }
   .bh-pace-line.over, .bh-pace-ahead.over{ stroke: var(--bad); }
   .bh-pace-dot{ fill: var(--brass); } .bh-pace-dot.over{ fill: var(--bad); }
+  .bh-band .bh-pace-grid{ stroke: rgba(255,255,255,.22); }
+  .bh-band .bh-pace-even{ stroke:#fff; opacity:.5; }
+  .bh-band :is(.bh-pace-line, .bh-pace-ahead){ stroke:#fff; }
+  .bh-band :is(.bh-pace-line, .bh-pace-ahead).over{ stroke:#fecaca; }
+  .bh-band .bh-pace-dot{ fill:#fde68a; } .bh-band .bh-pace-dot.over{ fill:#fecaca; }
   .bh-pace-key{ display:flex; justify-content:space-between; font-size:var(--fs-xs); color: var(--ink-soft); margin-top:-4px; }
   .bh-pace-words{ margin:0; font-size:var(--fs-sm); font-weight:600; }
   .bh-pace-words.good{ color: var(--good-ink); } .bh-pace-words.bad{ color: var(--bad-ink); }
-  .bh-minis{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; padding-top:10px; border-top:1px solid var(--border); }
+  /* On the band, what the pace means is a chip of its own, in the meaning colours on the card's paper. */
+  .bh-band .bh-pace-words{ align-self:flex-start; padding:4px 10px; border-radius:999px; background: var(--paper-raised); color: var(--ink); }
+  .bh-minis{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; padding-top:6px; }
   .bh-mini{ display:flex; flex-direction:column; gap:4px; min-width:0; }
   .bh-mini-name{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .bh-mini-fig{ font-family: var(--font-num); font-weight:600; white-space:nowrap; }
@@ -1716,7 +1730,7 @@
   .bh-mini-fig.over{ color: var(--bad-ink); }
   .bh-track{ display:block; height:6px; border-radius:3px; background: var(--paper-sunken); overflow:hidden; }
   .bh-fill{ display:block; height:100%; border-radius:3px; }
-  .bh-fill.needs{ background:#6b7a8f; } .bh-fill.wants{ background: var(--brass); } .bh-fill.over{ background: var(--bad); }
+  .bh-fill.needs{ background: var(--grp-essential); } .bh-fill.wants{ background: var(--grp-lifestyle); } .bh-fill.over{ background: var(--bad); }
   .bh-note{ margin:0; font-size:var(--fs-xs); color: var(--ink-soft); line-height:1.45; }
   .bh-note b{ color: var(--ink); font-family: var(--font-num); font-weight:600; }
   .bh-sec{ display:flex; flex-direction:column; gap:6px; }

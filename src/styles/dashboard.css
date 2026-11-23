@@ -712,21 +712,23 @@
 .mode-offer-actions{ display:flex; flex-wrap:wrap; gap:8px; }
 
 /* Plan → Scenarios: every scenario's normal month of savings on one scale (pictures before words). */
-.sc-compare{ border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); padding: var(--card-py) var(--card-px); margin:0 0 14px; box-shadow: var(--shadow); }
+/* November 2026: Plan's hero, in the page's tab colour (the colour system). White on both ends is 5:1 or better. */
+.sc-compare{ border:0; border-radius:var(--card-radius); background: linear-gradient(135deg, var(--tab-1) 0%, var(--tab-2) 100%); color:#fff;
+  padding: var(--card-py) var(--card-px); margin:0 0 14px; box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--tab-1) 80%, transparent); }
 .sc-compare[hidden]{ display:none; }
-.sc-compare-title{ margin:0 0 8px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
+.sc-compare-title{ margin:0 0 8px; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: rgba(255,255,255,.88); }
 .sc-compare-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
-.sc-compare-list li{ display:grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr) auto; align-items:center; gap:10px; font-size:var(--fs-sm); }
+.sc-compare-list li{ display:grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr) auto; align-items:center; gap:10px; font-size:var(--fs-sm); }
 .sc-compare-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.sc-compare-name small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.sc-compare-name small{ font-size:var(--fs-xs); padding:1px 7px; border-radius:999px; background: rgba(255,255,255,.22); }
 .sc-compare-list li.is-active .sc-compare-name{ font-weight:600; }
-.sc-compare-track{ position:relative; height:12px; border-radius:100px; background: var(--paper-sunken); }
-.sc-compare-fill{ position:absolute; left:0; top:0; bottom:0; border-radius:100px; min-width:4px; background: var(--brass); }
-.sc-compare-fill.base{ background: var(--good); }
-.sc-compare-fill.neg{ background: var(--bad); }
+.sc-compare-track{ position:relative; height:12px; border-radius:100px; background: rgba(255,255,255,.22); }
+.sc-compare-fill{ position:absolute; left:0; top:0; bottom:0; border-radius:100px; min-width:4px; background: rgba(255,255,255,.78); }
+.sc-compare-fill.base{ background:#fff; }
+.sc-compare-fill.neg{ background:#fecaca; }
 .sc-compare-list b{ font-family: var(--font-num); font-weight:600; min-width:4.5ch; text-align:right; }
-.sc-compare-list b.neg{ color: var(--bad-ink); }
-@media (max-width: 420px){ .sc-compare-list li{ grid-template-columns: minmax(0, 7em) minmax(0, 1fr) auto; } }
+.sc-compare-list b.neg{ color:#fecaca; }
+@media (max-width: 420px){ .sc-compare-list li{ grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) auto; } }
 
 /* Today, glance first (the owner: Today as the place to know where you stand at a look): four figures, each a way to
    its card; then Needs you — the bills due this week, each with Paid, and the to-dos. */
@@ -741,7 +743,7 @@
 .home-glance-k{ position:relative; font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
 .home-glance-tile b{ position:relative; font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-glance-tile small{ position:relative; font-size:var(--fs-xs); max-width:100%; overflow-wrap:anywhere; }
-.home-glance-tile.is-hero{ grid-column: 1 / -1; min-height:140px; padding:18px 20px; gap:4px; background: linear-gradient(135deg, #1e40af 0%, #0e7490 60%, #0f766e 100%);
+.home-glance-tile.is-hero{ grid-column: 1 / -1; min-height:140px; padding:18px 20px; gap:4px; background: linear-gradient(135deg, var(--tab-today-1) 0%, var(--tab-today-2) 100%);
   box-shadow: 0 10px 24px -12px rgba(14,116,144,.7); }
 .home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
 .home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }

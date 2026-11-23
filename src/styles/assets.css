@@ -122,6 +122,10 @@
      thumb reads as sitting on top either way rather than needing a per-theme override. */
   .seg-option.active{ background: var(--paper-raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.22); }
   .seg-option:focus-visible{ box-shadow: var(--focus-ring); }
+  /* Patterns' spans and a transaction's What it's for: two or three choices that share the width evenly and wrap their
+     words rather than scroll (the narrowest phone is 320px). */
+  .pattern-spans, .txfor-seg{ display:grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); width:100%; overflow-x:visible; }
+  .pattern-spans .seg-option, .txfor-seg .seg-option{ min-width:0; white-space:normal; padding:5px 4px; line-height:1.2; }
   /* A range strip deliberately keeps every choice available as a button on small screens. */
   .range-strip{ display:flex; gap:0; padding:0; border:0; border-radius:0; background:transparent; }
   .range-strip .seg-option{ flex:1 0 44px; min-width:44px; min-height:44px; padding:5px 6px; }

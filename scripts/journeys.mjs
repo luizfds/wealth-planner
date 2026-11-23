@@ -6401,7 +6401,7 @@ const JOURNEYS = {
     const row=page.locator('[data-line-id="demo-groceries"]');
     check(await row.locator('.f-freq').evaluate(el=>!!el.labels?.length), 'Frequency has no associated visible label');
     // "When it's spent" (November 2026) — Set aside redraws the row, so before More options is opened.
-    await row.locator('.f-irregular').selectOption('setaside');
+    await row.locator('.f-irregular[value="setaside"]').check(); // an answer card (round 1, board 2)
     await settle(page);
     await row.locator('.row-more-options').evaluate(el=>el.open=true);
     await row.locator('.f-deductible').check();
@@ -7092,10 +7092,10 @@ const JOURNEYS = {
     check(group === null || group === 'Wants', 'Holidays is not under Lifestyle every month but ' + group);
     if(group) await page.locator('[data-budget-group-toggle="' + group + '"]').click();
     await page.locator('[data-line-id="jst"] [data-row-toggle]').first().click();
-    const when = page.locator('[data-line-id="jst"] .f-irregular');
+    const when = page.locator('[data-line-id="jst"] .f-irregular[value="setaside"]');
     await settle(page);
-    await when.waitFor();
-    await when.selectOption('setaside');
+    await when.waitFor({ state: 'attached' });
+    await when.check(); // an answer card (round 1, board 2)
     await settle(page);
     check(await st(page, 'state.shared.find(l => l.id === "jst").irregular') === true, 'When it\'s spent did not set it aside');
     const potIn = page.locator('[data-line-id="jst"] .f-potstart');

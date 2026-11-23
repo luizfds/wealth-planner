@@ -489,6 +489,8 @@
      weight, no uppercase) so a form scans as "these are the fields" first and "this one you can
      skip" second, rather than every label competing at the same visual weight. */
   .m-edit-field label .label-optional{ text-transform:none; letter-spacing:0; font-weight:600; opacity:.75; }
+  /* Round 1, board 2: an answer card in a row's editor is an answer, not a field's caption. */
+  .m-edit-field label.pill-card{ display:flex; align-items:flex-start; text-transform:none; letter-spacing:0; font-size:var(--fs-sm); font-weight:400; color: var(--ink); margin-bottom:0; }
   /* 40px, not the 29-31px that 6px of padding produced: these are the fields you actually fill in
      on a phone, several in a row, and they were the single largest group of undersized controls in
      the app. See the touch-target note in base.css. */
@@ -2232,7 +2234,6 @@
   .pm-icon.is-ip{ background: var(--ip-wash); color: var(--ip-ink); }
   .cf-prop-note{ margin:6px 0 4px; padding:10px 12px; border-radius: var(--inner-radius); background: var(--prop-wash); color: var(--prop-ink); font-size:var(--fs-xs); line-height:1.45; }
   .txfor{ display:flex; flex-direction:column; gap:8px; }
-  .txfor-seg{ display:grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
   .txfor-seg .seg-option{ min-height:44px; }
   .txfor-body{ display:flex; flex-direction:column; gap:8px; }
   .txfor-props{ display:flex; flex-direction:column; gap:8px; }

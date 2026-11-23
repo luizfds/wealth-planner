@@ -112,6 +112,10 @@ editing and **one question at a time** for adding something new. Property is fir
   Monthly"). They're real radios in a labelled `role="radiogroup"`, with arrow keys between them. The chosen one is
   `--ink` on `--paper-raised`. The page's class goes on each radio, so its change handler reads `e.target.value` as it
   read the select's.
+- **Answer cards** (`pillsHtml({ cards: true })`, round 1 board 2): pills whose answers need a line of meaning under
+  them — a budget line's "Is it essential?" (Essential · Can't go without, Lifestyle · Chosen, could cut…) and "When does
+  it get spent?" (Every month, Set aside). Each option's `sub` is that line; `lead` is a sentence under the question.
+  Still real radios with the page's class, so the change handler is the same.
 - **Switches** replace a yes/no select or a field that only matters when something is on ("Offset account", "Fixed
   rate", "I pay a set amount"). Each is a checkbox with `role="switch"`, and its whole row is its label. Turned on, a
   switch opens its fields; turned off, it clears them.

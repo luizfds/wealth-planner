@@ -5948,4 +5948,5 @@ Bills ~3,600px → ~900px. Mock-ups agreed on the design canvas (round 3, boards
 Rounds 1–3 checked against their boards: Patterns is one list (board G — amount, usual by this day, six months as a
 line; the charts fold under it); the old tools sit inside All suggestions (board B); the line editor says where a line
 shows (board 2); a pot says how far it goes and last year against what it puts by (board 3); Bills says what's due in
-the next 14 days (board H). Still as built: the line editor's two questions are selects, not the board's answer cards.
+the next 14 days (board H). The line editor's two questions — Is it essential? When does it get spent? — are the
+board's answer cards (`pillsHtml({ cards: true })`, each answer with what it means under it), not selects.

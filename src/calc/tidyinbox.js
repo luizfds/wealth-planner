@@ -28,6 +28,15 @@ export function inboxCards(input){
   (input.lines || []).forEach(function(l){ if(l && l.id) byId[l.id] = l; });
   var name = function(id){ return (byId[id] && byId[id].what) || "a line"; };
   var out = [];
+  (input.strays || []).forEach(function(s){
+    out.push({ id: s.id, kind: "misfiled", label: "Looks misfiled",
+      title: s.label + ", " + money(s.total) + ", is on " + name(s.fromLineId),
+      body: (s.typed && s.typed.length ? "You described it as “" + s.typed.join("”, “") + "” — check it's the same shop before moving it. " : "") +
+        "Your other " + plural(s.mainCount, "visit") + " there " + (s.mainCount === 1 ? "is" : "are") + " on " + name(s.toLineId) + "." + (s.typed && s.typed.length ? "" : " Probably a slip."),
+      facts: [["On", name(s.fromLineId)], ["Usually", name(s.toLineId)]],
+      yes: { label: "Move to " + name(s.toLineId), act: { type: "move", ids: s.txIds, to: s.toLineId } },
+      no: { label: "It's right", act: { type: "ok", key: s.id } } });
+  });
   // November 2026: for a property? A purchase's card can pick which of its costs (`picks`, `pick` the guess).
   (input.property || []).forEach(function(x){
     var t = x.t, amt = money(t.amount), purchase = x.to.kind === "purchase";
@@ -51,15 +60,6 @@ export function inboxCards(input){
       why: "“" + (l.what || "") + "” is a property's cost and you have more than one.",
       yes: { label: x.home.name + (x.home.kind === "investment" ? "" : " (our home)"), act: { type: "lineProp", lineId: l.id, propertyId: x.home.id } },
       no: x.investment ? { label: x.investment.name, act: { type: "lineProp", lineId: l.id, propertyId: x.investment.id } } : { label: "Not a property's", act: { type: "ok", key: x.id } } });
-  });
-  (input.strays || []).forEach(function(s){
-    out.push({ id: s.id, kind: "misfiled", label: "Looks misfiled",
-      title: s.label + ", " + money(s.total) + ", is on " + name(s.fromLineId),
-      body: (s.typed && s.typed.length ? "You described it as “" + s.typed.join("”, “") + "” — check it's the same shop before moving it. " : "") +
-        "Your other " + plural(s.mainCount, "visit") + " there " + (s.mainCount === 1 ? "is" : "are") + " on " + name(s.toLineId) + "." + (s.typed && s.typed.length ? "" : " Probably a slip."),
-      facts: [["On", name(s.fromLineId)], ["Usually", name(s.toLineId)]],
-      yes: { label: "Move to " + name(s.toLineId), act: { type: "move", ids: s.txIds, to: s.toLineId } },
-      no: { label: "It's right", act: { type: "ok", key: s.id } } });
   });
   (input.hints || []).forEach(function(h){
     var kind = { "essential-lifestyle": "Essential or lifestyle?", "lifestyle-essential": "Essential or lifestyle?", "setaside-monthly": "Spent every month" }[h.kind] || "Worth a look";

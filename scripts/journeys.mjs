@@ -5905,7 +5905,9 @@ const JOURNEYS = {
       });
       check(!bad.length, "property " + tab + ": " + bad.slice(0, 6).join("; "));
     }
-    // Clicking a visible label reaches its field; fields still save through the tied markup.
+    // Clicking a visible label reaches its field; fields still save through the tied markup. A row the sweep above left
+    // open (its sheet's backdrop covers the page) is put away first.
+    for(let k = 0; k < 3 && await page.locator('#mRowBackdrop').isVisible(); k++){ await page.keyboard.press('Escape'); await page.waitForTimeout(150); }
     await page.evaluate(() => document.querySelector('[data-prop-tab][data-tab="overview"]').click());
     await page.locator('.prop-tab-panel:not([hidden]) .prop-land-value').waitFor({ state: "visible" });
     const landLabel = await page.evaluate(() => document.querySelector(".prop-tab-panel:not([hidden]) .prop-land-value").labels[0].htmlFor);
@@ -7381,6 +7383,10 @@ const JOURNEYS = {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.locator(cardSel + ' [data-buy-settled]').click();
+    // November 2026 (round 4, board Q): a check first — the cost base, the loan, what changes — then settle.
+    await waited(page, () => !!document.querySelector('.settle-panel'), 'the settlement check');
+    check(/Cost base/.test(await page.locator('.settle-panel').textContent()), 'the settlement check has no cost base');
+    await page.locator('[data-settle-go]').click();
     await page.waitForFunction(async () => !(await import('/src/state.js')).state.purchases.some(x => x.what === '3 Example Ave'), null, { timeout: 5000 }).catch(() => {});
     const after = await page.evaluate(async () => { const s = (await import('/src/state.js')).state; const p = s.properties.find(x => x.what === '3 Example Ave');
       return p && { kind: p.kind, value: p.value, loans: p.loans.length, loan: p.loans[0] && p.loans[0].balance, borrowing: p.loans[0] && p.loans[0].borrowingCosts, costs: p.acquisitionCosts.map(c => c.amount), held: s.assets.filter(a => /Deposit held/.test(a.what)).length }; });
@@ -7414,6 +7420,38 @@ const JOURNEYS = {
     check(choices && choices['accounts/id:a1/balance'] === 'theirs' && choices['accounts/id:a2/balance'] === 'theirs' && choices['scenarios/id:s1/purchase'] === 'ours', 'Combine did not use what was ticked: ' + JSON.stringify(choices));
   },
   // November 2026: Transactions & Bills — the period as chips that filter, one Patterns card, Bills' list or calendar.
+  // November 2026 (round 4): a transaction for a purchase's cost — the Buying card reads it, settlement keeps it.
+  async propertymoney(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js'); const pu = await import('/src/calc/purchase.js');
+      const ym = new Date().toISOString().slice(0, 7);
+      pu.addPurchase(s.state, { what: '4 Example Ln', kind: 'PPOR', price: 800000, deposit: 60000, loanAmount: 740000, rate: 6, settlementDate: '2099-01-15', stateCode: 'NSW' }, s.genId);
+      s.state.transactions.push({ id: 'example-bp', date: ym + '-02', amount: 500, what: 'Building & pest report', linkedExpenseId: null, account: 'Everyday Account' });
+      s.commit(['*']);
+      (await import('/src/components/parts.js')).applyParts();
+    });
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    const row = page.locator('#transactionsTable .m-row.tx-row').filter({ hasText: 'Building & pest report' }).first();
+    await row.locator('.m-row-summary').click();
+    await page.locator('#transactionsTable [data-tx-for="prop"]').first().click();
+    await page.locator('#transactionsTable .txfor-prop').filter({ hasText: '4 Example Ln' }).first().click();
+    await page.locator('#transactionsTable [data-tx-cost]').filter({ hasText: 'Building' }).first().click();
+    await waited(page, () => /Marks Building/.test((document.querySelector('#transactionsTable .txfor-effect') || {}).textContent || ''), 'what the link does');
+    check(await stored(page, '(() => { const p = state.purchases.find(x => x.what === "4 Example Ln"); const t = state.transactions.find(t => t.id === "example-bp"); return t.forProperty === p.id && t.forCost === p.costs.find(c => /Building/.test(c.what)).id; })()'), 'the transaction was not linked to the cost');
+    await page.locator('.toast').evaluateAll(ts => ts.forEach(t => t.remove()));
+    check(await page.locator('.cf-kinds [data-cf-dir="property"]').isVisible(), 'no Property chip with a property transaction');
+    await go(page, 'properties');
+    const card = page.locator('.buy-card').filter({ hasText: '4 Example Ln' }).first();
+    check(/from 1 of your transactions/.test(await card.textContent()), 'the Buying card does not read the transaction');
+    check(/Paid · \d+ \w+, Everyday Account/.test(await card.locator('[data-buy-cost]').filter({ hasText: 'Building' }).textContent()), 'the cost does not say which transaction paid it');
+    await card.locator('[data-buy-settled]').click();
+    await waited(page, () => !!document.querySelector('.settle-panel'), 'the settlement check');
+    check(/Building & pest inspection/.test(await page.locator('.settle-panel').textContent()), 'the cost base leaves out the linked cost');
+    await page.locator('[data-settle-go]').click();
+    await waited(page, () => !document.querySelector('.settle-panel'), 'the sheet to close');
+    check(await stored(page, '(() => { const p = state.properties.find(x => x.what === "4 Example Ln"); const t = state.transactions.find(t => t.id === "example-bp"); return !!p && t.forProperty === p.id && t.forWhat === "Building & pest inspection" && p.acquisitionCosts.some(c => c.amount === 500); })()'), 'settling lost the transaction or its cost');
+  },
   async txbills(page){
     await quiet(page);
     await page.evaluate(async () => {

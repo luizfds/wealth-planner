@@ -21,6 +21,8 @@ export function cashflowEntries(opts){
   var accountOf = opts.accountOf || function(t){ return t.account || ""; };
   var categoryOf = opts.categoryOf || function(t){ return t.category || ""; };
   var nameOf = opts.nameOf || function(t){ return t.what || "Transaction"; };
+  // November 2026: a property's money (calc/propertymoney.js isPropertyMoney) — a purchase's, an investment's.
+  var capitalOf = opts.isPropertyMoney || function(){ return false; };
   var out = [];
   (state.transactions || []).forEach(function(t, i){
     if(!t || !t.date) return;
@@ -28,7 +30,7 @@ export function cashflowEntries(opts){
     var amt = Number(t.amount) || 0;
     out.push({ kind: "out", key: "t:" + (t.id || i), date: t.date, amount: amt, label: nameOf(t), account: accountOf(t),
       category: categoryOf(t), lineId: t.linkedExpenseId || "", person: line ? (line.person || line.deductiblePerson || "") : "",
-      splitGroup: t.splitGroup || "", ref: i, refund: amt < 0 });
+      splitGroup: t.splitGroup || "", ref: i, refund: amt < 0, property: !!capitalOf(t) });
   });
   var targets = {};
   incomeTargets().forEach(function(t){ targets[t.key] = t; });
@@ -52,7 +54,7 @@ export function cashflowEntries(opts){
   return out.sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 }
 
-// f: { direction: "all" | "out" | "in" | "transfer" | "oneoff" | "budget" (spending on a line), account, category, line, person, text, and since
+// f: { direction: "all" | "out" (spending: not a property's) | "in" | "transfer" | "oneoff" | "budget" (spending on a line) | "property", account, category, line, person, text, and since
 // v3.168.0 min / max (the amount's size, so a refund of $40 is "from $30") and from / to (dates,
 // inclusive) — a trip arrives as from / to, see calc/txviews.js effectiveFilter }.
 // An account filter matches a transfer on either side — it moved money in or out of that account.
@@ -66,8 +68,10 @@ export function filterEntries(entries, f){
     if(min != null && !isNaN(min) && Math.abs(e.amount) < min) return false;
     if(max != null && !isNaN(max) && Math.abs(e.amount) > max) return false;
     // November 2026: "oneoff" is spending on no budget line — a home's purchase costs, a one-time repair.
-    if(f.direction === "oneoff"){ if(e.kind !== "out" || e.lineId) return false; }
-    else if(f.direction === "budget"){ if(e.kind !== "out" || !e.lineId) return false; }
+    if(f.direction === "oneoff"){ if(e.kind !== "out" || e.lineId || e.property) return false; }
+    else if(f.direction === "budget"){ if(e.kind !== "out" || !e.lineId || e.property) return false; }
+    else if(f.direction === "property"){ if(e.kind !== "out" || !e.property) return false; }
+    else if(f.direction === "out"){ if(e.kind !== "out" || e.property) return false; }
     else if(f.direction && f.direction !== "all" && e.kind !== f.direction) return false;
     if(f.account && e.account !== f.account && e.toAccount !== f.account) return false;
     if(f.category && e.category !== f.category) return false;
@@ -96,24 +100,26 @@ export function filterChoices(entries){
 // In, out and net over a set of entries. Transfers are neither — they're shown, never totalled.
 export function entryTotals(entries){
   var inn = 0, outt = 0;
-  entries.forEach(function(e){ if(e.kind === "in") inn += e.amount; else if(e.kind === "out") outt += e.amount; });
+  // November 2026: a property's money (a deposit, an investment's repairs) isn't spending either.
+  entries.forEach(function(e){ if(e.kind === "in") inn += e.amount; else if(e.kind === "out" && !e.property) outt += e.amount; });
   return { in: Math.round(inn * 100) / 100, out: Math.round(outt * 100) / 100, net: Math.round((inn - outt) * 100) / 100 };
 }
 
 // The period in one line (November 2026): what was spent on the budget's lines, what went on no line (a one-off), what
 // only moved between your own accounts (never spending), and what came in. → { budget, oneoff, oneoffCount, moved,
-// movedCount, in, counts: { all, out, budget, oneoff, in, transfer } } — counts for the kind chips over the list.
+// movedCount, in, property (a property's money — never spending), counts: { all, out, budget, oneoff, property, in, transfer } } — counts for the kind chips over the list.
 export function periodSummary(entries){
-  var r = { budget: 0, oneoff: 0, oneoffCount: 0, moved: 0, movedCount: 0, in: 0, counts: { all: 0, out: 0, budget: 0, oneoff: 0, in: 0, transfer: 0 } };
+  var r = { budget: 0, oneoff: 0, oneoffCount: 0, property: 0, moved: 0, movedCount: 0, in: 0, counts: { all: 0, out: 0, budget: 0, oneoff: 0, property: 0, in: 0, transfer: 0 } };
   (entries || []).forEach(function(e){
     r.counts.all++;
-    if(e.kind === "out"){
+    if(e.kind === "out" && e.property){ r.property += e.amount; r.counts.property++; }
+    else if(e.kind === "out"){
       r.counts.out++;
       if(e.lineId){ r.budget += e.amount; r.counts.budget++; } else { r.oneoff += e.amount; r.oneoffCount++; r.counts.oneoff++; }
     } else if(e.kind === "in"){ r.in += e.amount; r.counts.in++; }
     else if(e.kind === "transfer"){ r.moved += e.amount; r.movedCount++; r.counts.transfer++; }
   });
-  ["budget", "oneoff", "moved", "in"].forEach(function(k){ r[k] = Math.round(r[k] * 100) / 100; });
+  ["budget", "oneoff", "property", "moved", "in"].forEach(function(k){ r[k] = Math.round(r[k] * 100) / 100; });
   return r;
 }
 

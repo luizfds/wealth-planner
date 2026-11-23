@@ -6,6 +6,9 @@ import { confirmDialog } from "../lib/dialogs.js";
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { setAccountBalance, accountBalance } from "../calc/accounts.js";
+import { linkTransaction, targetById, purchaseCostChoices } from "../calc/propertymoney.js";
+import { setCostPaid } from "../calc/purchase.js";
+import { txForUi } from "./propertymoney.js";
 import { addTransfer, deleteTransfer, splitTransaction, unsplit, bulkEditTransactions, bulkDeleteTransactions } from "../calc/cashflowlist.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { attachReceipt, detachReceipt } from "../calc/receipts.js";
@@ -63,9 +66,57 @@ function saveTxView(){
 function pickedIndices(){
   return Object.keys(txSelect.picked).filter(function(k){ return txSelect.picked[k]; }).map(Number).filter(function(i){ return state.transactions[i]; });
 }
+// November 2026: a transaction's What it's for — a budget line, a property (and which of its costs or lines), a one-off.
+// One commit; the undo puts every field back, and a hand-ticked cost's balance with it.
+function linkFromEditor(idx, target, said){
+  var t = state.transactions[idx];
+  if(!t) return;
+  var undo = linkTransaction(state, t, target, { genId: genId, giveBack: function(p, c){ setCostPaid(state, p, c, false, undefined, localDateStr()); } });
+  modernTransactionRowOpen[idx] = true;
+  commit(["transactions", "purchases", "accounts"]);
+  if(said) showUndoToast(said, function(){ undo(); commit(["transactions", "purchases", "accounts"]); });
+}
+function onTxForClick(b){
+  var idx = Number(b.getAttribute("data-tx-index"));
+  var t = state.transactions[idx];
+  if(!t) return true;
+  if(b.hasAttribute("data-tx-for")){
+    var mode = b.getAttribute("data-tx-for");
+    txForUi.mode[idx] = mode;
+    if(mode === "line" && t.forProperty) linkFromEditor(idx, { type: "line", lineId: null });
+    else if(mode === "oneoff") linkFromEditor(idx, { type: "oneoff" });
+    else { modernTransactionRowOpen[idx] = true; renderTransactions(); }
+    var again = document.querySelector('#transactionsTable [data-tx-for="' + mode + '"][data-tx-index="' + idx + '"]');
+    if(again) again.focus({ preventScroll: true });
+    return true;
+  }
+  if(b.hasAttribute("data-tx-prop")){
+    var pid = b.getAttribute("data-tx-prop"), x = targetById(state, pid);
+    txForUi.prop = txForUi.prop || {}; txForUi.prop[idx] = pid;
+    txForUi.mode[idx] = "prop";
+    // A home's running costs are its budget lines; an investment or a purchase waits for which line or cost.
+    modernTransactionRowOpen[idx] = true; renderTransactions();
+    var next = document.querySelector('#transactionsTable [data-tx-prop-for="' + pid + '"][data-tx-index="' + idx + '"]');
+    if(next && x && x.kind !== "home") next.focus({ preventScroll: true });
+    return true;
+  }
+  if(b.hasAttribute("data-tx-cost")){
+    var forId = b.getAttribute("data-tx-prop-for"), cost = b.getAttribute("data-tx-cost"), px = targetById(state, forId);
+    var name = cost === "new" ? "a new cost" : ((purchaseCostChoices(px && px.purchase).find(function(c){ return c.id === cost; }) || {}).what || "a cost");
+    linkFromEditor(idx, { type: "purchase", id: forId, cost: cost }, "For " + (px ? px.name : "the purchase") + " — " + name);
+    return true;
+  }
+  if(b.hasAttribute("data-tx-propline")){
+    var ipId = b.getAttribute("data-tx-prop-for"), lineId = b.getAttribute("data-tx-propline"), ix = targetById(state, ipId);
+    linkFromEditor(idx, { type: "property", id: ipId, lineId: lineId }, "For " + (ix ? ix.name : "the property"));
+    return true;
+  }
+  return false;
+}
 function onCashflowListClick(e){
   var b = e.target.closest("button");
   if(!b || b.disabled) return;
+  if(b.closest(".txfor") && onTxForClick(b)) return;
   if(b.hasAttribute("data-cf-dir")){ txFilters.direction = b.getAttribute("data-cf-dir"); setTransactionsShowAll(false); renderTransactions(); return; }
   if(b.hasAttribute("data-cf-clear")){ resetTxFilters(); setTransactionsRange('month'); var clearFocus = document.querySelector('#transactionsTable [data-cf-panel]'); if(clearFocus) clearFocus.focus(); return; }
   if(b.hasAttribute('data-cf-search')){ txFilterPanel.search = !txFilterPanel.search; renderTransactions(); var search = document.querySelector('#transactionsTable [data-cf-filter="text"]'); if(search && search.getClientRects().length) search.focus(); return; }

@@ -355,3 +355,13 @@ test("step 36: a pot's starting figure kept only with its day; neither alone", f
   assert.ok(!("potStart" in s.home.Renting[0]));
   assert.doesNotThrow(() => run(36, {}));
 });
+
+test("step 37: a transaction's property, cost and cost name, and a line's property — strings, or gone", function(){
+  const s = run(37, { transactions: [{ id: "a", forProperty: "buy1", forCost: "deposit" }, { id: "b", forProperty: "", forCost: "pc1", forWhat: "x" }, { id: "c", forProperty: "p1", forCost: 5, forWhat: "Deposit" }, { id: "d" }, null],
+    shared: [{ id: "l1", propertyId: "p1" }, { id: "l2", propertyId: 3 }, { id: "l3" }] });
+  assert.deepEqual(s.transactions.slice(0, 4).map(t => [t.forProperty, t.forCost, t.forWhat]), [["buy1", "deposit", undefined], [undefined, undefined, undefined], ["p1", undefined, "Deposit"], [undefined, undefined, undefined]]);
+  assert.ok(!("forCost" in s.transactions[1]) && !("forWhat" in s.transactions[1]));
+  assert.deepEqual(s.shared.map(l => l.propertyId), ["p1", undefined, undefined]);
+  assert.ok(!("propertyId" in s.shared[1]));
+  assert.doesNotThrow(() => run(37, {}));
+});

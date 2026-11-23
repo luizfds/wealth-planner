@@ -415,7 +415,7 @@ export var MIGRATION_STEPS = [
     // Categories are a later addition, so an older save has none: seed the defaults so the feature
     // works on first load rather than presenting an empty manager. An existing (possibly emptied)
     // list is left exactly as the user left it — only a missing key seeds.
-    if(s.budgetGroupBy !== "category" && s.budgetGroupBy !== "flex") s.budgetGroupBy = "type";
+    if(s.budgetGroupBy !== "category" && s.budgetGroupBy !== "flex" && s.budgetGroupBy !== "property") s.budgetGroupBy = "type";
     if(!s.rollover || typeof s.rollover !== "object" || Array.isArray(s.rollover)) s.rollover = {};
     // A save from before the setup checklist existed has no preference either way. Left undefined it
     // would be falsy and so behave correctly, but normalising keeps the exported backup honest about
@@ -913,6 +913,20 @@ export var MIGRATION_STEPS = [
     };
     (Array.isArray(s.shared) ? s.shared : []).forEach(fix);
     Object.keys(s.home && typeof s.home === "object" ? s.home : {}).forEach(function(k){ (Array.isArray(s.home[k]) ? s.home[k] : []).forEach(fix); });
+  } },
+  // November 2026 (calc/propertymoney.js): a transaction can be for a property — `forProperty` (a purchase's or a
+  // property's id), `forCost` (which of a purchase's costs, or "deposit") and `forWhat` (the cost's name, kept when a
+  // purchase settles); a budget line can be too (`propertyId`). Each is a non-empty string or absent: anything else goes,
+  // and a cost with no property is dropped with it.
+  { n: 37, name: "a transaction or a line for a property", run: function(s){
+    var str = function(v){ return typeof v === "string" && v.trim() !== ""; };
+    (Array.isArray(s.transactions) ? s.transactions : []).forEach(function(t){
+      if(!t || typeof t !== "object") return;
+      if(!str(t.forProperty)){ delete t.forProperty; delete t.forCost; delete t.forWhat; return; }
+      if(!str(t.forCost)) delete t.forCost;
+      if(!str(t.forWhat)) delete t.forWhat;
+    });
+    (Array.isArray(s.shared) ? s.shared : []).forEach(function(l){ if(l && typeof l === "object" && "propertyId" in l && !str(l.propertyId)) delete l.propertyId; });
   } }
 ];
 

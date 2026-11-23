@@ -67,11 +67,12 @@ export function viewsBarHtml(){
 // money only moved between your own accounts (not spending — a card repayment), money in — each a filter. Always in
 // sight, not inside Filters; one row that scrolls sideways on a phone, so the list still starts in the top half.
 // s: calc/cashflowlist.js periodSummary over the period's entries.
-var KINDS = [["all", "All", null], ["budget", "On your budget", "budget"], ["oneoff", "One-offs", "oneoff"], ["transfer", "Moved, not spent", "moved"], ["in", "Money in", "in"]];
+var KINDS = [["all", "All", null], ["budget", "On your budget", "budget"], ["property", "Property", "property"], ["oneoff", "One-offs", "oneoff"], ["transfer", "Moved, not spent", "moved"], ["in", "Money in", "in"]];
 export function kindChipsHtml(s){
   s = s || { counts: {} };
   var counts = s.counts || {};
-  return '<div class="cf-kinds" role="group" aria-label="Show" tabindex="-1">' + KINDS.map(function(k){
+  // Property only when there is some: most households have none, and the row should stay one row.
+  return '<div class="cf-kinds" role="group" aria-label="Show" tabindex="-1">' + KINDS.filter(function(k){ return k[0] !== "property" || counts.property || txFilters.direction === "property"; }).map(function(k){
     var on = txFilters.direction === k[0];
     var fig = k[2] ? fmtCurrency0.format(s[k[2]] || 0) : String(counts.all || 0);
     return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + (k[0] === "transfer" ? " is-moved" : "") + '" aria-pressed="' + on + '" data-cf-dir="' + k[0] + '">' + k[1] + ' <span>' + fig + '</span></button>';

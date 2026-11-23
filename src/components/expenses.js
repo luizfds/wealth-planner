@@ -16,6 +16,8 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals, periodSummary } from "../calc/cashflowlist.js";
+import { propertyCache, isPropertyMoney } from "../calc/propertymoney.js";
+import { txForHtml, propertySubHtml, propertyNoteHtml } from "./propertymoney.js";
 import { hasOwnDates } from "../calc/txviews.js";
 import { keepUi } from "../lib/keepui.js";
 import { receiptsFieldHtml, txOwnerKey } from "./receipts.js";
@@ -1376,6 +1378,10 @@ function txClassSelectHtml(t, idx){
     '<option value=""' + (own ? '' : ' selected') + '>As its line' + (lineCls ? ' (' + escapeAttr(classWord(lineCls)) + ')' : '') + '</option>' +
     TX_CLASSES.map(function(c){ return '<option value="' + c + '"' + (own === c ? ' selected' : '') + '>' + classWord(c) + '</option>'; }).join("") + '</select>';
 }
+// One property lookup per list draw, not per row (calc/propertymoney.js propertyCache).
+var propCache = { at: null, cache: null };
+function propertyCacheFor(){ if(propCache.at !== state.transactions){ propCache.at = state.transactions; propCache.cache = propertyCache(state); } return propCache.cache; }
+export function resetPropertyCache(){ propCache.at = null; }
 function transactionRowHtml(t, idx){
   var dateInput = '<input type="date" class="tx-date field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.date || "") + '" aria-label="Date">';
   var whatInput = '<input type="text" class="tx-what field-control" data-tx-index="' + idx + '" value="' + escapeAttr(t.what || "") + '" placeholder="' + escapeAttr(transactionDescriptionPlaceholder(t)) + '" aria-label="Description (optional)" title="Optional — only worth filling in when the budget line\'s own name doesn\'t say enough (e.g. what the Miscellaneous spend actually was)">';
@@ -1392,14 +1398,16 @@ function transactionRowHtml(t, idx){
   '</div>';
   var linkSelect = '<select class="tx-link field-control" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account field-control" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
+  var propSub = propertySubHtml(t, state, propertyCacheFor());
   var summary = modernRowSummaryHtml({
-    leadHtml: categoryIconHtml(transactionCategory(t)),
+    leadHtml: propSub ? '<span class="prop-icon' + (/is-ip/.test(propSub) ? ' is-ip' : '') + '" aria-hidden="true">⌂</span>' : categoryIconHtml(transactionCategory(t)),
     name: transactionDisplayName(t, state.shared),
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
-    subLines: [transactionSummaryText(t)],
+    // November 2026: a property's money says which property and what for (calc/propertymoney.js).
+    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t)],
     // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
-    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId ? '' : '<small class="cf-tag">one-off</small>')
+    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub ? '' : '<small class="cf-tag">one-off</small>')
   });
   // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
   // freshly-added transaction — picking a budget line first, before typing anything, mirrors the
@@ -1407,7 +1415,8 @@ function transactionRowHtml(t, idx){
   // obvious way to connect the transaction to a budget line at all. This is the deliberate
   // long-form path ("Add with full details"); the sheet is the everyday one.
   var fieldsHtml =
-    '<div class="m-edit-field span3"><label>Linked to</label>' + linkSelect + '</div>' +
+    // November 2026: What it's for — a budget line, a property (and which of its costs or lines), or a one-off.
+    txForHtml(t, idx, linkSelect, state) +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
@@ -1471,8 +1480,10 @@ function drawTransactions(){
   var totalEl = document.getElementById("totalTransactionsAmount");
   if(!container) return;
   var lines = budgetLineItems();
+  resetPropertyCache();
+  var pc = propertyCacheFor();
   var all = cashflowEntries({ lines: lines, accountOf: transactionAccount, categoryOf: transactionCategory,
-    nameOf: function(t){ return transactionDisplayName(t, state.shared); } });
+    nameOf: function(t){ return transactionDisplayName(t, state.shared); }, isPropertyMoney: function(t){ return isPropertyMoney(t, state, pc); } });
   var ownDates = hasOwnDates(txFilters);
   var dateLabel = transactionDatesLabel(transactionsRange, ownDates ? currentTxFilter() : null);
   var top = (transferForm.open ? transferFormHtml() : "");
@@ -1530,7 +1541,8 @@ function drawTransactions(){
         (transactionsShowAll ? "Show recent only" : "Show all " + shown.length) +
       '</button></div>'
     : "";
-  container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
+  var propNote = txFilters.direction === "property" ? propertyNoteHtml(shown.filter(function(e){ return e.kind === "out"; }).map(function(e){ return state.transactions[e.ref]; }), state) : '';
+  container.innerHTML = top + controlHtml + bulk + propNote + (filtered && !propNote ? totalsLineHtml(totals, shown.length, shown) : '') + '<div class="m-rows">' + rows + '</div>' + toggleHtml;
 }
 // The entries currently on screen that are spending rows — what "Select all shown" picks.
 export function visibleSpendingIndices(){

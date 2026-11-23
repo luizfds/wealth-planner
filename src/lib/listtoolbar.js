@@ -5,7 +5,7 @@ import { escapeAttr } from "./html.js";
 export function listToolbarHtml(title, total, controlsHtml, totalId, options){
   options = options || {};
   return '<div class="record-toolbar"><div class="record-heading"><h2 class="section-title">' + escapeAttr(title) + '</h2>' +
-    '<span class="ledger-total">' + (options.compactTotal ? '<span class="visually-hidden">Total </span>' : 'Total ') + '<b' + (totalId ? ' id="' + escapeAttr(totalId) + '"' : '') + '>' + escapeAttr(total) + '</b></span>' + (options.extraTotalHtml || '') + '</div>' +
+    '<span class="ledger-total">' + (options.compactTotal ? '<span class="visually-hidden">' + escapeAttr(options.totalLabel || 'Total') + ' </span>' : escapeAttr(options.totalLabel || 'Total') + ' ') + '<b' + (totalId ? ' id="' + escapeAttr(totalId) + '"' : '') + '>' + escapeAttr(total) + '</b></span>' + (options.extraTotalHtml || '') + '</div>' +
     '<div class="record-controls">' + controlsHtml + '</div></div>';
 }
 export function listActionsHtml(label, itemsHtml){

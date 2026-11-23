@@ -21,7 +21,7 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { txFilters, txSelect, transferForm, splitEditing, resetTxFilters, setTxGrid, txFilterPanel, transferHint, txViewForm } from "./cashflow.js";
 import { afterReceivedChange } from "./cashflowwiring.js";
-import { trendDisplay, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
+import { trendDisplay, showPatternSpan, renderTransactions, addTransaction, deleteTransaction, renderActualVsPlannedPanel, setTransactionsShowAll, setTransactionsRange, modernTransactionRowOpen, transactionSummaryText, visibleSpendingIndices, budgetLineItems } from "./expenses.js";
 import { firstRun, firstRunHtml } from "./firstrun.js";
 import { offerTour } from "./tourwiring.js";
 import { renderHomeSummary } from "./home.js";
@@ -89,6 +89,13 @@ function onCashflowListClick(e){
   if(b.hasAttribute("data-cf-panel")){ txFilterPanel.open = !txFilterPanel.open; renderTransactions(); var first = document.querySelector(txFilterPanel.open ? '#transactionsTable #cfFilterRow select' : '#transactionsTable .record-toolbar [data-cf-panel]'); if(first) first.focus(); return; }
   if(b.hasAttribute("data-cf-chip-clear")){ txFilters[b.getAttribute("data-cf-chip-clear")] = ""; setTransactionsShowAll(false); renderTransactions(); var fb = document.querySelector('#transactionsTable [data-cf-panel]'); if(fb) fb.focus(); return; }
   if(b.hasAttribute("data-cf-select")){ txSelect.on = !txSelect.on; txSelect.picked = {}; renderTransactions(); var selectionFocus = document.querySelector(txSelect.on ? '#transactionsTable > .cf-filters > [data-cf-select]' : '#transactionsTable [data-overflow-toggle]'); if(selectionFocus) selectionFocus.focus(); return; }
+  // November 2026: Import folds away under the list; the list's tools open it.
+  if(b.hasAttribute("data-cf-import")){
+    var menu = b.closest("details"); if(menu) menu.open = false;
+    var card = document.getElementById("bankImportCard");
+    if(card){ card.open = true; card.scrollIntoView({ behavior: "smooth", block: "start" }); var pick = document.getElementById("bankImportPickBtn"); if(pick) pick.focus({ preventScroll: true }); }
+    return;
+  }
   if(b.hasAttribute("data-cf-transfer")){ transferForm.open = true; renderTransactions(); var f = document.querySelector('#transactionsTable [data-tf="amount"]'); if(f) f.focus(); return; }
   if(b.hasAttribute("data-tf-cancel")){ transferForm.open = false; renderTransactions(); document.querySelector('#transactionsTable [data-overflow-toggle]').focus(); return; }
   if(b.hasAttribute("data-tf-save")){
@@ -260,6 +267,11 @@ function txrChange(){ if(!txrCurrent() || txReview.mode !== "card") return; txRe
 function afterReceiptChange(){ persist(); renderTransactions(); rerenderTableFor("shared"); renderTaxYear(); }
 
 export function wireSpending(){
+  // November 2026: Patterns shows one span at a time — This month, This year, 6 months.
+  document.getElementById("patternsCard").addEventListener("click", function(e){
+    var b = e.target.closest("[data-pattern-span]");
+    if(b) showPatternSpan(b.getAttribute("data-pattern-span"));
+  });
   document.getElementById('spendingTrendsPanel').addEventListener('change', function(e){
     if(e.target.matches('[data-trend-month]')){
       trendDisplay.month = e.target.value;

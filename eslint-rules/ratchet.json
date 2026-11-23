@@ -32,7 +32,7 @@
   "stateWrites": 2
  },
  "src/components/cashflowwiring.js": {
-  "persist": 9,
+  "persist": 8,
   "stateWrites": 8
  },
  "src/components/chromewiring.js": {

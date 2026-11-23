@@ -16,7 +16,7 @@
 // The year follows the household's setting (state.yearBasis): a financial year (the default) or a calendar year.
 import { state } from "../state.js";
 import { trimReport } from "./trim.js";
-import { subscriptionList, subscriptionsYearly, homeLineIds } from "./subscriptions.js";
+import { householdSubscriptions, subscriptionsYearly } from "./subscriptions.js";
 import { emergencyFund } from "./emergency.js";
 import { goalsOverview } from "./savegoals.js";
 import { savingsVsOffset, savingsOffsetLines } from "./savingsoffset.js";
@@ -84,7 +84,7 @@ export function yearReviewSections(y, f, today){
   // 3. Quiet money leaks — as things stand today.
   var trim = null, subs = [];
   try { trim = trimReport({ today: today }); } catch(err){ trim = null; }
-  try { subs = subscriptionList(state.transactions || [], today, state.subscriptionNotes || {}, { homeLines: homeLineIds(state) }).filter(function(x){ return !x.stopped && !x.ignored; }); } catch(err){ subs = []; }
+  try { subs = householdSubscriptions(state, today).filter(function(x){ return !x.stopped && !x.ignored; }); } catch(err){ subs = []; }
   var subsYearly = subscriptionsYearly(subs), bits = [];
   if(trim && trim.overYearly >= 300) bits.push("the budget plans " + money(trim.overYearly) + " a year more than is spent");
   if(subs.length) bits.push(subs.length + " subscription" + (subs.length === 1 ? "" : "s") + " cost " + money(subsYearly) + " a year");

@@ -1217,7 +1217,7 @@ const JOURNEYS = {
     check(JSON.stringify(await pending())===JSON.stringify(expected),'pending shared file did not survive reload after update');
   },
   async propertypicker(page){
-    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
+    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');await page.locator('#bankImportCard').evaluate(el=>el.open=true);
     const setup=async p=>p.evaluate(async()=>{
       const m=await import('/src/state.js');
       m.state.properties=[
@@ -1303,12 +1303,12 @@ const JOURNEYS = {
     finally{await touch.ctx.close();}
   },
   async propertystatementreview(page){
-    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');
+    await quiet(page);await go(page,'expenses','data-expenses-sub','spending');await page.locator('#bankImportCard').evaluate(el=>el.open=true);
     const original=await st(page,'JSON.stringify(state)');
     const saved=await page.evaluate(()=>localStorage.getItem('wealthPlanner.v1'));
     const panel=()=>page.locator('[data-as-panel][open]').filter({has:page.locator('[data-as-source]')}).first();
     const read=async (p,buffer=agentStatementPdf(),choosing=false)=>{
-      await go(p,'expenses','data-expenses-sub','spending');
+      await go(p,'expenses','data-expenses-sub','spending');await p.locator('#bankImportCard').evaluate(el=>el.open=true);
       await p.evaluate(async bytes=>{
         window.__propertyInboxFile=new File([new Uint8Array(bytes)],'Owner Example.pdf',{type:'application/pdf'});
         await (await import('/src/components/importwiring.js')).checkInbox(false);
@@ -3178,8 +3178,9 @@ const JOURNEYS = {
     await sup.locator('[data-asset-list-clear]').click();
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
     const tx = page.locator('#transactionsTable');
+    // November 2026: the kinds are chips over the list, not inside Filters.
+    await tx.locator('.cf-kinds [data-cf-dir="in"]').click();
     await tx.locator('.record-toolbar [data-cf-panel]').click();
-    await tx.locator('[data-cf-dir="in"]').click();
     await tx.locator('[data-tx-range="year"]').click();
     await tx.locator('[data-cf-view-save]').click();
     await tx.locator('[data-cf-view-name]').fill('Discard this name');
@@ -3190,8 +3191,8 @@ const JOURNEYS = {
     await tx.locator('[data-cf-view-confirm]').click();
     check(await stored(page, 'state.txViews.some(v => v.name === "Money received" && v.filter.direction === "in")'), 'saved view lost the transaction type');
     await tx.locator('#cfFilterRow [data-cf-panel]').click();
-    check((await tx.locator('.record-toolbar [data-cf-panel]').textContent()).includes('(2)'), 'Spending does not count type and scope');
-    check(await tx.locator('.cf-chip[data-cf-dir="all"]').isVisible(), 'closed Spending filters hide transaction type');
+    check((await tx.locator('.record-toolbar [data-cf-panel]').textContent()).includes('(1)'), 'Filters does not count the scope');
+    check(await tx.locator('.cf-kinds [data-cf-dir="in"][aria-pressed="true"]').isVisible(), 'closed Filters hide the transaction kind');
     await tx.locator('[data-cf-clear]').click();
     await tx.locator('.record-toolbar [data-cf-panel]').click();
     await tx.locator('[data-cf-view]').filter({ hasText: 'Money received' }).click();
@@ -3378,7 +3379,7 @@ const JOURNEYS = {
     check(await page.locator('.today-more [data-dashboard-sub="insights"]').isHidden() && await page.locator('.today-more [data-dashboard-sub="review"]').isVisible(), 'Today: Insights should go, the monthly review stay');
     check(await page.locator('[data-home-card="projected"]').isHidden(), 'Today still shows the projected net worth tile');
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
-    check(await page.locator('#spendingTrendsPanel').isHidden(), 'Spending over time still shows');
+    check(await page.locator('[data-pattern-span="six"]').isHidden() && await page.locator('#spendingTrendsPanel').isHidden(), 'Patterns still offers 6 months');
     await go(page, 'networth');
     check(await page.locator('#netWorthMore').isHidden() && await page.locator('#netWorthBody .nw-group').first().isVisible(), 'Net worth: the list should stay, the extras go');
     // Plan opens on Goals; Show more brings its tabs back, and leaving the page puts them away again.
@@ -5684,6 +5685,7 @@ const JOURNEYS = {
   // #255 step 4: Spending's explanations work by keyboard and touch; charts keep accessible values.
   async spendinghelp(page){
     await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    await page.locator('#bankImportCard').evaluate(el => el.open = true); // folded until it's wanted (November 2026)
     const help = page.locator('#bankImportCard > [data-help-toggle]');
     const note = page.locator('#bankImportCard .help').first();
     await help.waitFor();
@@ -5713,6 +5715,7 @@ const JOURNEYS = {
     const badFigures = await page.locator('#expensesSub-spending .rule-seg.cat-seg, #expensesSub-spending .year-cat-bar').evaluateAll(es =>
       es.filter(e => e.getAttribute('role') !== 'img' || !e.getAttribute('aria-label') || e.getAttribute('aria-label') !== e.getAttribute('title')).length);
     check(badFigures === 0, 'chart figures are missing their exact accessible values');
+    await page.locator('[data-pattern-span="six"]').click(); // the history is Patterns' 6 months (November 2026)
     const cdp = await page.context().newCDPSession(page);
     const ax = await cdp.send('Accessibility.getFullAXTree');
     check(ax.nodes.some(n => !n.ignored && n.role?.value === 'image' && /by month:/.test(n.name?.value || '')), 'spending history values are absent from the accessibility tree');
@@ -7408,6 +7411,46 @@ const JOURNEYS = {
     const choices = await page.evaluate(() => window.__mergeChoices);
     check(choices && choices['accounts/id:a1/balance'] === 'theirs' && choices['accounts/id:a2/balance'] === 'theirs' && choices['scenarios/id:s1/purchase'] === 'ours', 'Combine did not use what was ticked: ' + JSON.stringify(choices));
   },
+  // November 2026: Transactions & Bills — the period as chips that filter, one Patterns card, Bills' list or calendar.
+  async txbills(page){
+    await quiet(page);
+    await page.evaluate(async () => {
+      const s = await import('/src/state.js');
+      const ym = new Date().toISOString().slice(0, 7);
+      s.state.transactions.push({ id: 'example-oneoff', date: ym + '-02', amount: 600, what: 'Building inspection', linkedExpenseId: null, account: 'Everyday Account' });
+      s.state.transfers = (s.state.transfers || []).concat([{ id: 'example-move', date: ym + '-02', amount: 500, from: 'Everyday Account', to: 'Savings', what: 'Top up savings' }]);
+      s.commit(['transactions', 'transfers']);
+    });
+    await go(page, 'expenses', 'data-expenses-sub', 'spending');
+    const tx = page.locator('#transactionsTable');
+    await tx.locator('.cf-kinds [data-cf-dir="oneoff"]').click();
+    await waited(page, () => document.querySelector('#transactionsTable .cf-kinds [data-cf-dir="oneoff"]').getAttribute('aria-pressed') === 'true', 'the One-offs chip pressed');
+    const oneoffs = await tx.locator('.m-rows .m-row-sub').allTextContents();
+    check(oneoffs.length > 0 && oneoffs.every(t => /One-off/.test(t)), 'One-offs listed something on a budget line: ' + JSON.stringify(oneoffs.slice(0, 3)));
+    await tx.locator('.cf-kinds [data-cf-dir="transfer"]').click();
+    await waited(page, () => [...document.querySelectorAll('#transactionsTable .m-rows .m-row')].every(r => r.classList.contains('cf-transfer')), 'only transfers under Moved');
+    check(/moved, not spent/.test(await tx.locator('.cf-transfer').first().textContent()), 'a transfer does not say it is not spending');
+    await tx.locator('.cf-kinds [data-cf-dir="all"]').click();
+    check(await page.locator('#bankImportCard').evaluate(e => !e.open), 'Import is open on every visit');
+    await tx.locator('[data-overflow-toggle]').click();
+    await tx.locator('.page-overflow-menu [data-cf-import]').click();
+    await waited(page, () => document.getElementById('bankImportCard').open, 'Import a statement to open the import card');
+    await page.locator('[data-pattern-span="year"]').click();
+    check(await page.locator('[data-pattern-pane="year"]').isVisible() && await page.locator('[data-pattern-pane="month"]').isHidden(), 'Patterns shows more than one span');
+    check(await page.evaluate(() => localStorage.getItem('wealthPlanner.patternSpan')) === 'year', 'Patterns forgot the span');
+    await page.locator('[data-pattern-span="month"]').click();
+    await go(page, 'expenses', 'data-expenses-sub', 'bills');
+    const bills = page.locator('#billsCalendar');
+    check(/Still to pay in/.test(await bills.locator('.bc-hero').textContent()), 'Bills does not lead with what is still to pay');
+    check(await bills.locator('.bc-grid').count() === 0, 'Bills opens on the calendar, not the list');
+    check(!/Spending budgets|Stopped\?/.test(await bills.textContent()), 'Bills still lists spending budgets or Stopped?');
+    await bills.locator('[data-bills-view="calendar"]').click();
+    await waited(page, () => !!document.querySelector('#billsCalendar .bc-grid') && !!document.querySelector('#billsCalendar .bc-key'), 'the calendar with its key');
+    await bills.locator('[data-bills-view="list"]').click();
+    check(await page.locator('#subscriptionsCard').evaluate(e => !e.open), 'Subscriptions opens on every visit');
+    const subs = await page.locator('#subscriptionsLabel').textContent();
+    check(subs === '' || /^\d+ · \$[\d,]+ a year$/.test(subs), 'the folded Subscriptions row does not say how many and what a year: ' + subs);
+  },
   async billpaid(page){
     await quiet(page);
     await page.evaluate(async () => {
@@ -7639,6 +7682,7 @@ const JOURNEYS = {
     // Drain the sample household's deferred activity entry before taking the unchanged-data baseline.
     await page.evaluate(async() => (await import('/src/lib/activity.js')).noteChanges());
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
+    await page.locator('[data-pattern-span="six"]').click(); // Patterns shows one span at a time (November 2026)
     const numbers=page.locator('.trend-numbers');
     await numbers.locator('summary').focus();await page.keyboard.press('Enter');
     const month=page.locator('[data-trend-month]');

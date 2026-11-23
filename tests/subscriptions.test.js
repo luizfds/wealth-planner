@@ -2,7 +2,7 @@ import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { unbudgetedRecurring, repeatingPayees } from "../src/calc/recurring.js";
-import { subscriptionList, subscriptionsYearly, cancelReminders, nextCharge, lastRise } from "../src/calc/subscriptions.js";
+import { subscriptionList, subscriptionsYearly, cancelReminders, nextCharge, lastRise, householdSubscriptions, isBillLike } from "../src/calc/subscriptions.js";
 
 // An invented statement, May–October 2026.
 function statement(){
@@ -120,4 +120,31 @@ test("a day with two charges isn't read as the old price", function(){
   const c = [{ date: "2025-11-07", amount: 118.95 }, { date: "2025-11-07", amount: 89.95 }, { date: "2025-12-09", amount: 118.79 }, { date: "2026-01-07", amount: 118.79 }];
   assert.equal(lastRise(c), null);
   assert.deepEqual(lastRise([{ date: "2026-01-01", amount: 35 }, { date: "2026-02-01", amount: 35 }, { date: "2026-03-01", amount: 40 }]), { date: "2026-03-01", from: 35, to: 40 });
+});
+
+// November 2026: things you subscribe to — not rates, insurance and internet; and a Subscriptions line counts though its
+// charges aren't steady enough to be found.
+test("subscriptions are what you subscribe to: a bill's line keeps its charges off, a Subscriptions line puts them on", function(){
+  var tx = [];
+  ["2026-06-05", "2026-07-05", "2026-08-05", "2026-09-05", "2026-10-05"].forEach(function(d){
+    tx.push({ date: d, what: "BANK ONE BROADBAND", amount: 80, linkedExpenseId: "net" });
+    tx.push({ date: d, what: "STREAMFLIX", amount: 15, linkedExpenseId: "tv" });
+  });
+  // Billed from a different city each month, so no two descriptions match: found through its line.
+  [["2026-07-10", "VIDEOTUBE SYDNEY"], ["2026-08-10", "VIDEOTUBE MELBOURNE"], ["2026-09-10", "VIDEOTUBE PERTH"], ["2026-10-10", "VIDEOTUBE HOBART"]].forEach(function(x){ tx.push({ date: x[0], what: x[1], amount: 20, linkedExpenseId: "vt" }); });
+  var st = { transactions: tx, subscriptionNotes: {}, shared: [
+    { id: "net", what: "Internet", category: "Utilities", amount: 80, freq: "Monthly" },
+    { id: "tv", what: "Streamflix", category: "Subscriptions", amount: 15, freq: "Monthly" },
+    { id: "vt", what: "VideoTube", category: "Subscriptions", amount: 20, freq: "Monthly" },
+    { id: "old", what: "Old app", category: "Subscriptions", amount: 5, freq: "Monthly", endDate: "2026-01-31" }
+  ] };
+  var list = householdSubscriptions(st, "2026-10-20");
+  assert.deepEqual(list.map(function(s){ return s.name; }).sort(), ["Streamflix", "VideoTube"].sort().map(function(n){ return list.find(function(s){ return s.line === (n === "VideoTube" ? "vt" : "tv"); }).name; }));
+  assert.ok(!list.some(function(s){ return s.line === "net"; }), "internet is a bill");
+  assert.ok(!list.some(function(s){ return s.line === "old"; }), "an ended line isn't charging");
+  var vt = list.find(function(s){ return s.line === "vt"; });
+  assert.equal(vt.yearly, 240);
+  assert.equal(vt.next, "2026-11-10");
+  assert.equal(isBillLike(null, "CITY COUNCIL RATES"), true);
+  assert.equal(isBillLike({ category: "Subscriptions", what: "Phone app" }, ""), false, "the line's category decides");
 });

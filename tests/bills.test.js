@@ -30,8 +30,9 @@ test("a month's bills: paid when logged near the date, overdue when past and not
   assert.equal(r.days["2026-10-23"][0].overdue, false);
   assert.deepEqual(r.undated.map(function(u){ return u.what; }), ["Rates"]);
   assert.equal(r.total, 50 + 20 * 5);
-  var html = billsCalendarHtml(r, "2026-10", "2026-10-18");
-  assert.match(html, /October 2026/);
+  var html = billsCalendarHtml(r, "2026-10", "2026-10-18", { view: "calendar" });
+  assert.match(html, /Still to pay in October/);
+  assert.match(html, /class="bc-key"/, "the calendar has a key");
   assert.match(html, /bc-bill paid" title="Phone \$50 — paid"/);
   assert.match(html, /1 regular line with no payment logged yet/);
   // 1 October 2026 is a Thursday: three blank cells before it
@@ -145,13 +146,16 @@ test("the calendar: spending budgets off the days, card bills grouped under the 
   assert.equal(r.directTotal, 150);
   assert.equal(r.cardTotal, 40);
   assert.equal(r.cardPayments[0].amount, 540);
-  var html = billsCalendarHtml(r, "2026-09", "2026-09-30");
+  var html = billsCalendarHtml(r, "2026-09", "2026-09-30", { view: "calendar" });
   assert.match(html, /bc-bill card-pay paid/);
   assert.match(html, /bc-bill on-card paid" title="Phone \$40 on the Card, paid with the 27 Oct repayment/);
-  assert.match(html, /From your accounts/);
-  assert.match(html, /Bills on the Card/);
-  assert.match(html, /Spending budgets in September/);
-  assert.match(html, /\$690 leaves your accounts: \$150 in bills, \$540 card payment/);
+  // November 2026: the list — the card's bills one folded row; spending budgets are Budget's, not here.
+  var list = billsCalendarHtml(r, "2026-09", "2026-09-30", { view: "list" });
+  assert.match(list, /From your accounts/);
+  assert.match(list, /<details class="bc-card-fold"><summary>.*On the Card · 1 bill/);
+  assert.doesNotMatch(list + html, /Spending budgets/);
+  assert.match(list, /Still to pay in September<\/span><b class="bc-hero-v">\$0<\/b>/);
+  assert.match(list, /\$690 paid so far/);
   assert.match(html, /data-bc-kind="gr"[^>]*>.*?<option value="" selected>Auto \(spending\)/);
 });
 
@@ -169,7 +173,8 @@ test("an ended line leaves the calendar; one that stopped being paid is asked ab
   var r = billsForMonth(items, gymPays, "2026-10", "2026-10-18");
   assert.deepEqual(Object.keys(r.days), [], "no weekly overdue gym in October");
   assert.deepEqual(r.stopped, [{ id: "g", what: "Gym", last: "2026-03-24" }]);
-  assert.match(billsCalendarHtml(r, "2026-10", "2026-10-18"), /data-bc-end="g" data-bc-end-date="2026-03-24"/);
+  // November 2026: asked in the Budget inbox (calc/tidyinbox.js), not on Bills.
+  assert.doesNotMatch(billsCalendarHtml(r, "2026-10", "2026-10-18"), /Stopped\?|data-bc-end/);
   // March, when it was still being paid, is unchanged.
   assert.ok(billsForMonth(items, gymPays, "2026-03", "2026-10-18").days["2026-03-24"][0].paid);
   // Given an end date, it's simply gone — not asked about.

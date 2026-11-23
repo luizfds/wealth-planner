@@ -15,7 +15,7 @@ import { cardPaymentsForMonth, upcomingBills, billLineStatus, billsToConfirm } f
 import { storageUsedChars, storageLevel, storageLineText } from "./storageuse.js";
 import { weekRecap, showWeekRecap } from "../calc/weekrecap.js";
 import { dueAutoPays } from "../calc/autopay.js";
-import { subscriptionList, cancelReminders, homeLineIds } from "../calc/subscriptions.js";
+import { householdSubscriptions, cancelReminders } from "../calc/subscriptions.js";
 import { cashRateMove } from "../calc/cashrate.js";
 import { reviewYear, yearHasData } from "../calc/yearreview.js";
 import { planProgress } from "../calc/planprogress.js";
@@ -677,7 +677,7 @@ export function endingPayNotifications(today){
 // A week before a subscription's cancel-by date, while it's still charging.
 export function cancelByNotifications(today){
   today = today || localDateStr();
-  var list = subscriptionList(state.transactions, today, state.subscriptionNotes || {}, { homeLines: homeLineIds(state) });
+  var list = householdSubscriptions(state, today);
   return cancelReminders(list, today, 7).map(function(s){
     var days = daysUntil(s.cancelBy, today);
     return { id: "cancelby:" + s.key + ":" + s.cancelBy, type: "bill", severity: days <= 1 ? "warn" : "info",

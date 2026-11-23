@@ -15,6 +15,7 @@ import { takeHomeAdjust } from "../calc/tax.js";
 import { fmtCurrency2, localDateStr, fmtDate, parseAmountInput } from "../lib/format.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
+import { billsView } from "./cashflow.js";
 import { renderAssets } from "./assets.js";
 import { autoPayView } from "./autopay.js";
 import { renderDetailPage } from "./detail.js";
@@ -515,17 +516,15 @@ export function wireBillsCalendar(){
     renderBillsCalendar();
     var kinds = document.querySelector("#billsCalendar .bc-kinds");
     if(kinds) kinds.open = true;
-  });  // v3.84.0: a bill that stopped being paid — end it at its last payment.
+  });
+  // November 2026: Bills as a list or a calendar — this visit's choice. "Stopped?" is asked in the Budget inbox now.
   document.addEventListener("click", function(e){
-    var btn = e.target.closest && e.target.closest("[data-bc-end]");
+    var btn = e.target.closest && e.target.closest("[data-bills-view]");
     if(!btn) return;
-    var id = btn.getAttribute("data-bc-end");
-    var line = loggableBudgetLineItems().find(function(i){ return i.id === id; });
-    if(!line) return;
-    line.endDate = btn.getAttribute("data-bc-end-date");
-    persist();
+    billsView.view = btn.getAttribute("data-bills-view");
     renderBillsCalendar();
-    showToast((line.what || "Line") + " ended " + line.endDate);
+    var again = document.querySelector('#billsCalendar [data-bills-view="' + billsView.view + '"]');
+    if(again) again.focus({ preventScroll: true });
   });
 }
 

@@ -10,7 +10,7 @@ import { monthSplit, pots, budgetHints, lifestylePace, classWord, ESSENTIAL_MEAN
 import { inboxCards } from "../calc/tidyinbox.js";
 import { trimReport, spendingDrift } from "../calc/trim.js";
 import { unbudgetedRecurring } from "../calc/recurring.js";
-import { upcomingBills } from "../calc/bills.js";
+import { upcomingBills, billsForMonth } from "../calc/bills.js";
 import { incomeActuals } from "../calc/received.js";
 import { periodsOf, resolveSharedAmount, selectedMonth, monthPhrase } from "../calc/ledger.js";
 import { currentScenario } from "../calc/engine.js";
@@ -31,6 +31,10 @@ var WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function dayLabel(iso){ var d = new Date(iso + "T00:00:00"); return WEEKDAYS[d.getDay()] + " " + d.getDate(); }
 function ordinal(n){ var s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
+// Bills not paid for a while with no end date (calc/bills.js), as of today's month — about now, not the header's.
+function stoppedBills(lines, today){
+  try { return billsForMonth(lines, state.transactions, today.slice(0, 7), today, { accounts: state.accounts, transfers: state.transfers }).stopped || []; } catch(e){ return []; }
+}
 // Everything the top of Budget shows, worked out once.
 export function budgetSplitModel(today){
   today = today || localDateStr();
@@ -42,7 +46,7 @@ export function budgetSplitModel(today){
   var drift = [];
   try { drift = spendingDrift(trimReport({ today: today })); } catch(e){ drift = []; }
   var cards = inboxCards({ strays: currentStrays(today), hints: budgetHints(lines, state.transactions, { today: today, ok: state.tidyOk || {} }),
-    drift: drift, recurring: unbudgetedRecurring(state.transactions, today), lines: lines, ok: state.tidyOk || {} })
+    drift: drift, recurring: unbudgetedRecurring(state.transactions, today), stopped: stoppedBills(lines, today), lines: lines, ok: state.tidyOk || {} })
     .filter(function(c){ return !budgetSplitUi.later[c.id]; });
   var income = incomeActuals(ym).filter(function(t){ return !t.irregular; });
   return { ym: ym, today: today, lines: lines.length, split: split,

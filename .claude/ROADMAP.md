@@ -5901,14 +5901,21 @@ Tests: budgetsplit (pace), tidyinbox, adjustplan, render smoke; journey budgetho
 
 ## Transactions & Bills: what happened, what's due — and nothing twice (November 2026)
 
-`[~]` The same treatment Budget had, measured on the household's backup (Transactions ~3,400px, Bills ~3,600px at
-390px). Mock-ups agreed on the design canvas (round 3, boards F–J):
-- **Transactions**: one month line — spent on the budget · one-offs (no line) · moved between your accounts (not
-  spending) · money in. Kind chips over the list (All · Spending · One-offs · Money in · Moved), search always there.
-  A transfer reads as one; a purchase on no line says one-off. Import folds away, with a way in from the list's tools.
-- **Patterns**: This month by category, This year so far and Spending over time become one card with a span switch;
-  one-offs out of all three; a streak that this month contradicts isn't claimed.
-- **Bills**: what's still to pay first, the calendar a view with a key, a card's bills one folded row. Spending
-  budgets leave (Budget's); Stopped? moves to the Budget inbox.
-- **Subscriptions**: things you subscribe to — a Subscriptions line, or a steady charge that isn't a bill — not
-  rates, insurance and internet. One row each, its actions behind a tap.
+`[x]` The same treatment Budget had, measured on the household's backup at 390px: Transactions ~3,400px → ~1,700px,
+Bills ~3,600px → ~900px. Mock-ups agreed on the design canvas (round 3, boards F–J):
+- **Transactions**: the period is one row of chips over the list, each a figure and a filter — All · On your budget ·
+  One-offs · Moved, not spent · Money in (`periodSummary`, `kindChipsHtml`; filter directions `budget` and `oneoff`).
+  The chips scroll sideways on a phone (smoke's `LOCAL_SCROLL`): a summary card above the list put the first record
+  below the top half. The toolbar's figure says Spending, not Total. A transfer says "moved, not spent"; a purchase on no
+  line says one-off. Import is folded, with "Import a statement" in the list's tools. On a wide screen the list is on the
+  left, Trips, Import and Patterns beside it (`.tx-ledgers`).
+- **Patterns**: This month by category, This year so far and Spending over time are one card with a span switch
+  (`patternSpan`, remembered on the device; 6 months is advanced). One-offs are out of all three, each saying what was
+  left out. A streak this month contradicts ("Housing up 4 months running" beside "▼56%") isn't claimed.
+- **Bills**: "Still to pay in <month>" first, with what's paid; List or Calendar (`billsView`), the calendar with a key.
+  A card's bills are one folded row (charged, still to come). Spending budgets left (Budget's). Stopped? is a card in
+  the Budget inbox (`tidyinbox.js` `stopped`: It ended then / It's still going).
+- **Subscriptions**: `householdSubscriptions()` — a line in a Subscriptions category (found though its charges aren't
+  steady: a description that changes city, a foreign price, a yearly one), or a steady charge that isn't a bill by its
+  line or its name. Rates, insurance, internet and phone stay on Bills. One row each, folded, its cancel-by and "Not a
+  subscription" behind a tap; the card is folded with how many and what a year.

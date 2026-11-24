@@ -164,7 +164,10 @@ export function purchaseCardHtml(p, cash, today){
     return '<div class="bc-group"><div class="fsec">' + title + ' <small class="bc-total">' + money(total) + '</small></div><ul class="buy-cost-list">' +
       rows.map(function(c){ return costRowHtml(p, c, byId[c.id], !!c.auto && !(Number(c.amount) > 0) && autoOn, accounts); }).join("") + '</ul></div>';
   };
-  var said = [money(f.costsPaid) + ' paid', money(f.costsToPay) + ' to pay'].concat(f.financed ? [money(f.financed) + ' added to the loan'] : [])
+  // November 2026 (the Property, Tax and Settings review): paid and still to pay as the bar and the tiles say them — the
+  // deposit counts as paid, and still to pay is the cash at settlement (the price's balance with the costs). It said
+  // "$509 paid" under a deposit marked Paid and a bar reading "Paid so far $65.5k".
+  var said = [money(f.paidSoFar) + ' paid', money(f.cashNeeded) + ' still to pay' + (f.balanceAtSettlement > 0.5 && f.costsToPay > 0.5 ? ' (' + money(f.costsToPay) + ' of it costs)' : '')].concat(f.financed ? [money(f.financed) + ' added to the loan'] : [])
     .concat(f.withheld - f.financed > 0.5 ? [money(f.withheld - f.financed) + ' taken from the loan'] : []).concat(f.toConfirm ? [f.toConfirm + ' to confirm'] : []);
   var depTx = costTransactions(state, p.id, "deposit");
   var depositRow = '<div class="bc-group"><div class="fsec">The deposit <small class="bc-total">' + money(f.deposit) + '</small></div><ul class="buy-cost-list"><li><details class="buy-cost' + (depTx.length ? ' is-paid' : '') + '" data-buy-cost="deposit"' + (buyUi.open.deposit ? ' open' : '') + '>' +

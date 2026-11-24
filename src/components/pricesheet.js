@@ -1,6 +1,6 @@
 import { state, persist, freshForBackground } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDateTime } from "../lib/format.js";
 import { sheetCsvUrls, readPriceSheet, applyPrices, applyBackfill, sheetRefreshDue } from "../calc/pricesheet.js";
 
 // ---------------- Investments → Shares: prices from a Google Sheet (v3.75.0) ----------------
@@ -84,7 +84,7 @@ export function priceSheetCardHtml(){
   var sh = state.priceSheet || {};
   var from = sh.backfillFrom || defaultBackfillFrom();
   var r = sh.lastResult;
-  var when = r && r.at ? new Date(r.at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  var when = r && r.at ? fmtDateTime(r.at) : "";
   var status = sh.url
     ? '<p class="ps-status ' + (r && !r.ok ? "bad" : "") + '">' + (r ? "<b>" + (r.ok ? "Read " : "Tried ") + escapeAttr(when) + ":</b> " + escapeAttr(priceSheetResultText(r)) : "Not read yet.") + '</p>'
     : "";

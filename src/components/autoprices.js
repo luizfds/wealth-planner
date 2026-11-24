@@ -1,6 +1,6 @@
 import { state, persist, freshForBackground } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDateTime } from "../lib/format.js";
 import { applyPrices, applyBackfill } from "../calc/pricesheet.js";
 import { coinIdsFor, coinGeckoUrl, parseCoinGecko, FX_URLS, parseFrankfurter, filePricesFor, fileWeeklyFor, backfillWanted, autoPricesDue } from "../calc/autoprices.js";
 
@@ -82,7 +82,7 @@ export function autoPricesResultText(r){
 }
 export function autoPricesCardHtml(){
   var a = state.autoPrices || {}, r = a.lastResult;
-  var when = r && r.at ? new Date(r.at).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  var when = r && r.at ? fmtDateTime(r.at) : "";
   var check = function(key, label, on){ return '<label class="pref-check ap-check"><input type="checkbox" data-ap="' + key + '"' + (on ? " checked" : "") + '> ' + label + '</label>'; };
   return '<div class="ap-card">' +
     '<p class="ledger-note" style="margin:0 0 8px">Prices update by themselves once a day when you open the app: ASX and US shares and ETFs from this app\'s own daily price file (end-of-day closes for a fixed public list — asking for it tells nobody what you hold), crypto from CoinGecko, and USD → AUD from the European Central Bank via Frankfurter.</p>' +

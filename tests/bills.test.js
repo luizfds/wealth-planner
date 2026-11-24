@@ -50,6 +50,10 @@ test("import rules: list, test a description, edit a field", function(){
     var html = rulesPageHtml([{ id: "e1", what: "Coffee" }]);
     assert.match(html, /Matched by <b>“fern cafe”<\/b> → Coffee/);
     assert.match(html, /class="rl-row is-hit"/);
+    // November 2026: one line a rule — the words and where it files — opening to its fields; the matched one opens.
+    assert.match(html, /<details class="rl-item is-hit" data-rl-item="0" open><summary class="rl-sum"><span class="rl-sum-text"><b>fern cafe<\/b><small>→ Coffee<\/small>/);
+    assert.match(html, /<details class="rl-item" data-rl-item="1"><summary/);
+    assert.match(html, /data-rl-del="0" aria-label="Delete rule fern cafe">Delete rule</);
     assert.match(html, /3×/);
     assert.match(html, /data-rl-key="incomeTarget"/);
     assert.ok(setRuleField(0, "match", "  Fern Café North! "));

@@ -16,7 +16,7 @@ import { incomeTargets } from "../calc/received.js";
 import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { mergeTaxYearFile, matchPerson, taxYearRecord, TAX_YEAR_FILE_KIND } from "../calc/taxyear.js";
 import { downloadBackupCopy, decryptBackup, doExport, doShare, canShareFiles } from "../lib/backup.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDateTime } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { compareCopies } from "../lib/safekeeping.js";
 import { readBackup, restoreQuestion } from "../calc/restore.js";
@@ -109,7 +109,7 @@ async function applyImportedBackupJson(jsonStr){
   if(hasRealUserData()){
     // v3.71.0: say which copy is newer, so restoring on a second device can't quietly put an older copy
     // over a newer one.
-    var when = function(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso; } };
+    var when = function(iso){ try{ return fmtDateTime(iso); }catch(e){ return iso; } };
     var q = restoreQuestion(read.household, state, compareCopies(read.household.savedAt), when);
     if(!(await confirmDialog(q.message, {"title":"Restore backup","accept":q.empty ? "Replace with empty household" : "Replace household","danger":true,"details":q.details}))) return;
     // The household changed while the question was open (another tab's save adopted, say): the comparison

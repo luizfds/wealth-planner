@@ -1,5 +1,6 @@
 import { state } from "../state.js";
-import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode } from "../constants.js";
+import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONTH_NAMES, sacrificeModeToLabel, sacrificeLabelToMode, deductionName } from "../constants.js";
+import { formatMoney } from "../lib/field.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow, isActiveOn } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
 import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax } from "../calc/tax.js";
@@ -798,7 +799,8 @@ export function topUpHtml(person, r){
       fmtCurrency0.format(t.outOfPocket) + ' · <b>' + fmtCurrency0.format(t.netGain) + '</b> better off than as pay.' +
       (t.overRoom ? ' <span class="warn">' + fmtCurrency0.format(t.overRoom) + ' is over the cap and left out.</span>' : '')
     : 'No concessional cap room left this year.';
-  return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="number" min="0" step="500" class="tax-topup-amt field-control" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + (amount || "") + '" placeholder="' + Math.round(room) + '"></label>' +
+  // November 2026: a money field, as every other form has — "59,582", not "59582".
+  return '<div class="tax-topup"><label class="tax-topup-field">Top up super before 30 June <span>$</span><input type="text" inputmode="decimal" autocomplete="off" data-money class="tax-topup-amt field-control" aria-label="Personal super contribution for ' + escapeAttr(person) + '" value="' + escapeAttr(amount ? formatMoney(amount) : "") + '" placeholder="' + escapeAttr(formatMoney(Math.round(room))) + '"></label>' +
     '<p class="tax-topup-out">' + out + '</p>' +
     '<p class="tax-topup-how help">A personal contribution you claim as a deduction is taxed 15% in the fund (more under Division 293), and saves tax at your marginal rate. The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.</p></div>';
 }
@@ -809,7 +811,7 @@ var TAX_NOTE_HELP = {
   "cgt": "Recorded under 'Record a sale' on a Shares holding. Held more than 12 months, an individual's gain is halved before tax.",
   "fund": "From annual tax statements entered on Shares holdings (Investments). The income labels go into taxable income as they are; capital gains go through the capital gains figure above.",
   "div": "Taken from Shares holdings with a dividend per unit set on Investments. Australian franking credits are refundable, so a low-income holder can receive more than the company distributed.",
-  "deduct": "Taken from budget lines flagged as work-related on Money. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.",
+  "deduct": "A deduction reduces the income you're taxed on; it isn't a refund of itself. Flag a budget line as deductible under More options on Money. Taken from budget lines flagged as work-related on Money. They reduce taxable income, which also reduces the Medicare levy and can move you under a surcharge tier — but not your HELP repayment, which is worked out on gross income.",
   "mls": "Income for surcharge purposes is approximated as taxable income + your reportable super contributions, ignoring reportable fringe benefits and net investment losses — the same simplification Division 293 uses here.",
   "help": "Compulsory repayment, worked out as a flat percentage of your repayment income — which adds back salary sacrifice and any rental loss, so neither of those reduces it."
 };
@@ -866,7 +868,11 @@ function taxPersonFrontBodyHtml(person, r){
     // v3.44.0: the person's own details (date of birth, HELP, caps, carry-forward, losses, home
     // hours) moved to Accounts → People. What stays is this year's choice: how much to sacrifice.
     '<div class="tax-inputs pp-on-tax">' +
-      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="number" min="0" step="500" class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + settings.superSacrificeAnnual + '"><button type="button" class="calc-hint-link" style="margin-top:4px" data-tax-maxcap="' + pid + '" aria-describedby="tax-max-' + personIdKey(person) + '-help">Max out cap</button><p class="field-help help" data-tax-maxcap-help id="tax-max-' + personIdKey(person) + '-help">' + escapeAttr(maxCapHelpText(r)) + '</p><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Separate from the Cash / Sacrifice column on income rows — for sacrifice not tied to a specific item.</p></div>' +
+      // November 2026 (the Property, Tax and Settings review): Max out cap in view; the field it sets, rarely typed in
+      // (most sacrifice is set on the pay itself), folded — open when it holds an amount.
+      '<button type="button" class="calc-hint-link" data-tax-maxcap="' + pid + '" aria-describedby="tax-max-' + personIdKey(person) + '-help">Max out cap</button><p class="field-help help" data-tax-maxcap-help id="tax-max-' + personIdKey(person) + '-help">' + escapeAttr(maxCapHelpText(r)) + '</p>' +
+      '<details class="tax-sac-fold"' + (Number(settings.superSacrificeAnnual) > 0 ? ' open' : '') + '><summary>Manual sacrifice $/yr</summary>' +
+      '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="text" inputmode="decimal" autocomplete="off" data-money class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + escapeAttr(formatMoney(settings.superSacrificeAnnual || 0)) + '"><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Sacrifice not tied to one pay row — most is set on the pay itself, in Money → Income.</p></div></details>' +
     '</div>' +
     '<p class="ledger-note pp-link-note" style="margin:8px 0 0">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button> <span class="help">Date of birth, HELP, super caps, capital losses and home hours</span></p>';
 }
@@ -924,12 +930,12 @@ function deductionsNoteText(r){
   var labels = Object.keys(r.deductionsByLabel || {}).filter(function(k){ return r.deductionsByLabel[k] > 0; })
     .sort(function(a, b){ return Number(a.slice(1)) - Number(b.slice(1)); });
   return "Deductions: " + fmtCurrency0.format(r.deductions) + " claimed" +
-    (labels.length ? " (" + labels.map(function(k){ return k + " " + fmtCurrency0.format(r.deductionsByLabel[k]); }).join(", ") + ")" : "") +
+    (labels.length ? " (" + labels.map(function(k){ return deductionName(k) + " " + fmtCurrency0.format(r.deductionsByLabel[k]); }).join(", ") + ")" : "") +
     ", worth about " + fmtCurrency0.format(r.deductionsWorth) + " back at your " + fmtPercent1.format(r.marginalRate) +
-    " marginal rate — a deduction reduces the income you're taxed on, it isn't a refund of itself." +
+    " marginal rate." +
     (r.wfh && r.wfh.amount > 0 ? " Includes working from home: " + Math.round(r.wfh.hours).toLocaleString("en-AU") + " hours x the fixed rate = " + fmtCurrency0.format(r.wfh.amount) + (r.wfh.assumed ? " (rate not yet published for this year — last year's used)" : "") + "." : "") +
     (r.wfhOverlap && r.wfhOverlap.length ? " Check: " + r.wfhOverlap.join(", ") + (r.wfhOverlap.length === 1 ? " is" : " are") + " also flagged, but the fixed rate already covers energy, internet, phone and stationery." : "") +
-    " Flag a budget line as deductible under More options on Money.";
+    "";
 }
 // Both directions of the surcharge in one sentence — see the note's own comment for why holding
 // cover still prints a figure.

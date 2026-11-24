@@ -44,6 +44,8 @@ function goToPlace(page, extra, opts){
       var el = extra.scrollToId
         ? document.getElementById(extra.scrollToId)
         : document.querySelector('#sharedGroups [data-line-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(extra.lineId) : extra.lineId) + '"]');
+      // November 2026: Preferences' parts start folded — a setting found by search opens the fold it's in.
+      for(var d = el && el.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
       if(el) el.scrollIntoView({ block: "center", behavior: "smooth" });
     }, 200);
   }

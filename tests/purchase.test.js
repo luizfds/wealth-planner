@@ -106,6 +106,11 @@ test("a loan cost added to the loan is borrowed, not cash at settlement; at sett
   assert.equal(prop.loans[0].borrowingCosts, 9400);
   assert.deepEqual(prop.acquisitionCosts.map(c => c.what), ["Conveyancer"], "the loan's costs aren't acquisition costs");
   assert.deepEqual(commonCostsToAdd(p).map(c => c.what).slice(0, 2), ["Stamp duty", "Building & pest inspection"]);
+  // November 2026: a suggestion isn't offered beside the same cost under another name.
+  const named = { costs: [{ what: "Conveyancing / Legal Fees" }, { what: "Mortgage, transfer and discharge registration" }, { what: "Low Deposit Fee (LDF or LMI)" }] };
+  const offered = commonCostsToAdd(named).map(c => c.what);
+  ["Conveyancer", "Transfer registration", "Mortgage registration", "Low deposit fee / LMI"].forEach(w => assert.ok(!offered.includes(w), w + " offered beside its other name"));
+  assert.ok(offered.includes("Stamp duty") && offered.includes("Loan documentation fee"));
   assert.equal(costKind({ what: "Mortgage registration" }), "loan");
   assert.equal(costKind({ what: "Building & pest inspection" }), "purchase");
 });

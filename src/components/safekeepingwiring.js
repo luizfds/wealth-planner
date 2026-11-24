@@ -11,7 +11,7 @@ import { takeReceiptFiles } from "../calc/receipts.js";
 import { mergeStates } from "../calc/syncmerge.js";
 import { setAppKey, connectDropbox, finishDropboxRedirect, disconnectDropbox } from "../lib/dropbox.js";
 import { syncOn, inspectSyncCopy, unlockSync, syncNow, pulled, merged as syncMerged, markChanged, stopSync } from "../lib/foldersync.js";
-import { localDateStr } from "../lib/format.js";
+import { localDateStr, fmtDateTime } from "../lib/format.js";
 import { unpackReceipts } from "../lib/receipts.js";
 import { chooseFolder, backupToFolder, forgetFolder, maybeAutoBackup, setPasscode, clearPasscode, checkPasscode, newestFolderBackup, savedFolder } from "../lib/safekeeping.js";
 import { showToast, showPersistentToast } from "../lib/toast.js";
@@ -72,7 +72,7 @@ async function dropboxPassphrase(){
     return runSync({ interactive: true });
   }).catch(function(){ showToast("Couldn't reach Dropbox"); });
 }
-function whenText(iso){ try{ return new Date(iso).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }catch(e){ return iso || ""; } }
+function whenText(iso){ try{ return fmtDateTime(iso); }catch(e){ return iso || ""; } }
 function runSync(opts){
   opts = opts || {};
   // Network work (especially a hidden-tab push) starts immediately with the original options.
@@ -264,7 +264,7 @@ export function wireSafekeeping(){
   initialSync.then(function(){ return checkInbox(true); });
   if(!syncOn()) newestFolderBackup(false).then(function(r){
     if(r && r.newerThanHere && !r.fromThisDevice && !r.none && r.permission !== false){
-      var when = new Date(r.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      var when = fmtDateTime(r.savedAt);
       showPersistentToast("A newer copy from another device (" + when + ") is in " + r.folder + ".", "Open it", function(){ importBackupText(r.text); });
       return;
     }

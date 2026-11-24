@@ -246,7 +246,9 @@ export function wireScenarioEditor(){
     var path = e.target.getAttribute && e.target.getAttribute("data-cq");
     if(!path) return;
     var parts = path.split("."), v = e.target.value;
-    calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" ? v : (v === "" ? 0 : Number(v));
+    // A switch says yes or no; a money field may hold "750,000" or "$750,000".
+    if(e.target.hasAttribute("data-cq-switch")) v = e.target.checked ? "yes" : "no";
+    calcQ[parts[0]][parts[1]] = e.target.tagName === "SELECT" || e.target.hasAttribute("data-cq-switch") ? v : (v === "" ? 0 : Number(String(v).replace(/[$,\s]/g, "")) || 0);
     // v3.198.0: the household's dependants are kept — the lender check in Side by side counts them too.
     if(path === "bp.dependants"){ state.dependants = Math.max(0, Math.floor(Number(v) || 0)); commit(["dependants"]); }
     var out = document.querySelector('[data-cq-out="' + parts[0] + '"]');

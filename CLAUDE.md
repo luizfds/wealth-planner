@@ -33,6 +33,10 @@ until then. A new or changed inline `<script>` runs `npm run stamp -- --hashes` 
 
 **Always open a pull request for finished work**, without being asked: one PR per coherent piece of work.
 
+**Never remove a feature without the owner agreeing first.** Making a page easier to use is welcome — fold it, move it,
+reword it, restyle it — but every control, field and action it had stays reachable. A mock-up shows them all, and a
+proposal that drops one says so and asks.
+
 **Never commit real personal data — this repo and its history are public** ([0004](docs/decisions/0004-no-real-personal-data.md)).
 No real names, places, employers, banks, merchants, account numbers, amounts, dates or ages anywhere — code, tests,
 fixtures, comments, docs, commits, PRs — including the owner's own. Fixtures are invented from scratch (Alex, Sam,

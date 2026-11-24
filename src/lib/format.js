@@ -69,6 +69,15 @@ export function localDateStr(d){
 // One way to show a date (v3.105.0): "26 Oct", with the year when it isn't this one ("26 Oct 2025"),
 // or always with opts.year. Anything that isn't a YYYY-MM-DD date comes back as it was.
 var SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// A moment as the app says it everywhere: "23 Nov, 9:00 pm" — November 2026: each place asked the browser's locale,
+// so a US browser read "Nov 23, 09:00 PM" beside the app's "24 Nov".
+export function fmtDateTime(iso){
+  try {
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return String(iso || "");
+    return d.toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).replace(/\s?([ap])\.?m\.?$/i, " $1m").toLowerCase().replace(/^(\d+ )(\w)/, function(m, a, b){ return a + b.toUpperCase(); });
+  } catch(e){ return String(iso || ""); }
+}
 export function fmtDate(iso, opts){
   if(typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso == null ? "" : String(iso);
   var y = iso.slice(0, 4);

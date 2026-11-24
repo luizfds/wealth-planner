@@ -4,7 +4,7 @@ import { folderBackupSupported, savedFolder, passcodeSet } from "../lib/safekeep
 import { syncLocal, syncVia } from "../lib/foldersync.js";
 import { appKey, dropboxConnected, keyIsBuiltIn, redirectUri } from "../lib/dropbox.js";
 import { escapeAttr } from "../lib/html.js";
-import { localDateStr, fmtDate } from "../lib/format.js";
+import { localDateStr, fmtDate, fmtDateTime } from "../lib/format.js";
 import { storageUsedChars, storageLineText, receiptsLineText } from "../lib/storageuse.js";
 import { receiptsStorageUse } from "../lib/receipts.js";
 import { errorLog, errorLogHtml } from "../lib/errorlog.js";
@@ -36,12 +36,12 @@ export function safekeepingHtml(folderName, today){
   // synced Dropbox/OneDrive/iCloud folder shows up. Either way the newer copy is named before
   // anything is replaced.
   var twoDevices = '<div class="sk-block"><b>Using it on another device</b><p class="ledger-note" style="margin:2px 0 8px">Back up here, then open that backup on the other device — on a phone, from the Files app, where a synced folder shows up. ' +
-    'Before replacing anything the app says which copy changed last' + (state.savedAt ? ' (this one: ' + escapeAttr(new Date(state.savedAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + ')' : '') + '.</p>' +
+    'Before replacing anything the app says which copy changed last' + (state.savedAt ? ' (this one: ' + escapeAttr(fmtDateTime(state.savedAt)) + ')' : '') + '.</p>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-sk="file-open">Open a backup file</button></div>';
   // v3.134.0: keeping devices in step through the same folder (item 163, the first way).
   // v3.136.0: or through Dropbox (the second way), which works on a phone too.
   var sl = syncLocal(), via = syncVia();
-  var when = sl.lastAt ? ' Last synced ' + escapeAttr(new Date(sl.lastAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })) + '.' : '';
+  var when = sl.lastAt ? ' Last synced ' + escapeAttr(fmtDateTime(sl.lastAt)) + '.' : '';
   var sync;
   if(sl.on){
     sync = '<div class="sk-block"><b>Keep your devices in sync</b><p class="ledger-note" style="margin:2px 0 8px">On — through <b>' + (via === "dropbox" ? "Dropbox" : escapeAttr(folderName || "the folder")) + '</b>. ' +

@@ -14,7 +14,8 @@ export var ruleTest = { text: "" };
 // v3.109.0: a year of imports learns a hundred-odd rules, and every row carries a select of every
 // budget line — one unsearchable list tens of thousands of pixels tall on a phone. Find, sort and
 // page it. Session-only, like the test box.
-export var ruleView = { q: "", sort: "used", shown: 25 };
+// open: which rules are opened out, by index (November 2026 — each rule is one line until it's opened).
+export var ruleView = { q: "", sort: "used", shown: 25, open: {} };
 export var RULES_PAGE = 25;
 
 // Which rules to list, in what order: [{ r, i }] with i the rule's index in state.importRules (what
@@ -77,7 +78,17 @@ export function rulesPageHtml(lines){
     var r = x.r, i = x.i;
     var income = !!r.incomeTarget;
     var transfer = !!r.transferAccount;
-    return '<div class="rl-row' + (hit === r ? " is-hit" : "") + '">' +
+    // November 2026 (the Property, Tax and Settings review): one line a rule — the words, where it files, how often —
+    // opening in place to every field it had, and its delete. 117 rules as forms were 17,000px on a phone.
+    var to = transfer ? "transfer " + ((r.transferDirection || "debit") === "credit" ? "from " : "to ") + r.transferAccount
+      : income ? (incomeOpts.find(function(o){ return o.value === r.incomeTarget; }) || { label: r.incomeTarget }).label
+      : r.linkedExpenseId ? (lineOpts.find(function(o){ return o.value === r.linkedExpenseId; }) || { label: "a deleted line" }).label
+      : (r.category || "nothing yet");
+    var open = !!(ruleView.open && ruleView.open[i]) || hit === r;
+    return '<details class="rl-item' + (hit === r ? " is-hit" : "") + '" data-rl-item="' + i + '"' + (open ? " open" : "") + '>' +
+      '<summary class="rl-sum"><span class="rl-sum-text"><b>' + escapeAttr(r.match) + '</b><small>→ ' + escapeAttr(to) + (r.account ? ' · ' + escapeAttr(r.account) : '') + '</small></span>' +
+        '<span class="rl-hits" title="Times this rule has been confirmed">' + (r.hits || 0) + '×</span></summary>' +
+      '<div class="rl-row' + (hit === r ? " is-hit" : "") + '">' +
       '<label class="cf-filter rl-match"><span>When the description has</span><input class="field-control" type="text" data-rl-index="' + i + '" data-rl-key="match" value="' + escapeAttr(r.match) + '" aria-label="Words to match"></label>' +
       (transfer
         ? '<label class="cf-filter"><span>Transfer ' + ((r.transferDirection || "debit") === "credit" ? "from" : "to") + '</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="transferAccount">' + optionList(acctOpts, r.transferAccount, "—") + '</select></label><span></span>'
@@ -86,8 +97,7 @@ export function rulesPageHtml(lines){
         : '<label class="cf-filter"><span>File under line</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="linkedExpenseId">' + optionList(lineOpts, r.linkedExpenseId || "", "— no line —") + '</select></label>' +
           '<label class="cf-filter"><span>or category</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="category"' + (r.linkedExpenseId ? " disabled" : "") + '>' + optionList(catOpts, r.category || "", "—") + '</select></label>') +
       '<label class="cf-filter"><span>Account</span><select class="field-control" data-rl-index="' + i + '" data-rl-key="account">' + optionList(acctOpts, r.account || "", "— any —") + '</select></label>' +
-      '<span class="rl-hits" title="Times this rule has been confirmed">' + (r.hits || 0) + '×</span>' +
-      '<button type="button" class="btn btn-danger btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">✕</button></div>';
+      '<button type="button" class="btn btn-danger btn-sm" data-rl-del="' + i + '" aria-label="Delete rule ' + escapeAttr(r.match) + '">Delete rule</button></div></details>';
   }).join("");
   // v3.110.0: rules learnt before they generalised — one per branch — offered as one per merchant.
   var merge = mergeSimilarRules(rules);

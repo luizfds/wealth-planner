@@ -277,6 +277,12 @@ export var DEDUCTION_LABELS = [
   { code: "D10", label: "D10 Cost of managing tax affairs" },
   { code: "D15", label: "D15 Other deductions (e.g. income protection)" }
 ];
+// A return label by what it is, its code after it: "Other work-related (D5)" — November 2026: a bare "D5" meant nothing
+// to anyone without the form beside them.
+export function deductionName(code){
+  var d = DEDUCTION_LABELS.find(function(x){ return x.code === code; });
+  return d ? d.label.slice(d.code.length + 1) + " (" + d.code + ")" : String(code || "");
+}
 // The ATO working-from-home fixed rate, per hour, by the year the financial year starts in. It
 // covers energy, internet, phone and stationery — those can't also be claimed separately. 67c for
 // FY22/23-FY23/24, 70c from FY24/25 (confirmed for FY25/26 on ato.gov.au). A year past the table

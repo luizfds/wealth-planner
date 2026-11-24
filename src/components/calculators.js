@@ -16,6 +16,7 @@ import { sumField } from "../calc/ledger.js";
 import { PURCHASE_STATE_CODES } from "../constants.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent1 } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
+import { formatMoney, switchHtml } from "../lib/field.js";
 
 function money(n){ return n == null ? "—" : (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(Number(n) || 0)); }
 
@@ -36,6 +37,10 @@ function householdDefaults(){
 function field(path, label, type, opts){
   opts = opts || {};
   var parts = path.split("."), v = calcQ[parts[0]][parts[1]];
+  // November 2026 (the Property, Tax and Settings review): amounts in the app's money field ("750,000"), a yes/no as
+  // its switch — they were bare number boxes and a No/Yes select.
+  if(type === "switch") return '<div class="cq-field cq-field-wide">' + switchHtml({ id: "cq-" + path.replace(".", "-"), label: label, checked: v === "yes", attrs: { "data-cq": path, "data-cq-switch": "" } }) + '</div>';
+  if(type === "money") return '<label class="cq-field' + (opts.wide ? ' cq-field-wide' : '') + '"><span>' + label + '</span><span class="cq-money"><span aria-hidden="true">$</span><input class="field-control" type="text" inputmode="decimal" autocomplete="off" data-money data-cq="' + path + '" value="' + escapeAttr(v == null ? "" : formatMoney(v)) + '"></span></label>';
   var input = type === "select"
     ? '<select class="field-control" data-cq="' + path + '">' + opts.options.map(function(o){ var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + escapeAttr(val) + '"' + (String(val) === String(v) ? " selected" : "") + '>' + escapeAttr(lab) + '</option>'; }).join("") + '</select>'
     : '<input class="field-control" type="number" inputmode="decimal" step="' + (opts.step || "any") + '" data-cq="' + path + '" value="' + escapeAttr(v == null ? "" : v) + '">';
@@ -74,14 +79,14 @@ function card(tool, title, fields, help){
 export function calcToolsHtml(){
   householdDefaults();
   return '<div class="cq-grid">' +
-    card("sd", "Stamp duty", [field("sd.state", "State", "select", { options: PURCHASE_STATE_CODES }), field("sd.price", "Price", "number", { step: 1000 }), field("sd.fhb", "First home buyer", "select", { options: [["no", "No"], ["yes", "Yes"]] })],
+    card("sd", "Stamp duty", [field("sd.state", "State", "select", { options: PURCHASE_STATE_CODES }), field("sd.price", "Price", "money"), field("sd.fhb", "First home buyer", "switch")],
       "The same figures a purchase in a scenario uses. Concessions have conditions — check your state's revenue office.") +
-    card("lmi", "Lenders mortgage insurance", [field("lmi.price", "Price", "number", { step: 1000 }), field("lmi.deposit", "Deposit %", "number", { step: 1 })],
+    card("lmi", "Lenders mortgage insurance", [field("lmi.price", "Price", "money"), field("lmi.deposit", "Deposit %", "number", { step: 1 })],
       "Typical premiums by how much of the price is borrowed; lenders and insurers differ.") +
-    card("rep", "Loan repayments", [field("rep.loan", "Loan", "number", { step: 1000 }), field("rep.rate", "Interest %", "number", { step: 0.05 }), field("rep.term", "Years", "number", { step: 1 }),
+    card("rep", "Loan repayments", [field("rep.loan", "Loan", "money"), field("rep.rate", "Interest %", "number", { step: 0.05 }), field("rep.term", "Years", "number", { step: 1 }),
       field("rep.type", "Type", "select", { wide: true, options: [["PI", "Principal & interest"], ["IO", "Interest only"]] })]) +
-    card("bp", "What a lender might lend", [field("bp.income", "Take-home a month", "number", { step: 100 }), field("bp.living", "Living costs a month", "number", { step: 100 }),
-      field("bp.other", "Other repayments a month", "number", { step: 50 }), field("bp.adults", "Adults", "select", { options: [["1", "One"], ["2", "Two"]] }), field("bp.dependants", "Dependants", "number", { step: 1 }), field("bp.rate", "Interest %", "number", { step: 0.05 }), field("bp.term", "Years", "number", { step: 1 })],
+    card("bp", "What a lender might lend", [field("bp.income", "Take-home a month", "money"), field("bp.living", "Living costs a month", "money"),
+      field("bp.other", "Other repayments a month", "money"), field("bp.adults", "Adults", "select", { options: [["1", "One"], ["2", "Two"]] }), field("bp.dependants", "Dependants", "number", { step: 1 }), field("bp.rate", "Interest %", "number", { step: 0.05 }), field("bp.term", "Years", "number", { step: 1 })],
       "Starts from your household's take-home and budget (loan lines left out). Assessed at the rate plus 3 points, and at the higher of your living costs and a benchmark like lenders' for the household (an estimate, not their tables); take rent out of living costs if buying would end it.") +
     '</div>';
 }

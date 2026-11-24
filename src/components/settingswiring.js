@@ -90,8 +90,14 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
       if(again){ again.focus(); try{ again.setSelectionRange(pos, pos); }catch(err){} }
     }, 180);
   });
+  // Which rules are opened out survives a redraw (an edit redraws the list); toggle doesn't bubble, so it's caught.
+  rulesBody.addEventListener("toggle", function(e){
+    var item = e.target && e.target.matches && e.target.matches("[data-rl-item]") ? e.target : null;
+    if(item) ruleView.open[item.getAttribute("data-rl-item")] = item.open;
+  }, true);
   rulesBody.addEventListener("click", function(e){
     if(e.target.closest("[data-rl-merge]")){
+      ruleView.open = {}; // rules are renumbered
       var before = state.importRules.slice().map(function(r){ return Object.assign({}, r); });
       var res = mergeSimilarRules(state.importRules);
       state.importRules = res.rules;
@@ -103,6 +109,7 @@ export function wireSettings(){  rulesBody = document.getElementById("rulesBody"
     var del = e.target.closest("[data-rl-del]");
     if(del){
       var i = Number(del.getAttribute("data-rl-del"));
+      ruleView.open = {}; // rules after it are renumbered
       var gone = state.importRules.splice(i, 1)[0];
       persist(); renderRules();
       if(gone) showUndoToast("Rule deleted", function(){ state.importRules.splice(i, 0, gone); persist(); renderRules(); });

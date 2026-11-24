@@ -7,6 +7,7 @@ import { personReferences, ageOn } from "../calc/people.js";
 import { localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { emptyStateHtml } from "../lib/empty.js";
+import { formatMoney } from "../lib/field.js";
 
 // ---------------- Accounts → People (v3.44.0) ----------------
 //
@@ -28,9 +29,10 @@ function field(id, label, person, control, help, pre){
     control.replace('<input ', '<input data-error-key="' + draftFieldKey(personTaxSettings(person), id.replace(/^pp-\d+-/, "")) + '" ') + '</div>' +
     (help ? '<p class="field-help" id="' + id + '-help">' + escapeAttr(help) + '</p>' : '') + '</div>';
 }
-function numInput(cls, person, value, id, described, step){
-  return '<input type="number" min="0" step="' + (step || 500) + '" class="pp-in ' + cls + ' field-control" data-pp-person="' + escapeAttr(person) + '" id="' + id + '"' +
-    (described ? ' aria-describedby="' + id + '-help"' : '') + ' value="' + (Number(value) || 0) + '">';
+// November 2026: a money field, as every other form has — "30,000", not "30000" (lib/moneyfield.js keeps the commas).
+function numInput(cls, person, value, id, described){
+  return '<input type="text" inputmode="decimal" autocomplete="off" data-money class="pp-in ' + cls + ' field-control" data-pp-person="' + escapeAttr(person) + '" id="' + id + '"' +
+    (described ? ' aria-describedby="' + id + '-help"' : '') + ' value="' + escapeAttr(formatMoney(Number(value) || 0)) + '">';
 }
 
 function usesText(ref){
@@ -61,7 +63,8 @@ export function personCardHtml(person, index, today){
     '<div class="pp-head"><span class="m-avatar series-color-' + (index % 8) + '" aria-hidden="true">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' +
       '<input type="text" class="pp-name inline-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
       (age != null ? '<span class="pp-age">' + age + '</span>' : '') +
-      '<button type="button" class="icon-btn btn-danger" data-pp-remove="' + pid + '" aria-label="Remove ' + pid + ' from tax" title="Remove from tax — their income rows go back to Net">✕</button></div>' +
+      // November 2026: said in words — a lone ✕ beside the age read as part of it.
+      '<button type="button" class="btn btn-sm btn-danger pp-remove" data-pp-remove="' + pid + '">Remove from tax<span class="visually-hidden">: ' + pid + '</span></button></div>' +
     // #261: what renaming does was a title tooltip on the name; it's said here, with what names them, and describes it.
     '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +
@@ -72,7 +75,7 @@ export function personCardHtml(person, index, today){
       field(ppid + "cap", "Concessional cap a year", person, numInput("pp-cap", person, st.concessionalCap, ppid + "cap", false), "", "$") +
       field(ppid + "carry", "Carry-forward available", person, numInput("pp-carry", person, st.carryForward, ppid + "carry", true),
         "Unused cap from the last five years, available while the total super balance was under $500,000 on 30 June last year — myGov shows it.", "$") +
-      field(ppid + "losses", "Capital losses brought forward", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true, 100),
+      field(ppid + "losses", "Capital losses brought forward", person, numInput("pp-losses", person, st.capitalLossCarriedForward, ppid + "losses", true),
         "Net capital losses brought forward from earlier years, as on the last notice of assessment.", "$") +
       field(ppid + "week", "Hours worked a week", person, '<input type="number" min="0" max="168" step="0.5" class="pp-in pp-week field-control" data-pp-person="' + pid + '" id="' + ppid + 'week" aria-describedby="' + ppid + 'week-help" value="' + (st.hoursPerWeek != null && st.hoursPerWeek !== "" ? st.hoursPerWeek : "") + '" placeholder="38">',
         "What Money → Budget → Money in divides by when it's shown per hour. Empty counts as 38.") +

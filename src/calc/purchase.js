@@ -40,19 +40,23 @@ export function defaultPurchaseCosts(genId){
 
 // One tap to add the usual ones (the owner: a loan offer lists its fees — make them quick to enter), each knowing
 // what it's for. Only those not already in the list are offered.
+// `like`: the other names the same cost goes by — November 2026: "+ Conveyancer" was offered beside a household's own
+// "Conveyancing / Legal Fees", and "+ Transfer registration" beside "Mortgage, transfer and discharge registration".
 export var COMMON_PURCHASE_COSTS = [
-  { what: "Stamp duty", kind: "purchase", auto: true },
-  { what: "Conveyancer", kind: "purchase" },
-  { what: "Building & pest inspection", kind: "purchase" },
-  { what: "Transfer registration", kind: "purchase" },
-  { what: "Loan documentation fee", kind: "loan" },
-  { what: "Low deposit fee / LMI", kind: "loan" },
-  { what: "Mortgage registration", kind: "loan" },
-  { what: "Settlement fee", kind: "loan", tbc: true }
+  { what: "Stamp duty", kind: "purchase", auto: true, like: /stamp|duty/i },
+  { what: "Conveyancer", kind: "purchase", like: /convey|solicitor|legal/i },
+  { what: "Building & pest inspection", kind: "purchase", like: /building|pest|inspection/i },
+  { what: "Transfer registration", kind: "purchase", like: /transfer/i },
+  { what: "Loan documentation fee", kind: "loan", like: /documentation|\bdoc(s)? fee/i },
+  { what: "Low deposit fee / LMI", kind: "loan", like: /\blmi\b|\bldf\b|low deposit|mortgage insurance/i },
+  { what: "Mortgage registration", kind: "loan", like: /mortgage[^,]*regist|mortgage,|regist[^,]*mortgage/i },
+  { what: "Settlement fee", kind: "loan", tbc: true, like: /settlement fee/i }
 ];
 export function commonCostsToAdd(p){
-  var have = (p.costs || []).map(function(c){ return String(c.what || "").trim().toLowerCase(); });
-  return COMMON_PURCHASE_COSTS.filter(function(c){ return have.indexOf(c.what.toLowerCase()) === -1; });
+  var have = (p.costs || []).map(function(c){ return String(c.what || "").trim(); });
+  return COMMON_PURCHASE_COSTS.filter(function(c){
+    return !have.some(function(w){ return w.toLowerCase() === c.what.toLowerCase() || c.like.test(w); });
+  });
 }
 // What a cost is for, when it doesn't say: words a lender's fee goes by mean the loan.
 var LOAN_WORDS = /loan|lender|lmi|mortgage insurance|low deposit|mortgage reg|valuation|discharge|establishment|settlement fee/i;

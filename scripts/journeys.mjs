@@ -348,6 +348,10 @@ async function openBillsToConfirm(page){
   await page.locator('#notifPanel [data-notif-action="catchup"]').first().click();
   await page.locator('#expenseReviewRoot .review-panel').waitFor();
 }
+// Settings → Preferences' parts start folded (November 2026); a journey that uses a setting opens them all first.
+async function openPrefs(page){
+  await page.evaluate(() => document.querySelectorAll('#accountsSub-preferences details.ledger').forEach(d => { d.open = true; }));
+}
 async function go(page, pageId, subAttr, sub){
   if(pageId === 'reports' && subAttr === 'data-report'){
     await go(page, 'reports');
@@ -683,7 +687,7 @@ const JOURNEYS = {
     check(!(await reviewSteps()).some(l => /plan on track/.test(l)), 'the review has a plan step with the check-in off');
     check(await planNotes() === 0, 'the bell has a plan item with the check-in off');
     // On, in Preferences.
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     const box = page.locator('#planCheckInPref [data-plan-checkin]');
     check(!await box.isChecked(), 'the setting shows on before it was turned on');
     await box.check();
@@ -717,7 +721,7 @@ const JOURNEYS = {
     }
     await page.setViewportSize({ width: 390, height: 844 }); await page.evaluate(() => delete document.documentElement.dataset.theme);
     // Off again: gone from both.
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     await page.locator('#planCheckInPref [data-plan-checkin]').uncheck();
     check(!(await reviewSteps()).some(l => /plan on track/.test(l)), 'the plan step stayed after turning it off');
     check(await planNotes() === 0, 'the bell kept its plan item after turning it off');
@@ -755,7 +759,7 @@ const JOURNEYS = {
     await again.fill('0'); await again.dispatchEvent('change');
     await waited(page, () => document.querySelector('.needs-target [data-needs-target]')?.getAttribute('aria-invalid') === 'true', 'the out-of-range message');
     check(/from 1 to 100/.test(await page.locator('.needs-target .field-error').innerText()) && await stored(page, 'state.needsTarget') === 60, 'an out-of-range target was saved or not explained');
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     const pref = page.locator('#needsTargetPref [data-needs-target]');
     await pref.waitFor();
     check(await pref.inputValue() === '60', 'Preferences does not show the saved target');
@@ -2007,7 +2011,7 @@ const JOURNEYS = {
   },
   async importrestorefocus(page){
     await quiet(page);
-    await go(page,'settings','data-accounts-sub','preferences');
+    await go(page,'settings','data-accounts-sub','preferences'); await openPrefs(page);
     const before=await stored(page,'JSON.stringify(state)');
     for(const width of [320,390,768,1280]) for(const theme of ['light','dark']){
       await page.setViewportSize({width,height:844});
@@ -2694,7 +2698,7 @@ const JOURNEYS = {
   async sidebarfooter(page){
     await quiet(page);
     const before = await stored(page, 'JSON.stringify({assets:state.assets,lastBackupDate:state.lastBackupDate})');
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     check(await page.locator('.app-version-num').count() === 1, 'release version marker is missing or duplicated');
     check(await page.locator('#accountsSub-preferences .app-version-num').textContent() === await page.locator('#avatarVersion').textContent(), 'avatar and Preferences versions disagree');
     const privacy = await page.locator('#dataPrivacyNote').textContent();
@@ -3407,7 +3411,7 @@ const JOURNEYS = {
     // From /dashboard itself: this test server can't reload a nested address (production's 404 bounce can).
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview'); await page.reload(); await quiet(page);
     check(await mode() === 'simple', 'Simple was not remembered');
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     await page.locator('#modeAdvancedToggle').check();
     check(await mode() === 'advanced', 'Advanced was not switched back on');
     await go(page, 'dashboard', 'data-dashboard-sub', 'overview');
@@ -3532,7 +3536,7 @@ const JOURNEYS = {
     check(use.views && use.views['expenses/spending'] >= 1 && use.views['tax/returns'] >= 1, 'screens opened were not counted: ' + JSON.stringify(use));
     check(!(await stored(page, 'JSON.stringify(state)')).includes('pageUse'), 'the count of screens opened is in the household');
     await page.evaluate(() => { const v = { 'expenses/spending': 40, 'dashboard/insights': 20 }; localStorage.setItem('wealthPlanner.pageUse', JSON.stringify({ since: '2026-01-01', views: v })); });
-    await go(page, 'settings', 'data-accounts-sub', 'preferences');
+    await go(page, 'settings', 'data-accounts-sub', 'preferences'); await openPrefs(page);
     const fold = page.locator('#pageUseBody').locator('xpath=ancestor::details[1]');
     await fold.evaluate(d => { d.open = true; });
     const listed = await page.locator('#pageUseBody li').allInnerTexts();
@@ -3993,6 +3997,7 @@ const JOURNEYS = {
     check(await stored(page, "state.tax.sgRate") === sg, "clearing the SG rate saved " + await stored(page, "state.tax.sgRate"));
     check(await marked("#taxSgRate"), "a cleared SG rate isn't marked with a message");
     const sac = '#taxSuperBody [data-tax-person="' + person + '"] .tax-sacrifice';
+    await page.locator('#taxSuperBody [data-tax-person="' + person + '"] .tax-sac-fold').evaluate(d => { d.open = true; }); // folded since November 2026
     const sacWas = await setting("superSacrificeAnnual");
     await page.fill(sac, "-500");
     check(await setting("superSacrificeAnnual") === sacWas, "a negative sacrifice saved " + await setting("superSacrificeAnnual"));
@@ -5027,6 +5032,7 @@ const JOURNEYS = {
         check(!exposed, 'opening help revealed an inapplicable tax note');
         // Off screen before the tap (Playwright scrolled it in beside the sticky headers): the page moved between the
         // touch and its click, as in incomehelp, and the field never got the click.
+        if(!(await panel.locator('.tax-sacrifice').isVisible())) await panel.locator('.tax-sac-fold > summary').tap(); // folded since November 2026
         await steadyTap(page, panel.locator('.tax-sacrifice'));
         check(await panel.locator('.tax-sacrifice').evaluate(e => e === document.activeElement), 'sacrifice field is unreachable with help open');
         await help.tap();
@@ -5097,6 +5103,7 @@ const JOURNEYS = {
     const family = await page.locator('#taxFamilyThresholds').isChecked();
     await page.locator('#taxFamilyThresholds').setChecked(!family);
     check(await stored(page,'state.tax.familyThresholds') === !family, 'family threshold toggle did not save');
+    await panel.locator('.tax-sac-fold').evaluate(d => { d.open = true; }); // folded since November 2026
     for(const [cls,key,value] of [['tax-sacrifice','superSacrificeAnnual','2000'],['tax-topup-amt','topUpAmount','1000']]){
       const input = panel.locator('.' + cls);
       await fill(input,value);
@@ -6551,7 +6558,7 @@ const JOURNEYS = {
     await page.keyboard.press('Enter');await page.locator('.app-dialog').waitFor({state:'detached'});
     check(await st(page,'state.scenarios.includes("Example plan")'),'text dialog did not create the scenario');
     // Secret fields are masked, confirmation validates in place, and Cancel does not set a passcode.
-    await go(page,'settings','data-accounts-sub','preferences');
+    await go(page,'settings','data-accounts-sub','preferences'); await openPrefs(page);
     await page.locator('[data-sk="pass-set"]').click();
     const d=page.locator('.app-dialog'), first=d.locator('#appDialogInput'), repeat=d.locator('#appDialogRepeat');
     check(await first.getAttribute('type')==='password','secret was not masked');
@@ -7377,7 +7384,8 @@ const JOURNEYS = {
     await gross.fill('489000'); await gross.press('Tab');
     check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
     check(/= Cash you bring\s*\$60,000/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'settlement line by line does not end on the cash to bring');
-    check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
+    // November 2026: paid counts the deposit, as the bar and the tiles do — $60,000 and the $1,500 cost ticked paid.
+    check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$61,500 paid'), 'a cost ticked paid is not counted as paid: ' + await page.locator(cardSel + ' .buy-sub').innerText());
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });

@@ -817,7 +817,7 @@ test("super top-up: the room as a placeholder, and the sums", async function(){
   try {
     state.tax = Object.assign({}, keep || {}, { settings: { Sam: { topUpAmount: 0 } } });
     const html = topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 18000, taxable: 150000, div293Income: 168000, fy: 2026 });
-    assert.match(html, /placeholder="12000"/);
+    assert.match(html, /data-money class="tax-topup-amt[^>]*placeholder="12,000"/, "a money field, with thousands separators");
     assert.match(html, /back at tax time · \$10,200 into super · costs you/, "12,000 less 15% contributions tax");
     assert.match(html, /class="tax-topup-how help"/, "how it works sits behind the ⓘ");
     assert.match(topUpHtml("Sam", { capAvailable: 30000, totalConcessional: 30000, taxable: 1, fy: 2026 }), /class="tax-topup" hidden/);
@@ -835,7 +835,9 @@ test("People tab: a card per person with their details and where they're used", 
     assert.match(html, /data-pp-card="Sam"/);
     assert.match(html, /class="pp-age">36</);
     assert.match(html, /1 income row · 100% of 2 Sample Rd/);
-    assert.match(html, /class="[^"]*\bpp-help\b[^"]*"[^>]*value="1200"/);
+    assert.match(html, /class="[^"]*\bpp-help\b[^"]*"[^>]*value="1,200"/);
+    assert.match(html, /data-money class="pp-in [^"]*pp-cap[^>]*value="30,000"/, "a money field");
+    assert.match(html, /class="btn btn-sm btn-danger pp-remove" data-pp-remove="Sam">Remove from tax<span class="visually-hidden">: Sam<\/span><\/button>/, "said in words, not a lone ✕ — its name starts with what it shows");
     assert.match(html, /data-fy="2025"[^>]*value="410"/);
     assert.match(html, /data-pp-remove="Sam"/);
     state.income = [];
@@ -1569,6 +1571,9 @@ test("a home being bought: its card says the price, the settlement, what's paid 
   assert.match(html, /Cash at settlement<\/span><b>\$60,600<\/b>/);
   assert.match(html, /\$10,600 more than the \$50,000 in cash and offsets/);
   assert.match(html, /class="buy-tile is-short"/);
+  // November 2026: the costs' line says paid and still to pay as the bar and the tiles do — the deposit is paid, still
+  // to pay is the cash at settlement ($60,000 of the price, $600 of costs).
+  assert.match(html, /Deposit and costs <small>\$61,500 paid · \$60,600 still to pay \(\$600 of it costs\)<\/small>/);
   // Each cost is a line that opens to edit it: Paid a switch, what it's for as pills (November 2026).
   assert.match(html, /<details class="buy-cost is-paid" data-buy-cost="c1">/);
   assert.match(html, /id="buy-b1-c1-paid" checked data-cost-field="paid">/);
@@ -3193,4 +3198,15 @@ test("a budget line's editor asks Is it essential? and When does it get spent? a
   assert.match(html, /class="pill-input f-irregular"[^>]*value="setaside" checked><span><b>Set aside<\/b><small>Lumpy — \$1,700 a month goes into a pot/);
   assert.match(html, /Where it shows:<\/b> Set aside · Lifestyle — in its own pot/);
   assert.doesNotMatch(html, /<select[^>]*f-class|<select[^>]*f-irregular|undefined|NaN/);
+});
+
+// The Property, Tax and Settings review (November 2026).
+test("a return's labels by name, its year-on-year in plain ink, a moment in the app's style", async function(){
+  const { deductionName } = await import("../src/constants.js");
+  const { fmtDateTime } = await import("../src/lib/format.js");
+  assert.equal(deductionName("D5"), "Other work-related (D5)");
+  assert.equal(deductionName("D15"), "Other deductions (e.g. income protection) (D15)");
+  assert.equal(deductionName("X9"), "X9");
+  assert.equal(fmtDateTime("2026-11-23T21:00:00"), "23 Nov, 9:00 pm");
+  assert.equal(fmtDateTime("not a date"), "not a date");
 });

@@ -49,6 +49,11 @@
   .tax-package-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .tax-cap-note.warn{ color: var(--bad-ink); font-weight:600; }
   .tax-mls-note.warn{ color: var(--warn-ink); font-weight:400; }
+  /* November 2026 (the Property, Tax and Settings review): each note a short line of its own, ruled off — they ran
+     together as one paragraph. */
+  .tax-cap-note:not(.tax-cap-main){ font-size:var(--fs-sm); line-height:1.5; padding-top:8px; margin-top:8px; border-top:1px solid var(--border); }
+  .tax-sac-fold{ margin-top:6px; }
+  .tax-sac-fold > summary{ padding:11px 0; font-weight:600; cursor:pointer; } /* a list-item, so it keeps its marker like Check a payslip */
   .tax-empty{ color: var(--ink-soft); font-size:var(--fs-sm); }
 
   .tax-hero{ margin-bottom:10px; }
@@ -150,8 +155,6 @@
 .ty-cmp{ display:flex; flex-direction:column; font-size:var(--fs-sm); }
 .ty-cmp-row{ display:grid; grid-template-columns: minmax(0,1.5fr) repeat(3, minmax(0,1fr)); gap:6px; padding:3px 0; border-top:1px solid var(--border); }
 .ty-cmp-row > :not(:first-child){ text-align:right; font-family:var(--font-num); font-variant-numeric:tabular-nums; }
-.ty-cmp-row b.up{ color:var(--bad-ink); }
-.ty-cmp-row b.down{ color:var(--good-ink); }
 .ty-ev{ display:flex; gap:8px; align-items:flex-start; font-size:var(--fs-sm); padding:4px 0; }
 /* Tax → Documents (v3.43.0) */
 .ty-docs-head{ display:flex; align-items:baseline; gap:10px; font-size:var(--fs-md); font-weight:600; margin:14px 0 6px; }
@@ -234,6 +237,7 @@
 :root[data-theme="dark"] .pp-dob{ color-scheme:dark; }
 .pp-age{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); white-space:nowrap; }
 .pp-age::after{ content:" yrs"; }
+.pp-remove{ margin-left:auto; flex:none; }
 .pp-uses{ font-size:var(--fs-sm); color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
 .pp-hours-wrap{ margin-top:12px; }
 /* v3.145.0: whether pay already allows for a rental's loss. */

@@ -1,7 +1,7 @@
 import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
-import { DEDUCTION_LABELS } from "../constants.js";
+import { DEDUCTION_LABELS, deductionName } from "../constants.js";
 import { getTaxPeople, computePersonTax, currentTaxFy, todayTaxFy, taxTablesFor, phiPremiumsAnnual, deductionRows } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { rentalComparison, budgetComparison, householdBudgetLines } from "../calc/closeyear.js";
@@ -41,7 +41,7 @@ function rowsEditorHtml(kind, person, rows, cols, addLabel, fy){
       var start = '<label class="ty-cell"><span>' + escapeAttr(c.label) + '</span>';
       if(c.type === "label"){
         return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-error-key="' + draftFieldKey(r, c.key) + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="label" aria-label="Return label">' +
-          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + d.code + '</option>'; }).join("") + '</select></label>';
+          DEDUCTION_LABELS.map(function(d){ return '<option value="' + d.code + '"' + ((r.label || "D5") === d.code ? " selected" : "") + '>' + escapeAttr(deductionName(d.code)) + '</option>'; }).join("") + '</select></label>';
       }
       if(c.type === "incomeRow"){
         return start + '<select class="ty-in field-control field-compact" id="' + id + '" data-error-key="' + draftFieldKey(r, c.key) + '" data-ty-kind="' + kind + '" data-ty-person="' + escapeAttr(person) + '" data-ty-index="' + i + '" data-ty-key="incomeId" aria-label="Income row this statement is for">' +
@@ -100,7 +100,7 @@ export function worksheetLines(person, fy){
     if(r.capitalLossCarriedForward) push("Capital gains", "Net capital losses carried forward", r.capitalLossCarriedForward);
   }
   Object.keys(r.deductionsByLabel || {}).sort(function(a, b){ return Number(a.slice(1)) - Number(b.slice(1)); }).forEach(function(k){
-    if(r.deductionsByLabel[k]) push("Deductions", k + (k === "D5" && r.wfh && r.wfh.amount ? " (incl. working from home " + money(r.wfh.amount) + ")" : ""), r.deductionsByLabel[k]);
+    if(r.deductionsByLabel[k]) push("Deductions", deductionName(k) + (k === "D5" && r.wfh && r.wfh.amount ? " (incl. working from home " + money(r.wfh.amount) + ")" : ""), r.deductionsByLabel[k]);
   });
   if(r.phiAdjustment) push("Private health", "Rebate adjustment (owed back if positive)", r.phiAdjustment);
   push("Estimate", "Taxable income", r.taxable);
@@ -163,7 +163,8 @@ function compareHtml(person, fy, r){
   var now = lodgedSnapshot(r);
   var rows = COMPARE_KEYS.filter(function(k){ return last[k[0]] != null && now[k[0]] != null; }).map(function(k){
     var d = now[k[0]] - last[k[0]];
-    return '<div class="ty-cmp-row"><span>' + k[1] + '</span><span>' + fmtCurrency0.format(last[k[0]]) + '</span><span>' + fmtCurrency0.format(now[k[0]]) + '</span><b class="' + (d === 0 ? "" : d > 0 ? "up" : "down") + '">' + (d > 0 ? "+" : "") + fmtCurrency0.format(d) + '</b></div>';
+    // November 2026: in plain ink, with an arrow — red for a pay rise read as bad news. Colour is the refund's or the bill's.
+    return '<div class="ty-cmp-row"><span>' + k[1] + '</span><span>' + fmtCurrency0.format(last[k[0]]) + '</span><span>' + fmtCurrency0.format(now[k[0]]) + '</span><b>' + (d === 0 ? "—" : '<span aria-hidden="true">' + (d > 0 ? "▲ " : "▼ ") + '</span><span class="visually-hidden">' + (d > 0 ? "up " : "down ") + '</span>' + fmtCurrency0.format(Math.abs(d))) + '</b></div>';
   }).join("");
   return '<div class="ty-cmp"><div class="ty-cmp-row ty-head-row"><span></span><span>' + fyLabel(fy - 1) + '</span><span>' + fyLabel(fy) + '</span><span>Change</span></div>' + rows + '</div>';
 }

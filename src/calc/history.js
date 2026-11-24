@@ -162,56 +162,6 @@ export function monthsBetween(fromDate, toDate){
   return Math.max(0, months + dayFraction);
 }
 
-// ---------------- Monthly cash flow ----------------
-// Income, spending and what's left, by calendar month, from real dated records. Spending comes from
-// logged transactions, so a month nobody logged reads as zero spending — which is why the caller
-// has to gate this on coverage the same way the trends panel does, rather than presenting an
-// unlogged month as a month of heroic saving.
-export function monthlyCashFlow(transactions, monthKeys, monthlyIncome){
-  var byMonth = Object.create(null);
-  (transactions || []).forEach(function(t){
-    if(!t || !t.date) return;
-    var key = t.date.slice(0, 7);
-    byMonth[key] = (byMonth[key] || 0) + (Number(t.amount) || 0);
-  });
-  return (monthKeys || []).map(function(key){
-    var spent = byMonth[key] || 0;
-    // A number, or (v3.80.0) a function of the month — bonuses land in theirs.
-    var income = typeof monthlyIncome === "function" ? (Number(monthlyIncome(key)) || 0) : (Number(monthlyIncome) || 0);
-    return {
-      month: key,
-      income: income,
-      spent: spent,
-      saved: income - spent,
-      logged: byMonth[key] !== undefined
-    };
-  });
-}
-
-// What fraction of the household's actual budget the logged transactions represent.
-//
-// The cash-flow panel's first version computed "saved = income − logged spending" and, on the
-// test household's data, announced that the household kept $14,500/mo. It keeps $5,000. Logged spend
-// averaged $500/mo against a $10,000/mo budget — about 5% — so "income minus what you logged" was
-// measuring how little had been typed in, and calling it thrift.
-//
-// A savings claim is only honest when logging is close to complete. Below that, the panel can still
-// show what *was* logged month to month — that's a real trend — but it must not subtract it from
-// income and call the remainder savings.
-export function spendCoverage(loggedMonthlyAvg, budgetedMonthly){
-  var budget = Number(budgetedMonthly) || 0;
-  if(budget <= 0) return { fraction: 0, enough: false, budgeted: 0, logged: Number(loggedMonthlyAvg) || 0 };
-  var fraction = (Number(loggedMonthlyAvg) || 0) / budget;
-  return {
-    fraction: fraction,
-    budgeted: budget,
-    logged: Number(loggedMonthlyAvg) || 0,
-    // 80%: high enough that the remainder is plausibly rounding and forgotten cash, low enough to
-    // be reachable by someone who imports a statement and doesn't chase every coffee.
-    enough: fraction >= 0.8
-  };
-}
-
 // The first date on which every record held today had a value (v3.32.1) — the point from which a
 // net-worth line compares like with like. A record with no history at all only has today's value,
 // so it pushes the start to today. `records` is [{history, label}]; returns

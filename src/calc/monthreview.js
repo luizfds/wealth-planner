@@ -1,5 +1,5 @@
 import { state } from "../state.js";
-import { periodsOf, currentStatementCycle } from "./ledger.js";
+import { periodsOf, currentStatementCycle, isActiveOn } from "./ledger.js";
 import { incomeActuals } from "./received.js";
 import { dataHealthChecks } from "./health.js";
 import { claimItems } from "./claims.js";
@@ -82,7 +82,9 @@ export function monthReview(ym, opts){
   // Spending by category: logged in the month against each category's planned monthly amount.
   var planned = {}, actual = {};
   items.forEach(function(i){
-    if(i.irregular) return;
+    // The follow-up review (November 2026): a line that has ended, or hasn't started, isn't this month's plan — the
+    // rule Budget's split uses (calc/budgetsplit.js monthSplit), so Today and Budget plan the same month.
+    if(i.irregular || !isActiveOn(i, ym + "-15")) return;
     var k = i.category || "Uncategorised";
     planned[k] = (planned[k] || 0) + periodsOf(Number(i.amount) || 0, i.freq).monthly;
   });

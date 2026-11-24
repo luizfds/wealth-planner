@@ -59,11 +59,15 @@ function monthGone(ym, today){
 }
 // The hero's line: net worth over the same months as its change, drawn faintly behind the figure. Decorative — the
 // change is written beside it, and Net worth's card below has the chart.
-function sparkHtml(points){
+export function sparkHtml(points){
   if(!points || points.length < 2) return "";
   var w = 240, h = 80, vals = points.map(function(p){ return Number(p.value) || 0; });
   var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
-  if(min === max){ min -= 1; max += 1; }
+  // The follow-up review (November 2026): the line spans at least a fifth of net worth. Stretched to the card's height,
+  // a real household's one-day blip of a few percent (a balance briefly counted twice) drew as a towering spike; the
+  // chip beside the line says the exact change.
+  var floor = Math.max(Math.abs(min), Math.abs(max)) * 0.2 || 2;
+  if(max - min < floor){ var mid = (max + min) / 2; min = mid - floor / 2; max = mid + floor / 2; }
   var xy = vals.map(function(v, i){ return [(i / (vals.length - 1)) * w, 8 + (1 - (v - min) / (max - min)) * (h - 16)]; });
   var line = xy.map(function(p, i){ return (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
   return '<svg class="home-glance-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true">' +

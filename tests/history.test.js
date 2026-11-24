@@ -3,8 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   valueOn, trackedOn, observationDates, categorySeries, trimUntracked,
-  allocationSeries, contributionsVsGrowth, monthsBetween, monthlyCashFlow,
-  fullCoverageFrom, spendCoverage, trendToToday
+  allocationSeries, contributionsVsGrowth, monthsBetween,
+  fullCoverageFrom, trendToToday
 } from "../src/calc/history.js";
 
 // The whole module exists to enforce one rule: never draw a value that wasn't logged. Most of these
@@ -144,29 +144,6 @@ test("a part-month window counts proportionally, or the remainder lands in 'grow
   assert.equal(contributionsVsGrowth([{ y: 1, dateLabel: "2026-01-01" }], 100), null, "one point is not a change");
 });
 
-test("monthly cash flow marks a month nobody logged, rather than calling it heroic saving", function(){
-  // An unlogged month has zero spending in the data and therefore looks like a month of perfect
-  // restraint. `logged` is what lets the caller refuse to draw that.
-  var rows = monthlyCashFlow(
-    [{ date: "2026-08-04", amount: 500 }, { date: "2026-08-20", amount: 300 }],
-    ["2026-07", "2026-08"], 5000
-  );
-  assert.equal(rows[0].spent, 0);
-  assert.equal(rows[0].logged, false, "July had nothing logged");
-  assert.equal(rows[1].spent, 800);
-  assert.equal(rows[1].saved, 4200);
-  assert.equal(rows[1].logged, true);
-});
-
-test("a refund reduces a month's spending rather than being ignored", function(){
-  var rows = monthlyCashFlow(
-    [{ date: "2026-08-04", amount: 500 }, { date: "2026-08-09", amount: -120 }],
-    ["2026-08"], 5000
-  );
-  assert.equal(rows[0].spent, 380);
-  assert.equal(rows[0].saved, 4620);
-});
-
 // ---------------- Two ways this module could have lied ----------------
 // Both of these were live on a test household's data before being caught by driving the app. They are
 // here because the arithmetic was never wrong — the *framing* was, and only realistic data showed it.
@@ -198,21 +175,6 @@ test("a window that only reaches full coverage at the very last point reports to
   var split = contributionsVsGrowth(points, 100);
   assert.equal(split.tooShort, true);
   assert.equal(split.coverageFrom, "2026-09-01");
-});
-
-test("spendCoverage refuses a savings claim when barely anything was logged", function(){
-  // The failure: logged spend averaged $500/mo against a $10,000/mo budget, and the panel
-  // announced the household kept $14,500/mo. It keeps $5,000. "Income minus what you logged" was
-  // measuring how little had been typed in, and calling it thrift.
-  var thin = spendCoverage(500, 10000);
-  assert.ok(thin.fraction < 0.06);
-  assert.equal(thin.enough, false, "no savings claim may be made from this");
-
-  var good = spendCoverage(9000, 10000);
-  assert.equal(good.enough, true);
-  // No budget at all can't be divided by — and must not read as perfect coverage.
-  assert.equal(spendCoverage(500, 0).enough, false);
-  assert.equal(spendCoverage(0, 10000).enough, false);
 });
 
 test("trendToToday ends at today's figure and measures the change from where the line starts", function(){

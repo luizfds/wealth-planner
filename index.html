@@ -266,7 +266,7 @@
           <!-- #412: Today has no tab rail; these open at their own addresses, each with the header's way back. Projection and
                the scenarios side by side are Plan's tabs, one tap away (the app assessment, November 2026). -->
           <nav class="today-more" aria-label="More on Today">
-            <button type="button" class="today-more-link" data-dashboard-sub="insights" data-level="advanced">Insights</button>
+            <button type="button" class="today-more-link" data-dashboard-sub="insights" data-level="advanced">What the app notices</button>
             <button type="button" class="today-more-link" data-dashboard-sub="review">Monthly review</button>
             <button type="button" class="today-more-link" data-dashboard-sub="benchmarks" data-level="advanced">How you compare</button>
           </nav>
@@ -295,27 +295,11 @@
           <div class="bm-grid" id="benchmarksBody"></div>
         </div>
 
+        <!-- The follow-up review (November 2026): Insights' panels went to the page each is about — Plan → Projections
+             (actual vs expected, how the projection has tracked, saved vs grown), Plan → Retirement (financial
+             independence), Money → Bills (by account); the 50/30/20 bar is Budget's and income vs spending a report. -->
         <div class="dashboard-subpage" id="dashboardSub-insights" hidden>
           <div id="adviceHome"></div>
-          <div class="detail">
-            <div class="detail-label">Active scenario detail — <strong id="activeLabel"></strong></div>
-            <div class="detail-grid">
-              <div class="panel" id="rulePanel">
-                <h3>The 50/30/20 rule <span style="font-weight:400;color:var(--ink-soft)">— monthly</span></h3>
-                <div class="rule-bar" id="ruleBar"></div>
-                <div class="rule-legend" id="ruleLegend"></div>
-              </div>
-              <div class="panel" id="acctPanel">
-                <h3>Monthly expenses by account</h3>
-                <div id="acctList"></div>
-              </div>
-              <div class="panel" id="firePanel"></div>
-              <div class="panel" id="actualVsExpectedPanel"></div>
-              <div class="panel" id="projectionAccuracyPanel"></div>
-              <div class="panel" id="monthlyCashFlowPanel"></div>
-              <div class="panel" id="contributionsGrowthPanel"></div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -663,6 +647,11 @@
             </summary>
             <div class="ledger-body"><div id="subscriptionsBody"></div></div>
           </details>
+        </div>
+        <!-- From Insights (the follow-up review): which account the month's bills and budget come out of. -->
+        <div class="panel bills-by-account" id="acctPanel">
+          <h2 class="section-title">Monthly expenses by account</h2>
+          <div id="acctList"></div>
         </div>
         </div>
       </section>
@@ -1034,6 +1023,8 @@
           <div class="page-intro-row"><p class="page-intro help">When you could stop working, and what changes it — from the plan already in the app.</p></div>
           <div class="ledgers"><details class="ledger" open><summary><div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Retirement</h2></div></summary>
             <div class="ledger-body"><div id="retirementBody"></div></div></details></div>
+          <!-- From Insights (the follow-up review): what isn't super has to bridge to preservation age. -->
+          <div class="panel retire-fire" id="firePanel"></div>
         </div>
         <div class="plan-subpage" id="planSub-scenarios">
         <div class="page-intro-row"><p class="page-intro help">Each scenario is your current situation with a list of changes — a purchase, a move, a pay rise. Open one to edit it, pick the one to plan against, or compare them side by side.</p></div>
@@ -1104,6 +1095,12 @@
               <div id="projOutputs"></div>
             </div>
           </details>
+        </div>
+        <!-- From Insights (the follow-up review): how the plan has done against what happened. -->
+        <div class="detail-grid plan-reality">
+          <div class="panel" id="actualVsExpectedPanel"></div>
+          <div class="panel" id="projectionAccuracyPanel"></div>
+          <div class="panel" id="contributionsGrowthPanel"></div>
         </div>
         </div>
       </section>

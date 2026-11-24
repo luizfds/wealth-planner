@@ -3,9 +3,9 @@ import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
 import { firstRun } from "./firstrun.js";
-import { sumByClassification, sumByAccount, safeDiv, resolveSharedAmount, appendHistorySnapshot, periodsOf } from "../calc/ledger.js";
+import { sumByAccount, resolveSharedAmount, appendHistorySnapshot } from "../calc/ledger.js";
 import { ipExpenseItemsForClassification, fyLabel, loanBalance, ipProperties } from "../calc/property.js";
-import { scenarioIncomeMonthly, scenarioIncomeRows, getTaxPeople, computePersonTax } from "../calc/tax.js";
+import { getTaxPeople, computePersonTax } from "../calc/tax.js";
 import { lodgementStatus, taxYearRecord } from "../calc/taxyear.js";
 import { evidenceItems } from "./taxyear.js";
 import { scenarioTotals, savingsBreakdown, currentScenario, computeNetWorthSeries, totalNetWorthValue, actualAssetGrowthLastMonth, staleAssets, toAudAmount } from "../calc/engine.js";
@@ -17,10 +17,9 @@ import { emergencyFund } from "../calc/emergency.js";
 import { budgetPlanHtml } from "./cashflow.js";
 import { fireSettings, fireWealthSplit, simulateRetirementAt, earliestWorkableRetirementAge } from "../calc/fire.js";
 import { MONTH_NAMES } from "../constants.js";
-import { monthKeysBack, monthKeyLabel } from "../calc/trends.js";
-import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth, monthlyCashFlow, spendCoverage } from "../calc/history.js";
+import { observationDates, categorySeries, trimUntracked, contributionsVsGrowth } from "../calc/history.js";
 import { fmtCurrency0, fmtCompact, fmtPercent1, fmtRunway, localDateStr, fmtDate } from "../lib/format.js";
-import { escapeAttr, segLabel } from "../lib/html.js";
+import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
@@ -239,7 +238,7 @@ function fiTileHtml(t){
   if(!(target > 0)) return "";
   var split = fireWealthSplit();
   var pct = Math.max(0, split.accessible) / target;
-  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="fi" data-level="advanced" data-dashboard-jump="insights" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Insights.">' +
+  return '<button type="button" class="stat-tile stat-tile-link" data-home-card="fi" data-level="advanced" data-dashboard-jump="retirement" title="Money you could live on before preservation age (cash, shares, investment property equity, less debts) against 25× this scenario\'s yearly spending. Super is left out — it\'s locked until ' + fireSettings().preservationAge + '. Opens Plan → Retirement.">' +
     '<span>Financial independence</span><b>' + fmtPercent1.format(pct) + '</b>' +
     '<span class="tile-meter" aria-hidden="true"><span style="width:' + Math.min(100, pct * 100).toFixed(1) + '%"></span></span>' +
     '<small>' + fmtCompact(split.accessible) + ' of ' + fmtCompact(target) + ' · super not counted</small></button>';
@@ -434,10 +433,6 @@ function drawDashboardStats(){
   // plain swap closed an open "Compare monthly trade-offs" and dropped focus to the page body.
   keepUi(function(){ el.innerHTML = statsHtml; applyHomeLayout(); });
   renderSavingsBreakdown(active);
-  renderActualVsExpectedPanel(active, t);
-  renderProjectionAccuracyPanel();
-  renderMonthlyCashFlow();
-  renderContributionsGrowth();
 }
 
 // Item 247: the Net savings tile's "How it's worked out" — the figure as a statement, line by line, each line
@@ -608,55 +603,34 @@ function renderActualVsExpectedPanel(scenario, t){
 }
 
 // ---------------- Rendering: 50/30/20 + accounts ----------------
+// The panels that were Insights' (the follow-up review, November 2026), each now on the page it's about: by account on
+// Money → Bills, financial independence on Plan → Retirement, actual vs expected, how the projection has tracked and
+// saved vs grown on Plan → Projections. One draw for all of them — each skips a panel that isn't in the page.
 export function renderDetail(){
-  // v3.172.0 (item 207): Home and Insights describe the household as it is — never a scenario picked on Plan.
+  // v3.172.0 (item 207): these describe the household as it is — never a scenario picked on Plan.
   var scenario = currentScenario();
-  document.getElementById("activeLabel").textContent = "as it is today";
-  // state.shared items may carry a per-scenario override (see scenarioOverrides) — resolve
-  // each to its effective amount for the active scenario before this breakdown sums them, so
-  // the 50/30/20 bar and accounts list agree with what scenarioTotals()/computeNetWorthSeries()
-  // actually use for this scenario.
+  var t = scenarioTotals(scenario);
+  renderActualVsExpectedPanel(scenario, t);
+  renderProjectionAccuracyPanel();
+  renderContributionsGrowth();
+  renderFireProgress(scenario, t);
+  var acctList = document.getElementById("acctList");
+  if(!acctList) return;
+  // state.shared items may carry a per-scenario override (see scenarioOverrides) — resolve each to its effective
+  // amount before this breakdown sums them, so it agrees with what scenarioTotals() uses.
   var sharedForScenario = scenarioSharedItems(scenario).map(function(item){
     var amt = resolveSharedAmount(item, scenario);
     return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
   });
-  var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario]);
-  // Scenario-resolved for the same reason the shared rows above are: this breakdown has to agree
-  // with scenarioTotals()/computeNetWorthSeries() for the scenario being shown, and income can now
-  // differ between them.
-  var incomeMonthly = scenarioIncomeMonthly({ scenario: scenario });
-  var needs = sumByClassification(combined, "Needs", "monthly");
-  var wants = sumByClassification(combined, "Wants", "monthly");
-  var t = scenarioTotals(scenario);
-  var savings = t.netMonthly;
-
-  var total = Math.max(incomeMonthly, needs + wants + Math.max(savings, 0), 1);
-  var needsPct = needs / total, wantsPct = wants / total, savingsPct = Math.max(savings, 0) / total;
-
-  var bar = document.getElementById("ruleBar");
-  bar.innerHTML =
-    '<div class="rule-seg needs" style="width:' + (needsPct*100) + '%">' + (needsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(needs,incomeMonthly))) : "") + '</div>' +
-    '<div class="rule-seg wants" style="width:' + (wantsPct*100) + '%">' + (wantsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(wants,incomeMonthly))) : "") + '</div>' +
-    '<div class="rule-seg savings" style="width:' + (savingsPct*100) + '%">' + (savingsPct > 0.1 ? segLabel(fmtPercent1.format(safeDiv(savings,incomeMonthly))) : "") + '</div>' +
-    '<div class="rule-target" style="left:50%"></div>' +
-    '<div class="rule-target" style="left:80%"></div>';
-
-  document.getElementById("ruleLegend").innerHTML =
-    '<div class="rule-legend-item"><span class="rule-swatch needs"></span>Essentials <b>' + fmtCurrency0.format(needs) + '</b> · target 50%</div>' +
-    '<div class="rule-legend-item"><span class="rule-swatch wants"></span>Lifestyle <b>' + fmtCurrency0.format(wants) + '</b> · target 30%</div>' +
-    '<div class="rule-legend-item"><span class="rule-swatch savings"></span>Savings <b>' + fmtCurrency0.format(savings) + '</b> · target 20%</div>';
-
+  var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario] || []);
   var acctMap = sumByAccount(combined, "monthly");
   var entries = Object.keys(acctMap).map(function(k){ return [k, acctMap[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
   var maxAcct = Math.max.apply(null, entries.map(function(e){ return e[1]; }).concat([1]));
-  var acctList = document.getElementById("acctList");
   acctList.innerHTML = entries.length ? entries.map(function(e, i){
     return '<div class="acct-row"><span class="acct-name" title="' + e[0] + '">' + e[0] + '</span>' +
       '<span class="acct-track"><span class="acct-fill series-color-' + (i % 8) + '" style="width:' + (e[1]/maxAcct*100) + '%"></span></span>' +
       '<span class="acct-amt">' + fmtCurrency0.format(e[1]) + '</span></div>';
   }).join("") : emptyStateHtml("No budget lines yet.", { go: "expenses/budget", label: "Go to Budget →" });
-
-  renderFireProgress(scenario, t);
 }
 
 // Financial independence, as two questions rather than one — see calc/fire.js for why.
@@ -836,94 +810,7 @@ function renderProjectionAccuracyPanel(){
   });
 }
 
-// ---------------- Income vs spending vs saved, by month ----------------
-// Everything else on this page compares one month against a plan. This compares months against
-// each other, which is the only view that shows whether the plan is being kept.
-//
-// One axis, three series, all dollars — never a second y-scale. Spending comes from logged
-// transactions, so a month nobody logged reads as a month of heroic saving; `logged` is what lets
-// this panel refuse to draw that rather than flatter the user with their own missing data.
-export function renderMonthlyCashFlow(){
-  var panel = document.getElementById("monthlyCashFlowPanel");
-  if(!panel) return;
-  var months = monthKeysBack(6);
-  // v3.80.0: regular income every month, each one-off in its month.
-  var incRows = scenarioIncomeRows({ scenario: currentScenario() });
-  var income = function(key){
-    var mo = Number(key.slice(5, 7));
-    return incRows.reduce(function(t, r){
-      var y = periodsOf(Number(r.amount) || 0, r.freq);
-      if(r.oneOff || r.irregular) return r.dueMonth ? t + (Number(r.dueMonth) === mo ? y.yearly : 0) : t + y.monthly;
-      return t + y.monthly;
-    }, 0);
-  };
-  var rows = monthlyCashFlow(spendingTransactions(state), months, income);
-  var loggedRows = rows.filter(function(r){ return r.logged; });
-  if(loggedRows.length < 2){
-    panel.innerHTML = '<h3>Income vs spending</h3>' +
-      '<p class="fire-note">Once two different months have spending logged, this shows what came in, what went out and what was left — month by month rather than one month against a plan.</p>';
-    return;
-  }
-  // Only months that were actually logged are drawn. A gap in the middle is left as a gap rather
-  // than joined through, because a straight line across an unlogged month asserts a level of
-  // spending nobody recorded.
-  var maxV = loggedRows.reduce(function(m, r){ return Math.max(m, r.income, r.spent); }, 1);
-  var barsHtml = rows.map(function(r){
-    if(!r.logged){
-      return '<div class="cf-col cf-col-empty" title="' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + ' — nothing logged">' +
-        '<div class="cf-stack"><div class="cf-nolog">·</div></div>' +
-        '<span class="cf-label">' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + '</span></div>';
-    }
-    var h = function(v){ return Math.max(2, (Math.max(0, v) / maxV) * 100); };
-    return '<div class="cf-col" title="' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + ': in ' +
-        fmtCurrency0.format(r.income) + ', out ' + fmtCurrency0.format(r.spent) + ', left ' + fmtCurrency0.format(r.saved) + '">' +
-      '<div class="cf-stack">' +
-        '<div class="cf-bar cf-in series-color-2" style="height:' + h(r.income) + '%"></div>' +
-        '<div class="cf-bar cf-out series-color-1" style="height:' + h(r.spent) + '%"></div>' +
-      '</div>' +
-      '<span class="cf-label">' + escapeAttr(monthKeyLabel(r.month, months[months.length - 1])) + '</span></div>';
-  }).join("");
-  var avgLogged = loggedRows.reduce(function(sm, r){ return sm + r.spent; }, 0) / loggedRows.length;
-  // income is a function of the month since v3.80.0 (bonuses land in theirs): the legend and the
-  // "kept" line read its average over the months drawn, not the function itself.
-  var avgIn = loggedRows.reduce(function(sm, r){ return sm + (Number(r.income) || 0); }, 0) / loggedRows.length;
-  var unlogged = rows.length - loggedRows.length;
-  // Logged spending is not total spending, and the gap is not small: on a test household's data it was
-  // $500/mo logged against a $10,000/mo budget. Subtracting the logged figure from income and
-  // calling the remainder savings announced that this household kept $14,500/mo when it keeps
-  // $5,000 — a confident claim, wrong by $9,500 a month. So the savings line is earned rather
-  // than assumed: it appears only once logging actually covers the budget.
-  var coverage = spendCoverage(avgLogged, budgetedMonthlySpend());
-  var verdict = coverage.enough
-    ? 'Kept <b>' + fmtCurrency0.format(avgIn - avgLogged) + '/mo</b> on average across the ' +
-      loggedRows.length + ' month' + (loggedRows.length === 1 ? "" : "s") + ' you logged.'
-    : 'These are the transactions you <b>logged</b>, not everything you spent — ' +
-      fmtCurrency0.format(avgLogged) + '/mo against a budget of ' + fmtCurrency0.format(coverage.budgeted) +
-      '/mo (' + fmtPercent1.format(coverage.fraction) + ' of it). The month-to-month shape is real; ' +
-      'the gap to income is not savings. Import a bank statement on Money and this becomes ' +
-      'a savings figure.';
-  panel.innerHTML = '<h3>Income vs spending <span style="font-weight:400;color:var(--ink-soft)">— last 6 months</span></h3>' +
-    '<div class="cf-chart">' + barsHtml + '</div>' +
-    '<div class="rule-legend cf-legend">' +
-      '<div class="rule-legend-item"><span class="rule-swatch series-color-2"></span>In <b>' + fmtCurrency0.format(avgIn) + '/mo</b></div>' +
-      '<div class="rule-legend-item"><span class="rule-swatch series-color-1"></span>Logged out <b>' + fmtCurrency0.format(avgLogged) + '/mo avg</b></div>' +
-    '</div>' +
-    '<p class="fire-note">' + verdict +
-      (unlogged ? " " + unlogged + " month" + (unlogged === 1 ? " is" : "s are") + " left blank rather than counted as zero spending." : "") + '</p>';
-}
-
-// What the household actually plans to spend each month — the denominator the logged transactions
-// are measured against. Reuses the same combined list the 50/30/20 panel builds, so "your budget"
-// means one thing on this page.
-function budgetedMonthlySpend(){
-  var scenario = currentScenario();
-  var sharedForScenario = scenarioSharedItems(scenario).map(function(item){
-    var amt = resolveSharedAmount(item, scenario);
-    return amt === item.amount ? item : Object.assign({}, item, { amount: amt });
-  });
-  var combined = ipExpenseItemsForClassification().concat(sharedForScenario).concat(state.home[scenario] || []);
-  return sumByClassification(combined, "Needs", "monthly") + sumByClassification(combined, "Wants", "monthly");
-}
+// The follow-up review (November 2026): Income vs spending, by month, went with Insights — Reports → Cash flow says it.
 
 // ---------------- Contributions vs growth ----------------
 // The question a net-worth line can't answer: did this rise because you saved, or because what you

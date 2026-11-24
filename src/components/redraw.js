@@ -160,7 +160,8 @@ function defineViews(){
   defineView("billsCalendar", ["expenses"], renderBillsCalendar, ["transfers", "autoPayments"], { tabs: { expenses: ["expensesSub-bills"] } });
   defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody, ["scenarioChanges", "scenarios", "purchase", "invest", "home", "shared", "properties", "scenarioNotes", "income"]);
   defineView("cards", ["plan", "dashboard"], renderCards, ["*"]);
-  defineView("detail", ["dashboard"], renderDetail, ["*"]);
+  // Insights' panels, now on Plan and Money (the follow-up review); on Today only when pinned there (Arrange).
+  defineView("detail", ["dashboard", "plan", "expenses"], renderDetail, ["*"], { tabs: { plan: ["planSub-projections", "planSub-retirement"], expenses: ["expensesSub-bills"] } });
   // The cash forecast is Plan → Scenarios' now (the app assessment), drawn when that tab shows.
   defineView("cashforecast", ["plan"], renderCashFlowForecastPanel, ["*"], { tabs: { plan: ["planSub-scenarios"] } });
   defineView("benchmarks", ["dashboard"], renderBenchmarks, ["*"]);

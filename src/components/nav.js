@@ -202,7 +202,7 @@ function syncUrl(pageId, replace, asTab){
 function reportKeyValid(key){ return REPORTS.some(function(r){ return r.key === key; }); }
 // What a screen is called where a back link names it: the tab when the tab says more than the page.
 var SUB_TITLES = {
-  dashboard: { overview: "Today", insights: "Insights", benchmarks: "How you compare", review: "Monthly review" },
+  dashboard: { overview: "Today", insights: "What the app notices", benchmarks: "How you compare", review: "Monthly review" },
   assets: ASSETS_TITLES,
   tax: { year: "Tax", returns: "Tax returns", documents: "Tax documents", people: "People" },
   settings: { categories: "Settings", preferences: "Settings", rules: "Import rules" }
@@ -377,7 +377,7 @@ var NETWORTH_GROUP = ["networth", "accounts", "assets", "properties"];
 // #412: the pages a phone's More tab holds — it stays lit on each. A desktop's sidebar lists them itself.
 var MORE_GROUP = ["more", "tax", "reports", "calc", "settings"];
 // Today's views besides its first, opened from links on it (no tab rail since #412), each named in the header.
-var DASHBOARD_TITLES = { insights: "Insights", benchmarks: "How you compare", review: "Monthly review" };
+var DASHBOARD_TITLES = { insights: "What the app notices", benchmarks: "How you compare", review: "Monthly review" };
 function titleFor(id){
   if(id === "dashboard" && DASHBOARD_TITLES[currentDashboardSub]) return DASHBOARD_TITLES[currentDashboardSub];
   if(id === "assets" && ASSETS_TITLES[currentAssetsSub]) return ASSETS_TITLES[currentAssetsSub];

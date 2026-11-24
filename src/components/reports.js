@@ -4,7 +4,7 @@ import { canShareCsv } from "../lib/backup.js";
 import { state } from "../state.js";
 import { planningReadiness, reportDisclosure, reportDisclosureRows } from "../calc/planningreadiness.js";
 import { partOn } from "../calc/parts.js";
-import { REPORTS, REPORT_GROUPS, buildReport, reportCsvRows } from "../calc/reports.js";
+import { REPORTS, REPORT_GROUPS, REPORT_FAMILIES, reportFamily, buildReport, reportCsvRows } from "../calc/reports.js";
 import { getTaxPeople } from "../calc/tax.js";
 import { transactionCategory, transactionAccount, budgetLineItems } from "./expenses.js";
 import { RANGES, COMPARES, GROUPS, rangeWindow, compareWindow, monthsIn } from "../calc/reportframe.js";
@@ -304,8 +304,15 @@ function pinsHtml(limit, query){
 }
 function pickerHtml(){
   var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
-  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><strong>' + escapeAttr(current.label) + '</strong>' +
-    '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
+  // The report's family (the app assessment): its name above, and its other views beside this one as chips.
+  var fam = reportFamily(current.key), avail = availableReports();
+  var sibs = fam ? fam.reports.map(function(k){ return avail.find(function(r){ return r.key === k; }); }).filter(Boolean) : [];
+  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><span class="rp-selection-name">' + (fam && sibs.length > 1 ? '<small>' + escapeAttr(fam.label) + '</small>' : '') + '<strong>' + escapeAttr(current.label) + '</strong></span>' +
+    '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' +
+    (sibs.length > 1 ? '<div class="rp-family-views rp-siblings" role="group" aria-label="' + escapeAttr(fam.label + " views") + '">' + sibs.map(function(r){
+      var on = r.key === current.key;
+      return '<button type="button" class="rp-view-chip' + (on ? ' active' : '') + '"' + (on ? ' aria-current="true"' : '') + ' data-report-view="' + escapeAttr(r.key) + '">' + escapeAttr(r.label) + '</button>';
+    }).join('') + '</div>' : '') + pinsHtml(3) +
     ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
 }
 // #414: Simple mode's reports — the ones read month to month. The chooser offers these first, with "Show all reports";
@@ -327,7 +334,20 @@ export function reportChooserResultsHtml(query){
     var r = available.find(function(r){ return r.key === key; });
     return '<button type="button" class="btn btn-sm btn-ghost" data-report-recent="' + escapeAttr(key) + '">' + escapeAttr(r.label) + '</button>';
   }).join('') + '</div>' : '';
-  var catalogue = REPORT_GROUPS.map(function(g){
+  // No search: the eight families (the app assessment), each its first view as the card and the others as chips.
+  // Searching lists the reports themselves, in their groups, as before.
+  var familiesHtml = text ? '' : '<div class="rp-families">' + REPORT_FAMILIES.map(function(f){
+    var views = f.reports.map(function(k){ return matches.find(function(r){ return r.key === k; }); }).filter(Boolean);
+    if(!views.length) return '';
+    var first = views[0], on = views.some(function(r){ return r.key === reportShown.key; });
+    var cur = function(r){ return r.key === reportShown.key ? ' aria-current="true"' : ''; };
+    return '<section class="rp-family' + (on ? ' active' : '') + '"><button type="button" class="rp-choice' + (first.key === reportShown.key ? ' active' : '') + '"' + cur(first) + ' data-report="' + escapeAttr(first.key) + '">' +
+        '<strong>' + escapeAttr(f.label) + (on ? ' <span class="rp-current">Current</span>' : '') + '</strong><span>' + escapeAttr(f.desc) + '</span></button>' +
+      (views.length > 1 ? '<div class="rp-family-views" role="group" aria-label="' + escapeAttr(f.label + " views") + '">' + views.slice(1).map(function(r){
+        return '<button type="button" class="rp-view-chip' + (r.key === reportShown.key ? ' active' : '') + '"' + cur(r) + ' data-report="' + escapeAttr(r.key) + '">' + escapeAttr(r.label) + '</button>';
+      }).join('') + '</div>' : '') + '</section>';
+  }).join('') + '</div>';
+  var catalogue = !text ? familiesHtml : REPORT_GROUPS.map(function(g){
     var reports = matches.filter(function(r){ return r.group === g.key; });
     if(!reports.length) return '';
     var gid = "rp-group-" + g.key;

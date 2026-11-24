@@ -2310,6 +2310,16 @@ test('report chooser descriptions cover the catalogue and search safely by purpo
   for(const r of REPORTS) assert.ok(REPORT_DESCRIPTIONS[r.key], 'Missing description for '+r.key);
   assert.match(reportChooserResultsHtml('running balance'), /data-report="cashflow"/);
   assert.doesNotMatch(reportChooserResultsHtml('running balance'), /data-report="categories"/);
+  // The app assessment: no search, the reports as eight families — each report once (a family's card is its first view,
+  // its chips the others), so nothing that was reachable isn't.
+  const { REPORT_FAMILIES } = await import("../src/calc/reports.js");
+  const all = reportChooserResultsHtml('');
+  assert.match(all, /<div class="rp-families">/);
+  assert.match(all, /<strong>Cash flow[\s\S]*?<\/strong><span>Money in and out/);
+  assert.equal(REPORT_FAMILIES.length, 8);
+  assert.deepEqual(REPORT_FAMILIES.flatMap(f => f.reports).sort(), REPORTS.map(r => r.key).sort(), "every report in exactly one family");
+  const keys = [...all.matchAll(/data-report="([a-z]+)"/g)].map(m => m[1]);
+  assert.equal(new Set(keys).size, keys.length, "no report offered twice");
   const empty = reportChooserResultsHtml('<script>');
   assert.match(empty, /No reports match/);
   assert.doesNotMatch(empty, /<script>/);

@@ -127,6 +127,14 @@ export function wireReports(){
     }
     var pick = e.target.closest("[data-report]");
     if(pick){ reportShown.key = pick.getAttribute("data-report"); rememberReport(reportShown.key); renderReports(); syncReportRoute(); return; }
+    // A sibling view of the report's family (the chips under its name). Focus stays on the chip just chosen.
+    var view = e.target.closest("[data-report-view]");
+    if(view){
+      var vk = view.getAttribute("data-report-view");
+      reportShown.key = vk; rememberReport(vk); renderReports(); syncReportRoute();
+      var again = document.querySelector('[data-report-view="' + vk + '"]'); if(again) again.focus();
+      return;
+    }
     // v3.124.0: pinned reports.
     var saved = e.target.closest("[data-report-saved]");
     if(saved){ if(openSavedReport(saved.getAttribute("data-report-saved"))){ rememberReport(reportShown.key); renderReports(); syncReportRoute(); } return; }

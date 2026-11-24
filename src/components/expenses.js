@@ -16,7 +16,7 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals, periodSummary } from "../calc/cashflowlist.js";
-import { propertyCache, isPropertyMoney, propertyTargets, targetById } from "../calc/propertymoney.js";
+import { propertyCache, isPropertyMoney, propertyTargets, targetById, spendingTransactions } from "../calc/propertymoney.js";
 import { txForHtml, propertySubHtml, propertyNoteHtml, propertyAsideHtml } from "./propertymoney.js";
 import { purchaseCardFigures } from "./buying.js";
 import { hasOwnDates } from "../calc/txviews.js";
@@ -464,8 +464,8 @@ export function renderSharedGroups(){
   var chip = function(key, label, n){ return '<button type="button" class="bl-chip' + (filter === key ? " is-on" : "") + '" data-line-filter="' + key + '" aria-pressed="' + (filter === key) + '">' + label + ' <span>' + n + '</span></button>'; };
   var seg = function(key, label){ return '<button type="button" class="seg-option' + (lineView.sort === key ? " active" : "") + '" data-line-sort="' + key + '" aria-pressed="' + (lineView.sort === key) + '">' + label + '</button>'; };
   var barHtml = '<div class="bl-bar"><div class="bl-chips" role="group" aria-label="Show lines">' + chip("look", "Needs a look", counts.look) + chip("spent", "Spent this month", counts.spent) + chip("all", "All", counts.all) + '</div>' +
-    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div>' +
-    '<button type="button" class="link-btn bl-adjust" data-adjust-open>Adjust the plan →</button></div>';
+    // The follow-up review: Adjust the plan is its own fold under the lines — no second way in from here.
+    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div></div>';
   if(!shown.length){
     container.innerHTML = compositionHtml + barHtml + emptyStateHtml(filter === "look" ? "Nothing needs a look — every line is on track this month." : "Nothing spent on a line yet this month.", { attrs: { "data-line-filter": "all" }, label: "Show all lines" });
     renderPropertyExpensesSummary();
@@ -1675,7 +1675,7 @@ function sparkSvg(values, up){
   return '<svg class="pat-spark' + (up ? " is-up" : "") + '" viewBox="0 0 64 24" width="64" height="24" aria-hidden="true"><polyline points="' + pts + '"/></svg>';
 }
 export function patternsListHtml(span, todayStr){
-  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
+  var view = spendingTrends(spendingTransactions(state).filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
     categoryFor: transactionCategory, uncategorisedLabel: UNCATEGORISED, todayStr: todayStr });
   if(view.monthsCovered < 1 || !view.rows.length) return emptyStateHtml("Nothing spent on a budget line yet — log or import spending and each category shows here with its usual.", { add: "#quickLogBtn", label: "+ Log spend" });
   var last = view.months.length - 1, comparing = view.monthsCovered >= 3, by = view.complete ? "" : " by the " + ordinal(view.throughDay);
@@ -2150,7 +2150,7 @@ function drawSpendingTrends(){
   var el = document.getElementById("spendingTrendsPanel");
   if(!el) return;
   // November 2026: one-offs (on no budget line) out, as in the month's chart — a home's purchase costs aren't a "new" category.
-  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), {
+  var view = spendingTrends(spendingTransactions(state).filter(function(t){ return t && t.linkedExpenseId; }), {
     months: TRENDS_MONTHS,
     lookback: TRENDS_LOOKBACK,
     minSpend: TRENDS_MIN_SPEND,

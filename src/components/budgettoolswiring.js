@@ -17,6 +17,7 @@ import { fmtCurrency0, fmtCurrency2, localDateStr, fmtDate } from "../lib/format
 import { setCostPaid } from "../calc/purchase.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
+import { spendingTransactions } from "../calc/propertymoney.js";
 import { setNoticeDismissed } from "../lib/attention.js";
 import { refreshNotifPanel } from "./notifpanel.js";
 import { renderAdvice, adviceUi } from "./advice.js";
@@ -45,11 +46,13 @@ var editingRecurringRule = null;
 function afterTrimChange(){ recalcComputedItems(); persist(); renderAll(); }
 // ---------------- Cash flow → Budget → Recurring payments (v3.66.0) ----------------
 function currentRecurring(){
-  return { u: unbudgetedRecurring(state.transactions, localDateStr()), r: risingLines(loggableBudgetLineItems(), state.transactions),
-    c: catchAllSuggestions(loggableBudgetLineItems(), state.transactions, localDateStr()) };
+  // A property's money (a purchase's costs) isn't a bill to budget for or a line rising (calc/propertymoney.js).
+  var spending = spendingTransactions(state);
+  return { u: unbudgetedRecurring(spending, localDateStr()), r: risingLines(loggableBudgetLineItems(), spending),
+    c: catchAllSuggestions(loggableBudgetLineItems(), spending, localDateStr()) };
 }
 // v3.115.0: Budget → Build from what you've spent.
-function currentHistoryBudget(){ return proposeBudget(state.transactions, budgetLineItems(), localDateStr()); }
+function currentHistoryBudget(){ return proposeBudget(spendingTransactions(state), budgetLineItems(), localDateStr()); }
 function renderBudgetFromHistory(){
   var el = document.getElementById("historyBudgetBody");
   if(!el) return;
@@ -65,7 +68,7 @@ function renderRecurring(force){
   var form = el.querySelector("#recurringRuleForm");
   if(!force && form && form.closest("details").open) return;
   var c = currentRecurring();
-  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule) + categoryInsightsHtml(state.transactions, localDateStr());
+  el.innerHTML = recurringHtml(c.u, c.r, c.c, state.transactions) + recurringRuleManagerHtml(state.recurringRules || [], state.transactions, state.incomeLog, localDateStr(), editingRecurringRule) + categoryInsightsHtml(spendingTransactions(state), localDateStr());
   var n = c.u.filter(function(x){ return !recurringDismissed.keys["u:" + x.key]; }).length + c.r.filter(function(x){ return !recurringDismissed.keys["r:" + x.id + ":" + x.recent]; }).length + catchAllShown(c.c);
   var cnt = document.getElementById("recurringCount");
   if(cnt) cnt.textContent = n ? n + " to look at" : "";
@@ -611,16 +614,5 @@ export function wireAdjust(){
     commit(["shared", "home"]);
     renderDetailPage();
     showUndoToast((line.what || "Line") + " planned at what you typically spend", function(){ line.amount = was; commit(["shared", "home"]); renderDetailPage(); });
-  });
-  // "Adjust the plan →" in the Lines bar: open the card and bring it into view.
-  document.addEventListener("click", function(e){
-    if(!e.target.closest("[data-adjust-open]")) return;
-    var card = document.getElementById("adjustCard");
-    if(!card) return;
-    card.open = true;
-    renderAdjust();
-    alignTo(card);
-    var first = body.querySelector("[data-adjust-filter]");
-    if(first) first.focus({ preventScroll: true });
   });
 }

@@ -7221,7 +7221,7 @@ const JOURNEYS = {
     await settle(page);
     check(!(await page.locator('#budgetGroupBy').isVisible()), 'grouping shows on a filtered list');
     // Adjust the plan: Biscuit typically spends far more than its $120.
-    await page.locator('#sharedGroups [data-adjust-open]').click();
+    await page.locator('#adjustCard > summary').click();
     await waited(page, () => document.getElementById('adjustCard').open && !!document.querySelector('#adjustBody [data-adjust-pick="jhp"]'), 'Adjust the plan to offer Biscuit');
     await page.locator('#adjustBody [data-adjust-pick="jhp"]').click();
     check(/Save 1 change/.test(await page.locator('#adjustBody [data-adjust-save]').innerText()), 'Save does not count the pick');

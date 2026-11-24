@@ -24,7 +24,6 @@ import { escapeAttr, segLabel } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
-import { staleAssetNamesList } from "../lib/notifications.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
 import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
@@ -435,7 +434,6 @@ function drawDashboardStats(){
   // plain swap closed an open "Compare monthly trade-offs" and dropped focus to the page body.
   keepUi(function(){ el.innerHTML = statsHtml; applyHomeLayout(); });
   renderSavingsBreakdown(active);
-  renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
   renderProjectionAccuracyPanel();
   renderMonthlyCashFlow();
@@ -584,18 +582,6 @@ function liquidityHtml(forecast){
 // v3.154.0: Insights' Upcoming bills panel is gone — the same list heads Home → Overview (Bills — next
 // 2 weeks) and the Bills tab has the month.
 
-// A nudge, not an error — this app has no backend, so there's no way to push a notification
-// when it's closed. This only ever surfaces on load/whenever the Dashboard re-renders.
-function renderStaleAssetsBanner(){
-  var el = document.getElementById("staleAssetsBanner");
-  if(!el) return;
-  var stale = staleAssets();
-  if(!stale.length){ el.innerHTML = ""; return; }
-  el.innerHTML =
-    '<div class="stale-assets-note" title="Record a fresh value for each (Record value on each one in Accounts → Investments) to keep net worth history and the Actual vs. expected panel accurate.">' +
-      '<span>⏱</span> ' + escapeAttr(stale.length === 1 ? "Due a fresh value — " : stale.length + " assets are due a fresh value — ") + escapeAttr(staleAssetNamesList(stale, 3)) +
-    '</div>';
-}
 
 // Compares real month-over-month asset growth (from logged history snapshots) against what the
 // active scenario's own cash flow says should have been saved — a reality check on whether the

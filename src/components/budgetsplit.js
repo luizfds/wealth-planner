@@ -51,7 +51,7 @@ export function budgetSplitModel(today){
   var drift = [];
   try { drift = spendingDrift(trimReport({ today: today })); } catch(e){ drift = []; }
   var cards = inboxCards({ strays: currentStrays(today), hints: budgetHints(lines, state.transactions, { today: today, ok: state.tidyOk || {} }),
-    drift: drift, recurring: unbudgetedRecurring(state.transactions, today), stopped: stoppedBills(lines, today),
+    drift: drift, recurring: unbudgetedRecurring(spending, today), stopped: stoppedBills(lines, today),
     property: propertySuggestions(state, today, state.tidyOk || {}), propLines: lineSuggestions(state, state.tidyOk || {}), lines: lines, ok: state.tidyOk || {} })
     .filter(function(c){ return !budgetSplitUi.later[c.id]; });
   var income = incomeActuals(ym).filter(function(t){ return !t.irregular; });

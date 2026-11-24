@@ -84,12 +84,13 @@ export var HOME_TODO_MAX = 4;
 export function homeTodos(){
   return homeTodoItems();
 }
-// How many things Needs you lists: the bills due this week and the to-dos. The follow-up review (November 2026): the
-// Today tab's badge says this same number, so the tab and the card never disagree.
-export function needsYouCount(today){
+// What in Needs you can't wait: a bill that's late, a to-do marked urgent. The follow-up review (November 2026): the Today
+// tab carried a count of its own (Checks to fix) beside Needs you's and the bell's; now Needs you's is the one count, and
+// the tab only marks that something there is urgent.
+export function needsYouUrgent(today){
   today = today || localDateStr();
-  var soon = upcomingBills(loggableBudgetLineItems(currentScenario()), state.transactions, today, 7).filter(function(b){ return b.days <= 7; });
-  return soon.length + homeTodos().length;
+  var late = upcomingBills(loggableBudgetLineItems(currentScenario()), state.transactions, today, 7).filter(function(b){ return b.days < 0; });
+  return late.length + homeTodos().filter(function(t){ return t.severity === "bad"; }).length;
 }
 function todoAttrs(n){
   return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +

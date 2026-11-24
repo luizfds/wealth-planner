@@ -26,7 +26,7 @@ import { renderCompare } from "./compare.js";
 import { renderCards, renderDetail, renderCashFlowForecastPanel } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderBillsCalendar, renderAccounts, renderCategories, renderBudgetGroupByToggle, budgetMonthlyTotal, renderYearBasisPreference } from "./expenses.js";
 import { renderHealth } from "./health.js";
-import { renderHomeSummary, needsYouCount } from "./home.js";
+import { renderHomeSummary, needsYouUrgent } from "./home.js";
 import { renderIncomeGroups, renderTaxSuper, incomeHeaderTotal } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
 import { applyParts, renderPartsSettings } from "./parts.js";
@@ -226,15 +226,16 @@ function renderAll(){
   if(JSON.stringify(state.income) + JSON.stringify(state.assets) !== beforeRecalc) persist();
   drawViews();
 }
-// The Today tab's badge (v3.63.0 counted Checks to fix; the follow-up review, November 2026): the number Needs you
-// shows — this week's bills and the to-dos, a check to fix among them — so the tab and the card say the same.
+// The Today tab's mark (v3.63.0 counted Checks to fix; the follow-up review, November 2026): a dot when something in
+// Needs you is urgent — a late bill, a red to-do. Needs you's own badge is the one count.
 function renderChecksBadge(){
   var n = 0;
-  try { n = needsYouCount(); } catch(e){ n = 0; }
+  try { n = needsYouUrgent(); } catch(e){ n = 0; }
   document.querySelectorAll("[data-checks-badge]").forEach(function(el){
     el.hidden = !n;
-    el.textContent = el.classList.contains("nav-badge-dot") ? "" : String(n);
-    el.setAttribute("aria-label", n + " thing" + (n === 1 ? "" : "s") + " need" + (n === 1 ? "s" : "") + " you");
+    el.textContent = "";
+    el.classList.add("nav-badge-mark");
+    el.setAttribute("aria-label", n + " urgent in Needs you");
   });
 }
 // A few generic starting points, plus whatever the user has actually named in the Accounts

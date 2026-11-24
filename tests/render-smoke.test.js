@@ -1064,7 +1064,7 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
 // The follow-up review (November 2026), on a real household: a purchase's money in the week's recap, a pot's spending
 // unsaid beside the month's Spent, and one red to-do turning Needs you's whole card red.
 test("Today: the week leaves out property money, the month says what pots paid, Needs you is red only for a late bill", async function(){
-  const { homeSummaryHtml, weekRecapFor, needsYouCount } = await import("../src/components/home.js");
+  const { homeSummaryHtml, weekRecapFor } = await import("../src/components/home.js");
   var keep = { netWorthLog: state.netWorthLog, transactions: state.transactions, purchases: state.purchases, shared: state.shared, monthReviews: state.monthReviews, income: state.income, incomeLog: state.incomeLog };
   try {
     (await import("../src/calc/ledger.js")).setPeriod(null, "", "2026-10-14"); // the header on this month
@@ -1082,7 +1082,6 @@ test("Today: the week leaves out property money, the month says what pots paid, 
     assert.match(html, /<p class="home-note home-pots">Plus \$40 paid from set-aside pots/);
     assert.match(html, /class="home-card home-needs" data-home-card="needs">/, "a red to-do marks itself, not the card");
     assert.match(html, /class="home-todo-btn bad"/);
-    assert.equal(typeof needsYouCount, "function");
   } finally { Object.assign(state, keep); (await import("../src/calc/ledger.js")).setPeriod(null, ""); }
 });
 

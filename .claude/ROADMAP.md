@@ -5988,7 +5988,8 @@ REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: t
   suggestions sum `spendingTransactions()` (#476 missed them). The one transaction that looked doubly linked was an
   investment property's own line — property money, not a data error, so no check was added.
 - **One answer for "spent this month":** Patterns now agrees with Transactions; Today's month says what pots paid,
-  which its Spent leaves out. **One count:** the Today tab's badge is Needs you's (`needsYouCount`). Stale values are
+  which its Spent leaves out. **One count:** Needs you's; the Today tab's own count of Checks went, and it shows a
+  dot only when something there is urgent (`needsYouUrgent`). Stale values are
   said once on Today (the hero names them). Budget's Adjust the plan is its fold only; All suggestions is a card.
 - **Insights retired:** its panels went to the page each is about — Plan → Projections (actual vs expected, how the
   projection has tracked, saved vs grown), Plan → Retirement (financial independence), Money → Bills (by account); the

@@ -269,6 +269,10 @@ function classificationSwatchClass(cls){
 
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
 // November 2026: Essentials and Lifestyle (stored Needs/Wants), each every month, then the set-aside pots.
+function groupNameHtml(label){
+  var i = String(label).indexOf(" · ");
+  return i === -1 ? escapeAttr(label) : escapeAttr(label.slice(0, i)) + '<small class="m-card-sub">' + escapeAttr(label.slice(i + 3)) + '</small>';
+}
 var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other", Ended: "Ended · in no total" };
 export function groupLabel(key){
   if(key === NO_PROPERTY) return "Not for a property";
@@ -493,7 +497,8 @@ export function renderSharedGroups(){
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
       // v3.157.0: grouped by category, a card wears the category's icon.
       (propX ? '<span class="pm-icon' + (propX.kind === "investment" ? " is-ip" : "") + '" aria-hidden="true">⌂</span>' : byCategory && g.key !== UNCATEGORISED ? categoryIconHtml(g.key) : '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>') +
-      '<div class="m-card-name">' + escapeAttr(groupLabel(g.key)) + '</div>' +
+      // The follow-up review: "Essentials · every month" cut off at a phone's width — the how-often is a line under it.
+      '<div class="m-card-name">' + groupNameHtml(groupLabel(g.key)) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
@@ -664,13 +669,12 @@ export function propertyLoansGroupHtml(rows){
   return '<div class="m-people budget-loans"><div class="m-card" data-budget-loans>' +
     '<div class="m-card-head" style="cursor:default">' +
       '<span class="m-avatar m-avatar-neutral" aria-hidden="true">–</span>' +
-      '<div class="m-card-name">Investment loan repayments</div>' +
+      '<div class="m-card-name">Investment loan repayments<small class="m-card-sub">worked out from each loan — edit in Accounts → Property</small></div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(total) + '<span>/mo</span></div></div>' +
     '<div class="m-rows">' + rows.map(function(r){
       return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
         '<div style="flex:1 1 auto; min-width:0">' +
           '<div class="m-row-name">' + escapeAttr(r.loan.what || ((r.property.what || "Property") + " — loan")) + '</div>' +
-          '<div class="m-row-sub">auto: worked out from the loan\'s balance, rate and term — edit in Accounts → Property</div>' +
         '</div>' +
         '<span class="m-row-amt">' + fmtCurrency0.format(r.monthly) + '/mo</span>' +
       '</div></div>';
@@ -1158,6 +1162,8 @@ export function renderQuickLogSheet(){
       quickLogDateRowHtml() +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
+      // The follow-up review: the page had a second button for this beside + Log spend; it's the sheet's way further.
+      '<button type="button" class="link-btn qlog-full" data-tx-add-full>Every field — account, link, description →</button>' +
     '</div></div>';
   var amountInput = document.getElementById("quickLogAmount");
   // Focus lands on the amount every time the sheet re-renders (a chip page change, expanding the

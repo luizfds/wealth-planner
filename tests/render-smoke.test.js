@@ -1061,6 +1061,30 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
   } finally { Object.assign(state, keep); }
 });
 
+// The follow-up review (November 2026), on a real household: a purchase's money in the week's recap, a pot's spending
+// unsaid beside the month's Spent, and one red to-do turning Needs you's whole card red.
+test("Today: the week leaves out property money, the month says what pots paid, Needs you is red only for a late bill", async function(){
+  const { homeSummaryHtml, weekRecapFor, needsYouCount } = await import("../src/components/home.js");
+  var keep = { netWorthLog: state.netWorthLog, transactions: state.transactions, purchases: state.purchases, shared: state.shared, monthReviews: state.monthReviews, income: state.income, incomeLog: state.incomeLog };
+  try {
+    state.netWorthLog = []; state.income = []; state.incomeLog = []; state.monthReviews = {};
+    state.purchases = [{ id: "b1", what: "1 Example St", costs: [] }];
+    state.transactions = [
+      { id: "a", date: "2026-10-06", amount: 60, linkedExpenseId: "e1" },
+      { id: "b", date: "2026-10-06", amount: 40, linkedExpenseId: "pot" },
+      { id: "c", date: "2026-10-07", amount: 50000, forProperty: "b1", forCost: "deposit" }
+    ];
+    var items = [{ id: "e1", what: "Groceries", amount: 400, freq: "Monthly", classification: "Needs" }, { id: "pot", what: "Gifts", amount: 600, freq: "Yearly", irregular: true, classification: "Wants" }];
+    var w = weekRecapFor("2026-10-14", 0); // 5–11 Oct, the last full week
+    assert.equal(w.spent, 100, "the deposit is not the week's spending");
+    var html = homeSummaryHtml("2026-10-14", { netWorth: 1, items: items, todos: [{ id: "budget:over", title: "Over budget this month", page: "expenses", sub: "budget", severity: "bad" }], know: false });
+    assert.match(html, /<p class="home-note home-pots">Plus \$40 paid from set-aside pots/);
+    assert.match(html, /class="home-card home-needs" data-home-card="needs">/, "a red to-do marks itself, not the card");
+    assert.match(html, /class="home-todo-btn bad"/);
+    assert.equal(typeof needsYouCount, "function");
+  } finally { Object.assign(state, keep); }
+});
+
 test("Home summary for an empty household: the month and net worth say what's missing, not $0 (#309)", async function(){
   const { homeSummaryHtml } = await import("../src/components/home.js");
   var keys = ["netWorthLog", "transactions", "income", "incomeLog", "monthReviews", "assets", "properties", "debts", "shared", "home"];
@@ -1705,7 +1729,9 @@ test("the Budget lists each investment loan's repayment, read-only, with the gro
     { property: { what: "1 Example St" }, loan: { what: "Loan <A>" }, monthly: 2500 },
     { property: { what: "1 Example St" }, loan: {}, monthly: 500 }
   ]);
-  assert.match(html, /Investment loan repayments<\/div><div class="m-card-total">\$3,000/);
+  // The follow-up review: where the figures come from is said once, under the group's name, not on every row.
+  assert.match(html, /Investment loan repayments<small class="m-card-sub">worked out from each loan — edit in Accounts → Property<\/small><\/div><div class="m-card-total">\$3,000/);
+  assert.equal((html.match(/worked out from/g) || []).length, 1);
   assert.match(html, /Loan &lt;A>/);
   assert.match(html, /1 Example St — loan/);
   assert.doesNotMatch(html, /data-section=|data-del/, "nothing to edit or delete");

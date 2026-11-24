@@ -161,8 +161,10 @@ export function homeSummaryHtml(today, opts){
   var needsCount = soon.length + todos.length;
   var know = [];
   if(opts.know !== false){ try { know = knowItems(today); } catch(e){ know = []; } }
-  // Tinted when something is waiting: red with a bill overdue or an urgent to-do, amber with anything else, plain when clear.
-  var needsTone = soon.some(function(b){ return b.days < 0; }) || todos.some(function(t){ return t.severity === "bad"; }) ? " attn-bad" : needsCount ? " attn-warn" : "";
+  // The follow-up review (November 2026): the card is tinted only for a bill that's overdue — money late is the one thing
+  // that can't wait. An urgent to-do wears its own red mark (.home-todo-btn.bad); one item no longer turns the whole
+  // card red, and a count alone is the badge's to say.
+  var needsTone = soon.some(function(b){ return b.days < 0; }) ? " attn-bad" : "";
   var needsCard = '<div class="home-card home-needs' + needsTone + '" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
     (billRows.length ? '<div class="home-sub">Bills this week</div><ul class="home-list home-bill-list">' + billRows.join("") + '</ul>' : '') +
     (todoRows.length ? (billRows.length ? '<div class="home-sub">To do</div>' : '') + '<ul class="home-list">' + todoRows.join("") + '</ul>' : '') +

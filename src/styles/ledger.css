@@ -350,6 +350,7 @@
   .m-card:has(.m-row.open){ overflow:visible; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:600; font-size:var(--fs-md); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-card-sub{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; }
   .m-card-total{ font-family:var(--font-num); font-weight:600; font-size:var(--fs-md); white-space:nowrap; }
   .m-card-total span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); margin-left:2px; }
   .m-comp-bar{ display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin:0 16px 12px; }
@@ -761,6 +762,7 @@
   .qlog-date-toggle:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .qlog-date-change{ color: var(--brass-strong); font-weight:600; margin-left:4px; }
   .qlog-submit{ width:100%; margin-top:12px; }
+  .qlog-full{ display:block; margin:10px auto 0; min-height:44px; }
   .qlog-empty{ font-size:var(--fs-sm); color: var(--ink-soft); margin:0 0 16px; }
   /* On a phone the sheet slides up from the bottom edge and spans the full width — a thumb
      reaches the Log button and the chips there, and the on-screen keyboard pushing the viewport

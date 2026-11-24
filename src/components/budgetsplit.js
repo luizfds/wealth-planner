@@ -15,7 +15,7 @@ import { upcomingBills, billsForMonth } from "../calc/bills.js";
 import { incomeActuals } from "../calc/received.js";
 import { periodsOf, resolveSharedAmount, selectedMonth, monthPhrase } from "../calc/ledger.js";
 import { currentScenario } from "../calc/engine.js";
-import { loggableBudgetLineItems } from "./expenses.js";
+import { loggableBudgetLineItems, budgetLineItems } from "./expenses.js";
 import { currentStrays } from "./tidy.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -47,7 +47,10 @@ export function budgetSplitModel(today){
   // A property's money (a purchase's deposit and costs) isn't the month's spending — not even "spent on no budget line".
   var pcache = propertyCache(state);
   var spending = (state.transactions || []).filter(function(t){ return !isPropertyMoney(t, state, pcache); });
-  var split = monthSplit(lines, spending, ym, { monthlyOf: monthlyOf });
+  // The follow-up review: the plan is every line, a worked-out one included (Lines' legend counts it), so the card and the
+  // legend say the same Lifestyle; the lines you can log against stay the ones the inbox looks at.
+  var planLines = budgetLineItems(scen);
+  var split = monthSplit(planLines, spending, ym, { monthlyOf: monthlyOf });
   var drift = [];
   try { drift = spendingDrift(trimReport({ today: today })); } catch(e){ drift = []; }
   var cards = inboxCards({ strays: currentStrays(today), hints: budgetHints(lines, state.transactions, { today: today, ok: state.tidyOk || {} }),
@@ -60,7 +63,7 @@ export function budgetSplitModel(today){
   var notices = [];
   try { var here = viewItems({ page: "expenses", sub: "budget" }, today); notices = here.todo.concat(here.know); } catch(e){ notices = []; }
   return { ym: ym, today: today, lines: lines.length, split: split, notices: notices,
-    pace: lifestylePace(lines, spending, ym, today, { split: split }),
+    pace: lifestylePace(planLines, spending, ym, today, { split: split }),
     pots: pots(lines, state.transactions, today, { monthlyOf: monthlyOf }),
     inbox: cards,
     upcoming: upcomingBills(lines, state.transactions, today, 7, { accounts: state.accounts, transfers: state.transfers }).filter(function(b){ return b.days >= 0; }),

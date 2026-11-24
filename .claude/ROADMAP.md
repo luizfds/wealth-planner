@@ -5973,3 +5973,9 @@ board's answer cards (`pillsHtml({ cards: true })`, each answer with what it mea
 still counted as spending on Today's month ("left this month" deep below zero), Budget's "spent on no budget line",
 Insights' income vs spending and the Cash flow, Categories, Trends and Budget reports. One helper,
 `spendingTransactions()` (calc/propertymoney.js), is now what each of those sums. Tests: propertymoney.
+
+## Faster checks, and the assessment's next three (November 2026)
+
+`[~]` CI in Playwright's own image, the journeys in five shards and the accessibility scan in four (a PR's checks took
+about 20 minutes); then Insights folded into Today and Plan, one look for controls and cards, and the reports from 21
+into 8.

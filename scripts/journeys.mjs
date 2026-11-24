@@ -103,7 +103,7 @@
 // redraws the whole app where it shouldn't (v3.200.2's transfer save, before the fix) is well over.
 //
 // Run: npm i --no-save playwright && npx playwright install chromium && node scripts/journeys.mjs
-// JOURNEYS=transfer,csv runs some; SPEED=0 skips the budget; SPEED_ONLY=1 runs only it.
+// JOURNEYS=transfer,csv runs some; SPEED=0 skips the budget; SPEED_ONLY=1 runs only it; SHARD=2/5 runs every fifth, from the second.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -8484,7 +8484,14 @@ const JOURNEYS = {
 };
 
 // ---------------- Journeys ----------------
-const pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
+let pick = process.env.JOURNEYS ? process.env.JOURNEYS.split(",") : Object.keys(JOURNEYS);
+// SHARD=k/n (November 2026): CI runs the journeys as n parallel jobs, the k-th taking every n-th one (checks.yml) — one
+// run of all of them took 15 minutes. Locally, leave it unset: every journey runs.
+if(process.env.SHARD){
+  const [k, n] = process.env.SHARD.split("/").map(Number);
+  if(!(n >= 1 && k >= 1 && k <= n)) throw new Error("SHARD must be k/n with 1 ≤ k ≤ n, not " + process.env.SHARD);
+  pick = pick.filter((_, i) => i % n === k - 1);
+}
 if(!process.env.SPEED_ONLY) for(const name of pick){
   const { ctx, page, errors } = await fresh({blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["noswipetabs", "rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();

@@ -437,7 +437,6 @@ function drawDashboardStats(){
   renderSavingsBreakdown(active);
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
-  renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
   renderMonthlyCashFlow();
   renderContributionsGrowth();

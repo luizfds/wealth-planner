@@ -368,6 +368,14 @@ export function wireHomeSummary(){
     }
     // Savings goals live on Plan → Goals, drawn when its tab opens (as planwiring's own links do).
     if(go === "plan" && sub === "goals"){ showPage("plan"); showPlanSubpage("goals", { replace: true }); renderGoalsTab(); return; }
+    // Where you stand's "Lowest cash" opens Plan → Scenarios at the cash forecast (moved there from Insights). showPage
+    // applies inside a view transition, so the scroll waits for the page to be there.
+    if(go === "plan" && sub){
+      showPage("plan"); showPlanSubpage(sub, { replace: true });
+      var to = b.getAttribute("data-home-scroll");
+      if(to) setTimeout(function(){ var el = document.querySelector(to); if(el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350);
+      return;
+    }
     if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }
     if(go === "tax"){ if(fy) setTaxYearSelected(fy); showPage("tax"); showTaxSubpage(sub || "returns", { replace: true }); renderTaxYear(); return; }
     showPage(go);

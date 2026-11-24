@@ -24,7 +24,7 @@ import { renderBankImportHelp } from "./bank-import.js";
 import { renderBenchmarks } from "./benchmarks.js";
 import { renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCompare } from "./compare.js";
-import { renderCards, renderDetail } from "./dashboard.js";
+import { renderCards, renderDetail, renderCashFlowForecastPanel } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderBillsCalendar, renderAccounts, renderCategories, renderBudgetGroupByToggle, budgetMonthlyTotal, renderYearBasisPreference } from "./expenses.js";
 import { renderHealth } from "./health.js";
 import { renderHomeSummary } from "./home.js";
@@ -162,6 +162,8 @@ function defineViews(){
   defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody, ["scenarioChanges", "scenarios", "purchase", "invest", "home", "shared", "properties", "scenarioNotes", "income"]);
   defineView("cards", ["plan", "dashboard"], renderCards, ["*"]);
   defineView("detail", ["dashboard"], renderDetail, ["*"]);
+  // The cash forecast is Plan → Scenarios' now (the app assessment), drawn when that tab shows.
+  defineView("cashforecast", ["plan"], renderCashFlowForecastPanel, ["*"], { tabs: { plan: ["planSub-scenarios"] } });
   defineView("benchmarks", ["dashboard"], renderBenchmarks, ["*"]);
   defineView("totals", null, renderTotals, ["*"]);
   defineView("assets", ["assets", "plan"], renderAssets, ["*"]);

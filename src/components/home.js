@@ -1,4 +1,4 @@
-import { homeTodoItems, attentionIconHtml } from "../lib/attention.js";
+import { homeTodoItems, attentionIconHtml, knowItems } from "../lib/attention.js";
 import { getNotifications } from "../lib/notifications.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
@@ -148,12 +148,17 @@ export function homeSummaryHtml(today, opts){
     return '<li><button type="button" class="home-todo-btn ' + (t.severity === "bad" ? "bad" : t.severity === "warn" ? "warn" : "") + '"' + todoAttrs(t) + '>' + attentionIconHtml(t) + '<span class="home-todo-title">' + escapeAttr(t.title) + '</span><span aria-hidden="true">›</span></button></li>';
   });
   var needsCount = soon.length + todos.length;
+  var know = [];
+  if(opts.know !== false){ try { know = knowItems(today); } catch(e){ know = []; } }
   // Tinted when something is waiting: red with a bill overdue or an urgent to-do, amber with anything else, plain when clear.
   var needsTone = soon.some(function(b){ return b.days < 0; }) || todos.some(function(t){ return t.severity === "bad"; }) ? " attn-bad" : needsCount ? " attn-warn" : "";
   var needsCard = '<div class="home-card home-needs' + needsTone + '" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
     (billRows.length ? '<div class="home-sub">Bills this week</div><ul class="home-list home-bill-list">' + billRows.join("") + '</ul>' : '') +
     (todoRows.length ? (billRows.length ? '<div class="home-sub">To do</div>' : '') + '<ul class="home-list">' + todoRows.join("") + '</ul>' : '') +
     (!billRows.length && !todoRows.length ? emptyStateHtml("Nothing due this week and nothing to do — you're up to date.", { done: true, className: "home-note" }) : '') +
+    // The app assessment (November 2026): Insights' tips (what the app notices — an opportunity, something worth knowing)
+    // are said here too, as one line opening them in the bell, so a household without Insights on screen sees them.
+    (know.length ? '<button type="button" class="link-btn home-know" data-open-bell>' + know.length + ' worth knowing — ' + escapeAttr(know[0].title) + ' →</button>' : '') +
     '<div class="home-needs-links">' + (more > 0 ? '<button type="button" class="link-btn home-todo-all" data-open-bell>All ' + todos.length + ' to-dos →</button>' : '') +
       '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="bills">' + (later > 0 ? later + ' more bill' + (later === 1 ? '' : 's') + ' in the next fortnight →' : 'Bills calendar →') + '</button></div></div>';
 
@@ -266,6 +271,7 @@ export function weekCardHtml(today, recap){
 // does, labelled with its period or scenario, a way to where it's worked out, and "not known" rather than $0.
 var STANDING_GO = { insights: ' data-home-go="dashboard" data-home-sub="insights"', budget: ' data-home-go="expenses" data-home-sub="budget"',
   emergency: ' data-home-go="plan" data-home-sub="goals"', loans: ' data-home-go="properties"', accounts: ' data-home-go="accounts"', needs: ' data-glance-go="needs"',
+  forecast: ' data-home-go="plan" data-home-sub="scenarios" data-home-scroll="#cashFlowForecastPanel"',
   spending: ' data-home-go="expenses" data-home-sub="spending"', income: ' data-home-go="expenses" data-home-sub="income"' };
 // month: { left (null when nothing's been received), spent, planned, label } or null — homeSummaryHtml's month.
 export function standingCardHtml(todos, month){

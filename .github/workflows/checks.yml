@@ -11,7 +11,7 @@
 #           package.json — the app and its test suite stay dependency-free.
 #   screens — pull requests only: the base branch and the PR photographed and compared (below).
 # November 2026, faster checks: every browser job runs in Playwright's own image, which has Chromium and its system
-# libraries already (installing them took five minutes a job); the journeys run as five parallel shards (one run was
+# libraries already (installing them took five minutes a job); the journeys run as seven parallel shards (one run was
 # 15 minutes), the accessibility scan as four (a width and a colour scheme each), and the accessibility journeys in one
 # run of their own beside them.
 name: Checks
@@ -47,19 +47,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
-    name: journeys (${{ matrix.shard }}/5)
+        shard: [1, 2, 3, 4, 5, 6, 7]
+    name: journeys (${{ matrix.shard }}/7)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
-      # Every fifth journey, from this shard's; the speed budget once, in the last shard.
+      # Every seventh journey, from this shard's; the speed budget once, in the last shard. November 2026: seven, not
+      # five — with the screens job split, the journeys' four minutes a shard were the whole run's.
       - run: node scripts/journeys.mjs
         env:
-          SHARD: ${{ matrix.shard }}/5
-          SPEED: ${{ matrix.shard == 5 && '1' || '0' }}
+          SHARD: ${{ matrix.shard }}/7
+          SPEED: ${{ matrix.shard == 7 && '1' || '0' }}
   lint:
     runs-on: ubuntu-latest
     steps:

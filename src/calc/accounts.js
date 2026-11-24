@@ -268,3 +268,16 @@ export function accountsOverview(opts){
 
 // The migration that sets `type` and `link` on old saves lives in state.js (migrateAccounts) — state.js
 // can't import calc modules — and has to agree with ACCOUNT_TYPES and resolveLink above.
+// An account a bank import's transfer named that wasn't in the app yet (the follow-up review, November 2026): a plain
+// cash account, savings when its name says so. → its id. removeAccounts takes such accounts away again (undo).
+export function addTransferAccount(st, name){
+  st.accounts = st.accounts || [];
+  var acct = { id: genId("acct"), name: name, type: /saving/i.test(name) ? "savings" : "everyday", statementStartDay: 1, link: "" };
+  st.accounts.push(acct);
+  return acct.id;
+}
+export function removeAccounts(st, ids){
+  var gone = {};
+  (ids || []).forEach(function(id){ gone[id] = true; });
+  st.accounts = (st.accounts || []).filter(function(a){ return !gone[a.id]; });
+}

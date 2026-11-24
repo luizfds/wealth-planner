@@ -422,7 +422,7 @@ export function wireImports(){
       function(){
         // Rules the import taught are left in place on purpose — they're a preference, not part of
         // the data being undone, and re-importing the same file is the usual reason to undo.
-        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet, result.reconciled, result.loanSet);
+        undoBankImport(result.ids, result.lineIds, result.receivedIds, result.transferIds, result.balanceSet, result.reconciled, result.loanSet, result.accountIds);
         refreshAfterBankImport();
         renderAll();
       }

@@ -3233,3 +3233,19 @@ test("net worth history: newest first, each day editable or removable, a spike f
   assert.equal(log[0].date, "2026-11-10");
   assert.match(nwHistoryHtml([], "2026-11-14"), /Nothing recorded yet/);
 });
+
+// The follow-up review of first-run setup and the bank import (November 2026).
+test("setup: an unnamed payer is You, amounts read with commas; a transfer to an account not in the app yet is offered", async function(){
+  const { setupAmount, setupPersonName } = await import("../src/calc/firstrun.js");
+  const { newTransferAccountName } = await import("../src/components/bank-import.js");
+  assert.equal(setupAmount("75,000"), 75000);
+  assert.equal(setupAmount("$1,200.50"), 1200.5);
+  assert.ok(isNaN(setupAmount("abc")));
+  assert.equal(setupPersonName({ name: "", pay: "75,000" }, 0), "You");
+  assert.equal(setupPersonName({ name: "", pay: "60000" }, 1), "Partner");
+  assert.equal(setupPersonName({ name: "  Alex ", pay: "" }, 0), "Alex");
+  assert.equal(setupPersonName({ name: "", pay: "" }, 0), "", "nobody without a name or pay");
+  assert.equal(newTransferAccountName("TRANSFER TO SAVINGS"), "Savings");
+  assert.equal(newTransferAccountName("Transfer from bonus saver"), "Bonus Saver");
+  assert.equal(newTransferAccountName("INTERNET TRANSFER 12345"), "Other account");
+});

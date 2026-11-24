@@ -1,5 +1,6 @@
 import { COMMON_COSTS } from "../calc/firstrun.js";
 import { escapeAttr } from "../lib/html.js";
+import { formatMoney } from "../lib/field.js";
 
 // ---------------- The first-run setup sheet (v3.74.0) ----------------
 // Five short steps in the app's usual bottom sheet. Answers are held here until Finish; nothing is
@@ -14,6 +15,8 @@ export function startFirstRun(){
 var STEPS = ["Who's in the household?", "Your accounts", "Your pay", "Home and everyday costs", "Bring in your spending"];
 
 function field(label, attr, value, type, extra){
+  // The follow-up review (November 2026): an amount is the app's money field ("75,000"), as every other form has.
+  if(type === "money") return '<label class="fr-field"><span>' + label + '</span><input class="field-control" type="text" inputmode="decimal" autocomplete="off" data-money ' + attr + ' value="' + escapeAttr(value == null || value === "" ? "" : formatMoney(value)) + '"' + (extra || "") + '></label>';
   return '<label class="fr-field"><span>' + label + '</span><input class="field-control" type="' + (type || "text") + '" ' + attr + ' value="' + escapeAttr(value == null ? "" : value) + '"' + (extra || "") + '></label>';
 }
 export function firstRunHtml(){
@@ -30,23 +33,24 @@ export function firstRunHtml(){
       a.accounts.map(function(x, i){
         return '<div class="fr-row fr-acct">' + field("Name", 'data-fr="accounts.' + i + '.name"', x.name) +
           '<label class="fr-field"><span>Type</span><select class="field-control" data-fr="accounts.' + i + '.type">' + [["everyday", "Everyday"], ["savings", "Savings"], ["offset", "Offset"], ["credit", "Credit card"]].map(function(o){ return '<option value="' + o[0] + '"' + (x.type === o[0] ? " selected" : "") + '>' + o[1] + '</option>'; }).join("") + '</select></label>' +
-          field(x.type === "credit" ? "Owes $" : "Balance $", 'data-fr="accounts.' + i + '.balance"', x.balance, "number", ' step="1"') +
-          '<button type="button" class="btn btn-danger btn-sm" data-fr-del-acct="' + i + '" aria-label="Remove this account">✕</button></div>';
+          field(x.type === "credit" ? "Owes $" : "Balance $", 'data-fr="accounts.' + i + '.balance"', x.balance, "money") +
+          '<button type="button" class="btn btn-danger btn-sm" data-fr-del-acct="' + i + '">Remove<span class="visually-hidden"> ' + escapeAttr(x.name || "this account") + '</span></button></div>';
       }).join("") + '<button type="button" class="btn btn-sm btn-ghost" data-fr-add-acct>+ Another account</button>';
   } else if(st === 2){
-    body = '<p class="fr-lede">Pay before tax. Leave it blank to fill in later on Money → Budget → Money in.</p>' +
-      a.people.filter(function(p){ return String(p.name || "").trim(); }).map(function(p){
-        var i = a.people.indexOf(p);
-        return '<div class="fr-row">' + field(escapeAttr(p.name) + "'s pay before tax $", 'data-fr="people.' + i + '.pay"', p.pay, "number", ' step="100"') +
+    // The follow-up review: a pay field for everyone, named or not (it was empty when step 1's name was left blank).
+    body = '<p class="fr-lede">Pay before tax. Leave it blank to fill in later on Money → Income.</p>' +
+      a.people.map(function(p, i){
+        var who = String(p.name || "").trim() ? escapeAttr(String(p.name).trim()) + "'s" : i === 0 ? "Your" : "Your partner's";
+        return '<div class="fr-row">' + field(who + " pay before tax $", 'data-fr="people.' + i + '.pay"', p.pay, "money") +
           '<label class="fr-field"><span>Per</span><select class="field-control" data-fr="people.' + i + '.payFreq">' + ["Yearly", "Monthly", "Fortnightly", "Weekly"].map(function(f){ return '<option' + (p.payFreq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>';
-      }).join("") || '<p class="ledger-note">Go back and add a name first.</p>';
+      }).join("");
   } else if(st === 3){
     var h = a.housing;
-    body = '<p class="fr-lede">Roughly what each costs. Blank ones are skipped; everything can be changed on Money → Budget.</p>' +
+    body = '<p class="fr-lede">Roughly what each costs a month. Blank ones are skipped; everything can be changed on Money → Budget.</p>' +
       '<div class="fr-row"><label class="fr-field"><span>Home</span><select class="field-control" data-fr="housing.kind"><option value="rent"' + (h.kind === "rent" ? " selected" : "") + '>Rent</option><option value="loan"' + (h.kind === "loan" ? " selected" : "") + '>Home loan</option><option value="none"' + (h.kind === "none" ? " selected" : "") + '>Neither</option></select></label>' +
-        field("$", 'data-fr="housing.amount"', h.amount, "number") +
+        field("$", 'data-fr="housing.amount"', h.amount, "money") +
         '<label class="fr-field"><span>Per</span><select class="field-control" data-fr="housing.freq">' + ["Weekly", "Fortnightly", "Monthly"].map(function(f){ return '<option' + (h.freq === f ? " selected" : "") + '>' + f + '</option>'; }).join("") + '</select></label></div>' +
-      '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " — a month $", 'data-fr="costs.' + i + '.amount"', c.amount, "number"); }).join("") + '</div>' +
+      '<div class="fr-costs">' + a.costs.map(function(c, i){ return field(escapeAttr(c.what) + " $", 'data-fr="costs.' + i + '.amount"', c.amount, "money"); }).join("") + '</div>' +
       // v3.161.0 (item 191): what else the household has — a part left unticked stays out of the way until one is added.
       '<div class="fr-own"><span>Do you also have</span>' +
         '<label class="pref-check"><input type="checkbox" data-fr="own.property"' + (a.own && a.own.property ? " checked" : "") + '> An investment property (or own your home)</label>' +

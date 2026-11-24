@@ -77,6 +77,19 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.56.0-noble
       options: --user 1001
+    # Two halves (scripts/smoke.mjs SMOKE_PASSES): the phone-to-tablet widths with the empty household, the scenario page
+    # and Simple mode; the desktop width and dark mode.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: 1
+            passes: light-320,light-390,light-768
+            extras: "1"
+          - part: 2
+            passes: light-1280,dark-390,dark-1280
+            extras: "0"
+    name: pages (${{ matrix.part }}/2)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -84,6 +97,9 @@ jobs:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
       - run: node scripts/smoke.mjs
+        env:
+          SMOKE_PASSES: ${{ matrix.passes }}
+          SMOKE_EXTRAS: ${{ matrix.extras }}
   accessibility:
     runs-on: ubuntu-24.04
     # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
@@ -124,6 +140,15 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.56.0-noble
       options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: 1
+            journeys: errorsummaries,bankconfirmfailure,signedamounts,importchooser,billconfirmation,usermenubounds,payslipreview,importrestorefocus
+          - part: 2
+            journeys: displaydates,propertystatementreview,bankreadrecovery,exactsearch,propertypicker,brokerreview,errorsummarybounds,rowlabelfocus
+    name: accessibility-flows (${{ matrix.part }}/2)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -132,7 +157,7 @@ jobs:
       - run: npm install --no-save playwright@1.56.0 axe-core@4.14.0
       - run: node scripts/journeys.mjs
         env:
-          JOURNEYS: billconfirmation,exactsearch,usermenubounds,bankconfirmfailure,bankreadrecovery,propertypicker,propertystatementreview,brokerreview,payslipreview,importchooser,errorsummarybounds,importrestorefocus,rowlabelfocus,displaydates,signedamounts,errorsummaries
+          JOURNEYS: ${{ matrix.journeys }}
           SPEED: 0
           BILLS_A11Y: 1
           BILLS_SHOTS: accessibility-report/bill-confirmation
@@ -164,7 +189,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: accessibility-flows
+          name: accessibility-flows-${{ matrix.part }}
           path: accessibility-report
           retention-days: 14
   # v3.130.0: what a pull request changes on screen. The same smoke script photographs every view of

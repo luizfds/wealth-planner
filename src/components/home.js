@@ -1,5 +1,5 @@
 import { homeTodoItems, attentionIconHtml, knowItems } from "../lib/attention.js";
-import { getNotifications } from "../lib/notifications.js";
+import { getNotifications, staleAssetNamesList } from "../lib/notifications.js";
 import { lowBalanceCardHtml } from "./dailyforecast.js";
 import { toReview } from "../calc/reviewqueue.js";
 import { state } from "../state.js";
@@ -15,6 +15,7 @@ import { escapeAttr } from "../lib/html.js";
 import { upcomingBills as calendarUpcoming } from "../calc/bills.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { weekRecap, showWeekRecap, KEEP_WEEKS } from "../calc/weekrecap.js";
+import { spendingTransactions } from "../calc/propertymoney.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { adviceFor } from "../calc/advice.js";
 import { partAllows } from "../calc/parts.js";
@@ -83,6 +84,14 @@ export var HOME_TODO_MAX = 4;
 export function homeTodos(){
   return homeTodoItems();
 }
+// What in Needs you can't wait: a bill that's late, a to-do marked urgent. The follow-up review (November 2026): the Today
+// tab carried a count of its own (Checks to fix) beside Needs you's and the bell's; now Needs you's is the one count, and
+// the tab only marks that something there is urgent.
+export function needsYouUrgent(today){
+  today = today || localDateStr();
+  var late = upcomingBills(loggableBudgetLineItems(currentScenario()), state.transactions, today, 7).filter(function(b){ return b.days < 0; });
+  return late.length + homeTodos().filter(function(t){ return t.severity === "bad"; }).length;
+}
 function todoAttrs(n){
   return ' data-notif-id="' + escapeAttr(n.id) + '" data-notif-page="' + escapeAttr(n.page) + '"' + (n.sub ? ' data-notif-sub="' + escapeAttr(n.sub) + '"' : '') +
     (n.action ? ' data-notif-action="' + escapeAttr(n.action) + '"' : '') + (n.fy != null ? ' data-notif-fy="' + escapeAttr(String(n.fy)) + '"' : '') +
@@ -96,7 +105,7 @@ export function homeSummaryHtml(today, opts){
   // v3.103.0: the line ends at today's figure and the change is measured from where the line starts,
   // so the text and the line can't disagree.
   var trend = trendToToday(state.netWorthLog, nw, today, 12);
-  var stale = staleAssets().length;
+  var staleList = staleAssets(), stale = staleList.length;
   // The glance's hero says net worth, its change and its line; the card that said it again under it went (the owner,
   // November 2026). It stays only as the empty state — what to enter first — until something is owned or owed.
   var nwCard = '';
@@ -118,6 +127,9 @@ export function homeSummaryHtml(today, opts){
   // the month is going against the plan — spent and received, each against what was planned.
   var monthCard = '<div class="home-card home-month" data-home-card="month"><span class="home-k">' + (mp === "this month" ? "This month" : escapeAttr(r.label)) + ' <small class="home-k-sub">' + r.transactions + ' transaction' + (r.transactions === 1 ? "" : "s") + ' logged</small></span>' +
     meterHtml("Spent", r.spent, r.plannedSpend, spendTone, gone) +
+    // The follow-up review: Transactions' total counts what pots paid for; this doesn't (a pot is judged over its year) —
+    // so it says what it left out, and the two figures add up.
+    (r.reserveSpent > 0.5 ? '<p class="home-note home-pots">Plus ' + fmtCurrency0.format(Math.round(r.reserveSpent)) + ' paid from set-aside pots — they\'re judged over their year, not this month.</p>' : '') +
     meterHtml("Received", r.incomeReceived, r.incomePlanned, "in", null) +
     (r.missingIncome ? '<p class="home-note">' + r.missingIncome + ' income line' + (r.missingIncome === 1 ? " hasn't" : "s haven't") + ' been logged ' + escapeAttr(mp) + '.</p>' : '');
   var monthLink = '<button type="button" class="link-btn home-link" data-home-go="expenses" data-home-sub="spending">See spending →</button>';
@@ -150,8 +162,10 @@ export function homeSummaryHtml(today, opts){
   var needsCount = soon.length + todos.length;
   var know = [];
   if(opts.know !== false){ try { know = knowItems(today); } catch(e){ know = []; } }
-  // Tinted when something is waiting: red with a bill overdue or an urgent to-do, amber with anything else, plain when clear.
-  var needsTone = soon.some(function(b){ return b.days < 0; }) || todos.some(function(t){ return t.severity === "bad"; }) ? " attn-bad" : needsCount ? " attn-warn" : "";
+  // The follow-up review (November 2026): the card is tinted only for a bill that's overdue — money late is the one thing
+  // that can't wait. An urgent to-do wears its own red mark (.home-todo-btn.bad); one item no longer turns the whole
+  // card red, and a count alone is the badge's to say.
+  var needsTone = soon.some(function(b){ return b.days < 0; }) ? " attn-bad" : "";
   var needsCard = '<div class="home-card home-needs' + needsTone + '" data-home-card="needs"><span class="home-k">Needs you' + (needsCount ? ' <span class="home-count">' + needsCount + '</span>' : '') + '</span>' +
     (billRows.length ? '<div class="home-sub">Bills this week</div><ul class="home-list home-bill-list">' + billRows.join("") + '</ul>' : '') +
     (todoRows.length ? (billRows.length ? '<div class="home-sub">To do</div>' : '') + '<ul class="home-list">' + todoRows.join("") + '</ul>' : '') +
@@ -172,7 +186,8 @@ export function homeSummaryHtml(today, opts){
     (nwEmpty ? glanceTile("nw", "is-hero", "Net worth", "—", "")
       : glanceTile("nw", "is-hero", "Net worth", fmtCompact(nw), (trend ? '<span class="home-glance-chip">' + (trend.change >= 0 ? "▲ " : "▼ ") + fmtCompact(Math.abs(trend.change)) + ' since ' + shortDate(trend.from.date, today) + '</span>' : 'as of today') +
         // Where the figure comes from (the card said "Recorded balances"), or how many of them are out of date.
-        (stale ? '<span class="home-glance-stale">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : '<span class="home-glance-asof">Recorded balances</span>'), trend ? sparkHtml(trend.points) : '')
+        // The follow-up review: said here only — the banner under the card that named them went, so the names are its title.
+        (stale ? '<span class="home-glance-stale" title="Due a fresh value: ' + escapeAttr(staleAssetNamesList(staleList, 3)) + '">' + stale + ' value' + (stale === 1 ? '' : 's') + ' to update</span>' : '<span class="home-glance-asof">Recorded balances</span>'), trend ? sparkHtml(trend.points) : '')
       ).replace('data-glance-go="nw"', 'data-home-go="networth"') +
   '</nav>';
 
@@ -226,7 +241,8 @@ function weekNotice(today){
     .sort(function(a, b){ return (a.kind === "risk" ? 0 : 1) - (b.kind === "risk" ? 0 : 1) || Math.abs(b.impactYearly || 0) - Math.abs(a.impactYearly || 0); })[0] || null;
 }
 export function weekRecapFor(today, back){
-  return weekRecap(state.transactions, today, {
+  // Spending, not a purchase's deposit or settlement (property money: calc/propertymoney.js).
+  return weekRecap(spendingTransactions(state), today, {
     back: back,
     bills: back ? [] : upcomingBills(loggableBudgetLineItems(currentScenario()), state.transactions, today, 7),
     toReview: back ? 0 : toReview(state.transactions).length,

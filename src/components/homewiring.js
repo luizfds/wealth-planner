@@ -137,9 +137,11 @@ export function wireCards(){
     if(!jump) return;
     var where = jump.getAttribute("data-dashboard-jump");
     if(where === "projections"){ showPage("projections"); return; }
-    if(where === "insights"){
-      var tab = document.querySelector('[data-dashboard-sub="insights"]');
-      if(tab){ tab.click(); tab.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    // The follow-up review: financial independence's detail is Plan → Retirement's (it was Insights'). showPage applies
+    // inside a view transition, so the scroll waits for the page to be there.
+    if(where === "retirement"){
+      showPage("plan"); showPlanSubpage("retirement", { replace: true });
+      setTimeout(function(){ var el = document.getElementById("firePanel"); if(el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350);
     } else if(where === "taxyear"){
       if(jump.getAttribute("data-tax-fy")) setTaxYearSelected(jump.getAttribute("data-tax-fy"));
       showPage("tax");

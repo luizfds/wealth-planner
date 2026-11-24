@@ -16,7 +16,7 @@ import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
 import { cashflowEntries, filterEntries, entryTotals, periodSummary } from "../calc/cashflowlist.js";
-import { propertyCache, isPropertyMoney, propertyTargets, targetById } from "../calc/propertymoney.js";
+import { propertyCache, isPropertyMoney, propertyTargets, targetById, spendingTransactions } from "../calc/propertymoney.js";
 import { txForHtml, propertySubHtml, propertyNoteHtml, propertyAsideHtml } from "./propertymoney.js";
 import { purchaseCardFigures } from "./buying.js";
 import { hasOwnDates } from "../calc/txviews.js";
@@ -269,6 +269,10 @@ function classificationSwatchClass(cls){
 
 // v3.105.0: "N/A" is the stored value, not a heading — it reads as missing data. "Other", as in Your month, planned.
 // November 2026: Essentials and Lifestyle (stored Needs/Wants), each every month, then the set-aside pots.
+function groupNameHtml(label){
+  var i = String(label).indexOf(" · ");
+  return i === -1 ? escapeAttr(label) : escapeAttr(label.slice(0, i)) + '<small class="m-card-sub">' + escapeAttr(label.slice(i + 3)) + '</small>';
+}
 var TYPE_LABELS = { Needs: "Essentials · every month", Wants: "Lifestyle · every month", SetAside: "Set aside", Savings: "Savings", "N/A": "Other", Ended: "Ended · in no total" };
 export function groupLabel(key){
   if(key === NO_PROPERTY) return "Not for a property";
@@ -464,8 +468,8 @@ export function renderSharedGroups(){
   var chip = function(key, label, n){ return '<button type="button" class="bl-chip' + (filter === key ? " is-on" : "") + '" data-line-filter="' + key + '" aria-pressed="' + (filter === key) + '">' + label + ' <span>' + n + '</span></button>'; };
   var seg = function(key, label){ return '<button type="button" class="seg-option' + (lineView.sort === key ? " active" : "") + '" data-line-sort="' + key + '" aria-pressed="' + (lineView.sort === key) + '">' + label + '</button>'; };
   var barHtml = '<div class="bl-bar"><div class="bl-chips" role="group" aria-label="Show lines">' + chip("look", "Needs a look", counts.look) + chip("spent", "Spent this month", counts.spent) + chip("all", "All", counts.all) + '</div>' +
-    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div>' +
-    '<button type="button" class="link-btn bl-adjust" data-adjust-open>Adjust the plan →</button></div>';
+    // The follow-up review: Adjust the plan is its own fold under the lines — no second way in from here.
+    '<div class="seg-control bl-sort" role="group" aria-label="Order">' + seg("big", "Biggest") + seg("az", "A–Z") + '</div></div>';
   if(!shown.length){
     container.innerHTML = compositionHtml + barHtml + emptyStateHtml(filter === "look" ? "Nothing needs a look — every line is on track this month." : "Nothing spent on a line yet this month.", { attrs: { "data-line-filter": "all" }, label: "Show all lines" });
     renderPropertyExpensesSummary();
@@ -493,7 +497,8 @@ export function renderSharedGroups(){
       '<span class="icon-btn m-card-caret" aria-hidden="true"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg></span>' +
       // v3.157.0: grouped by category, a card wears the category's icon.
       (propX ? '<span class="pm-icon' + (propX.kind === "investment" ? " is-ip" : "") + '" aria-hidden="true">⌂</span>' : byCategory && g.key !== UNCATEGORISED ? categoryIconHtml(g.key) : '<span class="m-avatar ' + avatarClass + '">' + escapeAttr(initial) + '</span>') +
-      '<div class="m-card-name">' + escapeAttr(groupLabel(g.key)) + '</div>' +
+      // The follow-up review: "Essentials · every month" cut off at a phone's width — the how-often is a line under it.
+      '<div class="m-card-name">' + groupNameHtml(groupLabel(g.key)) + '</div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(g.monthly) + '<span>/mo</span></div></div>' +
       // Each row renders under its own source section, so a housing line's edits, deletes and
       // logs land in state.home[scenario] while a shared line's land in state.shared — no
@@ -664,13 +669,12 @@ export function propertyLoansGroupHtml(rows){
   return '<div class="m-people budget-loans"><div class="m-card" data-budget-loans>' +
     '<div class="m-card-head" style="cursor:default">' +
       '<span class="m-avatar m-avatar-neutral" aria-hidden="true">–</span>' +
-      '<div class="m-card-name">Investment loan repayments</div>' +
+      '<div class="m-card-name">Investment loan repayments<small class="m-card-sub">worked out from each loan — edit in Accounts → Property</small></div>' +
       '<div class="m-card-total">' + fmtCurrency0.format(total) + '<span>/mo</span></div></div>' +
     '<div class="m-rows">' + rows.map(function(r){
       return '<div class="m-row computed"><div class="m-row-summary" style="cursor:default">' +
         '<div style="flex:1 1 auto; min-width:0">' +
           '<div class="m-row-name">' + escapeAttr(r.loan.what || ((r.property.what || "Property") + " — loan")) + '</div>' +
-          '<div class="m-row-sub">auto: worked out from the loan\'s balance, rate and term — edit in Accounts → Property</div>' +
         '</div>' +
         '<span class="m-row-amt">' + fmtCurrency0.format(r.monthly) + '/mo</span>' +
       '</div></div>';
@@ -1158,6 +1162,8 @@ export function renderQuickLogSheet(){
       quickLogDateRowHtml() +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
+      // The follow-up review: the page had a second button for this beside + Log spend; it's the sheet's way further.
+      '<button type="button" class="link-btn qlog-full" data-tx-add-full>Every field — account, link, description →</button>' +
     '</div></div>';
   var amountInput = document.getElementById("quickLogAmount");
   // Focus lands on the amount every time the sheet re-renders (a chip page change, expanding the
@@ -1675,7 +1681,7 @@ function sparkSvg(values, up){
   return '<svg class="pat-spark' + (up ? " is-up" : "") + '" viewBox="0 0 64 24" width="64" height="24" aria-hidden="true"><polyline points="' + pts + '"/></svg>';
 }
 export function patternsListHtml(span, todayStr){
-  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
+  var view = spendingTrends(spendingTransactions(state).filter(function(t){ return t && t.linkedExpenseId; }), { months: 6, lookback: 3, minSpend: 0,
     categoryFor: transactionCategory, uncategorisedLabel: UNCATEGORISED, todayStr: todayStr });
   if(view.monthsCovered < 1 || !view.rows.length) return emptyStateHtml("Nothing spent on a budget line yet — log or import spending and each category shows here with its usual.", { add: "#quickLogBtn", label: "+ Log spend" });
   var last = view.months.length - 1, comparing = view.monthsCovered >= 3, by = view.complete ? "" : " by the " + ordinal(view.throughDay);
@@ -2150,7 +2156,7 @@ function drawSpendingTrends(){
   var el = document.getElementById("spendingTrendsPanel");
   if(!el) return;
   // November 2026: one-offs (on no budget line) out, as in the month's chart — a home's purchase costs aren't a "new" category.
-  var view = spendingTrends(state.transactions.filter(function(t){ return t && t.linkedExpenseId; }), {
+  var view = spendingTrends(spendingTransactions(state).filter(function(t){ return t && t.linkedExpenseId; }), {
     months: TRENDS_MONTHS,
     lookback: TRENDS_LOOKBACK,
     minSpend: TRENDS_MIN_SPEND,

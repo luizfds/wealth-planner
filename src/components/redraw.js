@@ -6,7 +6,6 @@
 // added, so they're added in the same order.
 import { renderNotifBadge } from "./notifpanel.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, totalNetWorthValue } from "../calc/engine.js";
-import { dataHealthChecks } from "../calc/health.js";
 import { sumField } from "../calc/ledger.js";
 import { effectiveIncomeItems, getTaxPeople } from "../calc/tax.js";
 import { syncOn } from "../lib/foldersync.js";
@@ -27,7 +26,7 @@ import { renderCompare } from "./compare.js";
 import { renderCards, renderDetail, renderCashFlowForecastPanel } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderBillsCalendar, renderAccounts, renderCategories, renderBudgetGroupByToggle, budgetMonthlyTotal, renderYearBasisPreference } from "./expenses.js";
 import { renderHealth } from "./health.js";
-import { renderHomeSummary } from "./home.js";
+import { renderHomeSummary, needsYouUrgent } from "./home.js";
 import { renderIncomeGroups, renderTaxSuper, incomeHeaderTotal } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
 import { applyParts, renderPartsSettings } from "./parts.js";
@@ -161,7 +160,8 @@ function defineViews(){
   defineView("billsCalendar", ["expenses"], renderBillsCalendar, ["transfers", "autoPayments"], { tabs: { expenses: ["expensesSub-bills"] } });
   defineView("homeBody", ["plan", "scenario", "calc"], renderHomeBody, ["scenarioChanges", "scenarios", "purchase", "invest", "home", "shared", "properties", "scenarioNotes", "income"]);
   defineView("cards", ["plan", "dashboard"], renderCards, ["*"]);
-  defineView("detail", ["dashboard"], renderDetail, ["*"]);
+  // Insights' panels, now on Plan and Money (the follow-up review); on Today only when pinned there (Arrange).
+  defineView("detail", ["dashboard", "plan", "expenses"], renderDetail, ["*"], { tabs: { plan: ["planSub-projections", "planSub-retirement"], expenses: ["expensesSub-bills"] } });
   // The cash forecast is Plan → Scenarios' now (the app assessment), drawn when that tab shows.
   defineView("cashforecast", ["plan"], renderCashFlowForecastPanel, ["*"], { tabs: { plan: ["planSub-scenarios"] } });
   defineView("benchmarks", ["dashboard"], renderBenchmarks, ["*"]);
@@ -226,15 +226,16 @@ function renderAll(){
   if(JSON.stringify(state.income) + JSON.stringify(state.assets) !== beforeRecalc) persist();
   drawViews();
 }
-// Settings carries the number of Checks that need fixing (v3.63.0), so they're seen without
-// opening the tab — on the sidebar, the More tab and its Settings item.
+// The Today tab's mark (v3.63.0 counted Checks to fix; the follow-up review, November 2026): a dot when something in
+// Needs you is urgent — a late bill, a red to-do. Needs you's own badge is the one count.
 function renderChecksBadge(){
   var n = 0;
-  try { n = dataHealthChecks({}).filter(function(c){ return c.severity !== "info"; }).length; } catch(e){ n = 0; }
+  try { n = needsYouUrgent(); } catch(e){ n = 0; }
   document.querySelectorAll("[data-checks-badge]").forEach(function(el){
     el.hidden = !n;
-    el.textContent = el.classList.contains("nav-badge-dot") ? "" : String(n);
-    el.setAttribute("aria-label", n + " check" + (n === 1 ? "" : "s") + " to fix");
+    el.textContent = "";
+    el.classList.add("nav-badge-mark");
+    el.setAttribute("aria-label", n + " urgent in Needs you");
   });
 }
 // A few generic starting points, plus whatever the user has actually named in the Accounts

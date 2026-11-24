@@ -28,16 +28,15 @@ export var HOME_CARDS = [
   { key: "tax", label: "Tax estimate (between tax seasons)", group: "figures" },
   { key: "scenarios", label: "Scenarios", group: "figures" }
 ];
-// Insights panels that can come onto Home, by the id of the element their renderer fills.
+// Panels from other pages that can come onto Home (they were Insights' — the follow-up review put each on the page
+// it's about), by the id of the element their renderer fills.
 export var INSIGHT_PANELS = [
   { id: "adviceHome", label: "What the app notices" },
-  { id: "rulePanel", label: "The 50/30/20 rule" },
   { id: "acctPanel", label: "Monthly expenses by account" },
   { id: "firePanel", label: "Financial independence (detail)" },
   { id: "actualVsExpectedPanel", label: "Actual vs. expected" },
   { id: "cashFlowForecastPanel", label: "12-month cash flow forecast" },
   { id: "projectionAccuracyPanel", label: "How the projection has tracked" },
-  { id: "monthlyCashFlowPanel", label: "Income vs spending" },
   { id: "contributionsGrowthPanel", label: "Saved vs grown" }
 ];
 
@@ -137,7 +136,7 @@ export function homeArrangeHtml(){
   return '<div class="review-backdrop" data-ha-backdrop><div class="review-panel ha-panel" role="dialog" aria-modal="true" aria-label="Arrange Home">' +
     '<div class="review-head"><h4>Arrange Home</h4><button type="button" class="icon-btn" data-ha-close aria-label="Close">✕</button></div>' +
     section("cards", "Cards") + section("figures", "Figures") +
-    '<h5 class="ha-title">From Insights</h5><ul class="ha-list">' + INSIGHT_PANELS.map(function(p){
+    '<h5 class="ha-title">From other pages</h5><ul class="ha-list">' + INSIGHT_PANELS.map(function(p){
       return '<li class="ha-row"><label class="pref-check"><input type="checkbox" data-ha-pin="' + p.id + '"' + (l.pinned.indexOf(p.id) !== -1 ? ' checked' : '') + '> ' + p.label + '</label></li>';
     }).join("") + '</ul>' +
     '<p class="ledger-note" style="margin:8px 0 0">Kept on this device. A hidden card still sends its reminders to the bell.</p>' +

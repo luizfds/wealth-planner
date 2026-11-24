@@ -476,7 +476,10 @@ export function wireSpending(){
       if(saveEl) saveEl.disabled = Math.abs(left) >= 0.01;
     }
   });
-  document.getElementById("addTransactionBtn").addEventListener("click", function(){
+  // "Every field" in Log spend's sheet (the page's own button for it went — the follow-up review): a blank transaction
+  // in the row editor. The sheet closes first (cashflowwiring.js), then this opens the editor.
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("[data-tx-add-full]")) return;
     addTransaction();
     var newTx = state.transactions[state.transactions.length - 1];
     openNewRowModal("transactionsTable", "tx", state.transactions.length - 1, modernTransactionRowOpen, newTx);

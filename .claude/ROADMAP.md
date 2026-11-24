@@ -5980,3 +5980,21 @@ Insights' income vs spending and the Cash flow, Categories, Trends and Budget re
 run of their own (a PR's checks took about 20 minutes). Insights folded: the 12-month cash forecast is Plan →
 Scenarios', and Needs you says what the app notices in one line. Reports as eight families (calc/reports.js
 REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: the page's tab colour.
+
+## The follow-up review (November 2026)
+
+`[x]` Checked on a real household after the assessment's changes shipped:
+- **Property money everywhere:** Today's week recap, Patterns and Trends, How you compare's month and Budget's
+  suggestions sum `spendingTransactions()` (#476 missed them). The one transaction that looked doubly linked was an
+  investment property's own line — property money, not a data error, so no check was added.
+- **One answer for "spent this month":** Patterns now agrees with Transactions; Today's month says what pots paid,
+  which its Spent leaves out. **One count:** Needs you's; the Today tab's own count of Checks went, and it shows a
+  dot only when something there is urgent (`needsYouUrgent`). Stale values are
+  said once on Today (the hero names them). Budget's Adjust the plan is its fold only; All suggestions is a card.
+- **Insights retired:** its panels went to the page each is about — Plan → Projections (actual vs expected, how the
+  projection has tracked, saved vs grown), Plan → Retirement (financial independence), Money → Bills (by account); the
+  50/30/20 bar and income vs spending went (Budget's Lines bar, Reports → Cash flow). The tab is "What the app
+  notices": the list and Ask Claude.
+- **Polish:** Budget's group headers say how often under the name; the loan group says where its figures come from
+  once; Needs you is tinted only for a late bill; Transactions has one way to add (Log spend's "Every field"); Budget's
+  top card plans Lifestyle with every line, as the legend does.

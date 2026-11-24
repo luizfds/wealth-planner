@@ -3536,7 +3536,7 @@ const JOURNEYS = {
     const fold = page.locator('#pageUseBody').locator('xpath=ancestor::details[1]');
     await fold.evaluate(d => { d.open = true; });
     const listed = await page.locator('#pageUseBody li').allInnerTexts();
-    check(listed.includes('Tax → Returns') && listed.includes('Plan → Retirement') && !listed.includes('Money → Transactions') && !listed.includes('Today → Insights'), 'rarely opened lists ' + JSON.stringify(listed));
+    check(listed.includes('Tax → Returns') && listed.includes('Plan → Retirement') && !listed.includes('Money → Transactions') && !listed.includes('Today → What the app notices'), 'rarely opened lists ' + JSON.stringify(listed));
     await page.locator('#pageUseClear').click();
     check(await page.evaluate(() => localStorage.getItem('wealthPlanner.pageUse') === null || !JSON.parse(localStorage.getItem('wealthPlanner.pageUse')).views['expenses/spending']), 'Forget did not clear the count');
   },
@@ -3551,7 +3551,7 @@ const JOURNEYS = {
       check(!await page.locator('#dashboardSubnav').count(), 'Today still has a tab rail');
       let s = await shown();
       check(s.title === 'Today' && s.path === '/dashboard' && !s.back && s.lit.join() === 'Today', width + ': Today is not itself: ' + JSON.stringify(s));
-      for(const [sub, title] of [['insights', 'Insights'], ['benchmarks', 'How you compare'], ['review', 'Monthly review']]){
+      for(const [sub, title] of [['insights', 'What the app notices'], ['benchmarks', 'How you compare'], ['review', 'Monthly review']]){
         await page.locator('.today-more [data-dashboard-sub="' + sub + '"]').click();
         await page.waitForFunction(p => location.pathname === p, '/dashboard/' + sub);
         s = await shown();
@@ -3842,8 +3842,8 @@ const JOURNEYS = {
     await tryField(A + ".acct-mgmt-day", "31", "state.accounts[" + card + "].statementStartDay", "a cycle day");
     await tryField(A + ".acct-mgmt-payday", "40", "state.accounts[" + card + "].payDay", "a repayment day");
     await tryField(A + ".acct-mgmt-limit", "-500", "state.accounts[" + card + "].limit", "a card limit");
-    // Home → Insights: a retirement age.
-    await go(page, "dashboard", "data-dashboard-sub", "insights");
+    // Plan → Retirement (Insights' until the follow-up review): a retirement age.
+    await go(page, "plan", "data-plan-sub", "retirement");
     await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
     await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
     await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
@@ -7221,7 +7221,7 @@ const JOURNEYS = {
     await settle(page);
     check(!(await page.locator('#budgetGroupBy').isVisible()), 'grouping shows on a filtered list');
     // Adjust the plan: Biscuit typically spends far more than its $120.
-    await page.locator('#sharedGroups [data-adjust-open]').click();
+    await page.locator('#adjustCard > summary').click();
     await waited(page, () => document.getElementById('adjustCard').open && !!document.querySelector('#adjustBody [data-adjust-pick="jhp"]'), 'Adjust the plan to offer Biscuit');
     await page.locator('#adjustBody [data-adjust-pick="jhp"]').click();
     check(/Save 1 change/.test(await page.locator('#adjustBody [data-adjust-save]').innerText()), 'Save does not count the pick');

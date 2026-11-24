@@ -6,6 +6,7 @@
 // Each section is an HTML builder over a plain data object (testable, see render-smoke) plus a
 // gather function that reads state.
 import { state } from "../state.js";
+import { spendingTransactions } from "../calc/propertymoney.js";
 import { partOn } from "../calc/parts.js";
 import { BENCHMARKS } from "../constants.js";
 import { getTaxPeople, ageOnDate } from "../calc/tax.js";
@@ -248,7 +249,7 @@ export function gatherTargets(){
   var active = currentScenario();
   var t = scenarioTotals(active);
   var cats = {};
-  transactionsInMonth(state.transactions, today.slice(0, 7)).forEach(function(tx){
+  transactionsInMonth(spendingTransactions(state), today.slice(0, 7)).forEach(function(tx){
     var c = transactionCategory(tx);
     if(c) cats[c] = (cats[c] || 0) + (Number(tx.amount) || 0);
   });

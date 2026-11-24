@@ -350,6 +350,7 @@
   .m-card:has(.m-row.open){ overflow:visible; }
   .m-card-head{ display:flex; align-items:center; gap:12px; padding:13px 16px; }
   .m-card-name{ font-weight:600; font-size:var(--fs-md); flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m-card-sub{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; }
   .m-card-total{ font-family:var(--font-num); font-weight:600; font-size:var(--fs-md); white-space:nowrap; }
   .m-card-total span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); margin-left:2px; }
   .m-comp-bar{ display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin:0 16px 12px; }
@@ -761,6 +762,7 @@
   .qlog-date-toggle:focus-visible{ box-shadow: var(--focus-ring); outline:none; }
   .qlog-date-change{ color: var(--brass-strong); font-weight:600; margin-left:4px; }
   .qlog-submit{ width:100%; margin-top:12px; }
+  .qlog-full{ display:block; margin:10px auto 0; min-height:44px; }
   .qlog-empty{ font-size:var(--fs-sm); color: var(--ink-soft); margin:0 0 16px; }
   /* On a phone the sheet slides up from the bottom edge and spans the full width — a thumb
      reaches the Log button and the chips there, and the on-screen keyboard pushing the viewport
@@ -1792,7 +1794,6 @@
   .bl-chip.is-on{ background: var(--ink); border-color: var(--ink); color: var(--paper-raised); font-weight:600; }
   .bl-chip.is-on span{ color: inherit; }
   .bl-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
-  .bl-adjust{ margin-left:auto; }
   /* Adjust the plan (components/adjustplan.js) */
   #adjustCard{ scroll-margin-top: 80px; }
   .ap-rows{ list-style:none; margin:10px 0 0; padding:0; }
@@ -2336,7 +2337,8 @@
   .pm-aside .link-btn{ align-self:flex-start; min-height:44px; }
   .txg-prop{ font-size:var(--fs-xs); white-space:nowrap; }
   .bh-all-suggest{ display:flex; flex-direction:column; gap:12px; }
-  .bh-all-suggest > summary{ display:flex; align-items:center; gap:10px; min-height:56px; padding:10px 14px; border:1px dashed var(--border); border-radius: var(--card-radius); cursor:pointer; list-style:none; }
+  /* The follow-up review: a card like the folds above it, with their caret — dashed, it read as a disabled placeholder. */
+  .bh-all-suggest > summary{ display:flex; align-items:center; gap:10px; min-height:56px; padding: var(--card-py) var(--card-px); background: var(--paper-raised); border:1px solid var(--border); border-radius: var(--card-radius); box-shadow: var(--shadow); cursor:pointer; list-style:none; }
   .bh-all-suggest > summary::-webkit-details-marker{ display:none; }
   .bh-all-suggest-head span{ display:flex; flex-direction:column; gap:2px; }
   .bh-all-suggest-head small{ font-size:var(--fs-xs); color: var(--ink-soft); }

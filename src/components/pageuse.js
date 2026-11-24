@@ -7,7 +7,7 @@ import { emptyStateHtml } from "../lib/empty.js";
 
 // The screens worth knowing about — what a household might not need — named as the menu names them.
 export var KNOWN_SCREENS = [
-  { key: "dashboard/insights", label: "Today → Insights" }, { key: "dashboard/benchmarks", label: "Today → How you compare" },
+  { key: "dashboard/insights", label: "Today → What the app notices" }, { key: "dashboard/benchmarks", label: "Today → How you compare" },
   { key: "dashboard/review", label: "Today → Monthly review" },
   { key: "expenses/budget", label: "Money → Budget" },
   { key: "expenses/spending", label: "Money → Transactions" }, { key: "expenses/bills", label: "Money → Bills" },

@@ -352,6 +352,8 @@ export function wireCashflowSheets(){
       requestCloseActiveOverlay();
       return;
     }
+    // Every field: the sheet closes, and the document's listener (spendingwiring.js) opens the full editor.
+    if(e.target.closest("[data-tx-add-full]")){ requestCloseActiveOverlay(); return; }
     var chip = e.target.closest("[data-qlog-chip]");
     if(chip){
       // Patched in place rather than re-rendered: the whole point of picking the line after

@@ -312,7 +312,6 @@
               </div>
               <div class="panel" id="firePanel"></div>
               <div class="panel" id="actualVsExpectedPanel"></div>
-              <div class="panel" id="cashFlowForecastPanel"></div>
               <div class="panel" id="projectionAccuracyPanel"></div>
               <div class="panel" id="monthlyCashFlowPanel"></div>
               <div class="panel" id="contributionsGrowthPanel"></div>
@@ -1041,6 +1040,9 @@
         <div class="page-intro-row"><p class="page-intro help">Each scenario is your current situation with a list of changes — a purchase, a move, a pay rise. Open one to edit it, pick the one to plan against, or compare them side by side.</p></div>
         <!-- Pictures before words: every scenario's normal month of savings on one scale, before the cards. -->
         <div class="sc-compare" id="scenarioSavingsStrip" hidden></div>
+        <!-- The app assessment (November 2026): the cash month by month through the next 12, a home's settlement in its month,
+             moved here from Insights — it's about the plan, and Today's "Lowest cash" opens it. -->
+        <div class="panel plan-cash-forecast" id="cashFlowForecastPanel"></div>
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- November 2026: scenarios put away, to restore as they were. -->
         <div class="ledgers" id="scenarioArchiveList" hidden></div>

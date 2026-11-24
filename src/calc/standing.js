@@ -23,7 +23,7 @@ export function standingFigures(o){
   // The cash low point — known only from a real starting balance.
   if(f && f.startCash != null && f.lowest){
     out.push({ key: "cashlow", label: "Lowest cash, next 12 months", value: r0(f.lowest.balance), tone: f.shortfall > 0 ? "bad" : f.monthsUnderReserve > 0 ? "warn" : "good",
-      sub: (f.lowest.now ? "today's" : "end of " + label(f.lowest)) + (f.events && f.events.length ? " · settlement included" : ""), go: "insights" });
+      sub: (f.lowest.now ? "today's" : "end of " + label(f.lowest)) + (f.events && f.events.length ? " · settlement included" : ""), go: "forecast" });
   } else out.push({ key: "cashlow", label: "Lowest cash, next 12 months", value: null, sub: "Record a cash or offset balance to know it", go: "accounts" });
   // What's left this month: received less spent — first, it's what most people open Today for.
   var m = o.month;

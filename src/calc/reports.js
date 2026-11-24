@@ -63,6 +63,22 @@ export var REPORTS = [
   { key: "lender", label: "Lender pack", group: "year" },
   { key: "yearend", label: "Year-end pack", group: "year" }
 ];
+// The app assessment (November 2026): twenty-one reports read as eight — each family one entry in the chooser, its
+// reports the views inside it (a report's page names its family and offers its siblings). Keys are unchanged, so a
+// pinned report, a link and search still open the same view.
+export var REPORT_FAMILIES = [
+  { key: "cashflow", label: "Cash flow", desc: "Money in and out by month, by category, as a statement, year on year", reports: ["cashflow", "categories", "income", "flow", "trends", "month"] },
+  { key: "budget", label: "Budget", desc: "Each line, planned against spent", reports: ["budget"] },
+  { key: "networth", label: "Net worth", desc: "What you own and owe, checked, and every loan", reports: ["networth", "nwcheck", "debts"] },
+  { key: "investments", label: "Investments", desc: "Returns, distributions, capital gains and super", reports: ["invest", "dividends", "cgt", "super"] },
+  { key: "property", label: "Property", desc: "Each property's profit and loss, and its returns", reports: ["property", "propreturns"] },
+  { key: "tax", label: "Tax", desc: "The year's tax, and each rental's schedule", reports: ["tax", "taxpack"] },
+  { key: "year", label: "The year", desc: "The year in review, and its year-end pack", reports: ["review", "yearend"] },
+  { key: "lender", label: "For your lender", desc: "What a lender asks for, in one pack", reports: ["lender"] }
+];
+export function reportFamily(key){
+  return REPORT_FAMILIES.find(function(f){ return f.reports.indexOf(key) !== -1; }) || null;
+}
 
 export function cashflowReport(opts){
   opts = opts || {};

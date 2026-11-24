@@ -437,7 +437,6 @@ function drawDashboardStats(){
   renderSavingsBreakdown(active);
   renderStaleAssetsBanner();
   renderActualVsExpectedPanel(active, t);
-  renderCashFlowForecastPanel();
   renderProjectionAccuracyPanel();
   renderMonthlyCashFlow();
   renderContributionsGrowth();
@@ -488,7 +487,7 @@ function renderCashFlowForecastPanel(){
   var panel = document.getElementById("cashFlowForecastPanel");
   if(!panel) return;
   if(!state.income.length && !state.shared.length){
-    panel.innerHTML = '<h3>12-month cash flow forecast</h3><p class="fire-note">Add some income and expenses to see a month-by-month forecast here.</p>';
+    panel.innerHTML = '<h2 class="section-title">12-month cash flow forecast</h2><p class="fire-note">Add some income and expenses to see a month-by-month forecast here.</p>';
     return;
   }
   var forecast = monthlyCashFlowForecast(12);
@@ -517,8 +516,8 @@ function renderCashFlowForecastPanel(){
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note help">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
     : '';
-  panel.innerHTML = '<h3>12-month cash flow forecast</h3>' + liquidityHtml(forecast) +
-    '<h4 class="liq-sub">What each month adds or takes</h4>' +
+  panel.innerHTML = '<h2 class="section-title">12-month cash flow forecast</h2>' + liquidityHtml(forecast) +
+    '<h3 class="liq-sub">What each month adds or takes</h3>' +
     '<p class="fire-note help" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
     rows + reserveNote;
 }

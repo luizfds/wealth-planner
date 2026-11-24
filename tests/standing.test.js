@@ -13,7 +13,7 @@ test("four figures at most, each with where it goes: left this month, a shortfal
   assert.equal(f.length, 4);
   assert.deepEqual(f.map(x => x.key), ["left", "cashlow", "runway", "stress"], "the planned surplus and the count of things waiting are said once elsewhere on Today");
   assert.deepEqual([f[0].label, f[0].value, f[0].tone, f[0].sub, f[0].go], ["Left this month", 1200, "good", "$3,400 of $4,000 spent", "spending"]);
-  assert.deepEqual([f[1].value, f[1].tone, f[1].sub, f[1].go], [-1500, "bad", "end of Feb 27 · settlement included", "insights"]);
+  assert.deepEqual([f[1].value, f[1].tone, f[1].sub, f[1].go], [-1500, "bad", "end of Feb 27 · settlement included", "forecast"]);
   assert.deepEqual([f[2].value, f[2].tone, f[2].sub], [4.2, "warn", "of essentials · aim 6"]);
   assert.deepEqual([f[3].value, f[3].sub], [400, "a month more · still $800 left"]);
   const over = standingFigures({ month: { left: -250, spent: 900, planned: 0, label: "in Sep 2026" } })[0];

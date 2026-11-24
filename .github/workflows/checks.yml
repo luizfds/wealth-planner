@@ -10,6 +10,10 @@
 #           text and bars that don't draw. Playwright is installed here only, never added to
 #           package.json — the app and its test suite stay dependency-free.
 #   screens — pull requests only: the base branch and the PR photographed and compared (below).
+# November 2026, faster checks: every browser job runs in Playwright's own image, which has Chromium and its system
+# libraries already (installing them took five minutes a job); the journeys run as five parallel shards (one run was
+# 15 minutes), the accessibility scan as four (a width and a colour scheme each), and the accessibility journeys in one
+# run of their own beside them.
 name: Checks
 on:
   pull_request:
@@ -34,16 +38,28 @@ jobs:
       - run: |
           { echo "### Test coverage"; echo '```'; grep -E "^# (file|all files| *[a-z]+/ *\|)" coverage.txt | sed 's/^# //' | grep -E "^(file|all files)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
   journeys:
-    # Pinned with the pages job: Playwright 1.56 and ubuntu-24.04 move together.
     runs-on: ubuntu-24.04
+    # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
+    # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    name: journeys (${{ matrix.shard }}/5)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
-      - run: npx playwright install --with-deps chromium
+      # Every fifth journey, from this shard's; the speed budget once, in the last shard.
       - run: node scripts/journeys.mjs
+        env:
+          SHARD: ${{ matrix.shard }}/5
+          SPEED: ${{ matrix.shard == 5 && '1' || '0' }}
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -55,127 +71,117 @@ jobs:
       - run: npm ci
       - run: npm run check
   pages:
-    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 can't install Chromium. Move both
-    # together (the runner and the Playwright version) when upgrading.
     runs-on: ubuntu-24.04
+    # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
+    # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
+    # Two halves (scripts/smoke.mjs SMOKE_PASSES): the phone-to-tablet widths with the empty household, the scenario page
+    # and Simple mode; the desktop width and dark mode.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: 1
+            passes: light-320,light-390,light-768
+            extras: "1"
+          - part: 2
+            passes: light-1280,dark-390,dark-1280
+            extras: "0"
+    name: pages (${{ matrix.part }}/2)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
-      - run: npx playwright install --with-deps chromium
       - run: node scripts/smoke.mjs
+        env:
+          SMOKE_PASSES: ${{ matrix.passes }}
+          SMOKE_EXTRAS: ${{ matrix.extras }}
   accessibility:
     runs-on: ubuntu-24.04
+    # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
+    # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [390, 1280]
+        scheme: [light, dark]
+    name: accessibility (${{ matrix.width }}px, ${{ matrix.scheme }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0 axe-core@4.14.0
-      - run: npx playwright install --with-deps chromium
+      # One width and one colour scheme a job (the script's own A11Y_WIDTHS and A11Y_SCHEMES).
       - run: node scripts/accessibility.mjs
         env:
           A11Y_DIR: accessibility-report
-      - name: Bill confirmation
-        run: node scripts/journeys.mjs
+          A11Y_WIDTHS: ${{ matrix.width }}
+          A11Y_SCHEMES: ${{ matrix.scheme }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-report-${{ matrix.width }}-${{ matrix.scheme }}
+          path: accessibility-report
+          retention-days: 14
+  # The journeys that check their own flow's accessibility (each its *_A11Y flag), in one run: they were fifteen steps,
+  # each starting Chromium again.
+  accessibility-flows:
+    runs-on: ubuntu-24.04
+    # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
+    # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: 1
+            journeys: errorsummaries,bankconfirmfailure,signedamounts,importchooser,billconfirmation,usermenubounds,payslipreview,importrestorefocus
+          - part: 2
+            journeys: displaydates,propertystatementreview,bankreadrecovery,exactsearch,propertypicker,brokerreview,errorsummarybounds,rowlabelfocus
+    name: accessibility-flows (${{ matrix.part }}/2)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0 axe-core@4.14.0
+      - run: node scripts/journeys.mjs
         env:
-          JOURNEYS: billconfirmation
+          JOURNEYS: ${{ matrix.journeys }}
           SPEED: 0
           BILLS_A11Y: 1
           BILLS_SHOTS: accessibility-report/bill-confirmation
-      - name: Exact-record search
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: exactsearch
-          SPEED: 0
           SEARCH_A11Y: 1
-      - name: User menu viewport bounds
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: usermenubounds
-          SPEED: 0
           MENU_A11Y: 1
           MENU_SHOTS: accessibility-report/user-menu
-      - name: Bank statement save recovery
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: bankconfirmfailure
-          SPEED: 0
           BANK_SAVE_A11Y: 1
           BANK_SAVE_SHOTS: accessibility-report/bank-save
-      - name: Bank statement read recovery
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: bankreadrecovery
-          SPEED: 0
           BANK_READ_A11Y: 1
           BANK_READ_SHOTS: accessibility-report/bank-read
-      - name: Property chooser modal
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: propertypicker
-          SPEED: 0
           PROPERTY_PICKER_A11Y: 1
           PROPERTY_PICKER_SHOTS: accessibility-report/property-picker
-      - name: Property statement review and completion
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: propertystatementreview
-          SPEED: 0
           PROPERTY_READ_A11Y: 1
           PROPERTY_READ_SHOTS: accessibility-report/property-statement
-      - name: Broker trade review
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: brokerreview
-          SPEED: 0
           BROKER_A11Y: 1
           BROKER_SHOTS: accessibility-report/broker-review
-      - name: Payslip review before saving
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: payslipreview
-          SPEED: 0
           PAYSLIP_A11Y: 1
           PAYSLIP_SHOTS: accessibility-report/payslip-review
-      - name: Shared import chooser
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: importchooser
-          SPEED: 0
           IMPORT_A11Y: 1
           IMPORT_SHOTS: accessibility-report/import-chooser
-      - name: Error-summary viewport bounds
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: errorsummarybounds
-          SPEED: 0
           ERROR_BOUNDS_SHOTS: accessibility-report/error-bounds
-      - name: Import and editor focus recovery
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: importrestorefocus,rowlabelfocus
-          SPEED: 0
-      - name: Readable history and import dates
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: displaydates
-          SPEED: 0
           DISPLAY_DATE_A11Y: 1
           DISPLAY_DATE_SHOTS: accessibility-report/display-dates
-      - name: Signed budget and income amounts
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: signedamounts
-          SPEED: 0
           SIGNED_A11Y: 1
-      - name: Long-form error summaries
-        run: node scripts/journeys.mjs
-        env:
-          JOURNEYS: errorsummaries
-          SPEED: 0
           ERROR_A11Y: 1
           ERROR_A11Y_DIR: accessibility-report/error-summaries
           ERROR_TRACE_DIR: accessibility-report/error-summary-trace
@@ -183,7 +189,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: accessibility-report
+          name: accessibility-flows-${{ matrix.part }}
           path: accessibility-report
           retention-days: 14
   # v3.130.0: what a pull request changes on screen. The same smoke script photographs every view of
@@ -193,9 +199,12 @@ jobs:
   # Informational: a visual change never fails the check.
   screens:
     if: github.event_name == 'pull_request'
-    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 can't install Chromium. Move both
-    # together (the runner and the Playwright version) when upgrading.
     runs-on: ubuntu-24.04
+    # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
+    # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@v4
         with:
@@ -208,8 +217,6 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
-        working-directory: head
-      - run: npx playwright install --with-deps chromium
         working-directory: head
       - name: Photograph the base branch
         run: SMOKE_ROOT=../base SHOTS_DIR=../shots/base node scripts/smoke.mjs

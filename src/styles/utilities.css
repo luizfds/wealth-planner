@@ -75,6 +75,21 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 /* #260: the report leads; its catalogue lives in a searchable native dialog. */
 .rp-selection{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .rp-selection > strong{ font-size:var(--fs-lg); }
+/* The app assessment (November 2026): reports as eight families — the family's name over the report's, its other
+   views as chips (on the page and in the chooser). */
+.rp-selection-name{ display:flex; flex-direction:column; min-width:0; }
+.rp-selection-name small{ font-size:var(--fs-xs); font-weight:600; color: var(--tab-ink); text-transform:uppercase; letter-spacing:.04em; }
+.rp-selection-name strong{ font-size:var(--fs-lg); }
+.rp-family-views{ display:flex; flex-wrap:wrap; gap:6px; }
+.rp-more-views{ margin:14px 0 4px; }
+.rp-more-views h3{ margin:0 0 8px; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+.rp-family{ border:1px solid var(--border); border-radius: var(--card-radius); padding:4px 4px 8px; margin:0 0 10px; background: var(--paper-raised); }
+.rp-family.active{ border-color: color-mix(in srgb, var(--tab-icon) 45%, var(--border)); }
+.rp-family .rp-family-views{ padding:0 10px; }
+.rp-view-chip{ min-height:34px; padding:6px 12px; border-radius:999px; border:1px solid var(--border); background: var(--paper); color: var(--ink); font: inherit; font-size:var(--fs-sm); cursor:pointer; }
+.rp-view-chip:hover{ background: var(--paper-sunken); }
+.rp-view-chip.active{ background: var(--tab-wash); border-color: color-mix(in srgb, var(--tab-icon) 45%, transparent); color: var(--tab-ink); font-weight:600; }
+.rp-view-chip:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
 .report-chooser[open]{ display:flex; flex-direction:column; gap:12px; width:min(560px, calc(100% - 32px)); height:min(680px, calc(100dvh - 32px)); }
 .rp-chooser-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .rp-chooser-head h2{ margin:0; }
@@ -265,3 +280,11 @@ html[data-mode="simple"] [data-level="advanced"]:not([data-shown]){ display:none
 .home-bill-paid:focus-visible, .bc-list-paid:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
 .bc-confirm-account{ display:flex; flex-direction:column; gap:4px; margin:10px 0 0; font-size:var(--fs-sm); }
 .bc-confirm-list.is-single .bc-confirm-check{ display:none; }
+
+/* The app assessment (November 2026): one look for a chosen chip, whichever page draws it — Budget's and
+   Transactions' filters, a property's sections, Accounts' groups, the investment chips, the period menu, a report's
+   views. It was black on some, a brass wash on others; now the page's tab colour (docs/design/colour.md), the same wash
+   and ink as its period chip and tabs. Segmented controls (a period's thumb) stay their own kind. */
+:is(.bl-chip.is-on, .prop-chip.active, .nw-chip.is-on, .chip.active, .period-chip.active, .rp-view-chip.active){
+  background: var(--tab-wash); border-color: color-mix(in srgb, var(--tab-icon) 45%, transparent); color: var(--tab-ink); font-weight:600;
+}

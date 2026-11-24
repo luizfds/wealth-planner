@@ -71,7 +71,12 @@ const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath
 // #257: 320px too (light only — the colour scheme doesn't change layout). The narrowest phone is where a
 // grid track's content floor shows: at 390px there is room to hide it, and two such overflows shipped.
 // #267: 768px too, light only — a tablet, and the width where the phone layout gives way.
-for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 768], ["light", 1280], ["dark", 390], ["dark", 1280]]) {
+// November 2026: CI runs this as two parallel jobs — SMOKE_PASSES names the scheme-width passes a job runs
+// ("light-320,light-390"), and SMOKE_EXTRAS=0 leaves the empty household, the scenario page and Simple mode to the other.
+const ALL_PASSES = SHOTS ? [["light", 390], ["light", 1280]] : [["light", 320], ["light", 390], ["light", 768], ["light", 1280], ["dark", 390], ["dark", 1280]];
+const PASSES = process.env.SMOKE_PASSES ? ALL_PASSES.filter(([sc, w]) => process.env.SMOKE_PASSES.split(",").includes(sc + "-" + w)) : ALL_PASSES;
+const EXTRAS = process.env.SMOKE_EXTRAS !== "0";
+for (const [scheme, width] of PASSES) {
   const ctx = await browser.newContext({ viewport: { width, height: width >= 1280 ? 800 : 844 }, colorScheme: scheme });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.modeOffer", "done"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -317,7 +322,7 @@ for (const [scheme, width] of SHOTS ? [["light", 390], ["light", 1280]] : [["lig
 }
 // v3.161.0 (item 191): a household with nothing in it — the parts it doesn't have (a property, shares)
 // keep out of the way, and the way back in works. The all-on demo above covers everything else.
-if(!SHOTS){
+if(!SHOTS && EXTRAS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.modeOffer", "done"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -365,7 +370,7 @@ if(!SHOTS){
   await ctx.close();
 }
 // v3.181.0 (item 212): a scenario on its own page — opened from its card, changed, saved.
-if(!SHOTS){
+if(!SHOTS && EXTRAS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.modeOffer", "done"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -410,7 +415,7 @@ if(!SHOTS){
 // lib/empty.js (.empty-state) has a control in it, controls straight after it (data-empty="beside") or says there's
 // nothing to do (data-empty="done"). A sentence that reads as an empty state but was written by hand fails, unless
 // the row it's in has its own button (a checklist step) — an intro or a setting's value isn't one.
-if(!SHOTS){
+if(!SHOTS && EXTRAS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.modeOffer", "done"); if(!window.__simple) localStorage.setItem("wealthPlanner.mode", "advanced"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
@@ -460,7 +465,7 @@ const SIMPLE_CONTROL_CAP = 55;
 // #414: Simple mode, on the sample household at 390px. On every view nothing marked advanced shows; where a page has
 // some put away, it ends with "Show more on this page", and that brings every one of them back. Only data-level hides
 // anything, so the views themselves are the Advanced ones above.
-if(!SHOTS){
+if(!SHOTS && EXTRAS){
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await ctx.addInitScript(() => { localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); localStorage.setItem("wealthPlanner.tour", "skipped"); localStorage.setItem("wealthPlanner.modeOffer", "done"); localStorage.setItem("wealthPlanner.mode", "simple"); });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());

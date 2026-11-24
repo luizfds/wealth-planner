@@ -5973,3 +5973,10 @@ board's answer cards (`pillsHtml({ cards: true })`, each answer with what it mea
 still counted as spending on Today's month ("left this month" deep below zero), Budget's "spent on no budget line",
 Insights' income vs spending and the Cash flow, Categories, Trends and Budget reports. One helper,
 `spendingTransactions()` (calc/propertymoney.js), is now what each of those sums. Tests: propertymoney.
+
+## Faster checks, and the assessment's next three (November 2026)
+
+`[x]` CI in Playwright's own image, the journeys in five shards, the accessibility scan in four and its journeys in a
+run of their own (a PR's checks took about 20 minutes). Insights folded: the 12-month cash forecast is Plan →
+Scenarios', and Needs you says what the app notices in one line. Reports as eight families (calc/reports.js
+REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: the page's tab colour.

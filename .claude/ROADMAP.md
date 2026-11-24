@@ -6033,3 +6033,40 @@ Tax-returns, Import-rules, Tools). Nothing is removed — every feature stays, o
   under it, its list a tap away, and follows the line chosen; pay and transfers don't show one.
 - **Plain words** (supermarket, café, fuel, pharmacy…) suggest your one line in that category on a first import,
   marked "guessed from …", after your rules, line names and known brands.
+
+## The whole-app assessment and a front door (November 2026)
+
+From the assessment of every page at v3.330 ([docs/audits/app-assessment-2026-11-24.md](../docs/audits/app-assessment-2026-11-24.md);
+every page and what it does: [docs/sitemap.md](../docs/sitemap.md)). In the order to build. Nothing is removed: a change
+that folds or moves something is mocked up first and keeps every control reachable.
+
+**1. Fixes (one PR, `release: patch`)**
+- `[ ]` **A1** Stamp duty's *First home buyer* switch drawn over its label at 390px; a smoke check for it.
+- `[ ]` **A2** Invented examples in place of a real city (Import rules' placeholder, two comments).
+- `[ ]` **A3** The install shortcuts named and addressed for Today, Money, Accounts, Plan.
+- `[ ]` **B2, B3** Offsets' balance and the rental schedule's lines as the shared money field.
+- `[ ]` **B7** A change under 0.05% shown flat, not as a fall.
+- `[ ]` **C1, C2, C5** No period chip on More; every report names its family; toasts clear of the + button.
+
+**2. Clearer (mock-ups first, `release: minor`)**
+- `[ ]` **B1** Bank accounts says what "owed" holds and what Debts holds.
+- `[ ]` **B4** Retirement and Financial independence take the age from People's date of birth; one place to type it.
+- `[ ]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
+- `[ ]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
+- `[ ]` **C3** Accounts on a desktop in two columns.
+- `[ ]` **C4** Property, Budget, Scenarios and Tax › This year folded below their first screen.
+
+**3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner answers its open
+questions (name, address, who makes it, numbers, feedback, tone) first.
+- `[ ]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
+- `[ ]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
+- `[ ]` **L3** The screenshot script from the sample household (needs B6).
+- `[ ]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
+- `[ ]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
+- `[ ]` **L6** A README for the repository.
+- `[ ]` **L7** A custom domain, if wanted.
+
+**4. Carried over**
+- `[ ]` The errorsummarybounds journey's "context destroyed" — find the cause if it recurs after its one re-run.
+- `[ ]` #299, a screen reader on a real device (the owner's checklist).
+- `[ ]` The first five minutes as a timed journey: landing → setup → a first import.

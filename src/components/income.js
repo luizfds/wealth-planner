@@ -3,7 +3,7 @@ import { FREQS, INCOME_TYPES, SUPER_MODES, SACRIFICE_MODES, MAX_SUPER_BASE, MONT
 import { formatMoney } from "../lib/field.js";
 import { periodsOf, sumField, nextPayDate, payScheduleKindFor, daysUntil, WEEKDAY_NAMES, householdYearWindow, isActiveOn } from "../calc/ledger.js";
 import { ipNetResultAnnual, ipDepreciationAnnual, ipOwnershipMismatches, propertyOwnershipTotal, fyLabel } from "../calc/property.js";
-import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax } from "../calc/tax.js";
+import { getTaxPeople, incomeRowSuperNote, personTaxSettings, computePersonTax, phiRebateAdjustment, taxTablesFor, currentTaxFy, phiPremiumsAnnual, phiLine, personRowsAfterTax, personTakeHomeParts } from "../calc/tax.js";
 import { claimItems } from "../calc/claims.js";
 import { projectWithholding } from "../calc/withholding.js";
 import { renderJuneMoves } from "./junemoves.js";
@@ -236,9 +236,19 @@ function incomeGroupRowMeta(g){
   });
 }
 
+// November 2026 (one take-home, the owner's choice): a person leads with what a payslip pays — the figure Tax → This
+// year leads with too — and their total with the bonus, the refund and pay that isn't taxed is said under it.
+function regularTakeHome(person){
+  try { return personTakeHomeParts(person).regularMonthly; } catch(e){ return null; }
+}
 function groupTotalHtml(g){
-  var v = shownAmount(g.monthly, hoursPerWeekOf(g.key));
-  return v == null ? '<span role="img" aria-label="Hourly income unavailable" aria-describedby="incomeHourlyHelp">—</span>' : v + '<span>' + showAsOption(incomeShowAs()).suffix + '</span>';
+  var hours = hoursPerWeekOf(g.key), suffix = showAsOption(incomeShowAs()).suffix;
+  var reg = g.key === "__household" ? null : regularTakeHome(g.key);
+  var lead = reg == null ? g.monthly : reg;
+  var v = shownAmount(lead, hours);
+  if(v == null) return '<span role="img" aria-label="Hourly income unavailable" aria-describedby="incomeHourlyHelp">—</span>';
+  var all = reg != null && Math.abs(g.monthly - reg) >= 1 ? shownAmount(g.monthly, hours) : null;
+  return v + '<span>' + suffix + '</span>' + (all ? '<small class="m-card-total-all">' + all + suffix + ' all in</small>' : '');
 }
 function rowAmountText(item, monthly){
   var v = shownAmount(monthly, hoursPerWeekOf(incomeGroupKey(item)), fmtCurrency2);
@@ -552,7 +562,7 @@ export function patchIncomeSuperNotes(){
 // next to Medicare levy's series-color-2 (#1baf7a) in the bar — two greens, indistinguishable at a
 // glance and worse for anyone with a green deficiency. series-color-6 (purple) is the free slot.
 var TAX_WATERFALL_SEGMENTS = [
-  { key: "nettakehome", label: "Net take-home", short: "Net take-home", colorClass: "series-color-0" },
+  { key: "nettakehome", label: "Take-home over the year", short: "Take-home/yr", colorClass: "series-color-0" },
   { key: "incometax", label: "Income tax", short: "Income tax", colorClass: "series-color-1" },
   { key: "medicare", label: "Medicare levy", short: "Medicare levy", colorClass: "series-color-2" },
   { key: "surcharge", label: "Medicare levy surcharge", short: "Surcharge", colorClass: "series-color-4" },
@@ -807,6 +817,19 @@ export function topUpHtml(person, r){
 
 // Session only: whose manual sacrifice fold is open, so a redraw after an edit doesn't shut it under the cursor.
 export var taxSacOpen = {};
+// The year's take-home and what it adds to the payslip's: "$147,075 over the year, with a $11,684 bonus after tax and
+// a $4,208 refund at lodgement".
+function takeHomeYearText(person, r){
+  var parts = null;
+  try { parts = personTakeHomeParts(person); } catch(e){ parts = null; }
+  var adds = [];
+  if(parts){
+    var bonus = (parts.oneOffs || []).reduce(function(t, o){ return t + (Number(o.net) || 0); }, 0);
+    if(bonus >= 1) adds.push("a " + fmtCurrency0.format(bonus) + " bonus after tax");
+    if(parts.refund && Math.abs(parts.refund.amount) >= 1) adds.push(parts.refund.amount > 0 ? "a " + fmtCurrency0.format(parts.refund.amount) + " refund at lodgement" : fmtCurrency0.format(-parts.refund.amount) + " of tax to pay at lodgement");
+  }
+  return fmtCurrency0.format(r.netTakeHome) + " over the year" + (adds.length ? ", with " + adds.join(" and ") : "") + ".";
+}
 var TAX_NOTE_HELP = {
   "div293": "Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.",
   "mscb": "Employer super guarantee isn't compulsory on ordinary-time earnings above this threshold — indexed each financial year.",
@@ -837,7 +860,10 @@ function taxPersonFrontBodyHtml(person, r){
   // 167px of the 841px this card takes on a 390px screen, sitting above the headline they explain.
   // Moved, not deleted: nothing about the numbers is now unexplained, it's one tap away instead of
   // permanently in the way.
-  return '<div class="tax-hero"><span class="tax-hero-label">Net take-home</span><div class="tax-hero-value"><span data-out="nettakehome">' + fmtCurrency0.format(r.netTakeHome) + '</span><small> /yr · <span data-out="nettakehomemo">' + fmtCurrency0.format(r.netTakeHome / 12) + '</span> /mo</small></div></div>' +
+  // November 2026 (one take-home, the owner's choice): what a payslip pays, a month — the figure Money → Income leads
+  // with — then the year's take-home with what it adds to pay (the bonus after tax, the refund at lodgement).
+  return '<div class="tax-hero"><span class="tax-hero-label">Take-home pay</span><div class="tax-hero-value"><span data-out="takehomemo">' + fmtCurrency0.format(regularTakeHome(person) || 0) + '</span><small> /mo, as a payslip pays it</small></div>' +
+    '<p class="tax-hero-year" data-out="takehomeyear">' + escapeAttr(takeHomeYearText(person, r)) + '</p></div>' +
     '<div class="tax-waterfall">' + renderTaxWaterfallHtml(r) + '</div>' +
     '<p class="tax-secondary-line">' + baseLabel.replace(" /yr", "") + ' <b data-out="gross">' + fmtCurrency0.format(r.gross) + '</b> · IP share <b data-out="ipshare" class="' + (r.ipShare < 0 ? "neg" : "") + '">' + (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare) + '</b> · Taxable <b data-out="taxable">' + fmtCurrency0.format(r.taxable) + '</b></p>' +
     '<div class="tax-inputs-label">Super cap</div><p class="ledger-note help">Estimated from your inputs below — not something you set directly.</p>' +
@@ -1059,8 +1085,8 @@ export function patchAllTaxPersonOutputs(){
     set("gross", fmtCurrency0.format(r.gross));
     set("ipshare", (r.ipShare >= 0 ? "+" : "") + fmtCurrency0.format(r.ipShare), r.ipShare < 0);
     set("taxable", fmtCurrency0.format(r.taxable));
-    set("nettakehome", fmtCurrency0.format(r.netTakeHome));
-    set("nettakehomemo", fmtCurrency0.format(r.netTakeHome / 12));
+    set("takehomemo", fmtCurrency0.format(regularTakeHome(person) || 0));
+    set("takehomeyear", takeHomeYearText(person, r));
     patchTaxWaterfall(panel, r);
     var marginalEl = panel.querySelector(".tax-marginal");
     if(marginalEl) marginalEl.textContent = "Marginal rate " + fmtPercent1.format(r.marginalRate) + " · effective " + fmtPercent1.format(r.effectiveRate);

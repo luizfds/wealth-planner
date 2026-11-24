@@ -6012,3 +6012,12 @@ Tax-returns, Import-rules, Tools). Nothing is removed — every feature stays, o
   opening in place to every field and its delete; dates and times in the app's style (`fmtDateTime`). "Bank accounts"
   is its own page's name, not Settings' — the review's screenshots had gone through it.
 - **Calculators** in the app's money fields and switches; a report's Pin / Print / CSV as a row of buttons.
+
+## One take-home, a net worth day you can fix, faster screens (November 2026)
+
+`[x]` Agreed after the Property, Tax and Settings review:
+- **One take-home figure:** Tax › This year and Money › Income both lead with regular pay after tax (what a month can
+  be planned on); the bonus, the refund at lodgement and pay that isn't taxed are listed under it, on both.
+- **A day in the net worth history can be fixed:** each entry in Accounts' history can be edited or removed (with
+  undo), so a day that counted a balance twice stops drawing a spike.
+- **CI:** the screens job photographs the base and the PR in parallel jobs.

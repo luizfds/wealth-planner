@@ -3432,7 +3432,7 @@ const JOURNEYS = {
       await page.locator('#netWorthBody .nw-chip', { hasText: 'All' }).click();
       check(await page.locator('#netWorthBody .nw-group').count() === all, 'All does not bring the list back');
       const folded = await page.locator('#netWorthMore > details').evaluateAll(ds => ds.map(d => d.open));
-      check(folded.length === 3 && folded.every(o => !o), 'the moved blocks are not folded: ' + JSON.stringify(folded));
+      check(folded.length === 4 && folded.every(o => !o), 'the moved blocks are not folded: ' + JSON.stringify(folded));
       check(await page.evaluate(() => ['assetsAllocation', 'portfolioHistoryPanel', 'allocationHistoryPanel'].every(id => document.getElementById(id).innerHTML.trim().length > 0)), 'a moved block was not drawn on Accounts');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Net worth scrolls sideways at ' + width);
       await go(page, 'assets');
@@ -3481,6 +3481,9 @@ const JOURNEYS = {
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       const link = page.locator('#netWorthBody [data-detail]').last();
       await link.scrollIntoViewIfNeeded();
+      // With the folds under the list (Net worth history, November 2026), the bottom of a short desktop window put the
+      // last row under the sticky header — out of reach, so Playwright scrolled the page before clicking. Clear of it.
+      await link.evaluate(e => { const top = e.getBoundingClientRect().top, bar = document.querySelector('.app-topbar').getBoundingClientRect().bottom; if(top < bar + 8) window.scrollBy(0, top - bar - 40); });
       const y = await page.evaluate(() => scrollY);
       check(y > 50, width + ': the list is too short to scroll (' + y + ')');
       await link.click(); await page.waitForFunction(() => document.body.dataset.currentPage === 'detail');

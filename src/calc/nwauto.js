@@ -96,3 +96,39 @@ export function netWorthSplit(movers){
   if(top && !(Math.abs(values) >= 1 && Math.sign(top.change) === Math.sign(values) && Math.abs(top.change) >= Math.abs(values) * 0.7)) top = null;
   return { money: Math.round(money * 100) / 100, values: Math.round(values * 100) / 100, top: top };
 }
+
+// ---------------- Fixing a day in the history (November 2026) ----------------
+// A day out of line with both its neighbours, the same way, by more than `pct` of them — a balance counted twice for a
+// day, then put right — draws a spike in every line of net worth. → the dates that are, for the history to flag.
+export function historyOutliers(log, pct){
+  pct = pct == null ? 0.03 : pct;
+  var pts = (Array.isArray(log) ? log : []).filter(function(h){ return h && h.date && isFinite(Number(h.value)); })
+    .slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var out = {};
+  for(var i = 1; i < pts.length - 1; i++){
+    var v = Number(pts[i].value), a = Number(pts[i - 1].value), b = Number(pts[i + 1].value);
+    var base = Math.max(Math.abs(a), Math.abs(b), 1);
+    var up = v - a > pct * base && v - b > pct * base, down = a - v > pct * base && b - v > pct * base;
+    if(up || down) out[pts[i].date] = true;
+  }
+  return out;
+}
+// Change one day's figure (it stops being the app's own reading) or take the day out. → true when something changed.
+export function setHistoryValue(log, date, value){
+  var h = (log || []).find(function(x){ return x && x.date === date; });
+  var v = Math.round(Number(value) * 100) / 100;
+  if(!h || !isFinite(v) || h.value === v) return false;
+  h.value = v; delete h.auto; h.edited = true;
+  return true;
+}
+// Undo of removeHistoryDay: the day back where it was.
+export function putBackHistoryDay(log, gone){
+  if(!Array.isArray(log) || !gone || !gone.entry) return false;
+  log.splice(Math.min(gone.index, log.length), 0, gone.entry);
+  return true;
+}
+export function removeHistoryDay(log, date){
+  var i = (log || []).findIndex(function(x){ return x && x.date === date; });
+  if(i === -1) return null;
+  return { index: i, entry: log.splice(i, 1)[0] };
+}

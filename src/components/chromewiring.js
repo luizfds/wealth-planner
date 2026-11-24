@@ -11,8 +11,10 @@ import { cardPaymentsForMonth, usualCardSource } from "../calc/bills.js";
 import { selectedYearWindow, yearStartOf, householdYearBasis, selectedMonth } from "../calc/ledger.js";
 import { shiftMonth as mdShiftMonth } from "../calc/monthdetail.js";
 import { syncOn } from "../lib/foldersync.js";
-import { localDateStr } from "../lib/format.js";
-import { showToast } from "../lib/toast.js";
+import { localDateStr, parseAmountInput, fmtDate } from "../lib/format.js";
+import { showToast, showUndoToast } from "../lib/toast.js";
+import { renderNwHistory, nwHistoryUi, NW_HISTORY_PAGE } from "./nwhistory.js";
+import { setHistoryValue, removeHistoryDay, putBackHistoryDay } from "../calc/nwauto.js";
 import { state, persist, commit } from "../state.js";
 import { readPriceSheetNow, readAutoPricesNow } from "./assetswiring.js";
 import { autoPricesNeeded } from "./autoprices.js";
@@ -375,6 +377,26 @@ export function wireNavigation(){
     renderSimpleOffer();
   });
   // #413: Net worth's list by kind.
+  // Accounts → Net worth history (November 2026): a day's figure changed, or the day taken out (with undo).
+  var nwh = document.getElementById("nwHistoryBody");
+  if(nwh){
+    nwh.addEventListener("change", function(e){
+      var date = e.target.getAttribute && e.target.getAttribute("data-nwh-value");
+      if(!date) return;
+      var v = parseAmountInput(e.target.value);
+      if(v == null || !isFinite(v)){ showToast("Enter an amount"); renderNwHistory(); return; }
+      if(setHistoryValue(state.netWorthLog, date, v)) commit(["netWorthLog"]);
+    });
+    nwh.addEventListener("click", function(e){
+      if(e.target.closest("[data-nwh-more]")){ nwHistoryUi.shown += NW_HISTORY_PAGE; renderNwHistory(); return; }
+      var rm = e.target.closest("[data-nwh-remove]");
+      if(!rm) return;
+      var gone = removeHistoryDay(state.netWorthLog, rm.getAttribute("data-nwh-remove"));
+      if(!gone) return;
+      commit(["netWorthLog"]);
+      showUndoToast("Removed " + fmtDate(gone.entry.date) + " from the history", function(){ putBackHistoryDay(state.netWorthLog, gone); commit(["netWorthLog"]); });
+    });
+  }
   document.getElementById("netWorthBody").addEventListener("click", function(e){
     var chip = e.target.closest("[data-nw-filter]");
     if(chip){ setNetWorthFilter(chip.getAttribute("data-nw-filter")); var again = document.querySelector('#netWorthBody [data-nw-filter="' + chip.getAttribute("data-nw-filter") + '"]'); if(again) again.focus(); }

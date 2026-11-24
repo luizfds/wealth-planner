@@ -901,8 +901,9 @@ export function renderContributionsGrowth(){
     '<div class="fire-stat-row"><span>Change</span><b' + (split.totalChange < 0 ? ' style="color:var(--bad-ink)"' : '') + '>' +
       (split.totalChange >= 0 ? "+" : "") + fmtCurrency0.format(split.totalChange) + '</b></div>' +
     '<div class="rule-bar" style="margin-top:10px">' +
-      '<div class="rule-seg series-color-0" style="width:' + pct(split.contributed) + '%" title="Money you added: ' + fmtCurrency0.format(split.contributed) + '"></div>' +
-      '<div class="rule-seg series-color-3" style="width:' + pct(split.growth) + '%" title="' + (growthNeg ? "Fall in what your assets are worth, your own revaluations included: " : "Rise in what your assets are worth: ") + fmtCurrency0.format(Math.abs(split.growth)) + '"></div>' +
+      // The legend under the bar names both figures; a tooltip saying them again isn't help a touch screen can reach.
+      '<div class="rule-seg series-color-0" style="width:' + pct(split.contributed) + '%"></div>' +
+      '<div class="rule-seg series-color-3" style="width:' + pct(split.growth) + '%"></div>' +
     '</div>' +
     '<div class="rule-legend">' +
       '<div class="rule-legend-item"><span class="rule-swatch series-color-0"></span>You saved <b>' + fmtCurrency0.format(split.contributed) + '</b></div>' +

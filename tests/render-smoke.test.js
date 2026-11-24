@@ -837,7 +837,7 @@ test("People tab: a card per person with their details and where they're used", 
     assert.match(html, /1 income row · 100% of 2 Sample Rd/);
     assert.match(html, /class="[^"]*\bpp-help\b[^"]*"[^>]*value="1,200"/);
     assert.match(html, /data-money class="pp-in [^"]*pp-cap[^>]*value="30,000"/, "a money field");
-    assert.match(html, /class="btn btn-sm btn-danger pp-remove" data-pp-remove="Sam" aria-label="Remove Sam from tax">Remove from tax</, "said in words, not a lone ✕");
+    assert.match(html, /class="btn btn-sm btn-danger pp-remove" data-pp-remove="Sam">Remove from tax<span class="visually-hidden">: Sam<\/span><\/button>/, "said in words, not a lone ✕ — its name starts with what it shows");
     assert.match(html, /data-fy="2025"[^>]*value="410"/);
     assert.match(html, /data-pp-remove="Sam"/);
     state.income = [];

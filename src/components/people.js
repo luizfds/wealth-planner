@@ -64,7 +64,7 @@ export function personCardHtml(person, index, today){
       '<input type="text" class="pp-name inline-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
       (age != null ? '<span class="pp-age">' + age + '</span>' : '') +
       // November 2026: said in words — a lone ✕ beside the age read as part of it.
-      '<button type="button" class="btn btn-sm btn-danger pp-remove" data-pp-remove="' + pid + '" aria-label="Remove ' + pid + ' from tax">Remove from tax</button></div>' +
+      '<button type="button" class="btn btn-sm btn-danger pp-remove" data-pp-remove="' + pid + '">Remove from tax<span class="visually-hidden">: ' + pid + '</span></button></div>' +
     // #261: what renaming does was a title tooltip on the name; it's said here, with what names them, and describes it.
     '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +

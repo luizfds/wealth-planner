@@ -1232,7 +1232,7 @@
   .cf-pick{ flex:none; display:flex; align-items:center; justify-content:center; width:36px; min-height:44px; cursor:pointer; }
   .cf-pick input{ width:18px; height:18px; }
   .tx-row.is-split .m-row-name::after{ content:" · split"; font-weight:400; color: var(--ink-soft); font-size:var(--fs-xs); }
-  .cf-bulk{ position:sticky; top:72px; z-index:3; display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; padding:10px; margin:0 0 8px;
+  .cf-bulk{ position:sticky; top:var(--topbar-h, 72px); z-index:3; display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; padding:10px; margin:0 0 8px;
     border:1px solid var(--brass); border-radius:12px; background: var(--paper-raised); box-shadow: var(--shadow); }
   .cf-bulk > b{ align-self:center; margin-right:auto; }
   .cf-bulk .cf-filter{ flex:1 1 150px; }

@@ -53,7 +53,7 @@
      together as one paragraph. */
   .tax-cap-note:not(.tax-cap-main){ font-size:var(--fs-sm); line-height:1.5; padding-top:8px; margin-top:8px; border-top:1px solid var(--border); }
   .tax-sac-fold{ margin-top:6px; }
-  .tax-sac-fold > summary{ min-height:44px; display:flex; align-items:center; font-weight:600; cursor:pointer; }
+  .tax-sac-fold > summary{ padding:11px 0; font-weight:600; cursor:pointer; } /* a list-item, so it keeps its marker like Check a payslip */
   .tax-empty{ color: var(--ink-soft); font-size:var(--fs-sm); }
 
   .tax-hero{ margin-bottom:10px; }

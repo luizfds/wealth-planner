@@ -6001,12 +6001,14 @@ REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: t
 
 ## Property, Tax and Settings, easier to use (November 2026)
 
-`[~]` From the review of the pages the first two missed, mocked up and agreed (canvas boards Buying-home, Tax-year,
+`[x]` From the review of the pages the first two missed, mocked up and agreed (canvas boards Buying-home, Tax-year,
 Tax-returns, Import-rules, Tools). Nothing is removed — every feature stays, only how it's laid out changes:
 - **Buying a home:** paid and still to pay said the same way on the card, its bar and its costs list; "Cash at
   settlement" says what it covers; Add suggests only costs that aren't there under another name.
-- **Tax:** Returns' year-on-year in plain ink with arrows; each form code after its name ("Other work-related
-  expenses (D5)"); This year's long paragraph as short labelled lines; money fields with thousands separators.
-- **Settings:** one name (not "Bank accounts"); Preferences' parts folded with their state; Import rules one line a
-  rule, opening in place; dates in the app's style.
+- **Tax:** Returns' year-on-year in plain ink with arrows; each form code after its name ("Other work-related (D5)");
+  This year's notes as separated short lines; Top up super, manual sacrifice (folded, Max out cap in view) and People's
+  amounts as money fields; "Remove from tax" in words. Marginal and effective rate, and Breakdown, as they were.
+- **Settings:** Preferences' parts start folded (search opens the one a setting is in); Import rules one line a rule,
+  opening in place to every field and its delete; dates and times in the app's style (`fmtDateTime`). "Bank accounts"
+  is its own page's name, not Settings' — the review's screenshots had gone through it.
 - **Calculators** in the app's money fields and switches; a report's Pin / Print / CSV as a row of buttons.

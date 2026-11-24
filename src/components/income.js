@@ -805,6 +805,8 @@ export function topUpHtml(person, r){
     '<p class="tax-topup-how help">A personal contribution you claim as a deduction is taxed 15% in the fund (more under Division 293), and saves tax at your marginal rate. The fund must have it by 30 June, and you send it a notice of intent to claim before you lodge. It stays in super until preservation age.</p></div>';
 }
 
+// Session only: whose manual sacrifice fold is open, so a redraw after an edit doesn't shut it under the cursor.
+export var taxSacOpen = {};
 var TAX_NOTE_HELP = {
   "div293": "Simplified: income for surcharge purposes is approximated as taxable income + your within-cap concessional contributions, ignoring reportable fringe benefits and net investment losses. Check with your accountant.",
   "mscb": "Employer super guarantee isn't compulsory on ordinary-time earnings above this threshold — indexed each financial year.",
@@ -871,7 +873,7 @@ function taxPersonFrontBodyHtml(person, r){
       // November 2026 (the Property, Tax and Settings review): Max out cap in view; the field it sets, rarely typed in
       // (most sacrifice is set on the pay itself), folded — open when it holds an amount.
       '<button type="button" class="calc-hint-link" data-tax-maxcap="' + pid + '" aria-describedby="tax-max-' + personIdKey(person) + '-help">Max out cap</button><p class="field-help help" data-tax-maxcap-help id="tax-max-' + personIdKey(person) + '-help">' + escapeAttr(maxCapHelpText(r)) + '</p>' +
-      '<details class="tax-sac-fold"' + (Number(settings.superSacrificeAnnual) > 0 ? ' open' : '') + '><summary>Manual sacrifice $/yr</summary>' +
+      '<details class="tax-sac-fold" data-tax-sac-fold="' + pid + '"' + (Number(settings.superSacrificeAnnual) > 0 || taxSacOpen[person] ? ' open' : '') + '><summary>Manual sacrifice $/yr</summary>' +
       '<div class="proj-field"><label for="tax-sac-' + personIdKey(person) + '">Manual sacrifice $/yr<span class="visually-hidden"> for ' + pid + '</span></label><input type="text" inputmode="decimal" autocomplete="off" data-money class="tax-sacrifice field-control" id="tax-sac-' + personIdKey(person) + '" aria-describedby="tax-sac-' + personIdKey(person) + '-help" value="' + escapeAttr(formatMoney(settings.superSacrificeAnnual || 0)) + '"><p class="field-help" id="tax-sac-' + personIdKey(person) + '-help">Sacrifice not tied to one pay row — most is set on the pay itself, in Money → Income.</p></div></details>' +
     '</div>' +
     '<p class="ledger-note pp-link-note" style="margin:8px 0 0">' + escapeAttr(person) + '\'s details: <button type="button" class="link-btn" data-goto-people="' + pid + '">Tax → People</button> <span class="help">Date of birth, HELP, super caps, capital losses and home hours</span></p>';

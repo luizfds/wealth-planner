@@ -3997,6 +3997,7 @@ const JOURNEYS = {
     check(await stored(page, "state.tax.sgRate") === sg, "clearing the SG rate saved " + await stored(page, "state.tax.sgRate"));
     check(await marked("#taxSgRate"), "a cleared SG rate isn't marked with a message");
     const sac = '#taxSuperBody [data-tax-person="' + person + '"] .tax-sacrifice';
+    await page.locator('#taxSuperBody [data-tax-person="' + person + '"] .tax-sac-fold').evaluate(d => { d.open = true; }); // folded since November 2026
     const sacWas = await setting("superSacrificeAnnual");
     await page.fill(sac, "-500");
     check(await setting("superSacrificeAnnual") === sacWas, "a negative sacrifice saved " + await setting("superSacrificeAnnual"));
@@ -5031,6 +5032,7 @@ const JOURNEYS = {
         check(!exposed, 'opening help revealed an inapplicable tax note');
         // Off screen before the tap (Playwright scrolled it in beside the sticky headers): the page moved between the
         // touch and its click, as in incomehelp, and the field never got the click.
+        if(!(await panel.locator('.tax-sacrifice').isVisible())) await panel.locator('.tax-sac-fold > summary').tap(); // folded since November 2026
         await steadyTap(page, panel.locator('.tax-sacrifice'));
         check(await panel.locator('.tax-sacrifice').evaluate(e => e === document.activeElement), 'sacrifice field is unreachable with help open');
         await help.tap();
@@ -5101,6 +5103,7 @@ const JOURNEYS = {
     const family = await page.locator('#taxFamilyThresholds').isChecked();
     await page.locator('#taxFamilyThresholds').setChecked(!family);
     check(await stored(page,'state.tax.familyThresholds') === !family, 'family threshold toggle did not save');
+    await panel.locator('.tax-sac-fold').evaluate(d => { d.open = true; }); // folded since November 2026
     for(const [cls,key,value] of [['tax-sacrifice','superSacrificeAnnual','2000'],['tax-topup-amt','topUpAmount','1000']]){
       const input = panel.locator('.' + cls);
       await fill(input,value);
@@ -7381,7 +7384,8 @@ const JOURNEYS = {
     await gross.fill('489000'); await gross.press('Tab');
     check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
     check(/= Cash you bring\s*\$60,000/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'settlement line by line does not end on the cash to bring');
-    check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$1,500 paid'), 'a cost ticked paid is not counted as paid');
+    // November 2026: paid counts the deposit, as the bar and the tiles do — $60,000 and the $1,500 cost ticked paid.
+    check((await page.locator(cardSel + ' .buy-sub').innerText()).includes('$61,500 paid'), 'a cost ticked paid is not counted as paid: ' + await page.locator(cardSel + ' .buy-sub').innerText());
     check((await page.locator(cardSel + ' .buy-tiles').innerText()).includes('$61,500'), 'paid so far is not the deposit and the cost paid');
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });

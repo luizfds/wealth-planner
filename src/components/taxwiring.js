@@ -28,7 +28,7 @@ import { renderCards, renderDetail } from "./dashboard.js";
 import { budgetLineItems } from "./expenses.js";
 import { renderHealth } from "./health.js";
 import { renderHomeSummary } from "./home.js";
-import { patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote, modernIncomeRowOpen } from "./income.js";
+import { patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRows, patchIncomeSuperNotes, renderTaxSuper, withholdingCheckText, flipTaxCard, patchAllTaxPersonOutputs, patchPhiNote, modernIncomeRowOpen, taxSacOpen } from "./income.js";
 import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./people.js";
 import { renderProjectionOutputs } from "./projections.js";
@@ -252,6 +252,11 @@ var HC_FIXES = {
 };
 
 export function wireTax(){  peopleTable = document.getElementById("peopleTable");
+  // A person's manual sacrifice fold stays as it was left across the card's redraws (toggle doesn't bubble: caught).
+  document.addEventListener("toggle", function(e){
+    var f = e.target && e.target.matches && e.target.matches("[data-tax-sac-fold]") ? e.target : null;
+    if(f) taxSacOpen[f.getAttribute("data-tax-sac-fold")] = f.open;
+  }, true);
   peopleTable.addEventListener("change", function(e){
     var t = e.target, person = t.getAttribute("data-pp-person");
     if(!person) return;

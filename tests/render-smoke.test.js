@@ -1061,6 +1061,17 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
   } finally { Object.assign(state, keep); }
 });
 
+// The follow-up review: a few percent's move in net worth drew as a spike filling the hero card. The line spans at least a fifth.
+test("Today's net worth line doesn't stretch a small move to the card's full height", async function(){
+  const { sparkHtml } = await import("../src/components/home.js");
+  const ys = function(html){ return (html.match(/class="line" d="([^"]+)"/)[1].match(/,(\d+(?:\.\d+)?)/g) || []).map(function(v){ return Number(v.slice(1)); }); };
+  var small = ys(sparkHtml([{ value: 100000 }, { value: 106500 }, { value: 100500 }]));
+  assert.ok(Math.max.apply(null, small) - Math.min.apply(null, small) < 25, "a 6.5% blip stays a small bump: " + small.join());
+  var big = ys(sparkHtml([{ value: 100000 }, { value: 150000 }]));
+  assert.ok(Math.max.apply(null, big) - Math.min.apply(null, big) > 60, "a real change still fills the card");
+  assert.ok(sparkHtml([{ value: 0 }, { value: 0 }]).includes("<svg"), "a flat zero line still draws");
+});
+
 // The follow-up review (November 2026), on a real household: a purchase's money in the week's recap, a pot's spending
 // unsaid beside the month's Spent, and one red to-do turning Needs you's whole card red.
 test("Today: the week leaves out property money, the month says what pots paid, Needs you is red only for a late bill", async function(){

@@ -44,6 +44,18 @@ test("money in, statements, and the month against the plan", function(){
   });
 });
 
+// The follow-up review (November 2026): a real household's Today planned $148 more than its Budget — two lines that had
+// ended still counted in the month's plan. Budget's rule (calc/budgetsplit.js): a line runs in a month if it does on the 15th.
+test("a line that has ended, or not started, isn't in the month's plan", function(){
+  withState(function(items){
+    var more = items.concat([
+      { id: "old", what: "Old gym", amount: 60, freq: "Monthly", category: "Fun", endDate: "2026-09-02" },
+      { id: "new", what: "New class", amount: 40, freq: "Monthly", category: "Fun", startDate: "2026-09-20" },
+      { id: "late", what: "Ends late", amount: 25, freq: "Monthly", category: "Fun", endDate: "2026-09-30" }]);
+    assert.equal(monthReview("2026-09", { items: more, categoryOf: cat(more), today: "2026-10-03" }).plannedSpend, 525);
+  });
+});
+
 test("the review is for last month until it's marked done", function(){
   withState(function(){
     assert.equal(reviewMonth("2026-10-03"), "2026-09");

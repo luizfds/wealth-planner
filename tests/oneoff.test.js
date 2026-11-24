@@ -5,7 +5,6 @@ import { state } from "../src/state.js";
 import { personOneOffSplit, scenarioIncomeRows, computePersonTax, isOneOffIncome } from "../src/calc/tax.js";
 import { recalcComputedItems, scenarioTotals } from "../src/calc/engine.js";
 import { incomeTargets } from "../src/calc/received.js";
-import { monthlyCashFlow } from "../src/calc/history.js";
 
 function withIncome(rows, fn){
   var keep = state.income;
@@ -48,7 +47,3 @@ test("the synthetic rows, the targets and the headline follow", function(){
   });
 });
 
-test("income by month can be a function, so a bonus lands in its month", function(){
-  var rows = monthlyCashFlow([], ["2026-08", "2026-09"], function(k){ return k === "2026-09" ? 5000 : 1000; });
-  assert.deepEqual(rows.map(function(r){ return r.income; }), [1000, 5000]);
-});

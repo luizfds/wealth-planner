@@ -81,7 +81,8 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .rp-selection-name small{ font-size:var(--fs-xs); font-weight:600; color: var(--tab-ink); text-transform:uppercase; letter-spacing:.04em; }
 .rp-selection-name strong{ font-size:var(--fs-lg); }
 .rp-family-views{ display:flex; flex-wrap:wrap; gap:6px; }
-.rp-siblings{ margin:10px 0 4px; }
+.rp-more-views{ margin:14px 0 4px; }
+.rp-more-views h3{ margin:0 0 8px; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
 .rp-family{ border:1px solid var(--border); border-radius: var(--card-radius); padding:4px 4px 8px; margin:0 0 10px; background: var(--paper-raised); }
 .rp-family.active{ border-color: color-mix(in srgb, var(--tab-icon) 45%, var(--border)); }
 .rp-family .rp-family-views{ padding:0 10px; }

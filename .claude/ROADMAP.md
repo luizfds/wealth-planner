@@ -5976,6 +5976,7 @@ Insights' income vs spending and the Cash flow, Categories, Trends and Budget re
 
 ## Faster checks, and the assessment's next three (November 2026)
 
-`[~]` CI in Playwright's own image, the journeys in five shards and the accessibility scan in four (a PR's checks took
-about 20 minutes); then Insights folded into Today and Plan, one look for controls and cards, and the reports from 21
-into 8.
+`[x]` CI in Playwright's own image, the journeys in five shards, the accessibility scan in four and its journeys in a
+run of their own (a PR's checks took about 20 minutes). Insights folded: the 12-month cash forecast is Plan →
+Scenarios', and Needs you says what the app notices in one line. Reports as eight families (calc/reports.js
+REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: the page's tab colour.

@@ -302,17 +302,24 @@ function pinsHtml(limit, query){
         '<button type="button" class="rp-unpin" data-report-unpin="' + escapeAttr(r.id) + '" aria-label="Unpin ' + escapeAttr(r.name) + '" title="Unpin">×</button></span>';
     }).join("") + '</div></div>' : '';
 }
+// The report's family's other views, under the report (above it, they pushed it off a phone's first screen).
+function familyViewsHtml(){
+  var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
+  var fam = reportFamily(current.key), avail = availableReports();
+  var sibs = fam ? fam.reports.map(function(k){ return avail.find(function(r){ return r.key === k; }); }).filter(Boolean) : [];
+  if(sibs.length < 2) return '';
+  return '<nav class="rp-more-views" aria-label="' + escapeAttr("More in " + fam.label) + '"><h3>More in ' + escapeAttr(fam.label) + '</h3><div class="rp-family-views">' + sibs.map(function(r){
+    var on = r.key === current.key;
+    return '<button type="button" class="rp-view-chip' + (on ? ' active' : '') + '"' + (on ? ' aria-current="true"' : '') + ' data-report-view="' + escapeAttr(r.key) + '">' + escapeAttr(r.label) + '</button>';
+  }).join('') + '</div></nav>';
+}
 function pickerHtml(){
   var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
   // The report's family (the app assessment): its name above, and its other views beside this one as chips.
   var fam = reportFamily(current.key), avail = availableReports();
   var sibs = fam ? fam.reports.map(function(k){ return avail.find(function(r){ return r.key === k; }); }).filter(Boolean) : [];
   return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><span class="rp-selection-name">' + (fam && sibs.length > 1 ? '<small>' + escapeAttr(fam.label) + '</small>' : '') + '<strong>' + escapeAttr(current.label) + '</strong></span>' +
-    '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' +
-    (sibs.length > 1 ? '<div class="rp-family-views rp-siblings" role="group" aria-label="' + escapeAttr(fam.label + " views") + '">' + sibs.map(function(r){
-      var on = r.key === current.key;
-      return '<button type="button" class="rp-view-chip' + (on ? ' active' : '') + '"' + (on ? ' aria-current="true"' : '') + ' data-report-view="' + escapeAttr(r.key) + '">' + escapeAttr(r.label) + '</button>';
-    }).join('') + '</div>' : '') + pinsHtml(3) +
+    '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
     ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
 }
 // #414: Simple mode's reports — the ones read month to month. The chooser offers these first, with "Show all reports";
@@ -429,14 +436,14 @@ export function reportEmptyHtml(rep){
 export function reportsPageHtml(opts){
   var picker = pickerHtml();
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
-  if(reportShown.key === "yearend") return picker + yearEndHtml();
-  if(reportShown.key === "month") return picker + monthDetailHtml();
+  if(reportShown.key === "yearend") return picker + yearEndHtml() + familyViewsHtml();
+  if(reportShown.key === "month") return picker + monthDetailHtml() + familyViewsHtml();
   var rep = buildReport(reportShown.key, opts);
   return picker + frameControlsHtml(rep, opts) +
     '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(reportSubtitle(rep, opts)) + '</span></div>' +
       '<div class="rp-actions"><button type="button" class="btn btn-sm btn-ghost" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm btn-ghost" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm btn-ghost" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm btn-ghost" data-report-share>Share CSV</button>' : '') + '</div></div>' +
       (rep.sections ? yearReviewSectionsHtml(rep.sections, false, nextYearPlanHtml(opts)) + (reportIsEmpty(rep) ? '' : '<details class="yr-figures"><summary>The year in figures</summary>' + storyHtml(rep) + reportPresentationHtml(rep) + '</details>')
-        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + planningReadinessHtml(state, localDateStr());
+        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + familyViewsHtml() + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");

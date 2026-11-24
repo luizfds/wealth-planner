@@ -8,7 +8,7 @@
 //
 // Pure: no DOM, no state writes. The caller owns state.importRules[] and passes it in.
 import { normaliseDescription } from "./bank-import.js";
-import { knownMerchant } from "./merchantbook.js";
+import { knownMerchant, knownWord } from "./merchantbook.js";
 
 // The part of a bank's description that identifies *who you paid*, with the noise dropped.
 //
@@ -185,11 +185,21 @@ export function matchBudgetLineByName(description, budgetLines){
 function knownSuggestion(description, budgetLines, opts){
   var k = knownMerchant(description);
   if(!k) return null;
-  var cat = k.category.toLowerCase();
+  return suggestionInCategory(k.category, budgetLines, opts, { source: "known", known: k.name });
+}
+// November 2026: then a plain word that says what kind of place it was (merchantbook.js knownWord).
+function wordSuggestion(description, budgetLines, opts){
+  var w = knownWord(description);
+  if(!w) return null;
+  return suggestionInCategory(w.category, budgetLines, opts, { source: "word", word: w.shown });
+}
+// Onto your one line in that category, else the category itself if you have it.
+function suggestionInCategory(category, budgetLines, opts, extra){
+  var cat = category.toLowerCase();
   var inCat = (budgetLines || []).filter(function(l){ return !l.computed && String(l.category || "").trim().toLowerCase() === cat; });
-  if(inCat.length === 1) return { source: "known", linkedExpenseId: inCat[0].id || null, category: inCat[0].category || "", account: inCat[0].account || "", ruleId: null, known: k.name };
+  if(inCat.length === 1) return Object.assign({ linkedExpenseId: inCat[0].id || null, category: inCat[0].category || "", account: inCat[0].account || "", ruleId: null }, extra);
   var has = (opts && opts.categories || []).find(function(c){ return String(c).toLowerCase() === cat; });
-  if(has) return { source: "known", linkedExpenseId: null, category: has, account: "", ruleId: null, known: k.name };
+  if(has) return Object.assign({ linkedExpenseId: null, category: has, account: "", ruleId: null }, extra);
   return null;
 }
 export function suggestFor(description, rules, budgetLines, direction, opts){
@@ -217,6 +227,8 @@ export function suggestFor(description, rules, budgetLines, direction, opts){
   }
   var known = knownSuggestion(description, budgetLines, opts);
   if(known) return known;
+  var word = wordSuggestion(description, budgetLines, opts);
+  if(word) return word;
   return { source: null, linkedExpenseId: null, category: "", account: "", ruleId: null };
 }
 
@@ -326,11 +338,13 @@ export function pruneRules(rules, budgetLines){
 // this feature is earning its keep, and what the review screen leads with.
 export function coverageOf(rows){
   var total = (rows || []).length;
-  if(!total) return { total: 0, placed: 0, fraction: 0, byRule: 0, byName: 0, byKnown: 0 };
+  if(!total) return { total: 0, placed: 0, fraction: 0, byRule: 0, byName: 0, byKnown: 0, byWord: 0 };
   var byRule = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "rule"; }).length;
   var byName = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "name"; }).length;
   var byKnown = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "known"; }).length;
-  return { total: total, placed: byRule + byName + byKnown, fraction: (byRule + byName + byKnown) / total, byRule: byRule, byName: byName, byKnown: byKnown };
+  var byWord = rows.filter(function(r){ return r.suggestion && r.suggestion.source === "word"; }).length;
+  var placed = byRule + byName + byKnown + byWord;
+  return { total: total, placed: placed, fraction: placed / total, byRule: byRule, byName: byName, byKnown: byKnown, byWord: byWord };
 }
 
 // ---------------- Turning a merchant into a budget line ----------------
@@ -445,4 +459,32 @@ export function closingBalance(rows){
     if(!best || r.date > best.date || (r.date === best.date && !newestFirst && i > best.i)) best = { date: r.date, balance: r.balance, i: i };
   });
   return { date: best.date, balance: best.balance };
+}
+
+// ---------------- Money in that is your pay (November 2026) ----------------
+// Pay started as "don't import" on every statement until a rule was learned — the commonest credit there
+// is, answered by hand each time. A credit group is offered as an income row received when its usual
+// amount is that row's pay for a week, a fortnight or a month (within 3%), or, failing an amount, when its
+// words say pay and there's one take-home row to give it to. Two rows that fit equally well offer neither.
+// `targets` are calc/received.js incomeTargets(); only regular ones (pay, other income, rent) are tried.
+var PAY_WORDS = /\b(pay|salary|wage|wages|payroll)\b/i;
+export function matchIncomeTarget(rows, targets){
+  var amounts = (rows || []).map(function(r){ return Math.abs(Number(r.amount) || 0); }).filter(function(a){ return a > 0; }).sort(function(a, b){ return a - b; });
+  if(!amounts.length) return null;
+  var usual = amounts[Math.floor(amounts.length / 2)];
+  var words = (rows || []).map(function(r){ return r.description || ""; }).join(" ");
+  var regular = (targets || []).filter(function(t){ return !t.irregular && (t.kind === "net" || t.kind === "income" || t.kind === "rent") && Number(t.monthly) > 0; });
+  var fits = regular.filter(function(t){
+    var m = Number(t.monthly);
+    return [m, m * 12 / 26, m * 12 / 52].some(function(per){ return Math.abs(usual - per) <= per * 0.03; });
+  });
+  if(fits.length > 1){
+    var said = fits.filter(function(t){ return t.kind === "rent" ? /\brent\b/i.test(words) : PAY_WORDS.test(words); });
+    fits = said.length ? said : fits;
+  }
+  if(fits.length === 1) return { key: fits[0].key, label: fits[0].label };
+  if(fits.length) return null;
+  var pay = regular.filter(function(t){ return t.kind === "net"; });
+  if(PAY_WORDS.test(words) && pay.length === 1) return { key: pay[0].key, label: pay[0].label };
+  return null;
 }

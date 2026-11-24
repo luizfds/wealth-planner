@@ -998,9 +998,17 @@
   .bank-import-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
   /* After the base rule, never before — a same-specificity @media block placed above the rule it
      overrides loses to it on every viewport, mobile included (see CLAUDE.md). */
+  /* November 2026: one "Goes to" a row, the category folded under it as a line of text. */
+  .bank-import-cat{ font-size:var(--fs-sm); color: var(--ink-soft); }
+  .bank-import-cat[hidden]{ display:none; }
+  .bank-import-cat > summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:4px; flex-wrap:wrap; min-height:44px; }
+  .bank-import-cat > summary::-webkit-details-marker{ display:none; }
+  .bank-import-cat > summary b{ font-weight:600; color: var(--ink); }
+  .bank-import-cat-change{ color: var(--brass-strong); font-weight:600; }
+  .bank-import-cat-change > span{ color: var(--ink-soft); font-weight:400; }
+  .bank-import-cat[open] > summary .bank-import-cat-change{ display:none; }
   @media (min-width: 640px){
-    .bank-import-assign{ grid-template-columns:2fr 1fr; }
-    .bank-import-newline{ grid-column:1 / -1; }
+    .bank-import-assign{ max-width:520px; }
   }
   /* A group still waiting on a decision. Marked on the row itself rather than only by which
      section it sits in, because assigning one no longer moves it between sections — see

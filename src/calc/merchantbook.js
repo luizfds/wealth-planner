@@ -98,3 +98,36 @@ export function cleanMerchantName(description){
   if(!words.length) return raw;
   return words.map(function(w){ return w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ");
 }
+
+// ---------------- Plain words that say what was bought (November 2026) ----------------
+// A first import has no rules, and most local shops aren't brands: "FERN CAFE", "SHOP TWO SUPERMARKET".
+// A word in the description that says what kind of place it was suggests a line the same way a known
+// brand does — tried after rules, line names and brands, and marked "guessed from …" so it's checked.
+// `shown` is how the word reads in that badge.
+export var KNOWN_WORDS = [
+  ["supermarket", "supermarket", "Groceries"], ["grocer", "grocer", "Groceries"], ["grocery", "grocery", "Groceries"],
+  ["groceries", "groceries", "Groceries"], ["butcher", "butcher", "Groceries"], ["fruit market", "fruit market", "Groceries"],
+  ["cafe", "café", "Eating out"], ["coffee", "coffee", "Eating out"], ["espresso", "espresso", "Eating out"],
+  ["bakery", "bakery", "Eating out"], ["restaurant", "restaurant", "Eating out"], ["pizza", "pizza", "Eating out"],
+  ["pizzeria", "pizzeria", "Eating out"], ["sushi", "sushi", "Eating out"], ["kebab", "kebab", "Eating out"],
+  ["burger", "burger", "Eating out"], ["takeaway", "takeaway", "Eating out"], ["bistro", "bistro", "Eating out"],
+  ["fuel", "fuel", "Car"], ["petrol", "petrol", "Car"], ["service station", "service station", "Car"],
+  ["car wash", "car wash", "Car"], ["mechanic", "mechanic", "Car"], ["tyres", "tyres", "Car"],
+  ["pharmacy", "pharmacy", "Health"], ["chemist", "chemist", "Health"], ["dental", "dental", "Health"],
+  ["dentist", "dentist", "Health"], ["physio", "physio", "Health"], ["medical", "medical", "Health"],
+  ["parking", "parking", "Transport"], ["tolls", "tolls", "Transport"], ["taxi", "taxi", "Transport"],
+  ["gym", "gym", "Personal"], ["hairdresser", "hairdresser", "Personal"], ["barber", "barber", "Personal"]
+].map(function(m){ return { key: m[0], shown: m[1], category: m[2] }; });
+
+// The word a bank description carries, or null. Accents are dropped first, so "CAFÉ" reads as "cafe".
+// The longest word wins, so "service station" beats a shorter one in the same text.
+export function knownWord(description){
+  var plain = String(description || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  var norm = normaliseDescription(plain);
+  if(!norm) return null;
+  var best = null;
+  KNOWN_WORDS.forEach(function(w){
+    if(containsWholeWords(norm, w.key) && (!best || w.key.length > best.key.length)) best = w;
+  });
+  return best;
+}

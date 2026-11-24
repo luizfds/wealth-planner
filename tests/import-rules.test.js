@@ -290,3 +290,46 @@ test("a merged rule only claims a description whose merchant starts with it", ()
   assert.equal(matchRule("SQ *FERN CAFE GLEBE", rules).linkedExpenseId, "eat", "after a processor too");
   assert.equal(matchRule("GIFT VOUCHER FERN CAFE", rules), null, "not the same words further along");
 });
+
+// ---------------- November 2026: plain words, and pay recognised ----------------
+import { knownWord } from "../src/calc/merchantbook.js";
+import { matchIncomeTarget } from "../src/calc/import-rules.js";
+
+test("a plain word says what kind of place it was, accents or not", function(){
+  assert.equal(knownWord("FERN CAFE 1234").shown, "café");
+  assert.equal(knownWord("Fern Café").category, "Eating out");
+  assert.equal(knownWord("SHOP TWO SUPERMARKET").category, "Groceries");
+  assert.equal(knownWord("CORNER SERVICE STATION").key, "service station");
+  assert.equal(knownWord("CAFETERIA BOOKS"), null, "a whole word, not part of one");
+  assert.equal(knownWord(""), null);
+});
+
+test("a first import files a café onto your one eating-out line, marked as a word guess", function(){
+  var lines = [{ id: "e1", what: "Eating & going out", category: "Eating out" }, { id: "g1", what: "Food shop", category: "Groceries" }];
+  var s = suggestFor("FERN CAFE 1234", [], lines, "debit", { categories: ["Eating out", "Groceries"] });
+  assert.equal(s.source, "word");
+  assert.equal(s.word, "café");
+  assert.equal(s.linkedExpenseId, "e1");
+  var none = suggestFor("FERN CAFE 1234", [], [], "debit", { categories: [] });
+  assert.equal(none.source, null, "no line or category to give it to: nothing guessed");
+  var rule = suggestFor("FERN CAFE 1234", [{ id: "r1", match: "fern cafe", linkedExpenseId: "g1", category: "Groceries" }], lines, "debit", {});
+  assert.equal(rule.source, "rule", "a rule you taught still wins");
+});
+
+test("a pay credit is offered as the income row whose pay it fits", function(){
+  var targets = [
+    { key: "net:Alex", label: "Alex — take-home pay", kind: "net", monthly: 6500, irregular: false },
+    { key: "net:Sam", label: "Sam — take-home pay", kind: "net", monthly: 4000, irregular: false },
+    { key: "oneoff:x", label: "Bonus", kind: "oneoff", monthly: 250, irregular: true }
+  ];
+  var fortnight = 6500 * 12 / 26;
+  var m = matchIncomeTarget([{ amount: fortnight, description: "EMPLOYER A" }, { amount: fortnight + 10, description: "EMPLOYER A" }], targets);
+  assert.equal(m && m.key, "net:Alex");
+  assert.equal(matchIncomeTarget([{ amount: 4000, description: "EMPLOYER B" }], targets).key, "net:Sam", "a month's pay");
+  assert.equal(matchIncomeTarget([{ amount: 123.45, description: "REFUND FERN CAFE" }], targets), null, "a refund is no one's pay");
+  assert.equal(matchIncomeTarget([{ amount: 999, description: "SALARY EMPLOYER A" }], targets), null, "pay words with two people to give it to: neither");
+  assert.equal(matchIncomeTarget([{ amount: 999, description: "SALARY EMPLOYER A" }], targets.slice(0, 1)).key, "net:Alex", "pay words, one person");
+  var tie = [{ key: "income:1", label: "Side work", kind: "income", monthly: 2000 }, { key: "rent:p", label: "1 Example St — rent", kind: "rent", monthly: 2000 }];
+  assert.equal(matchIncomeTarget([{ amount: 2000, description: "AGENT RENT NOV" }], tie).key, "rent:p", "the same amount: the words decide");
+  assert.equal(matchIncomeTarget([{ amount: 2000, description: "TRANSFER IN" }], tie), null, "the same amount, no words: neither");
+});

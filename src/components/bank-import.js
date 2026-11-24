@@ -11,7 +11,7 @@ import { parseCsv } from "../lib/backup.js";
 import { parseBankCsv, bankImportSummary, parseDiagnosis, statementTextToCsv } from "../calc/bank-import.js";
 import { cleanMerchantName } from "../calc/merchantbook.js";
 import { transactionDisplayName } from "../calc/ledger.js";
-import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
+import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance, matchIncomeTarget } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
 import { accountBalance, setAccountBalance, isOwedType, resolveLink, loanAccountFor, addTransferAccount, removeAccounts } from "../calc/accounts.js";
 import { splitLoanStatement, bankRepaymentOf, loanRowKind, looksLikeLoanStatement } from "../calc/loancharges.js";
@@ -52,7 +52,7 @@ function groupRows(rows){
         label: row.description || "(no description)",
         rows: [], total: 0,
         choice: { linkedExpenseId: row.suggestion.linkedExpenseId, category: row.suggestion.category, account: row.suggestion.account, transferAccount: row.suggestion.transferAccount || "" },
-        source: row.suggestion.source,
+        source: row.suggestion.source, word: row.suggestion.word || "",
         tripId: row.tripId || null, tripName: row.tripName || ""
       };
       order.push(key);
@@ -170,6 +170,7 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
   var loanPart = takeLoanRows(suggested, statementAccount);
   suggested = loanPart.rows;
   var includeMaybes = !!includePossibleDuplicates;
+  var targets = incomeTargets();
   var spend = suggested.filter(function(r){
     if(r.direction !== "debit" || r.duplicate) return false;
     return includeMaybes || !r.possibleDuplicate;
@@ -205,10 +206,12 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
         // A learned income rule (v3.49.0) places the group, if what it points at still exists;
         // anything else starts unassigned, as before.
         var learned = g.rows[0] && g.rows[0].suggestion && g.rows[0].suggestion.incomeTarget;
-        var live = learned && incomeTargets().some(function(t){ return t.key === learned; });
+        var live = learned && targets.some(function(t){ return t.key === learned; });
         var tAcct = g.rows[0] && g.rows[0].suggestion && g.rows[0].suggestion.transferAccount;
-        return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: live ? (g.rows[0].suggestion.account || "") : "", incomeTarget: live ? learned : null, transferAccount: tAcct || "" },
-          source: live || tAcct ? "rule" : null, isCredit: true });
+        // November 2026: no rule yet, but its amount or words fit an income row — offered as that, marked.
+        var fit = !live && !tAcct ? matchIncomeTarget(g.rows, targets) : null;
+        return Object.assign(g, { choice: { linkedExpenseId: null, category: "", account: live ? (g.rows[0].suggestion.account || "") : "", incomeTarget: live ? learned : fit ? fit.key : null, transferAccount: tAcct || "" },
+          source: live || tAcct ? "rule" : fit ? "income" : null, matchLabel: fit ? fit.label : "", isCredit: true });
       }),
     credits: suggested.filter(function(r){ return r.direction === "credit" && !r.duplicate && !r.possibleDuplicate; })
   };
@@ -585,7 +588,7 @@ function bankImportGroupsHtml(){
   }
   if(bankImport.creditGroups.length){
     html += '<h3 class="bank-import-subhead">Money in (' + bankImport.creditGroups.length + ')</h3>' +
-      '<p class="ledger-note" style="margin:0 0 8px">Left out unless you say otherwise — this app can\'t tell a refund from salary or a transfer. ' +
+      '<p class="ledger-note" style="margin:0 0 8px">Money that fits an income row — its amount or its words — is offered as that income received; anything else is left out unless you say otherwise. ' +
       'Put one on a budget line and it imports as a refund, reducing what you spent on that line.</p>' +
       '<div class="m-card"><div class="m-rows">' + bankImport.creditGroups.map(function(g){ return groupRowHtml(g); }).join("") + '</div></div>';
   }
@@ -596,10 +599,12 @@ function groupRowHtml(g){
   var badge = g.source === "rule"
     ? '<span class="bank-import-badge is-rule" title="From a rule you taught this app on an earlier import">learned</span>'
     : g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>'
-    : g.source === "known" ? '<span class="bank-import-badge" title="A well-known business, filed where that kind of spending usually goes — worth a glance">known shop</span>' : "";
+    : g.source === "known" ? '<span class="bank-import-badge" title="A well-known business, filed where that kind of spending usually goes — worth a glance">known shop</span>'
+    : g.source === "word" && g.word ? '<span class="bank-import-badge" title="Its description says what kind of place it was, so filed where that usually goes — worth a glance">guessed from “' + escapeAttr(g.word) + '”</span>' : "";
   if(g.tripId && g.choice.linkedExpenseId) badge = '<span class="bank-import-badge is-trip" title="Inside the dates of a trip, so filed to the trip\'s line. Pick another line to file it elsewhere.">trip · ' + escapeAttr(g.tripName) + '</span>';
   else if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
   else if(g.transferHint) badge = '<span class="bank-import-badge is-transfer" title="Reads like a transfer between your own accounts. If it is, pick the account under Transfer.">looks like a transfer</span>';
+  else if(g.isCredit && g.source === "income" && g.choice.incomeTarget) badge = '<span class="bank-import-badge is-credit" title="Its amount or words fit this income row, so it is offered as that income received — worth a glance">matches ' + escapeAttr(g.matchLabel) + '</span>';
   else if(g.isCredit && g.source === "rule") badge = '<span class="bank-import-badge is-rule" title="Matched to an income line by a rule you taught this app on an earlier import">learned · money in</span>';
   else if(g.isCredit) badge = '<span class="bank-import-badge is-credit" title="Money in. Assign it to an income line to log it as received, or to a budget line to import it as a refund against that line.">money in</span>';
   var countLabel = g.rows.length === 1 ? "1 transaction" : g.rows.length + " transactions";
@@ -616,24 +621,35 @@ function groupRowHtml(g){
     '<div class="bank-import-assign">' +
       '<label class="bank-import-field"><span>Goes to</span>' +
         '<select class="bank-group-line field-control" data-bank-group="' + escapeAttr(g.key) + '">' +
-          '<option value="">' + (g.isCredit ? "— don't import —" : "— not linked —") + '</option>' +
+          '<option value="">' + (g.isCredit ? "Don't import" : "Spending, not on a budget line") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
           transferOptgroupHtml(g) +
           budgetLineOptgroupsHtml(g.choice.linkedExpenseId) +
         '</select>' +
       '</label>' +
-      '<label class="bank-import-field"><span>Category</span>' +
-        '<select class="bank-group-category field-control" data-bank-group="' + escapeAttr(g.key) + '">' +
-          '<option value="">— none —</option>' +
-          sortedCategories().map(function(c){
-            return '<option value="' + escapeAttr(c) + '"' + (c === g.choice.category ? " selected" : "") + '>' + escapeAttr(c) + '</option>';
-          }).join("") +
-        '</select>' +
-      '</label>' +
+      // November 2026: the category under "Goes to" as a line of text, its list a tap away — a line
+      // sets it, so most rows never need it opened.
+      '<details class="bank-import-cat"' + (catApplies(g) ? '' : ' hidden') + '>' +
+        '<summary>' + categorySummaryHtml(g.choice.category) + '</summary>' +
+        '<label class="bank-import-field"><span>Category</span>' +
+          '<select class="bank-group-category field-control" data-bank-group="' + escapeAttr(g.key) + '">' +
+            '<option value="">None</option>' +
+            sortedCategories().map(function(c){
+              return '<option value="' + escapeAttr(c) + '"' + (c === g.choice.category ? " selected" : "") + '>' + escapeAttr(c) + '</option>';
+            }).join("") +
+          '</select>' +
+        '</label>' +
+      '</details>' +
       newLineNoteHtml(g) +
     '</div>' +
   '</div>';
+}
+
+// Pay received or a transfer carries no category — only spending and a refund on a line do.
+function catApplies(g){ return !(g.choice.incomeTarget || g.choice.transferAccount); }
+function categorySummaryHtml(category){
+  return '<span data-bank-cat-text>Category: <b>' + escapeAttr(category || "none") + '</b></span><span class="bank-import-cat-change"><span aria-hidden="true">· </span>' + (category ? "Change" : "Set one") + '</span>';
 }
 
 // The amount on a created line is derived, not typed, so the screen shows its working — the user is
@@ -813,6 +829,13 @@ export function patchBankImportPanel(groupKey){
       if(nameEl) nameEl.appendChild(span);
     }
     row.classList.toggle("is-unplaced", !placed);
+    // A line brings its category: the line of text and the list follow it.
+    var catSel = row.querySelector(".bank-group-category");
+    if(catSel && catSel.value !== (g.choice.category || "")) catSel.value = g.choice.category || "";
+    var catFold = row.querySelector(".bank-import-cat");
+    if(catFold) catFold.hidden = !catApplies(g);
+    var catSum = row.querySelector(".bank-import-cat > summary");
+    if(catSum) catSum.innerHTML = categorySummaryHtml(g.choice.category);
     // The created-line note lives in groupRowHtml, which only runs on a full render — so without
     // patching it here, picking "+ New line" showed no sign of what it was about to create. The
     // amount on that line is derived rather than typed; showing its working is the point.

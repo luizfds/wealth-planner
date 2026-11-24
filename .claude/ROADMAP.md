@@ -6015,7 +6015,7 @@ Tax-returns, Import-rules, Tools). Nothing is removed — every feature stays, o
 
 ## One take-home, a net worth day you can fix, faster screens (November 2026)
 
-`[~]` Agreed after the Property, Tax and Settings review:
+`[x]` Agreed after the Property, Tax and Settings review:
 - **One take-home figure:** Tax › This year and Money › Income both lead with regular pay after tax (what a month can
   be planned on); the bonus, the refund at lodgement and pay that isn't taxed are listed under it, on both.
 - **A day in the net worth history can be fixed:** each entry in Accounts' history can be edited or removed (with

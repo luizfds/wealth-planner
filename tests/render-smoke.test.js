@@ -3210,3 +3210,26 @@ test("a return's labels by name, its year-on-year in plain ink, a moment in the 
   assert.equal(fmtDateTime("2026-11-23T21:00:00"), "23 Nov, 9:00 pm");
   assert.equal(fmtDateTime("not a date"), "not a date");
 });
+
+// November 2026: a day in the net worth history can be fixed, and one out of line with its neighbours is flagged.
+test("net worth history: newest first, each day editable or removable, a spike flagged, today followed", async function(){
+  const { nwHistoryHtml } = await import("../src/components/nwhistory.js");
+  const { historyOutliers, setHistoryValue, removeHistoryDay, putBackHistoryDay } = await import("../src/calc/nwauto.js");
+  const log = [{ date: "2026-11-10", value: 100000, auto: true }, { date: "2026-11-11", value: 130000, auto: true }, { date: "2026-11-12", value: 101000, auto: true }, { date: "2026-11-14", value: 102000, auto: true }];
+  assert.deepEqual(Object.keys(historyOutliers(log)), ["2026-11-11"]);
+  const html = nwHistoryHtml(log, "2026-11-14");
+  assert.match(html, /<b>1 day out of line<\/b>/);
+  assert.ok(html.indexOf('data-nwh-date="2026-11-14"') < html.indexOf('data-nwh-date="2026-11-10"'), "newest first");
+  assert.match(html, /class="nwh-row is-odd" data-nwh-date="2026-11-11">[\s\S]*?out of line with the days either side[\s\S]*?data-nwh-value="2026-11-11" value="130,000"/);
+  assert.match(html, /data-nwh-date="2026-11-14">[\s\S]*?today — follows your balances[\s\S]*?<b class="nwh-amt">\$102,000<\/b>/);
+  assert.doesNotMatch(html, /data-nwh-remove="2026-11-14"/, "today's reading isn't removed by hand");
+  assert.match(html, /data-nwh-remove="2026-11-10">Remove<span class="visually-hidden">/);
+  assert.ok(setHistoryValue(log, "2026-11-11", 100500));
+  assert.deepEqual(log[1], { date: "2026-11-11", value: 100500, edited: true });
+  assert.deepEqual(Object.keys(historyOutliers(log)), []);
+  const gone = removeHistoryDay(log, "2026-11-10");
+  assert.equal(log.length, 3);
+  assert.ok(putBackHistoryDay(log, gone));
+  assert.equal(log[0].date, "2026-11-10");
+  assert.match(nwHistoryHtml([], "2026-11-14"), /Nothing recorded yet/);
+});

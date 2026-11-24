@@ -60,6 +60,7 @@
   .tax-hero-label{ font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); font-weight:600; }
   .tax-hero-value{ font-family:"Inter", system-ui, sans-serif; font-weight:600; font-size:var(--fs-3xl); line-height:1.1; letter-spacing:-0.01em; font-variant-numeric: tabular-nums; color: var(--brass-strong); }
   .tax-hero-value small{ font-family:"Inter", sans-serif; font-weight:600; font-size:var(--fs-md); font-variant-numeric: normal; color: var(--ink-soft); }
+  .tax-hero-year{ margin:4px 0 0; font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.45; }
   .tax-waterfall{ margin-bottom:12px; }
   .tax-waterfall-bar{ display:flex; gap:2px; height:22px; border-radius:5px; overflow:hidden; background: var(--paper-raised); margin-bottom:10px; }
   .tax-waterfall-seg{ min-width:2px; background: var(--series-color); }

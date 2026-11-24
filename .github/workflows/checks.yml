@@ -197,11 +197,52 @@ jobs:
   # gives identical pictures), scripts/shotdiff.mjs compares them pixel by pixel, and the changed views
   # go in the job summary and, side by side with the difference marked, in the "screens" artifact.
   # Informational: a visual change never fails the check.
-  screens:
+  # November 2026: the base and the PR are photographed in two jobs side by side (one after the other was the
+  # slowest job in a run), then compared.
+  screens-shots:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     # Playwright's image: Chromium and its system libraries are in it, so nothing installs (it took five minutes a job).
     # Move the tag with the npm install below when upgrading; user 1001 is the image's own, so Chromium keeps its sandbox.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        side: [base, head]
+    name: screens (${{ matrix.side }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: head
+      - uses: actions/checkout@v4
+        if: matrix.side == 'base'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.56.0
+        working-directory: head
+      - name: Photograph the base branch
+        if: matrix.side == 'base'
+        run: SMOKE_ROOT=../base SHOTS_DIR=../shots/base node scripts/smoke.mjs
+        working-directory: head
+      - name: Photograph this pull request
+        if: matrix.side == 'head'
+        run: SHOTS_DIR=../shots/head node scripts/smoke.mjs
+        working-directory: head
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ matrix.side }}
+          path: shots/${{ matrix.side }}
+          retention-days: 1
+  screens:
+    if: github.event_name == 'pull_request'
+    needs: screens-shots
+    runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.56.0-noble
       options: --user 1001
@@ -218,12 +259,14 @@ jobs:
           node-version: 22
       - run: npm install --no-save playwright@1.56.0
         working-directory: head
-      - name: Photograph the base branch
-        run: SMOKE_ROOT=../base SHOTS_DIR=../shots/base node scripts/smoke.mjs
-        working-directory: head
-      - name: Photograph this pull request
-        run: SHOTS_DIR=../shots/head node scripts/smoke.mjs
-        working-directory: head
+      - uses: actions/download-artifact@v4
+        with:
+          name: shots-base
+          path: shots/base
+      - uses: actions/download-artifact@v4
+        with:
+          name: shots-head
+          path: shots/head
       - name: Check whether the polish audit changed
         run: |
           if [ -f head/docs/audits/visual-polish-308.md ] && ! cmp -s head/docs/audits/visual-polish-308.md base/docs/audits/visual-polish-308.md; then

@@ -353,6 +353,7 @@
   .m-card-sub{ display:block; font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; }
   .m-card-total{ font-family:var(--font-num); font-weight:600; font-size:var(--fs-md); white-space:nowrap; }
   .m-card-total span{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); margin-left:2px; }
+  .m-card-total-all{ display:block; font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); text-align:right; }
   .m-comp-bar{ display:flex; gap:2px; height:6px; border-radius:4px; overflow:hidden; margin:0 16px 12px; }
   .m-comp-seg{ background: var(--series-color); min-width:2px; }
   .m-rows{ background: var(--paper-raised); border-top:1px solid var(--border); }

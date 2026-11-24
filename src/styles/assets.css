@@ -362,3 +362,17 @@
 .tr-problem, [data-tr-review], [data-tr-status]{ overflow-wrap:anywhere; }
 [data-tr-status]:empty{ display:none; }
 
+
+/* Accounts → Net worth history (November 2026): a day a line, its figure editable, a day out of line flagged. */
+.nwh-note{ margin:0 0 10px; font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.5; }
+.nwh-list{ list-style:none; margin:0 0 10px; padding:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.nwh-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 12px; min-height:52px; }
+.nwh-row + .nwh-row{ border-top:1px solid var(--border); }
+.nwh-row.is-odd{ background: color-mix(in srgb, var(--warn-ink) 10%, transparent); }
+.nwh-when{ flex:1 1 140px; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.nwh-when b{ font-weight:600; }
+.nwh-when small{ font-size:var(--fs-xs); color: var(--ink-soft); }
+.nwh-when .nwh-flag{ color: var(--warn-ink); font-weight:600; }
+.nwh-amt{ font-family: var(--font-num); font-weight:600; }
+.nwh-edit{ display:flex; align-items:center; gap:4px; color: var(--ink-soft); }
+.nwh-edit input{ width:9.5em; text-align:right; font-family: var(--font-num); }

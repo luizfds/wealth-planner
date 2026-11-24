@@ -5980,3 +5980,14 @@ Insights' income vs spending and the Cash flow, Categories, Trends and Budget re
 run of their own (a PR's checks took about 20 minutes). Insights folded: the 12-month cash forecast is Plan →
 Scenarios', and Needs you says what the app notices in one line. Reports as eight families (calc/reports.js
 REPORT_FAMILIES), each report's siblings under it. One look for a chosen chip: the page's tab colour.
+
+## The follow-up review (November 2026)
+
+`[~]` Checked on a real household after the assessment's changes shipped:
+- **Property money everywhere:** Today's week recap and Patterns / Trends still counted a purchase's money as spending.
+  A transaction both on a budget line and paying a purchase's cost is a data check with a fix.
+- **One answer for "spent this month"**, said with what it covers; **one count** for what needs you; stale values said
+  once on Today; Budget's "Adjust the plan" once.
+- **Insights retired:** its panels that weren't elsewhere go to their report family; Today's chips lose the link.
+- **Polish:** Budget's group headers and the loan group, Needs you tinted only by an urgent item, one way to add on
+  Transactions, Lifestyle's plan the same figure on Budget's card and its legend.

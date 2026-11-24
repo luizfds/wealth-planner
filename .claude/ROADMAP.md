@@ -6021,3 +6021,15 @@ Tax-returns, Import-rules, Tools). Nothing is removed — every feature stays, o
 - **A day in the net worth history can be fixed:** each entry in Accounts' history can be edited or removed (with
   undo), so a day that counted a balance twice stops drawing a spike.
 - **CI:** the screens job photographs the base and the PR in parallel jobs.
+
+## Importing a statement, easier (November 2026)
+
+`[x]` From the review of setup, import and backup, mocked up and agreed (canvas board Import). Nothing is removed:
+- **A transfer to an account not in the app yet** can create it from the review, and Undo removes it again.
+- **Setup:** step 3 asks pay for everyone (unnamed people are "You" and "Partner"), money fields throughout.
+- **Pay recognised:** money in whose usual amount is an income row's week, fortnight or month (or whose words say pay,
+  with one person to give it to) is offered as that income received, marked "matches …". Don't import stays first.
+- **One "Goes to" a row:** "— not linked —" reads "Spending, not on a budget line"; the category is a line of text
+  under it, its list a tap away, and follows the line chosen; pay and transfers don't show one.
+- **Plain words** (supermarket, café, fuel, pharmacy…) suggest your one line in that category on a first import,
+  marked "guessed from …", after your rules, line names and known brands.

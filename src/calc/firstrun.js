@@ -19,13 +19,25 @@ export var COMMON_COSTS = [
 
 // answers: { people: [{ name, age, pay, payFreq }], accounts: [{ name, type, balance }],
 //   housing: { kind: "rent" | "loan" | "none", amount, freq }, costs: [{ what, amount }] } (monthly)
+// An amount as typed in setup's money fields: "75,000", "$1,200" or "1200" (the follow-up review, November 2026).
+export function setupAmount(v){
+  var n = Number(String(v == null ? "" : v).replace(/[$,\s]/g, ""));
+  return isFinite(n) ? n : NaN;
+}
+// The name a person goes by: what was typed, or — with pay given and no name — "You", then "Partner" (setup has two).
+export function setupPersonName(p, i){
+  var typed = String((p && p.name) || "").trim();
+  if(typed) return typed;
+  return setupAmount(p && p.pay) > 0 && i < 2 ? (i === 0 ? "You" : "Partner") : "";
+}
 export function applyFirstRun(answers, today){
   answers = answers || {};
   var made = { people: 0, accounts: 0, lines: 0 };
-  var people = (answers.people || []).filter(function(p){ return p && String(p.name || "").trim(); });
+  var people = (answers.people || []).map(function(p, i){ return p ? Object.assign({}, p, { name: setupPersonName(p, i) }) : null; })
+    .filter(function(p){ return p && p.name; });
   people.forEach(function(p, i){
     var name = String(p.name).trim();
-    var pay = Number(p.pay) || 0;
+    var pay = setupAmount(p.pay) || 0;
     state.income.push({ id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: pay, freq: p.payFreq || "Yearly",
       person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 });
     if(i === 0 && Number(p.age) > 0){ if(!state.fire) state.fire = {}; state.fire.currentAge = Number(p.age); }
@@ -38,26 +50,26 @@ export function applyFirstRun(answers, today){
     var acct = { id: genId("acct"), name: name, type: a.type || "everyday", statementStartDay: 1, link: "" };
     state.accounts.push(acct);
     // An offset needs a loan to sit against, so its balance waits for the property to be added.
-    if(a.balance !== "" && a.balance != null && !isNaN(Number(a.balance))) setAccountBalance(acct, Math.abs(Number(a.balance)), today);
+    if(a.balance !== "" && a.balance != null && !isNaN(setupAmount(a.balance))) setAccountBalance(acct, Math.abs(setupAmount(a.balance)), today);
     if(!firstAccount && acct.type !== "credit") firstAccount = name;
     made.accounts++;
   });
   var h = answers.housing || {};
   // v3.172.0 (item 207): where the household lives is a budget line like any other (a scenario that
   // moves house replaces it — calc/scenariochanges.js).
-  if(h.kind && h.kind !== "none" && Number(h.amount) > 0){
+  if(h.kind && h.kind !== "none" && setupAmount(h.amount) > 0){
     var what = h.kind === "rent" ? "Rent" : "Home loan";
     var row = state.shared.find(function(r){ return r.homeCost && /rent|home loan/i.test(r.what || ""); });
-    if(row){ row.amount = Number(h.amount); row.freq = h.freq || "Monthly"; row.what = what; if(firstAccount && !row.account) row.account = firstAccount; }
-    else state.shared.push({ id: genId("exp"), what: what, classification: "Needs", category: "Housing", account: firstAccount || "", amount: Number(h.amount), freq: h.freq || "Monthly", irregular: false, dueMonth: null, homeCost: true });
+    if(row){ row.amount = setupAmount(h.amount); row.freq = h.freq || "Monthly"; row.what = what; if(firstAccount && !row.account) row.account = firstAccount; }
+    else state.shared.push({ id: genId("exp"), what: what, classification: "Needs", category: "Housing", account: firstAccount || "", amount: setupAmount(h.amount), freq: h.freq || "Monthly", irregular: false, dueMonth: null, homeCost: true });
     made.lines++;
   }
   (answers.costs || []).forEach(function(c){
-    if(!(Number(c.amount) > 0)) return;
+    if(!(setupAmount(c.amount) > 0)) return;
     /** @type {any} */
     var preset = COMMON_COSTS.find(function(x){ return x.what === c.what; }) || {};
     state.shared.push({ id: genId("exp"), what: c.what, classification: preset.classification || "Needs", category: preset.category || "", account: firstAccount,
-      amount: Number(c.amount), freq: c.freq || "Monthly", irregular: false, dueMonth: null });
+      amount: setupAmount(c.amount), freq: c.freq || "Monthly", irregular: false, dueMonth: null });
     made.lines++;
   });
   // v3.161.0 (item 191): a part ticked shows straight away; one left unticked shows once one is added.

@@ -13,7 +13,7 @@ import { cleanMerchantName } from "../calc/merchantbook.js";
 import { transactionDisplayName } from "../calc/ledger.js";
 import { applySuggestions, learnRule, coverageOf, merchantKey, proposedLineFor, suggestedLineName, pruneRules, detectTransfer, closingBalance } from "../calc/import-rules.js";
 import { addTransfer, deleteTransfer } from "../calc/cashflowlist.js";
-import { accountBalance, setAccountBalance, isOwedType, resolveLink, loanAccountFor } from "../calc/accounts.js";
+import { accountBalance, setAccountBalance, isOwedType, resolveLink, loanAccountFor, addTransferAccount, removeAccounts } from "../calc/accounts.js";
 import { splitLoanStatement, bankRepaymentOf, loanRowKind, looksLikeLoanStatement } from "../calc/loancharges.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -259,8 +259,11 @@ export function setBankImportGroupLine(key, expenseId){
   if(!g) return;
   g.choice.incomeTarget = null;
   g.choice.transferAccount = "";
+  g.choice.newAccount = "";
   if(expenseId && expenseId.indexOf(TRANSFER_PREFIX) === 0){
     g.choice.transferAccount = expenseId.slice(TRANSFER_PREFIX.length);
+    // A new account (named from the description), made when the import is confirmed.
+    if(g.choice.transferAccount.indexOf(NEW_ACCOUNT_MARK) === 0){ g.choice.newAccount = g.choice.transferAccount.slice(NEW_ACCOUNT_MARK.length); g.choice.transferAccount = g.choice.newAccount; }
     g.choice.linkedExpenseId = null; g.choice.newLine = null; g.choice.category = "";
     g.source = "chosen";
     bankImport.coverage = coverageOfGroups(bankImport.groups);
@@ -315,19 +318,32 @@ function coverageOfGroups(groups){
 function groupIsPlaced(g){
   return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget || g.choice.transferAccount);
 }
-// "Transfer to/from" one of your other accounts (v3.64.0) — never spending, never income.
+// An account a transfer names that isn't in the app yet: "TRANSFER TO SAVINGS" → "Savings". The follow-up review
+// (November 2026): with no other account to pick, a row read as a transfer could only come in as spending.
+export function newTransferAccountName(label){
+  var m = String(label || "").replace(/\s+/g, " ").trim().match(/\b(?:to|from)\s+([a-z][a-z ]{1,24})$/i);
+  var name = m ? m[1].trim() : "";
+  if(!name) return "Other account";
+  return name.split(" ").map(function(w){ return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(" ");
+}
+export var NEW_ACCOUNT_MARK = "+new:"; // no account name starts with it: a value, never shown
+// "Transfer to/from" one of your other accounts (v3.64.0) — never spending, never income. A row that reads like a
+// transfer also offers an account that isn't in the app yet, made when the import is confirmed.
 function transferOptgroupHtml(g){
   var others = (state.accounts || []).filter(function(a){ return a.name && a.name !== bankImport.account; });
-  if(!others.length && !g.choice.transferAccount) return "";
+  var fresh = g.transferHint ? newTransferAccountName(g.label) : "";
+  if(fresh && others.some(function(a){ return a.name.toLowerCase() === fresh.toLowerCase(); })) fresh = "";
+  if(!others.length && !g.choice.transferAccount && !fresh) return "";
   var label = g.isCredit ? "Transfer from your account" : "Transfer to your account";
+  var newOpt = fresh ? '<option value="' + escapeAttr(TRANSFER_PREFIX + NEW_ACCOUNT_MARK + fresh) + '"' + (g.choice.newAccount === fresh ? " selected" : "") + '>A new account: ' + escapeAttr(fresh) + '</option>' : '';
   var opts = others.map(function(a){
     var v = TRANSFER_PREFIX + a.name;
     return '<option value="' + escapeAttr(v) + '"' + (g.choice.transferAccount === a.name ? " selected" : "") + '>' + escapeAttr(a.name) + '</option>';
   }).join("");
-  if(g.choice.transferAccount && !others.some(function(a){ return a.name === g.choice.transferAccount; })){
+  if(g.choice.transferAccount && !g.choice.newAccount && !others.some(function(a){ return a.name === g.choice.transferAccount; })){
     opts += '<option value="' + escapeAttr(TRANSFER_PREFIX + g.choice.transferAccount) + '" selected>' + escapeAttr(g.choice.transferAccount) + '</option>';
   }
-  return '<optgroup label="' + label + '">' + opts + '</optgroup>';
+  return '<optgroup label="' + label + '">' + opts + newOpt + '</optgroup>';
 }
 export function setStatementAccount(name){
   // To or from a loan account, the rows themselves change (takeLoanRows): read the statement again for it.
@@ -860,8 +876,14 @@ export function commitBankImport(inboxSource){
   });
   // Transfers between your own accounts (v3.64.0): one transfer per row, out of the statement's
   // account for money out, into it for money in. Never spending, never income.
-  var transferIds = [];
+  var transferIds = [], accountIds = [];
   var stAcct = bankImport.account || "";
+  // Accounts a transfer named that weren't in the app yet (chosen as "A new account: …"), made before their transfers.
+  bankImport.groups.concat(bankImport.creditGroups).forEach(function(g){
+    var nm = g.choice.newAccount;
+    if(!nm || (state.accounts || []).some(function(a){ return a.name === nm; })) return;
+    accountIds.push(addTransferAccount(state, nm));
+  });
   bankImport.groups.concat(bankImport.creditGroups).filter(function(g){ return !!g.choice.transferAccount; }).forEach(function(g){
     g.rows.forEach(function(row){
       var rec = addTransfer({ date: row.date, amount: row.amount, what: row.description || "",
@@ -970,14 +992,16 @@ export function commitBankImport(inboxSource){
   var saved = bankSaveRevision !== saveRevision;
   bankImport.saveFailed = saved ? null : { inboxSource: !!inboxSource, revision: saveRevision };
   return { saved: saved, loanSet: loanSet, loanCharges: loanSet ? loanSet.ids.length : 0, ids: created, learned: learned, groups: bankImport.groups.length, transferIds: transferIds, balanceSet: balanceSet,
-           lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled,
+           lineIds: createdLineIds, linesCreated: createdLineIds.length, receivedIds: receivedIds, reconciled: reconciled, accountIds: accountIds,
            refunds: refundGroups.reduce(function(n, g){ return n + g.rows.length; }, 0) };
 }
 
 // Undo: drop exactly the transactions this import created. Rules it taught are deliberately left
 // alone — they're a preference the user expressed, not part of the data being undone, and
 // re-importing the same file is the normal reason to undo.
-export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet, reconciled, loanSet){
+export function undoBankImport(ids, lineIds, receivedIds, transferIds, balanceSet, reconciled, loanSet, accountIds){
+  // The follow-up review: accounts the import made for a transfer go too (their transfers are undone below).
+  if(accountIds && accountIds.length) removeAccounts(state, accountIds);
   // Item 243: the loan's charges, settled-on date and the bank's repayment go back.
   if(loanSet){
     var gone = {};

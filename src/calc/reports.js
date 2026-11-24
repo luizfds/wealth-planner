@@ -1,3 +1,4 @@
+import { spendingTransactions } from "./propertymoney.js";
 import { state } from "../state.js";
 import { selectedYearWindow } from "./ledger.js";
 import { getTaxPeople, computePersonTax, currentTaxFy } from "./tax.js";
@@ -72,7 +73,7 @@ export function cashflowReport(opts){
   /** @type {any[]} */
   var rows = months.map(function(ym){
     var inn = (state.incomeLog || []).filter(function(r){ return (r.date || "").slice(0, 7) === ym; }).reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
-    var out = (state.transactions || []).filter(function(t){ return (t.date || "").slice(0, 7) === ym; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+    var out = spendingTransactions(state).filter(function(t){ return (t.date || "").slice(0, 7) === ym; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     running += inn - out; tin += inn; tout += out;
     return { ym: ym, cells: { month: ymLabel(ym), in: r2(inn), out: r2(out), net: r2(inn - out), running: r2(running) } };
   });
@@ -80,7 +81,7 @@ export function cashflowReport(opts){
   // v3.118.0: the same totals over the comparison window, when the frame asks for one.
   if(opts.cmpWin){
     var cin = (state.incomeLog || []).filter(function(r){ return r.date >= opts.cmpWin.start && r.date <= opts.cmpWin.end; }).reduce(function(s, r){ return s + (Number(r.amount) || 0); }, 0);
-    var cout = (state.transactions || []).filter(function(t){ return t.date >= opts.cmpWin.start && t.date <= opts.cmpWin.end; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
+    var cout = spendingTransactions(state).filter(function(t){ return t.date >= opts.cmpWin.start && t.date <= opts.cmpWin.end; }).reduce(function(s, t){ return s + (Number(t.amount) || 0); }, 0);
     rows.push({ cls: "compare", cells: { month: "Compared: " + opts.cmpWin.label, in: r2(cin), out: r2(cout), net: r2(cin - cout), running: null } });
   }
   var chart = { type: "columns", series: ["Money in", "Money out"], items: rows.filter(function(r){ return r.ym; }).map(function(r){ return { label: r.cells.month, a: r.cells.in, b: r.cells.out, ym: r.ym }; }) };
@@ -97,7 +98,7 @@ export function categoryReport(opts){
   var categoryOf = opts.groupOf || opts.categoryOf || function(t){ return t.category || ""; };
   var months = monthsOf(win, today);
   var grid = {}, colTotals = {};
-  (state.transactions || []).forEach(function(t){
+  spendingTransactions(state).forEach(function(t){
     var ym = (t.date || "").slice(0, 7);
     if(months.indexOf(ym) === -1) return;
     var c = categoryOf(t) || "Uncategorised";
@@ -120,7 +121,7 @@ export function categoryReport(opts){
   var tot = { cat: "Total" }, all = 0;
   months.forEach(function(ym){ tot[ym] = r2(colTotals[ym] || 0); all += colTotals[ym] || 0; });
   tot.total = r2(all); tot.avg = r2(months.length ? all / months.length : 0);
-  var cmp = opts.compareTotals || (opts.cmpWin ? spendingByGroup(state.transactions, opts.cmpWin, function(t){ return categoryOf(t) || "Uncategorised"; }) : null);
+  var cmp = opts.compareTotals || (opts.cmpWin ? spendingByGroup(spendingTransactions(state), opts.cmpWin, function(t){ return categoryOf(t) || "Uncategorised"; }) : null);
   if(cmp){
     columns.push({ key: "cmp", label: opts.compareLabel || "Compared", num: true }, { key: "chg", label: "Change", num: true });
     rows.forEach(function(r){ var v = cmp[r.cells.cat] || 0; r.cells.cmp = r2(v); r.cells.chg = change(r.cells.total, v).diff; });
@@ -258,7 +259,7 @@ export function incomeStatementReport(opts){
   var grid = {};
   months.forEach(function(ym){ grid[ym] = { pay: 0, rent: 0, other: 0, Needs: 0, Wants: 0, Other: 0, loans: 0 }; });
   (state.incomeLog || []).forEach(function(r){ var g = grid[(r.date || "").slice(0, 7)]; if(g && r.date >= win.start && r.date <= win.end) g[inKind(r.target)] += Number(r.amount) || 0; });
-  (state.transactions || []).forEach(function(t){ var g = grid[(t.date || "").slice(0, 7)]; if(g && t.date >= win.start && t.date <= win.end) g[classKey(classOf(t))] += Number(t.amount) || 0; });
+  spendingTransactions(state).forEach(function(t){ var g = grid[(t.date || "").slice(0, 7)]; if(g && t.date >= win.start && t.date <= win.end) g[classKey(classOf(t))] += Number(t.amount) || 0; });
   // Item 247: an investment property's loan repayments go out every month and aren't spending (a transfer, never
   // a transaction) — logged, they're the transfers into an account linked to one of its loans.
   var loanAcct = investmentLoanAccounts();
@@ -327,7 +328,7 @@ export function moneyFlowReport(opts){
   var take = recPay > 0 ? recPay : takePlan;
   var taxV = tax * scale * k, superV = (sg + sac) * scale * k, pay = take + taxV + superV;
   var spend = { Needs: 0, Wants: 0, Other: 0 };
-  (state.transactions || []).forEach(function(t){ if(t.date >= win.start && t.date <= win.end) spend[classKey(classOf(t))] += Number(t.amount) || 0; });
+  spendingTransactions(state).forEach(function(t){ if(t.date >= win.start && t.date <= win.end) spend[classKey(classOf(t))] += Number(t.amount) || 0; });
   var available = take + other, spent = spend.Needs + spend.Wants + spend.Other;
   var kept = available - spent, drawn = kept < 0 ? -kept : 0;
   var nodes = [
@@ -365,7 +366,7 @@ export function budgetActualReport(opts){
   var months = monthsOf(win, today);
   var lines = (opts.budgetLines || []).filter(function(l){ return l.id && !l.computed; });
   var byLine = {};
-  (state.transactions || []).forEach(function(t){
+  spendingTransactions(state).forEach(function(t){
     if(!t.linkedExpenseId || !t.date || t.date < win.start || t.date > win.end) return;
     var ym = t.date.slice(0, 7);
     var g = byLine[t.linkedExpenseId] = byLine[t.linkedExpenseId] || {};
@@ -404,12 +405,12 @@ export function trendsReport(opts){
   var iso = function(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
   var curStart = iso(new Date(t0.getFullYear(), t0.getMonth() - 11, 1));
   var prevStart = iso(new Date(t0.getFullYear(), t0.getMonth() - 23, 1)), prevEnd = iso(new Date(t0.getFullYear(), t0.getMonth() - 11, 0));
-  var cur = spendingByGroup(state.transactions, { start: curStart, end: today }, groupOf);
-  var prev = spendingByGroup(state.transactions, { start: prevStart, end: prevEnd }, groupOf);
+  var cur = spendingByGroup(spendingTransactions(state), { start: curStart, end: today }, groupOf);
+  var prev = spendingByGroup(spendingTransactions(state), { start: prevStart, end: prevEnd }, groupOf);
   var keys = Object.keys(Object.assign({}, cur, prev));
   // A percentage against a year that was barely logged (the app started part-way through it) is noise.
   var logged = {};
-  (state.transactions || []).forEach(function(t){ if(t && t.date && t.date >= prevStart && t.date <= prevEnd) logged[t.date.slice(0, 7)] = true; });
+  spendingTransactions(state).forEach(function(t){ if(t && t.date && t.date >= prevStart && t.date <= prevEnd) logged[t.date.slice(0, 7)] = true; });
   var prevMonths = Object.keys(logged).length, full = prevMonths >= 10;
   var pctOf = function(c){ return !full || c.pct == null ? null : Math.round(c.pct * 1000) / 10; };
   /** @type {any[]} */
@@ -621,7 +622,7 @@ export function lenderPackReport(opts){
   row("Received in the 12 months", tin, tin / 12, "total");
   rows.push({ cls: "head", cells: { item: "Spending" } });
   var sp = { Needs: 0, Wants: 0, Other: 0 };
-  (state.transactions || []).forEach(function(x){ if(x.date >= win.start && x.date <= win.end) sp[classKey(classOf(x))] += Number(x.amount) || 0; });
+  spendingTransactions(state).forEach(function(x){ if(x.date >= win.start && x.date <= win.end) sp[classKey(classOf(x))] += Number(x.amount) || 0; });
   row("Essentials", sp.Needs, sp.Needs / 12); row("Lifestyle", sp.Wants, sp.Wants / 12);
   if(sp.Other) row("Other spending", sp.Other, sp.Other / 12);
   var spent = sp.Needs + sp.Wants + sp.Other;
@@ -665,19 +666,19 @@ export function yearInReviewReport(opts){
     row("Net worth at " + endLabel, b.total, a.total, "total");
   } else if(!b.partial.length) row("Net worth at " + endLabel, b.total, null, "total");
   var sumIn = function(win){ return (state.incomeLog || []).reduce(function(s, r){ return r.date >= win.start && r.date <= win.end ? s + (Number(r.amount) || 0) : s; }, 0); };
-  var sumOut = function(win){ return (state.transactions || []).reduce(function(s, t){ return t.date >= win.start && t.date <= win.end ? s + (Number(t.amount) || 0) : s; }, 0); };
+  var sumOut = function(win){ return spendingTransactions(state).reduce(function(s, t){ return t.date >= win.start && t.date <= win.end ? s + (Number(t.amount) || 0) : s; }, 0); };
   var tin = sumIn(w), tout = sumOut(w), pin = sumIn(pw), pout = sumOut(pw);
   if(tin || tout){
     story.push(money(tin) + " came in and " + money(tout) + " was spent" + (tin > 0 ? ", so " + Math.round((tin - tout) / tin * 100) + "% of what came in was kept" : "") + ".");
     row("Money in", tin, pin || null); row("Spent", tout, pout || null); row("Kept", tin - tout, pin || pout ? pin - pout : null, "total");
   }
   var groupOf = opts.categoryOf || function(t){ return t.category || "Uncategorised"; };
-  var cur = spendingByGroup(state.transactions, w, groupOf), prev = spendingByGroup(state.transactions, pw, groupOf);
+  var cur = spendingByGroup(spendingTransactions(state), w, groupOf), prev = spendingByGroup(spendingTransactions(state), pw, groupOf);
   var top = Object.keys(cur).sort(function(x, y){ return cur[y] - cur[x]; }).slice(0, 3);
   var said = top.map(function(k){ return k.toLowerCase() + " (" + money(cur[k]) + ")"; });
   if(said.length) story.push("The most went on " + (said.length > 1 ? said.slice(0, -1).join(", ") + " and " + said[said.length - 1] : said[0]) + ".");
   var prevMonths = {};
-  (state.transactions || []).forEach(function(t){ if(t.date >= pw.start && t.date <= pw.end) prevMonths[t.date.slice(0, 7)] = true; });
+  spendingTransactions(state).forEach(function(t){ if(t.date >= pw.start && t.date <= pw.end) prevMonths[t.date.slice(0, 7)] = true; });
   if(Object.keys(prevMonths).length >= 10){
     var moves = Object.keys(cur).map(function(k){ return { k: k, d: cur[k] - (prev[k] || 0) }; }).filter(function(m){ return prev[m.k] > 0; }).sort(function(x, y){ return y.d - x.d; });
     if(moves.length && moves[0].d > 200) story.push("The biggest rise on the year before was " + moves[0].k.toLowerCase() + ", up " + money(moves[0].d) + (moves.length > 1 && moves[moves.length - 1].d < -200 ? "; the biggest fall " + moves[moves.length - 1].k.toLowerCase() + ", down " + money(-moves[moves.length - 1].d) : "") + ".");

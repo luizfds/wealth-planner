@@ -5966,3 +5966,10 @@ board's answer cards (`pillsHtml({ cards: true })`, each answer with what it mea
 - **Names:** the welcome page uses the tabs' names. Show as lost Day (Hour stays: it's each person's own hours).
 - **Budget's one place to sort things out:** its notices sit under the Tidy list (the page line isn't drawn there);
   Income opens with income, "Your month, planned" folded under it.
+
+## A house purchase isn't a month's spending (November 2026)
+
+`[x]` A purchase's deposit and costs, linked to it (property money, v3.323), were kept out of Transactions' totals but
+still counted as spending on Today's month ("left this month" deep below zero), Budget's "spent on no budget line",
+Insights' income vs spending and the Cash flow, Categories, Trends and Budget reports. One helper,
+`spendingTransactions()` (calc/propertymoney.js), is now what each of those sums. Tests: propertymoney.

@@ -1,3 +1,4 @@
+import { spendingTransactions } from "../calc/propertymoney.js";
 import { isSimple } from "../lib/mode.js";
 import { canShareCsv } from "../lib/backup.js";
 import { state } from "../state.js";
@@ -87,7 +88,7 @@ function drillHtml(rep, opts){
   if(rep.key !== "categories") return "";
   var keys = Object.keys(reportFrame.open).filter(function(k){ return reportFrame.open[k]; });
   return keys.map(function(k){
-    var tx = (state.transactions || []).filter(function(t){ return t.date >= opts.win.start && t.date <= opts.win.end && opts.groupOf(t) === k; })
+    var tx = spendingTransactions(state).filter(function(t){ return t.date >= opts.win.start && t.date <= opts.win.end && opts.groupOf(t) === k; })
       .sort(function(a, b){ return a.date < b.date ? 1 : -1; });
     if(!tx.length) return "";
     return '<div class="rp-drill"><div class="rp-drill-head"><b>' + escapeAttr(k) + '</b> — ' + tx.length + ' transaction' + (tx.length === 1 ? '' : 's') +

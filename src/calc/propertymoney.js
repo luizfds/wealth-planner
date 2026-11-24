@@ -88,6 +88,13 @@ export function propertyCache(st){
 }
 // Property money that isn't the household's spending (a purchase's, an investment's).
 export function isPropertyMoney(t, st, cache){ var o = propertyOf(t, st, cache); return !!(o && o.capital); }
+// The transactions that are the household's spending: every one but a property's money. What a spending total sums —
+// Today's month, Budget, Insights and the reports — so a house deposit isn't read as a month's spending (Transactions'
+// own list already leaves it out: cashflowlist.js).
+export function spendingTransactions(st){
+  var cache = propertyCache(st);
+  return ((st && st.transactions) || []).filter(function(t){ return !isPropertyMoney(t, st, cache); });
+}
 
 // The transactions that paid a purchase's cost ("deposit" for the deposit): oldest first.
 export function costTransactions(st, purchaseId, costId){

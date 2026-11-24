@@ -4,6 +4,7 @@ import { incomeActuals } from "./received.js";
 import { dataHealthChecks } from "./health.js";
 import { claimItems } from "./claims.js";
 import { localDateStr } from "../lib/format.js";
+import { isPropertyMoney, propertyCache } from "./propertymoney.js";
 
 // ---------------- The monthly review (v3.54.0) ----------------
 //
@@ -57,7 +58,11 @@ export function monthReview(ym, opts){
   var items = opts.items || claimItems();
   var b = monthBounds(ym);
   var rec = (state.monthReviews && state.monthReviews[ym]) || {};
-  var txns = (state.transactions || []).filter(function(t){ return t.date >= b.start && t.date <= b.end; });
+  // A property's money — a purchase's deposit and costs, an investment's — isn't the month's spending
+  // (calc/propertymoney.js), as Transactions and Patterns already count it: a house deposit read as tens of thousands
+  // spent, and "left this month" deep below zero.
+  var pcache = propertyCache(state);
+  var txns = (state.transactions || []).filter(function(t){ return t.date >= b.start && t.date <= b.end && !isPropertyMoney(t, state, pcache); });
 
   var income = incomeActuals(ym).filter(function(r){ return !r.irregular && r.kind !== "payout"; });
   var incReceived = income.reduce(function(s, r){ return s + r.received; }, 0);

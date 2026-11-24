@@ -830,7 +830,7 @@
 .liq-table thead th{ font-weight:600; color: var(--ink-soft); font-family: inherit; }
 .liq-table ul{ margin:4px 0 8px; padding-left:18px; font-size:var(--fs-sm); color: var(--ink-soft); }
 .liq-k{ margin:10px 0 0; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; }
-.liq-sub{ margin:8px 0 6px; font-size:var(--fs-md); font-weight:600; }
+.panel .liq-sub{ margin:8px 0 6px; font-size:var(--fs-md); font-weight:600; }
 
 /* #457: Where you stand — at most five decision figures, each a way to where it's worked out. */
 .home-standing{ display:flex; flex-direction:column; gap:10px; }

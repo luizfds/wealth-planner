@@ -1,3 +1,4 @@
+import { spendingTransactions } from "../calc/propertymoney.js";
 import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
@@ -203,7 +204,7 @@ export function renderSetupPanel(nothingEntered){
 export function setupOpts(){
   var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var budget = null;
-  try { budget = proposeBudget(state.transactions || [], lines, localDateStr()); } catch(e){ budget = null; }
+  try { budget = proposeBudget(spendingTransactions(state), lines, localDateStr()); } catch(e){ budget = null; }
   return { budget: budget, today: localDateStr() };
 }
 // v3.162.0 (item 192): "Your first month" — the household's own month as the setup has it so far, and
@@ -871,7 +872,7 @@ export function renderMonthlyCashFlow(){
       return t + y.monthly;
     }, 0);
   };
-  var rows = monthlyCashFlow(state.transactions, months, income);
+  var rows = monthlyCashFlow(spendingTransactions(state), months, income);
   var loggedRows = rows.filter(function(r){ return r.logged; });
   if(loggedRows.length < 2){
     panel.innerHTML = '<h3>Income vs spending</h3>' +

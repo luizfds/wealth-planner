@@ -2,7 +2,7 @@ import "./_env.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { propertyTargets, propertyOf, isPropertyMoney, purchaseFromTransactions, linkTransaction, linkEffect, propertySuggestions, lineSuggestions,
-  setLineProperty, moveToProperty, settlementCheck, costTransactions, propertyYear } from "../src/calc/propertymoney.js";
+  setLineProperty, moveToProperty, settlementCheck, costTransactions, propertyYear, spendingTransactions } from "../src/calc/propertymoney.js";
 
 // Invented household: buying 1 Example St (a home), owning 2 Sample Rd (an investment).
 function household(){
@@ -138,4 +138,23 @@ test("a property's year: its transactions and lines", function(){
   assert.equal(y.txs.length, 2);
   assert.equal(y.spent, 500);
   assert.deepEqual(y.lines.map(l => [l.what, l.planYear, l.spent]), [["Repairs", 500, 500], ["Council rates", 1000, 0]]);
+});
+
+test("a house deposit isn't the month's spending: spendingTransactions leaves a purchase's money out, Today's month too", async function(){
+  const st = household();
+  const deposit = st.transactions.find(t => t.id === "t2");
+  deposit.forProperty = "buy1"; deposit.forCost = "deposit";
+  const ids = spendingTransactions(st).map(t => t.id);
+  assert.ok(!ids.includes("t2"), "the deposit is the purchase's");
+  assert.ok(ids.includes("t6") && ids.includes("t7"), "groceries are still spending");
+  assert.ok(!ids.includes("t4"), "an investment's line is the property's too");
+  // Today's month (calc/monthreview.js): November's spending is the groceries, not the deposit.
+  const { state } = await import("../src/state.js");
+  const { monthReview } = await import("../src/calc/monthreview.js");
+  const keep = {};
+  ["transactions", "purchases", "properties", "shared", "incomeLog"].forEach(k => { keep[k] = state[k]; state[k] = st[k]; });
+  try {
+    const r = monthReview("2026-11", { items: st.shared, today: "2026-11-24" });
+    assert.equal(r.spent, 500 + 600 + 300 + 184, "the report and the lawyer's trust account, not linked, still count; the deposit doesn't");
+  } finally { Object.assign(state, keep); }
 });

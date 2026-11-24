@@ -1,6 +1,6 @@
 # Architecture
 
-A reference map of the code — what lives where. The *why* is in [decisions/](decisions/README.md); the rules for
+A reference map of the code — what lives where. Every page and what it does, from a user's side: [sitemap.md](sitemap.md). The *why* is in [decisions/](decisions/README.md); the rules for
 working on it are in [CLAUDE.md](../CLAUDE.md).
 
 ## Pages

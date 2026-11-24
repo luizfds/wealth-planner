@@ -1067,6 +1067,7 @@ test("Today: the week leaves out property money, the month says what pots paid, 
   const { homeSummaryHtml, weekRecapFor, needsYouCount } = await import("../src/components/home.js");
   var keep = { netWorthLog: state.netWorthLog, transactions: state.transactions, purchases: state.purchases, shared: state.shared, monthReviews: state.monthReviews, income: state.income, incomeLog: state.incomeLog };
   try {
+    (await import("../src/calc/ledger.js")).setPeriod(null, "", "2026-10-14"); // the header on this month
     state.netWorthLog = []; state.income = []; state.incomeLog = []; state.monthReviews = {};
     state.purchases = [{ id: "b1", what: "1 Example St", costs: [] }];
     state.transactions = [
@@ -1082,7 +1083,7 @@ test("Today: the week leaves out property money, the month says what pots paid, 
     assert.match(html, /class="home-card home-needs" data-home-card="needs">/, "a red to-do marks itself, not the card");
     assert.match(html, /class="home-todo-btn bad"/);
     assert.equal(typeof needsYouCount, "function");
-  } finally { Object.assign(state, keep); }
+  } finally { Object.assign(state, keep); (await import("../src/calc/ledger.js")).setPeriod(null, ""); }
 });
 
 test("Home summary for an empty household: the month and net worth say what's missing, not $0 (#309)", async function(){

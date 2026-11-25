@@ -1,3 +1,4 @@
+import { furnishingHtml, updateFurnishingResults } from "./furnishing.js";
 import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
@@ -170,5 +171,6 @@ export function renderTrips(){ return keepUi(drawTrips); }
 function drawTrips(){
   var el = typeof document !== "undefined" && document.getElementById("tripsBody");
   if(!el) return;
-  el.innerHTML = tripsCardHtml();
+  el.innerHTML = furnishingHtml() + tripsCardHtml();
+  updateFurnishingResults(el);
 }

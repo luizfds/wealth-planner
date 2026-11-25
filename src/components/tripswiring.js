@@ -1,3 +1,4 @@
+import { wireFurnishing } from "./furnishing.js";
 // ---------------- Money → Trips: its listeners (November 2026) ----------------
 //
 // Plan a trip, change or remove one, and answer the purchases on its days. Every edit commits what it touched — trips,
@@ -25,6 +26,7 @@ function check(fields, form){
 
 export function wireTrips(){
   var body = document.getElementById("tripsBody");
+  wireFurnishing(body);
   body.addEventListener("click", function(e){
     var save = e.target.closest("[data-trip-save]");
     if(save){

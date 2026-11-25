@@ -890,7 +890,7 @@ export function quickLogChipOrder(){
     .map(function(x){ return x.item; });
 }
 export function openQuickLog(projectId){
-  quickLog = { projectId: typeof projectId === "string" ? projectId : "", linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
+  quickLog = { projectId: typeof projectId === "string" ? projectId : null, linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -921,21 +921,29 @@ export function quickLogTrip(dateStr){
   if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
   return trip;
 }
-import { fileProject } from "../calc/projects.js";
+import { fileProject, projectSpent } from "../calc/projects.js";
 import { projectOptions } from "./furnishing.js";
-export function setQuickLogTrip(yes){ if(quickLog) quickLog.tripYes = !!yes; }
 export function quickLogTripHtml(dateStr){
-  var trip = quickLogTrip(dateStr);
-  if(!trip) return "";
-  var yes = quickLog.tripYes !== false;
-  var left = tripLeft(trip, tripSpend(trip, state.transactions), dateStr || localDateStr());
-  var lineName = (budgetLineItems().find(function(l){ return l.id === trip.lineId; }) || {}).what || "the trip's line";
-  return '<div class="qlog-trip" role="group" aria-labelledby="quickLogTripQ"><b id="quickLogTripQ">Part of ' + escapeAttr(trip.name) + '?</b>' +
-    '<div class="qlog-trip-acts"><button type="button" class="btn btn-sm' + (yes ? ' is-on' : '') + '" aria-pressed="' + yes + '" data-qlog-trip="yes">Yes, the trip</button>' +
-      '<button type="button" class="btn btn-sm' + (yes ? '' : ' is-on') + '" aria-pressed="' + !yes + '" data-qlog-trip="no">No, everyday</button></div>' +
-    '<small>' + (yes ? 'Files to ' + escapeAttr(lineName) : 'Stays on the line you pick') +
-      (left.budget > 0 ? ' · ' + (left.over ? fmtCurrency0.format(-left.left) + ' over its budget' : fmtCurrency0.format(left.left) + ' left of ' + fmtCurrency0.format(left.budget)) +
-        (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' day' + (left.daysLeft === 1 ? '' : 's') : '') : '') + '</small></div>';
+  if(!(state.trips || []).length && !(state.projects || []).length) return "";
+  var suggested = quickLogTrip(dateStr);
+  var id = quickLog.projectId == null ? suggested && suggested.id : quickLog.projectId;
+  var lineEvent = (state.trips || []).find(function(t){ return t.id === id; });
+  var line = lineEvent && budgetLineItems().find(function(l){ return l.id === lineEvent.lineId; });
+  var event = lineEvent || (state.projects || []).find(function(p){ return p.id === id; });
+  var hint = "";
+  if(event){
+    var spent = lineEvent ? tripSpend(event,state.transactions) : projectSpent(event,state.transactions);
+    var left = tripLeft(event, spent, dateStr || localDateStr());
+    hint = (line ? 'Files to ' + escapeAttr(line.what) : 'Paid from savings') +
+      (left.budget > 0 ? ' · ' + fmtCurrency0.format(Math.abs(left.left)) + (left.over ? ' over' : ' left of ' + fmtCurrency0.format(left.budget)) : '') +
+      (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' days' : '');
+  }
+  var ask = suggested && (!id || id === suggested.id);
+  return '<label class="event-picker">Event budget<select id="quickLogProject" class="field-control">' + projectOptions(id) + '</select></label>' +
+    (ask ? '<div class="qlog-trip"><b>Part of ' + escapeAttr(suggested.name) + '?</b><div class="qlog-trip-acts">' +
+      [true,false].map(function(yes){ var on = yes === !!id; return '<button type="button" class="btn btn-sm' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" data-event-answer="' + (yes ? escapeAttr(suggested.id) : '') + '">' + (yes ? 'Yes, this event' : 'No, everyday') + '</button>'; }).join("") +
+      '</div><small>' + (hint || 'Stays on the line you pick') + '</small></div>' : hint ? '<small>' + hint + '</small>' : '');
+
 }
 export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
@@ -1021,9 +1029,9 @@ export function submitQuickLog(amount, note, dateStr, category){
   // mode rather than trusted to have been cleared by every path that could get here.
   if(quickLog.sign < 0 && quickLog.refundOf) t.refundOf = quickLog.refundOf;
   var trip = quickLogTrip(t.date);
-  if(trip) answerTrip(t, trip, quickLog.tripYes !== false);
-  var picker = document.getElementById("quickLogProject");
-  if(picker && picker.value) fileProject(state, t, picker.value);
+  var eventId = quickLog.projectId == null ? trip && trip.id : quickLog.projectId;
+  if(trip && !eventId) answerTrip(t, trip, false);
+  if(eventId) fileProject(state, t, eventId);
   state.transactions.push(t);
   return t;
 }
@@ -1164,7 +1172,7 @@ export function renderQuickLogSheet(){
   var root = document.getElementById("quickLogRoot");
   if(!root) return;
   if(!quickLog){ root.innerHTML = ""; return; }
-  if(!state.shared.length){
+  if(!state.shared.length && !(state.projects || []).length && !(state.trips || []).length){
     // Nothing to log against yet — the sheet would be all "One-off", which teaches the wrong
     // model of what this page is for. Point at the budget instead.
     root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
@@ -1194,7 +1202,6 @@ export function renderQuickLogSheet(){
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
-      ((state.projects || []).length || (state.trips || []).length ? '<label>Project<select id="quickLogProject" class="field-control">' + projectOptions(quickLog.projectId) + '</select></label>' : "") +
       '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
@@ -1436,7 +1443,7 @@ export function transactionSummaryText(t){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
   // v3.138.0: no date — the list is grouped under a header per day.
-  var bits = [linked ? linked.what : "One-off"];
+  var bits = [linked ? linked.what : t.project ? "Paid from savings" : "One-off"];
   if(acct) bits.push(acct);
   var refundLabel = refundTargetLabel(t);
   if(refundLabel) bits.push(refundLabel);
@@ -1477,6 +1484,8 @@ function transactionRowHtml(t, idx){
   '</div>';
   var linkSelect = '<select class="tx-link field-control" data-tx-index="' + idx + '" aria-label="Linked expense" title="Pick a budget line to log this transaction against — fills in its description and amount for you, or leave it as One-off for spend that has no matching budget line">' + transactionLinkOptionsHtml(t.linkedExpenseId) + '</select>';
   var acctSelect = '<select class="tx-account field-control" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
+  var eventId = t.project || t.trip;
+  var event = eventId && (state.projects || []).concat(state.trips || []).find(function(b){ return b.id === eventId; });
   var propSub = propertySubHtml(t, state, propertyCacheFor());
   var summary = modernRowSummaryHtml({
     leadHtml: propSub ? '<span class="pm-icon' + (/is-ip/.test(propSub) ? ' is-ip' : '') + '" aria-hidden="true">⌂</span>' : categoryIconHtml(transactionCategory(t)),
@@ -1484,9 +1493,9 @@ function transactionRowHtml(t, idx){
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
     // November 2026: a property's money says which property and what for (calc/propertymoney.js).
-    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t)],
+    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t), event ? '<span class="event-tag">Event · ' + escapeAttr(event.name) + '</span>' : ""],
     // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
-    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub ? '' : '<small class="cf-tag">one-off</small>')
+    amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub || event ? '' : '<small class="cf-tag">one-off</small>')
   });
   // "Linked to" leads (not Description) and autoFocus (see openNewRowModal) lands there for a
   // freshly-added transaction — picking a budget line first, before typing anything, mirrors the
@@ -1496,7 +1505,7 @@ function transactionRowHtml(t, idx){
   var fieldsHtml =
     // November 2026: What it's for — a budget line, a property (and which of its costs or lines), or a one-off.
     txForHtml(t, idx, linkSelect, state) +
-    '<label class="m-edit-field">Project<select class="tx-project field-control" data-tx-index="' + idx + '">' + projectOptions(t.project || t.trip) + '</select></label>' +
+    '<label class="m-edit-field">Event budget<select class="tx-project field-control" data-tx-index="' + idx + '">' + projectOptions(t.project || t.trip) + '</select></label>' +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +

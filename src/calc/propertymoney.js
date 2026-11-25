@@ -206,7 +206,7 @@ export function propertySuggestions(st, today, ok){
   ((st.transactions) || []).forEach(function(t){ if(t && t.linkedExpenseId && cache.ip[t.linkedExpenseId]){ var k = merchantKey(t); if(k) (shopLine[k] = shopLine[k] || {})[t.linkedExpenseId] = ((shopLine[k] || {})[t.linkedExpenseId] || 0) + 1; } });
   var since = addDays(today, -180);
   ((st.transactions) || []).forEach(function(t, i){
-    if(!t || !t.date || t.date < since || t.forProperty || num(t.amount) <= 0) return;
+    if(!t || !t.date || t.date < since || t.forProperty || t.project || t.trip || num(t.amount) <= 0) return;
     if(t.linkedExpenseId && (cache.ip[t.linkedExpenseId] || cache.home[t.linkedExpenseId])) return;
     var key = "inbox:prop|" + (t.id || i);
     if(ok[key]) return;

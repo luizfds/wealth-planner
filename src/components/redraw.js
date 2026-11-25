@@ -143,9 +143,9 @@ function defineViews(){
   defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
   defineView("cashRate", ["properties"], renderCashRatePanel, ["cashRate", "properties"]); // item 249
   // A home being bought (November 2026): its card reads the cash on hand (cash accounts, offsets) too.
-  defineView("buying", ["properties"], renderBuying, ["projects", "transactions", "purchases", "assets", "properties", "accounts", "balances"]);
+  defineView("buying", ["properties"], renderBuying, ["trips", "projects", "transactions", "purchases", "assets", "properties", "accounts", "balances"]);
   // On Cash flow it draws one block, Budget's property expenses (propertyExpensesModern).
-  defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"],
+  defineView("properties", ["properties", "expenses"], renderProperties, ["projects", "trips", "properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"],
     { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("sharedGroups", ["expenses"], renderSharedGroups, ["shared", "transactions", "home", "categories", "categoryLooks", "properties", "accounts", "budgetGroupBy", "budgetGroupsCollapsed", "rollover", "yearBasis", "autoPayments", "tidyOk", "trips"]);
   defineView("accounts", ["accounts"], renderAccounts, ["accounts", "balances", "assets", "debts", "properties", "transactions", "transfers", "incomeLog", "autoPayments", "savingsGoals"]);
@@ -156,7 +156,7 @@ function defineViews(){
   defineView("needsTarget", ["settings"], renderNeedsTargetPref, ["needsTarget"]);
   defineView("planCheckIn", ["settings"], renderPlanCheckInPref, ["planCheckIn"]);
   defineView("scenarioSummary", ["scenario"], renderScenarioEditorSummary, ["needsTarget"]);
-  defineView("transactions", ["expenses"], renderTransactions, ["transactions", "transfers", "incomeLog", "shared", "home", "properties", "accounts", "txViews", "trips", "categories", "categoryLooks", "income"]);
+  defineView("transactions", ["expenses"], renderTransactions, ["transactions", "transfers", "incomeLog", "shared", "home", "properties", "accounts", "txViews", "projects", "trips", "categories", "categoryLooks", "income"]);
   defineView("actualVsPlanned", ["expenses"], renderActualVsPlannedPanel, ["transactions", "shared", "home", "properties", "accounts", "income", "incomeLog", "categories"]);
   // The bills calendar is drawn by the panel above too; a transfer or an automatic payment touches only it.
   defineView("billsCalendar", ["expenses"], renderBillsCalendar, ["transfers", "autoPayments"], { tabs: { expenses: ["expensesSub-bills"] } });

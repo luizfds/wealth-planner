@@ -8507,19 +8507,20 @@ const JOURNEYS = {
   // about — the plan form, the purchases already logged, Log spend (yes and no), an import, and Today's To do.
   async trips(page){
     await go(page, "expenses", "data-expenses-sub", "trips");
-    await page.locator("#tripNewSummary").click();
-    const form = page.locator('[data-trip-form="new"]');
-    await form.locator("[data-trip-name]").fill("Beach weekend");
-    await form.locator("[data-trip-from]").fill("2026-11-01");
-    await form.locator("[data-trip-to]").fill("2026-11-05");
-    await form.locator("[data-trip-budget]").fill("900");
-    await form.locator("[data-trip-line]").selectOption({ label: "Holidays" });
-    await form.locator('[data-trip-save="new"]').click();
+    await page.locator('[data-project-edit="new"]').click();
+    const form = page.locator('[data-furnishing]');
+    await form.locator('[name=name]').fill("Beach weekend");
+    await form.locator('[name=budget]').fill("900");
+    await form.locator('[name=lineId]').selectOption({label:"Holidays"});
+    await form.getByText("Dates and property").click();
+    await form.locator('[name=from]').fill("2026-11-01");
+    await form.locator('[name=to]').fill("2026-11-05");
+    await form.getByRole('button',{name:"Save budget"}).click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).trips.some(t => t.name === "Beach weekend"));
     const trip = await stored(page, 'state.trips.find(t => t.name === "Beach weekend")');
     check(trip.budget === 900 && trip.lineId === "demo-travel" && trip.from === "2026-11-01" && trip.to === "2026-11-05", "the trip didn't save its dates, budget and line: " + JSON.stringify(trip));
     const card = page.locator('.trip-row[data-trip-id="' + trip.id + '"]');
-    check(/Away now/.test(await card.innerText()) && /of \$900/.test(await card.innerText()), "the trip's card doesn't show it's on, against its budget");
+    check(/In progress/.test(await card.innerText()) && /of \$900/.test(await card.innerText()), "the trip's card doesn't show it's on, against its budget");
     // What's already logged on its days is asked about, one at a time; a "No" is remembered and never asked again.
     const pending = await stored(page, 'state.transactions.filter(t => t.date >= "2026-11-01" && t.date <= "2026-11-05" && !t.trip && !t.tripNo && t.amount > 0).length');
     if(pending){
@@ -8534,9 +8535,7 @@ const JOURNEYS = {
     await go(page, "expenses", "data-expenses-sub", "spending");
     await page.locator("#quickLogBtn").click();
     await page.locator("#quickLogAmount").fill("42.50");
-    const q = page.locator("#quickLogTrip");
-    check(/Part of Beach weekend\?/.test(await q.innerText()), "Log spend didn't ask about the trip on its days");
-    check(await q.locator('[data-qlog-trip="yes"]').getAttribute("aria-pressed") === "true", "Yes wasn't the trip question's default");
+    check(await page.locator("#quickLogProject").inputValue() === trip.id, "Log spend did not suggest the dated event");
     await page.locator("[data-qlog-submit]").click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 42.5) < 0.001));
     const yes = await stored(page, 'state.transactions.find(t => Math.abs(t.amount - 42.5) < 0.001)');
@@ -8544,8 +8543,7 @@ const JOURNEYS = {
     // And No: the line as picked, the answer remembered.
     await page.locator("#quickLogBtn").click();
     await page.locator("#quickLogAmount").fill("13.20");
-    await page.locator('#quickLogTrip [data-qlog-trip="no"]').click();
-    check(await page.locator('#quickLogTrip [data-qlog-trip="no"]').getAttribute("aria-pressed") === "true", "No didn't take");
+    await page.locator("#quickLogProject").selectOption("");
     check(await page.locator("#quickLogAmount").inputValue() === "13.20", "answering the trip question lost the amount");
     await page.locator("[data-qlog-submit]").click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 13.2) < 0.001));

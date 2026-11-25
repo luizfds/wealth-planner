@@ -637,7 +637,7 @@ function groupRowHtml(g){
           '<option value="">' + (g.isCredit ? "Don't import" : "Spending, not on a budget line") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
-          (!g.isCredit ? '<optgroup label="Projects">' + (state.projects || []).concat(state.trips || []).map(function(p){
+          (!g.isCredit ? '<optgroup label="Event budgets">' + (state.projects || []).concat(state.trips || []).map(function(p){
             return '<option value="project:' + escapeAttr(p.id) + '"' + (g.choice.project === p.id ? ' selected' : '') + '>' + escapeAttr(p.name) + '</option>';
           }).join("") + '</optgroup>' : "") +
           transferOptgroupHtml(g) +

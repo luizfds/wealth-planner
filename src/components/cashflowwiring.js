@@ -20,7 +20,7 @@ import { renderAssets } from "./assets.js";
 import { autoPayView } from "./autopay.js";
 import { renderDetailPage } from "./detail.js";
 import { renderTrips } from "./trips.js";
-import { closeScenarioOverridePanel, renderScenarioOverridePanel, setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll, openExpenseReview, closeExpenseReview, renderExpenseReviewPanel, confirmReviewBills, openBillPaid, isSingleBillReview, singleBillName, renderTransactions, renderActualVsPlannedPanel, loggableBudgetLineItems, renderBillsCalendar, openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen, setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog, renderAccounts, budgetLineItems, setQuickLogTrip, quickLogTripHtml } from "./expenses.js";
+import { closeScenarioOverridePanel, renderScenarioOverridePanel, setScenarioOverride, resetScenarioOverride, copyScenarioAmountToAll, openExpenseReview, closeExpenseReview, renderExpenseReviewPanel, confirmReviewBills, openBillPaid, isSingleBillReview, singleBillName, renderTransactions, renderActualVsPlannedPanel, loggableBudgetLineItems, renderBillsCalendar, openQuickLog, closeQuickLog, renderQuickLogSheet, setQuickLogLink, setQuickLogDateOpen, setQuickLogShowAllChips, setQuickLogChipFilter, setQuickLogSign, setQuickLogRefundOf, submitQuickLog, quickLogContextText, quickLog, renderAccounts, budgetLineItems, quickLogTripHtml } from "./expenses.js";
 import { renderHomeSummary } from "./home.js";
 import { renderTaxSuper } from "./income.js";
 import { renderMonthReview } from "./monthreview.js";
@@ -178,10 +178,7 @@ function rerenderQuickLogPreservingInput(apply){
   var noteEl = document.getElementById("quickLogNote");
   var amount = amountEl ? amountEl.value : "";
   var note = noteEl ? noteEl.value : "";
-  var picked = document.getElementById("quickLogProject")?.value;
   apply();
-  var project = document.getElementById("quickLogProject");
-  if(project && picked != null) project.value = picked;
   var newAmount = document.getElementById("quickLogAmount");
   var newNote = document.getElementById("quickLogNote");
   if(newAmount) newAmount.value = amount;
@@ -193,6 +190,7 @@ function patchQuickLogTrip(){
   if(!box) return;
   var dateEl = document.getElementById("quickLogDate");
   box.innerHTML = quickLogTripHtml(dateEl && dateEl.value ? dateEl.value : undefined);
+
 }
 function performQuickLog(){
   var amountEl = document.getElementById("quickLogAmount");
@@ -225,7 +223,7 @@ function performQuickLog(){
   showToast(t.amount < 0
     ? "Logged a " + fmtCurrency2.format(Math.abs(t.amount)) + " refund against " + transactionDisplayName(t, budgetLineItems())
     : "Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, budgetLineItems()) + (t.trip ? " · part of " + tripName(t.trip) : ""));
-  if(t.trip || t.tripNo) renderTrips();
+  if(t.project || t.trip || t.tripNo) renderTrips();
 }
 function tripName(id){ var tr = (state.trips || []).find(function(x){ return x.id === id; }); return tr ? tr.name : "the trip"; }
 // ---------------- Income → Received (v3.46.0) ----------------
@@ -369,8 +367,14 @@ export function wireCashflowSheets(){
     // Every field: the sheet closes, and the document's listener (spendingwiring.js) opens the full editor.
     if(e.target.closest("[data-tx-add-full]")){ requestCloseActiveOverlay(); return; }
     // On a trip's days: part of the trip? (November 2026) — patched in place, so what's typed stays.
-    var tripBtn = e.target.closest("[data-qlog-trip]");
-    if(tripBtn){ setQuickLogTrip(tripBtn.getAttribute("data-qlog-trip") === "yes"); patchQuickLogTrip(); return; }
+
+    var answer = e.target.closest("[data-event-answer]");
+    if(answer){
+      quickLog.projectId = answer.dataset.eventAnswer;
+      patchQuickLogTrip();
+      document.querySelector('#quickLogTrip [aria-pressed="true"]')?.focus();
+      return;
+    }
     var chip = e.target.closest("[data-qlog-chip]");
     if(chip){
       // Patched in place rather than re-rendered: the whole point of picking the line after
@@ -449,6 +453,7 @@ export function wireCashflowSheets(){
   // setQuickLogChipFilter) — a re-render per keystroke would drop the caret out of the field
   // being typed into, the same reason picking a chip patches in place.
   document.getElementById("quickLogRoot").addEventListener("change", function(e){
+    if(e.target.id === "quickLogProject"){ quickLog.projectId = e.target.value; patchQuickLogTrip(); document.getElementById("quickLogProject")?.focus(); }
     if(e.target.id === "quickLogDate") patchQuickLogTrip();
   });
   document.getElementById("quickLogRoot").addEventListener("input", function(e){

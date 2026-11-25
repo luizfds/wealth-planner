@@ -61,7 +61,7 @@ test("a project matches linked transactions across dates", function(){
 test("chips say what each filter is", function(){
   assert.equal(describeFilter("min", "30").text, "At least $30");
   assert.equal(describeFilter("category", "Groceries").text, "Category: Groceries");
-  assert.equal(describeFilter("trip", "t1", { tripName: function(){ return "Coast"; } }).text, "Trip: Coast");
+  assert.equal(describeFilter("trip", "t1", { tripName: function(){ return "Coast"; } }).text, "Event budget: Coast");
 });
 
 test("views travel through a sync merge", async function(){

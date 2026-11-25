@@ -741,12 +741,12 @@
 .home-glance-tile.is-hero{ grid-column: 1 / -1; min-height:140px; padding:18px 20px; gap:4px; background: linear-gradient(135deg, var(--tab-today-1) 0%, var(--tab-today-2) 100%);
   box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tab-today-1) 55%, transparent); }
 .home-glance-tile.is-hero .home-glance-k{ text-transform:none; letter-spacing:0; }
-.home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
+.home-glance-tile.is-hero b{ max-width:64%; font-size: var(--fs-3xl); letter-spacing:-.02em; }
 .home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }
 .home-glance-stale{ display:inline-block; margin-left:6px; font-weight:600; text-decoration: underline; text-underline-offset:2px; }
 .home-glance-asof{ display:inline-block; margin-left:6px; }
-.home-glance-spark{ position:absolute; right:0; bottom:0; width:58%; height:62%; pointer-events:none; }
-.home-glance-spark .fill{ fill: rgba(255,255,255,.12); }
+.home-glance-spark{ position:absolute; right:5%; top:16%; width:30%; height:42%; pointer-events:none; }
+.home-glance-spark .fill{ fill:none; }
 .home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.9); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
 .home-glance-tile.is-good{ --tile-bg: linear-gradient(160deg, #047857, #065f46); }
 .home-glance-tile.is-bad, .home-glance-tile.is-alert{ --tile-bg: linear-gradient(160deg, #be123c, #9f1239); }

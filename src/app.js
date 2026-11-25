@@ -1,3 +1,4 @@
+import { wireFolds } from "./lib/folds.js";
 // v3.202.0 (item 233): first, so it is listening before any other module runs.
 import { state, storageAvailable, persist, setStatus } from "./state.js";
 import { confirmDialog } from "./lib/dialogs.js";
@@ -199,6 +200,7 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   document.addEventListener("change", renderGlobalMetrics);
   wireSafekeeping();
   wireTrips();
+  wireFolds();
   wirePrices();
   wirePullToRefresh();
   wireReviewQueue();

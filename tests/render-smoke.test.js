@@ -1183,7 +1183,7 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /no balance/);
     assert.match(html, /class="acct-mgmt-limit field-control"[^>]*value="5000"/);
     assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
-    assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
+    assert.match(html, /<span>Owed on credit cards and bank loan accounts<\/span><b class="owed">−\$9,700/);
   } finally { Object.assign(state, keep); }
 });
 
@@ -1315,7 +1315,7 @@ test("Money → Trips: each trip with its budget, the line's year shared out, pu
     assert.match(open, /data-trip-all="t1">All 1 are the trip/);
     assert.doesNotMatch(open, /NaN|undefined/);
     state.trips = [];
-    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripPlanTitle"/);
+    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripNewSummary"/);
   } finally { Object.assign(state, keep); tripsUi.confirming = ""; }
 });
 
@@ -3082,7 +3082,7 @@ test("Budget home: what's left for Lifestyle, the pace in words, the inbox, what
   assert.match(h, /role="img" aria-label="Lifestyle spending this month: \$2,060 by day 23 of 30/);
   assert.match(h, /bh-pace-words good">Right on pace/);
   assert.match(h, /Also spent this month on no budget line: <b>\$4,000<\/b>/);
-  assert.match(h, /data-inbox-toggle aria-expanded="false"[^>]*>.*2 things to tidy/);
+  assert.match(h, /data-inbox-toggle aria-expanded="false"[^>]*>.*2 to tidy · 0 notices/);
   assert.doesNotMatch(h, /data-inbox-yes/, "the inbox opens on a tap");
   assert.match(h, /Wed 25<\/span><span class="bh-due-what">Rent &amp; &lt;co>/);
   assert.match(h, /Trips &lt;b><\/span><b class="">\$4,200<\/b><small>Lifestyle · \$1,700\/mo/);
@@ -3105,7 +3105,7 @@ test("Budget home: what's left for Lifestyle, the pace in words, the inbox, what
   // the bell — the page's "N to look at" line isn't drawn on Budget as well (components/attentionline.js).
   assert.match(h, /<section class="bh-hero" aria-label="This month"><div class="bh-band">/);
   const withNotices = budgetSplitHtml(Object.assign({}, m, { notices: [{ title: "Over <b> budget" }, { title: "Two lines" }] }));
-  assert.match(withNotices, /<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog"><span class="bh-notices-n">2 notices<\/span><span class="bh-notices-top">Over &lt;b> budget<\/span>/);
+  assert.match(withNotices, /<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog">Over &lt;b> budget · Two lines ›<\/button>/);
   assert.doesNotMatch(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [{ title: "One" }] })), /All tidy/, "not all tidy while a notice waits");
   assert.match(budgetSplitHtml(Object.assign({}, m, { inbox: [], notices: [] })), /All tidy/);
 });

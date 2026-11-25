@@ -1,3 +1,4 @@
+import { fireSettings } from "../calc/fire.js";
 import { state } from "../state.js";
 import { retirementPlan } from "../calc/retirement.js";
 import { superContributions } from "../calc/investments.js";
@@ -25,9 +26,13 @@ function slider(key, label, min, max, step, value, fmt){
 export function retirementHtml(today){
   today = today || localDateStr();
   var plan = retirementPlan(retireLevers);
-  var f = state.fire || {};
-  var ages = '<div class="rt-ages"><label class="cf-filter"><span>Your age now</span><input class="field-control" type="number" min="16" max="90" data-rt-fire="currentAge" value="' + (f.currentAge != null ? f.currentAge : "") + '"></label>' +
+  var f = fireSettings();
+  var person = getTaxPeople().length > 1 ? '<label class="cf-filter">Person<select class="field-control" data-retire-person>' +
+    getTaxPeople().map(function(name){ return '<option' + (name === f.person ? ' selected' : '') + '>' + escapeAttr(name) + '</option>'; }).join("") + '</select></label>' : '';
+  var ages = '<div class="rt-ages">' + person + '<label class="cf-filter"><span>Your age now</span><input class="field-control" type="number" min="16" max="90" id="fireCurrentAge" ' + (f.ageFromPeople ? 'readonly aria-label="Current age from Tax People"' : 'aria-label="My age now"') + ' value="' + (f.currentAge != null ? f.currentAge : "") + '"></label>' +
+    '<label class="cf-filter"><span>Stop working at</span><input class="field-control" id="fireRetireAge" type="number" min="16" max="99" value="' + (f.retireAge == null ? "" : f.retireAge) + '"></label>' +
     '<label class="cf-filter"><span>Super opens at</span><input class="field-control" type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>';
+  if(f.ageFromPeople) ages += '<p class="ledger-note">Current age comes from the date of birth in Tax → People.</p>';
   if(plan.needsAge) return '<p class="ledger-note" style="margin:0 0 10px">Type your age to see when you could stop working. Everything else comes from the plan already in the app.</p>' + ages;
   var run = plan.run, inp = plan.inputs;
   // v3.139.0 (item 173): lead with the age that holds up when returns rise and fall (9 runs in 10),
@@ -95,7 +100,7 @@ function drawdownHtml(plan, run){
     ? ' Super above the transfer balance cap (' + money(TRANSFER_BALANCE_CAP) + ' a person) has to stay in accumulation, where its earnings are taxed at 15%.' : '';
   return '<div class="rt-draw"><div class="property-section-title">After you stop</div>' +
     '<p class="rt-draw-say ' + (d.lastsTo >= 95 ? "ok" : "bad") + '">' + (d.lastsTo >= 95 ? 'Spending ' + money(di.annualExpenses) + ' a year lasts to 95. ' : 'The money runs short at ' + d.lastsTo + '. ') + say + '</p>' +
-    '<div class="table-scroll"><table class="rp-table rt-draw-table"><thead><tr><th scope="col">Age</th><th class="num" scope="col">Super and savings</th><th class="num" scope="col">Super minimum</th><th class="num" scope="col">Age Pension</th><th class="num" scope="col">Income</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="table-scroll" role="region" aria-label="Retirement income by age" tabindex="0"><table class="rp-table rt-draw-table"><thead><tr><th scope="col">Age</th><th class="num" scope="col">Super and savings</th><th class="num" scope="col">Super minimum</th><th class="num" scope="col">Age Pension</th><th class="num" scope="col">Income</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
     '<p class="ledger-note" style="margin:6px 0 0">From ' + di.preservationAge + ' super is an account-based pension: earnings untaxed, payments tax-free, and at least the minimum paid out each year (what isn\'t needed is saved again outside super). ' +
     'The Age Pension is for ' + (di.couple ? 'a couple' : 'a single person') + (di.homeowner ? ' who own their home' : ' who rent') + ', from ' + AGE_PENSION_AGE + ', at the rates from ' + PENSION_RATES_FROM + ' held in today\'s dollars; the home isn\'t counted, everything else is, with financial assets deemed to earn the set rates.' + cap + '</p></div>';
 }
@@ -104,6 +109,7 @@ function drawdownHtml(plan, run){
 // the way to Retirement for the rest.
 export function goalsFireHtml(){
   var plan = retirementPlan(retireLevers);
+
   if(plan.needsAge) return '<p class="ledger-note" style="margin:0">Type your age on Plan → Retirement to see when work could become optional.</p><button type="button" class="calc-hint-link" data-plan-sub-go="retirement">Retirement →</button>';
   var inp = plan.inputs;
   return '<div class="rt-links"><div><span>The 4% number</span><b>' + money(plan.fiNumber) + '</b><small>25 years of ' + money(inp.annualExpenses) + ' a year.</small></div>' +

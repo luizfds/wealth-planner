@@ -28,7 +28,7 @@ export function cashflowEntries(opts){
     if(!t || !t.date) return;
     var line = t.linkedExpenseId ? lineById[t.linkedExpenseId] : null;
     var amt = Number(t.amount) || 0;
-    out.push({ kind: "out", key: "t:" + (t.id || i), date: t.date, amount: amt, label: nameOf(t), account: accountOf(t),
+    out.push({ kind: "out", project: t.project || t.trip || "", key: "t:" + (t.id || i), date: t.date, amount: amt, label: nameOf(t), account: accountOf(t),
       category: categoryOf(t), lineId: t.linkedExpenseId || "", person: line ? (line.person || line.deductiblePerson || "") : "",
       splitGroup: t.splitGroup || "", ref: i, refund: amt < 0, property: !!capitalOf(t) });
   });
@@ -63,6 +63,7 @@ export function filterEntries(entries, f){
   var text = String(f.text || "").trim().toLowerCase();
   var min = f.min === "" || f.min == null ? null : Number(f.min), max = f.max === "" || f.max == null ? null : Number(f.max);
   return entries.filter(function(e){
+    if(f.trip && e.project !== f.trip) return false;
     if(f.from && e.date < f.from) return false;
     if(f.to && e.date > f.to) return false;
     if(min != null && !isNaN(min) && Math.abs(e.amount) < min) return false;

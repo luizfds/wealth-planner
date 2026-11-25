@@ -22,7 +22,7 @@ export var splitEditing = { idx: null, parts: [] };
 export function resetTxFilters(){ Object.assign(txFilters, emptyFilter()); txViewForm.open = false; }
 export function txFiltersActive(){ return filterActive(txFilters); }
 // The filters as the list applies them — a trip becomes its dates.
-export function currentTxFilter(){ return effectiveFilter(txFilters, state.trips); }
+export function currentTxFilter(){ return effectiveFilter(txFilters); }
 
 function selectHtml(key, label, values, current, labelOf){
   return '<label class="cf-filter"><span>' + label + '</span><select class="field-control" data-cf-filter="' + key + '" aria-label="Filter by ' + label.toLowerCase() + '">' +
@@ -41,7 +41,7 @@ export function lineLabeler(lines){
 // with the other filters; applied filters remain visible when the panel is closed.
 export var txFilterPanel = { open: false, search: false };
 var FILTER_KEYS = [["account"], ["category"], ["line"], ["person"], ["trip"], ["min"], ["max"], ["from"], ["to"]];
-function tripName(id){ var t = (state.trips || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
+function tripName(id){ var t = (state.trips || []).concat(state.projects || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
 function inputHtml(key, label, type, value, extra){
   return '<label class="cf-filter"><span>' + label + '</span><input class="field-control" type="' + type + '" data-cf-filter="' + key + '" value="' + escapeAttr(value || "") + '" aria-label="Filter: ' + label.toLowerCase() + '"' + (extra || '') + '></label>';
 }
@@ -105,7 +105,7 @@ export function filterBarHtml(entries, lines, options){
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
       (ch.people.length ? selectHtml("person", "Person", ch.people, txFilters.person) : '') +
       // A trip filters by its dates, so one still being planned (no dates yet) isn't offered.
-      ((state.trips || []).some(function(t){ return t.from; }) ? selectHtml("trip", "Trip", state.trips.filter(function(t){ return t.from; }).map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
+      ((state.trips || []).concat(state.projects || []).length ? selectHtml("trip", "Project", (state.trips || []).concat(state.projects || []).map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
       inputHtml("min", "Amount from", "number", txFilters.min, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("from", "Date from", "date", txFilters.from) +

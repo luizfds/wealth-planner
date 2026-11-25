@@ -66,7 +66,7 @@ export function netWorthPageHtml(){
     return '<button type="button" class="nw-chip' + (on ? ' is-on' : '') + '" data-nw-filter="' + escapeAttr(g.key) + '" aria-pressed="' + on + '">' + escapeAttr(g.label) + '</button>';
   }).join("") + '</div>' : '';
   var groups = nwFilter === "all" ? l.groups : l.groups.filter(function(g){ return g.key === nwFilter; });
-  return head + bar + chips + groups.map(function(g){
+  return head + bar + chips + '<div class="nw-groups">' + groups.map(function(g){
     var ci = shown.indexOf(g.key);
     var manage = MANAGE[g.key];
     var title = '<span>' + (ci !== -1 ? '<i class="nw-dot series-color-' + ci + '" aria-hidden="true"></i>' : '') + escapeAttr(g.label) + '</span><b>' + money(g.total) + '</b>';
@@ -80,7 +80,7 @@ export function netWorthPageHtml(){
         '<b>' + money(r.value) + '</b></li>';
       return '<li><span class="nw-name">' + (r.id ? detailLinkHtml(r.kind, r.id, r.name) : escapeAttr(r.name)) + (r.sub ? '<small>' + escapeAttr(r.sub) + '</small>' : '') + '</span><b class="' + (r.value < 0 ? "neg" : "") + '">' + money(r.value) + '</b></li>';
     }).join("") + '</ul>' + footHtml(g) + '</section>';
-  }).join("") + hiddenPartsLineHtml();
+  }).join("") + "</div>" + hiddenPartsLineHtml();
 }
 // The kind the list shows, for this visit (not saved): "all" or a group's key.
 var nwFilter = "all";

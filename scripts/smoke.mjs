@@ -59,6 +59,7 @@ const VIEWS = [
 ];
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
+  "#expensesSubnav",                        // Money sections stay in a single swipeable row on phones.
   ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)
@@ -159,8 +160,8 @@ for (const [scheme, width] of PASSES) {
         // exempt (WCAG 2.5.8), and so is anything inside a closed row's editor (not on screen).
         const small = [];
         // #259: document overflow alone misses sideways navigation inside a rail.
-        // Financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
-        const navigationOverflow = [...pageEl.querySelectorAll('.subnav, .time-range-control:not(.range-strip)')]
+        //  Money tabs, financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
+        const navigationOverflow = [...pageEl.querySelectorAll('.subnav:not(#expensesSubnav), .time-range-control:not(.range-strip)')]
           .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1)
           .map(el => el.getAttribute('aria-label') || el.id);
         if(w < 880){

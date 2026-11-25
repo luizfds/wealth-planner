@@ -2515,7 +2515,7 @@ const JOURNEYS = {
       s.state.yearBasis = 'financial';
       s.state.transactions = [
         {id:'example-current',what:'Example current month',date:'2026-11-01',amount:100,category:'Groceries'},
-        {id:'example-prior',what:'Example prior month',date:'2026-10-06',amount:200,category:'Groceries'},
+        {id:'example-prior',what:'Example prior month',date:'2026-10-02',trip:'example-trip',amount:200,category:'Groceries'},
         {id:'example-old',what:'Example prior year',date:'2025-11-01',amount:300,category:'Groceries'}
       ];
       s.state.trips = [{id:'example-trip',name:'Example trip',from:'2026-10-05',to:'2026-10-10'}];
@@ -2551,11 +2551,11 @@ const JOURNEYS = {
     await tx.locator('[data-cf-filter="to"]').fill('2026-11-01');
     check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 300,'dated filter does not state its actual window');
     await tx.locator('[data-cf-filter="trip"]').selectOption('example-trip');
-    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'trip intersection does not state its effective dates');
+    check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 200,'dated trip filter missed an advance booking or misstated the selected dates');
     await page.keyboard.press('Escape');
     check(await heading.isVisible() && !await tx.locator('#cfFilterRow').isVisible(),'dates disappear with Filters closed');
     await headerYear(2026);
-    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'global period changed a dated trip filter');
+    check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 200,'global period changed a dated trip filter');
     await openFilters(); await tx.locator('[data-cf-clear]').click();
     await page.locator('#periodBtn').click(); await page.locator('[data-period-basis="calendar"]').click(); await page.keyboard.press('Escape');
     await openFilters(); await tx.locator('[data-tx-range="year"]').click();
@@ -3851,6 +3851,7 @@ const JOURNEYS = {
     await tryField(A + ".acct-mgmt-limit", "-500", "state.accounts[" + card + "].limit", "a card limit");
     // Plan → Retirement (Insights' until the follow-up review): a retirement age.
     await go(page, "plan", "data-plan-sub", "retirement");
+    await page.evaluate(async () => { const m = await import("/src/state.js"); Object.values(m.state.tax.settings).forEach(p=>delete p.dateOfBirth); m.commit(["tax"]); });
     await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
     await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
     await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
@@ -5727,6 +5728,7 @@ const JOURNEYS = {
     const badFigures = await page.locator('#expensesSub-spending .rule-seg.cat-seg, #expensesSub-spending .year-cat-bar').evaluateAll(es =>
       es.filter(e => e.getAttribute('role') !== 'img' || !e.getAttribute('aria-label') || e.getAttribute('aria-label') !== e.getAttribute('title')).length);
     check(badFigures === 0, 'chart figures are missing their exact accessible values');
+    if(!await page.locator("#patternsCard").evaluate(d=>d.open)) await page.locator("#patternsCard > summary").click();
     await page.locator('[data-pattern-span="six"]').click(); // the history is Patterns' 6 months (November 2026)
     await page.evaluate(() => document.querySelectorAll('.pat-more').forEach(d => { d.open = true; }));
     const cdp = await page.context().newCDPSession(page);
@@ -6836,6 +6838,7 @@ const JOURNEYS = {
     await page.keyboard.press('Escape');
     await go(page,'plan','data-plan-sub','scenarios');
     check(await page.locator('.card-funding').count() > 0, 'unfunded scenario cards lack funding status');
+    if(!await page.locator('#scenarioComparisonFold').evaluate(d=>d.open)) await page.locator('#scenarioComparisonFold > summary').click();
     await page.locator('.cmp-scenario:not([hidden]) .cmp-summary-details > summary').click();
     const longterm=page.locator('.cmp-scenario:not([hidden]) .cmp-longterm');
     check(!await longterm.evaluate(e=>e.open), 'long-term detail is not collapsed');
@@ -7363,6 +7366,7 @@ const JOURNEYS = {
     check(held === 60000, 'the deposit is not held in net worth: ' + held);
     // A cost, paid.
     // A cost is a line that opens to edit it (November 2026): open the conveyancer, its amount, then Paid.
+    await page.locator(cardSel + ' details[id$="-costs"] > summary').click();
     const row = page.locator(cardSel + ' details.buy-cost').nth(1);
     await row.locator('summary').click();
     const amount = row.locator('[data-cost-field="amount"]');
@@ -7385,6 +7389,7 @@ const JOURNEYS = {
     const gross = page.locator(cardSel + ' [data-buy-field="grossLoan"]');
     if(!(await gross.isVisible())) await page.locator(cardSel + ' .buy-fold > summary').click();
     await gross.fill('489000'); await gross.press('Tab');
+    await page.locator(cardSel + ' details[id$="-more"] > summary').click();
     check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
     check(/= Cash you bring\s*\$60,000/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'settlement line by line does not end on the cash to bring');
     // November 2026: paid counts the deposit, as the bar and the tiles do — $60,000 and the $1,500 cost ticked paid.
@@ -7458,6 +7463,7 @@ const JOURNEYS = {
     const card = page.locator('.buy-card').filter({ hasText: '4 Example Ln' }).first();
     check(/from 1 of your transactions/.test(await card.textContent()), 'the Buying card does not read the transaction');
     check(/Paid · \d+ \w+, Everyday Account/.test(await card.locator('[data-buy-cost]').filter({ hasText: 'Building' }).textContent()), 'the cost does not say which transaction paid it');
+    await card.locator('details[id$="-more"] > summary').click();
     await card.locator('[data-buy-settled]').click();
     await waited(page, () => !!document.querySelector('.settle-panel'), 'the settlement check');
     check(/Building & pest inspection/.test(await page.locator('.settle-panel').textContent()), 'the cost base leaves out the linked cost');
@@ -7488,9 +7494,11 @@ const JOURNEYS = {
     await tx.locator('[data-overflow-toggle]').click();
     await tx.locator('.page-overflow-menu [data-cf-import]').click();
     await waited(page, () => document.getElementById('bankImportCard').open, 'Import a statement to open the import card');
+    if(!await page.locator("#patternsCard").evaluate(d=>d.open)) await page.locator("#patternsCard > summary").click();
     await page.locator('[data-pattern-span="year"]').click();
     check(await page.locator('[data-pattern-pane="year"]').isVisible() && await page.locator('[data-pattern-pane="month"]').isHidden(), 'Patterns shows more than one span');
     check(await page.evaluate(() => localStorage.getItem('wealthPlanner.patternSpan')) === 'year', 'Patterns forgot the span');
+    if(!await page.locator("#patternsCard").evaluate(d=>d.open)) await page.locator("#patternsCard > summary").click();
     await page.locator('[data-pattern-span="month"]').click();
     await go(page, 'expenses', 'data-expenses-sub', 'bills');
     const bills = page.locator('#billsCalendar');
@@ -7647,6 +7655,7 @@ const JOURNEYS = {
       (await import('/src/components/redraw.js')).renderAll();
     }, original);
     await go(page, 'plan', 'data-plan-sub', 'scenarios');
+    if(!await page.locator("#scenarioComparisonFold").evaluate(d=>d.open)) await page.locator("#scenarioComparisonFold > summary").click();
     await page.locator('[data-cmp-full-table-toggle]').check();
     const compare = page.locator('.cmp-scroll').first();
     await compare.focus(); await page.keyboard.press('ArrowRight'); await until(page, el => el.scrollLeft > 0, await compare.elementHandle());
@@ -7755,6 +7764,7 @@ const JOURNEYS = {
     // Drain the sample household's deferred activity entry before taking the unchanged-data baseline.
     await page.evaluate(async() => (await import('/src/lib/activity.js')).noteChanges());
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
+    if(!await page.locator("#patternsCard").evaluate(d=>d.open)) await page.locator("#patternsCard > summary").click();
     await page.locator('[data-pattern-span="six"]').click(); // Patterns shows one span at a time (November 2026)
     await page.evaluate(() => document.querySelectorAll('.pat-more').forEach(d => { d.open = true; }));
     const numbers=page.locator('.trend-numbers');
@@ -7963,6 +7973,7 @@ const JOURNEYS = {
   },
   async scenariosummary(page){
     await go(page,'plan','data-plan-sub','scenarios');
+    if(!await page.locator("#scenarioComparisonFold").evaluate(d=>d.open)) await page.locator("#scenarioComparisonFold > summary").click();
     const picker=page.locator('[data-cmp-scenario]');
     const options=await picker.locator('option').evaluateAll(os=>os.map(o=>o.value));
     check(options.length>1,'sample comparison needs multiple scenarios');
@@ -8496,6 +8507,7 @@ const JOURNEYS = {
   // about — the plan form, the purchases already logged, Log spend (yes and no), an import, and Today's To do.
   async trips(page){
     await go(page, "expenses", "data-expenses-sub", "trips");
+    await page.locator("#tripNewSummary").click();
     const form = page.locator('[data-trip-form="new"]');
     await form.locator("[data-trip-name]").fill("Beach weekend");
     await form.locator("[data-trip-from]").fill("2026-11-01");

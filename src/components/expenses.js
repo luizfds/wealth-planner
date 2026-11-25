@@ -889,8 +889,8 @@ export function quickLogChipOrder(){
     })
     .map(function(x){ return x.item; });
 }
-export function openQuickLog(){
-  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
+export function openQuickLog(projectId){
+  quickLog = { projectId: typeof projectId === "string" ? projectId : "", linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -921,6 +921,8 @@ export function quickLogTrip(dateStr){
   if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
   return trip;
 }
+import { fileProject } from "../calc/projects.js";
+import { projectOptions } from "./furnishing.js";
 export function setQuickLogTrip(yes){ if(quickLog) quickLog.tripYes = !!yes; }
 export function quickLogTripHtml(dateStr){
   var trip = quickLogTrip(dateStr);
@@ -1020,6 +1022,8 @@ export function submitQuickLog(amount, note, dateStr, category){
   if(quickLog.sign < 0 && quickLog.refundOf) t.refundOf = quickLog.refundOf;
   var trip = quickLogTrip(t.date);
   if(trip) answerTrip(t, trip, quickLog.tripYes !== false);
+  var picker = document.getElementById("quickLogProject");
+  if(picker && picker.value) fileProject(state, t, picker.value);
   state.transactions.push(t);
   return t;
 }
@@ -1190,6 +1194,7 @@ export function renderQuickLogSheet(){
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
+      ((state.projects || []).length || (state.trips || []).length ? '<label>Project<select id="quickLogProject" class="field-control">' + projectOptions(quickLog.projectId) + '</select></label>' : "") +
       '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
@@ -1491,6 +1496,7 @@ function transactionRowHtml(t, idx){
   var fieldsHtml =
     // November 2026: What it's for — a budget line, a property (and which of its costs or lines), or a one-off.
     txForHtml(t, idx, linkSelect, state) +
+    '<label class="m-edit-field">Project<select class="tx-project field-control" data-tx-index="' + idx + '">' + projectOptions(t.project || t.trip) + '</select></label>' +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +
@@ -1528,8 +1534,8 @@ export function transactionScopeWindow(scope, todayStr){
 }
 // The visible list heading states its effective window, including dated filter/trip overrides.
 export function transactionDatesLabel(scope, filter, today){
+  if(filter && filter.trip && !filter.from && !filter.to) return 'All dates';
   if(filter && (filter.from || filter.to)){
-    if(filter.from === '9999-12-31') return 'Trip unavailable';
     if(filter.from && filter.to) return fmtDate(filter.from, {year:true}) + ' – ' + fmtDate(filter.to, {year:true});
     return filter.from ? 'From ' + fmtDate(filter.from, {year:true}) : 'Through ' + fmtDate(filter.to, {year:true});
   }

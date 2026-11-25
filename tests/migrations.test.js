@@ -377,3 +377,13 @@ test("step 38: a trip's budget and planned month; older trip spending answered y
   assert.deepEqual(s.transactions.slice(0, 5).map(t => [t.trip, t.tripNo]), [["t1", undefined], [undefined, undefined], [undefined, undefined], [undefined, undefined], [undefined, "t1"]]);
   assert.doesNotThrow(() => run(38, {}));
 });
+
+test("step 39: a saved furnishing estimate survives independently of the purchase", function(){
+  var st = { purchases: [{id:"example", what:"Example home", furnishing:{budget:1000, spent:100}}] };
+  run(39, st);
+  run(39, st);
+  assert.equal(st.projects.length, 1);
+  st.purchases = [];
+  assert.equal(st.projects[0].budget, 1000);
+  assert.equal(st.projects[0].spent, 100);
+});

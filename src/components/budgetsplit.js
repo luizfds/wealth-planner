@@ -156,16 +156,14 @@ export function budgetSplitHtml(m){
   '</section>';
   // 2. What needs you.
   var n = m.inbox.length, notices = m.notices || [];
-  var inbox = '<div class="bh-inbox">' +
-    (n ? '<button type="button" class="bh-tidy" data-inbox-toggle aria-expanded="' + !!budgetSplitUi.inboxOpen + '" aria-controls="bhInboxBody">' +
-        '<span class="bh-tidy-n" aria-hidden="true">' + n + '</span><span class="bh-tidy-text"><b>' + (n === 1 ? "1 thing to tidy" : n + " things to tidy") + '</b><small>' + escapeAttr(m.inbox[0].label + (n > 1 ? " and " + (n - 1) + " more" : "")) + '</small></span>' +
-        '<span class="bh-tidy-go">' + (budgetSplitUi.inboxOpen ? "Close" : "Review") + '</span></button>' +
-        '<div id="bhInboxBody"' + (budgetSplitUi.inboxOpen ? '' : ' hidden') + '>' + (budgetSplitUi.inboxOpen ? inboxHtml(m.inbox) : '') + '</div>'
-      : (notices.length ? '' : emptyStateHtml("All tidy — nothing to look at.", { done: true, className: "bh-inbox-done" }))) +
-    // The notices about the budget, one line under the Tidy list: it opens the bell showing only them (notifpanel.js).
-    (notices.length ? '<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog"><span class="bh-notices-n">' +
-        (notices.length === 1 ? "1 notice" : notices.length + " notices") + '</span><span class="bh-notices-top">' + escapeAttr(notices[0].title) + '</span><span aria-hidden="true">›</span></button>' : '') +
-  '</div>';
+  var count = n + notices.length;
+  var noticeList = notices.length ? '<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog">' +
+    escapeAttr(notices.map(function(item){ return item.title; }).join(" · ")) + ' ›</button>' : '';
+  var inbox = count ? '<div class="bh-inbox"><button type="button" class="bh-tidy" data-inbox-toggle aria-expanded="' + !!budgetSplitUi.inboxOpen +
+    '" aria-controls="bhInboxBody"><span class="bh-tidy-n">' + count + '</span><span class="bh-tidy-text"><b>To look at</b><small>' +
+    n + ' to tidy · ' + notices.length + ' notices</small></span><span class="bh-tidy-go">' + (budgetSplitUi.inboxOpen ? "Close" : "Review") + '</span></button>' +
+    '<div id="bhInboxBody"' + (budgetSplitUi.inboxOpen ? '' : ' hidden') + '>' + (budgetSplitUi.inboxOpen && n ? inboxHtml(m.inbox) : '') +
+    noticeList + '</div></div>' : emptyStateHtml("All tidy — nothing to look at.", {done:true, className:"bh-inbox-done"});
   // 3. What's coming.
   var dueTotal = m.upcoming.reduce(function(t, b){ return t + (Number(b.amount) || 0); }, 0);
   var coming = '<section class="bh-sec"><h3>Coming up <small>' + (m.upcoming.length ? 'next 7 days · ' + money(dueTotal) : 'next 7 days') + '</small></h3>' +

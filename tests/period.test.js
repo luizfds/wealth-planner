@@ -128,10 +128,10 @@ test("Spending states local month/year/all windows and effective filter dates", 
     assert.equal(transactionDatesLabel("year", null, "2026-11-03"), "FY26/27");
     assert.equal(transactionDatesLabel("all", null, "2026-11-03"), "All dates");
     const filter = effectiveFilter({trip:"example",from:"2025-08-01",to:"2025-08-20"},[{id:"example",from:"2025-08-05",to:"2025-08-10"}]);
-    assert.equal(transactionDatesLabel("month", filter, "2026-11-03"), "5 Aug 2025 – 10 Aug 2025");
+    assert.equal(transactionDatesLabel("month", filter, "2026-11-03"), "1 Aug 2025 – 20 Aug 2025");
     assert.equal(transactionDatesLabel("year", {from:"2025-08-01"}, "2026-11-03"), "From 1 Aug 2025");
     assert.equal(transactionDatesLabel("all", {to:"2025-08-20"}, "2026-11-03"), "Through 20 Aug 2025");
-    assert.equal(transactionDatesLabel("month", effectiveFilter({trip:"missing"},[]), "2026-11-03"), "Trip unavailable");
+    assert.equal(transactionDatesLabel("month", effectiveFilter({trip:"missing"},[]), "2026-11-03"), "All dates");
   });
   withBasis("calendar", function(){
     setPeriod(2025, "", "2026-11-03");

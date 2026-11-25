@@ -49,7 +49,7 @@ without the owner agreeing).
 | C1 | More (phone) | Shows the period chip, though nothing on More follows the period. | Hide it on More, as on Settings. |
 | C2 | Reports | Budget vs actual and Lender pack show no family kicker (their family has one report); the other nineteen do. | Show the family on every report, one report or not. |
 | C3 | Accounts on a desktop | One long column at 1280px: names at the left edge, figures at the right, a wide gap between. | A two-column grid of groups from ~1100px, or a narrower list beside the folded charts. |
-| C4 | Page length at 390px | Property 8,800px, Budget 6,500px, Scenarios 6,400px, Tax › This year 5,700px — the longest pages. | Fold what's below the first screen behind its heading (as Settings did); keep every part. Mock-up first. |
+| C4 | Page length at 390px | As the pages open (folds as they're left): Property 4,500px (its Buying card alone 1,600), Scenarios 4,200px, Projections 3,400px, Transactions 3,100px — the longest. (First measured with every fold open, which overstated Budget and Tax.) | Fold what's below the first screen behind its heading (as Settings did); keep every part. Mock-up first. |
 | C5 | Today | The "Sample data generated" toast sits over the round + button for its time on screen. | Toasts above the + button on a phone. |
 
 ### Carried over

@@ -50,7 +50,7 @@ export function rulesPageHtml(lines){
   var acctOpts = (state.accounts || []).map(function(a){ return { value: a.name, label: a.name }; });
   var test = ruleTest.text.trim();
   var hit = test ? matchRule(test, rules) : null;
-  var testHtml = '<div class="rl-test"><label class="cf-filter"><span>Test a bank description</span><input class="field-control" type="text" data-rl-test value="' + escapeAttr(ruleTest.text) + '" placeholder="e.g. FERN CAFE 1234 SYDNEY"></label>' +
+  var testHtml = '<div class="rl-test"><label class="cf-filter"><span>Test a bank description</span><input class="field-control" type="text" data-rl-test value="' + escapeAttr(ruleTest.text) + '" placeholder="e.g. FERN CAFE 1234 EXAMPLETON"></label>' +
     '<p class="rl-test-out">' + (!test ? "Type a line from a statement to see which rule would file it."
       : hit ? 'Matched by <b>“' + escapeAttr(hit.match) + '”</b> → ' + escapeAttr(hit.transferAccount ? "transfer with " + hit.transferAccount : hit.incomeTarget ? (incomeOpts.find(function(o){ return o.value === hit.incomeTarget; }) || { label: hit.incomeTarget }).label
         : hit.linkedExpenseId ? (lineOpts.find(function(o){ return o.value === hit.linkedExpenseId; }) || { label: "a deleted line" }).label : (hit.category || "nothing")) + '.'

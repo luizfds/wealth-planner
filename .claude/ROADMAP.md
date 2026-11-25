@@ -6041,12 +6041,12 @@ every page and what it does: [docs/sitemap.md](../docs/sitemap.md)). In the orde
 that folds or moves something is mocked up first and keeps every control reachable.
 
 **1. Fixes (one PR, `release: patch`)**
-- `[ ]` **A1** Stamp duty's *First home buyer* switch drawn over its label at 390px; a smoke check for it.
-- `[ ]` **A2** Invented examples in place of a real city (Import rules' placeholder, two comments).
-- `[ ]` **A3** The install shortcuts named and addressed for Today, Money, Accounts, Plan.
-- `[ ]` **B2, B3** Offsets' balance and the rental schedule's lines as the shared money field.
-- `[ ]` **B7** A change under 0.05% shown flat, not as a fall.
-- `[ ]` **C1, C2, C5** No period chip on More; every report names its family; toasts clear of the + button.
+- `[x]` **A1** Stamp duty's *First home buyer* switch drawn over its label at 390px; a smoke check for it.
+- `[x]` **A2** Invented examples in place of a real city (Import rules' placeholder, two comments).
+- `[x]` **A3** The install shortcuts named and addressed for Today, Money, Accounts, Plan.
+- `[x]` **B2, B3** Offsets' balance and the rental schedule's lines as the shared money field.
+- `[x]` **B7** A change under 0.05% shown flat, not as a fall.
+- `[x]` **C1, C2, C5** No period chip on More; every report names its family; toasts clear of the + button.
 
 **2. Clearer (mock-ups first, `release: minor`)**
 - `[ ]` **B1** Bank accounts says what "owed" holds and what Debts holds.
@@ -6054,7 +6054,7 @@ that folds or moves something is mocked up first and keeps every control reachab
 - `[ ]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
 - `[ ]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
 - `[ ]` **C3** Accounts on a desktop in two columns.
-- `[ ]` **C4** Property, Budget, Scenarios and Tax › This year folded below their first screen.
+- `[ ]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.
 
 **3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner answers its open
 questions (name, address, who makes it, numbers, feedback, tone) first.

@@ -14,14 +14,14 @@ var LINES = [
 ];
 
 test("a merchant key drops the store number and the suburb", function(){
-  // Without this every Woolworths store is its own rule and the learning is worthless.
-  assert.equal(merchantKey("WOOLWORTHS 1234 SYDNEY NS"), "woolworths");
-  assert.equal(merchantKey("WOOLWORTHS 5567 NEWTOWN NSW AU"), "woolworths");
+  // Without this every Grocermart store is its own rule and the learning is worthless.
+  assert.equal(merchantKey("GROCERMART 1234 EXAMPLETON NS"), "grocermart");
+  assert.equal(merchantKey("GROCERMART 5567 FERNVALE NSW AU"), "grocermart");
   assert.equal(merchantKey("COLES EXPRESS 5521"), "coles express");
 });
 
 test("a merchant key drops a leading payment rail, which names the pipe not the payee", function(){
-  assert.equal(merchantKey("EFTPOS DEBIT WOOLWORTHS 1234"), "woolworths");
+  assert.equal(merchantKey("EFTPOS DEBIT GROCERMART 1234"), "grocermart");
   assert.equal(merchantKey("VISA PURCHASE CAFE MILANO"), "cafe milano");
   // ...but never all of them: "DIRECT DEBIT" alone is the best name that row has.
   assert.equal(merchantKey("DIRECT DEBIT"), "debit");
@@ -41,10 +41,10 @@ test("a description that is all reference codes still gets a key", function(){
 test("a taught rule places the same merchant next month", function(){
   // The whole point of the feature: the second import, not the first.
   var rules = [];
-  learnRule(rules, "WOOLWORTHS 1234 SYDNEY NS", { linkedExpenseId: "e1", category: "Groceries" });
+  learnRule(rules, "GROCERMART 1234 EXAMPLETON NS", { linkedExpenseId: "e1", category: "Groceries" });
   assert.equal(rules.length, 1);
-  assert.equal(rules[0].match, "woolworths");
-  var next = suggestFor("WOOLWORTHS 5567 NEWTOWN NSW AU", rules, LINES);
+  assert.equal(rules[0].match, "grocermart");
+  var next = suggestFor("GROCERMART 5567 FERNVALE NSW AU", rules, LINES);
   assert.equal(next.source, "rule");
   assert.equal(next.linkedExpenseId, "e1");
 });
@@ -53,10 +53,10 @@ test("the longer rule wins, so a correction can override a rough earlier answer"
   // There is no rule editor — overriding from the review screen is the only way to fix a mistake,
   // so specificity has to beat recency.
   var rules = [];
-  learnRule(rules, "WOOLWORTHS 1234", { linkedExpenseId: "e1", category: "Groceries" });
-  learnRule(rules, "WOOLWORTHS PETROL SYDNEY", { linkedExpenseId: "e3", category: "Car" });
-  assert.equal(matchRule("WOOLWORTHS PETROL SYDNEY 99", rules).linkedExpenseId, "e3");
-  assert.equal(matchRule("WOOLWORTHS 8899 BONDI", rules).linkedExpenseId, "e1");
+  learnRule(rules, "GROCERMART 1234", { linkedExpenseId: "e1", category: "Groceries" });
+  learnRule(rules, "GROCERMART PETROL EXAMPLETON", { linkedExpenseId: "e3", category: "Car" });
+  assert.equal(matchRule("GROCERMART PETROL EXAMPLETON 99", rules).linkedExpenseId, "e3");
+  assert.equal(matchRule("GROCERMART 8899 OAKBAY", rules).linkedExpenseId, "e1");
 });
 
 test("re-teaching an existing merchant updates it rather than stacking a second rule", function(){
@@ -86,11 +86,11 @@ test("a short budget line name does not swallow unrelated merchants", function()
   // "Gas" must not claim GASTRONOMY — a wrong suggestion accepted in bulk is worse than none. It's
   // whole-word matching that prevents it, not a length floor, which is why a 3-character line name
   // is still allowed to match the merchant it really does identify.
-  assert.equal(matchBudgetLineByName("GASTRONOMY BAR SYDNEY", LINES), null);
+  assert.equal(matchBudgetLineByName("GASTRONOMY BAR EXAMPLETON", LINES), null);
   assert.equal(matchBudgetLineByName("ORIGIN GAS BILL", LINES).id, "e3");
   // Two characters is noise even as a whole word — "AU" appears in half the merchant strings in a
   // real export.
-  assert.equal(matchBudgetLineByName("WOOLWORTHS SYDNEY AU", [{ id: "x", what: "AU" }]), null);
+  assert.equal(matchBudgetLineByName("GROCERMART EXAMPLETON AU", [{ id: "x", what: "AU" }]), null);
 });
 
 test("nothing matched means nothing suggested, not a guess", function(){
@@ -109,7 +109,7 @@ test("a rule beats a name match, because the user taught it and the name is infe
 
 test("deleting a budget line doesn't leave rules filing spend against nothing", function(){
   var rules = [
-    { id: "r1", match: "woolworths", linkedExpenseId: "e1", category: "Groceries" },
+    { id: "r1", match: "grocermart", linkedExpenseId: "e1", category: "Groceries" },
     { id: "r2", match: "spotify", linkedExpenseId: "deleted", category: "Subscriptions" },
     { id: "r3", match: "mystery", linkedExpenseId: "deleted", category: "" }
   ];
@@ -125,9 +125,9 @@ test("deleting a budget line doesn't leave rules filing spend against nothing", 
 
 test("coverage counts what the import placed without asking", function(){
   var rules = [];
-  learnRule(rules, "WOOLWORTHS 1234", { linkedExpenseId: "e1", category: "Groceries" });
+  learnRule(rules, "GROCERMART 1234", { linkedExpenseId: "e1", category: "Groceries" });
   var rows = applySuggestions([
-    { description: "WOOLWORTHS 5567 NEWTOWN" },
+    { description: "GROCERMART 5567 FERNVALE" },
     { description: "SPOTIFY P2B3C4" },
     { description: "ZZQ TRADING 4421" },
     { description: "QQX 9910" }
@@ -148,13 +148,13 @@ test("coverage of an empty import is 0, not NaN", function(){
 // ---------------- Proposing a budget line from an import ----------------
 
 test("a merchant key becomes a readable budget line name", function(){
-  assert.equal(suggestedLineName("woolworths"), "Woolworths");
+  assert.equal(suggestedLineName("grocermart"), "Grocermart");
   assert.equal(suggestedLineName("coles express"), "Coles Express");
   assert.equal(suggestedLineName(""), "");
 });
 
 test("the monthly rate divides by the months the IMPORT covers, not the months the merchant does", function(){
-  // Shopping at Woolworths in two of the three months you imported is still a three-month average.
+  // Shopping at Grocermart in two of the three months you imported is still a three-month average.
   // Dividing by two would overstate it by half — and this figure becomes a budget line the user
   // then plans against.
   var mine = [
@@ -199,7 +199,7 @@ test("trailing bookkeeping words are dropped, so a created line isn't called 'Re
   // Same reason leading rails are dropped: they name the paperwork, not the payee. This string
   // becomes a budget line the user reads in a list, so it has to survive being looked at.
   assert.equal(merchantKey("RENT PAYMENT REF 88213"), "rent payment");
-  assert.equal(merchantKey("WOOLWORTHS SYDNEY NSW"), "woolworths sydney");
+  assert.equal(merchantKey("GROCERMART EXAMPLETON NSW"), "grocermart exampleton");
   assert.equal(suggestedLineName(merchantKey("RENT PAYMENT REF 88213")), "Rent Payment");
   // Never the last one standing — a row whose whole description is one noise word still needs a key.
   assert.equal(merchantKey("REF"), "ref");
@@ -239,13 +239,13 @@ test("a spending rule never places a credit; the same merchant can carry one of 
 import { commonMerchant, mergeSimilarRules } from "../src/calc/import-rules.js";
 
 test("a payment processor in front of the shop's name isn't the merchant", () => {
-  assert.equal(merchantKey("SQ *FERN CAFE Ultimo"), "fern cafe ultimo");
+  assert.equal(merchantKey("SQ *FERN CAFE Oakbay"), "fern cafe oakbay");
   assert.equal(merchantKey("PAYPAL *STREAMBOX 4029357733"), "streambox");
   assert.equal(merchantKey("PAYPAL"), "paypal", "never the only word");
 });
 
 test("commonMerchant: the shared leading words, never a bare common word", () => {
-  assert.equal(commonMerchant("fern cafe ultimo", "fern cafe newtown"), "fern cafe");
+  assert.equal(commonMerchant("fern cafe oakbay", "fern cafe fernvale"), "fern cafe");
   assert.equal(commonMerchant("bright energy", "bright energy"), "bright energy");
   assert.equal(commonMerchant("the corner deli", "the gift shop"), "", "'the' alone is not a merchant");
   assert.equal(commonMerchant("harbour noodles city", "harbour view"), "harbour");
@@ -254,8 +254,8 @@ test("commonMerchant: the shared leading words, never a bare common word", () =>
 
 test("mergeSimilarRules joins rules filing to the same place, and leaves different answers apart", () => {
   const rules = [
-    { id: "a", match: "fern cafe ultimo", linkedExpenseId: "eat", category: "", account: "", hits: 1 },
-    { id: "b", match: "fern cafe newtown", linkedExpenseId: "eat", category: "", account: "", hits: 2 },
+    { id: "a", match: "fern cafe oakbay", linkedExpenseId: "eat", category: "", account: "", hits: 1 },
+    { id: "b", match: "fern cafe fernvale", linkedExpenseId: "eat", category: "", account: "", hits: 2 },
     { id: "c", match: "roadside fuel north", linkedExpenseId: "fuel", category: "", account: "", hits: 1 },
     { id: "d", match: "roadside fuel cafe", linkedExpenseId: "eat", category: "", account: "", hits: 1 },
     { id: "e", match: "bright energy", linkedExpenseId: "power", category: "", account: "", hits: 1 },
@@ -268,20 +268,20 @@ test("mergeSimilarRules joins rules filing to the same place, and leaves differe
   assert.ok(by["roadside fuel north"] && by["roadside fuel cafe"], "same words, different lines: kept apart");
   assert.equal(by["bright energy"].hits, 4, "duplicates merged");
   assert.equal(out.rules.length, 4);
-  assert.equal(rules[0].match, "fern cafe ultimo", "the input isn't changed");
+  assert.equal(rules[0].match, "fern cafe oakbay", "the input isn't changed");
   assert.equal(matchRule("FERN CAFE GLEBE 2037", out.rules).linkedExpenseId, "eat", "and the next branch is filed too");
 });
 
 test("learning a second branch of the same merchant makes one rule for both", () => {
   const rules = [];
-  learnRule(rules, "FERN CAFE ULTIMO 2007", { linkedExpenseId: "eat" });
-  learnRule(rules, "FERN CAFE NEWTOWN 2042", { linkedExpenseId: "eat" });
+  learnRule(rules, "FERN CAFE OAKBAY 2007", { linkedExpenseId: "eat" });
+  learnRule(rules, "FERN CAFE FERNVALE 2042", { linkedExpenseId: "eat" });
   assert.deepEqual(rules.map(r => r.match), ["fern cafe"]);
   assert.equal(rules[0].hits, 2);
   learnRule(rules, "FERN CAFE GLEBE 2037", { linkedExpenseId: "coffee" });
   assert.equal(rules.length, 2, "a different answer for one branch stays its own rule");
   assert.equal(matchRule("FERN CAFE GLEBE 2037", rules).linkedExpenseId, "coffee");
-  assert.equal(matchRule("FERN CAFE ULTIMO 2007", rules).linkedExpenseId, "eat");
+  assert.equal(matchRule("FERN CAFE OAKBAY 2007", rules).linkedExpenseId, "eat");
 });
 
 test("a merged rule only claims a description whose merchant starts with it", () => {

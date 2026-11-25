@@ -117,7 +117,7 @@ function headerRoleOf(cell){
   return null;
 }
 // True when a row looks like column names rather than data. A headerless export (CommBank's is the
-// common one) starts straight in on "02/09/2026,-45.20,WOOLWORTHS...", so treating row 0 as a
+// common one) starts straight in on "02/09/2026,-45.20,GROCERMART...", so treating row 0 as a
 // header there would silently eat a transaction.
 export function looksLikeHeaderRow(cells){
   if(!cells || !cells.length) return false;

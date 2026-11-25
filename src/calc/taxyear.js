@@ -1,3 +1,4 @@
+import { parseAmountInput } from "../lib/format.js";
 import { state } from "../state.js";
 import { periodsOf } from "./ledger.js";
 import {
@@ -269,8 +270,10 @@ export function rentalSchedule(property, fy){
 export function setRentalActual(fy, propertyId, key, value){
   var rec = taxYearRecord(fy, true);
   if(!rec.properties[propertyId]) rec.properties[propertyId] = { lines: {} };
-  if(value === "" || value == null) delete rec.properties[propertyId].lines[key];
-  else rec.properties[propertyId].lines[key] = Number(value) || 0;
+  // A money field's "30,680" or "$30,680.50" reads as the number; blank (or nothing readable) uses the estimate.
+  var n = typeof value === "number" ? value : parseAmountInput(value);
+  if(n == null || !isFinite(n)) delete rec.properties[propertyId].lines[key];
+  else rec.properties[propertyId].lines[key] = n;
 }
 // Every investment property's schedule for the year, for the worksheet's rent section.
 export function rentalSchedules(fy){

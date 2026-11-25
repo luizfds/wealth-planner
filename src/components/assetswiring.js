@@ -12,6 +12,7 @@ import { saleCapitalGain, lotsUnitsAvailable } from "../calc/tax.js";
 import { exportSharesPriceTemplateCsv, copySharesPriceTemplateToClipboard, copyPriceSheetTemplate } from "../lib/backup.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { readNumberField, markField, readInput as readIn } from "../lib/validate.js";
+import { formatMoney } from "../lib/field.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { readXlsx } from "../lib/xlsx.js";
 import { state, persist, commit, genId, normalizeShareAsset } from "../state.js";
@@ -728,7 +729,7 @@ export function wireAssets(){
     // someone actively typing into the *other* copy of the same field at the same time).
     var propCard = document.querySelector('.property-card[data-property-id="' + CSS.escape(property.id) + '"]');
     var loanOffsetInput = propCard && propCard.querySelector('[data-loan-index="' + loanIdx + '"] .loan-offset');
-    if(loanOffsetInput && document.activeElement !== loanOffsetInput) loanOffsetInput.value = loan.offsetBalance;
+    if(loanOffsetInput && document.activeElement !== loanOffsetInput) loanOffsetInput.value = formatMoney(loan.offsetBalance);
     renderAssetsSummary();
     renderProjectionOutputs();
     persist();

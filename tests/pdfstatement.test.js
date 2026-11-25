@@ -46,7 +46,7 @@ test("a bank statement: columns from the header, amounts on the line below, year
 test("a card listing: Withdrawal/Deposit columns, signed amounts, a month heading for the year", function(){
   var lines = [
     L(1, 700, [[50, 70, "Date"], [138, 190, "Description"], [382, 425, "Withdrawal"], [469, 500, "Deposit"]]),
-    L(1, 680, [[50, 100, "12 Oct 2026"], [136, 250, "FERN CAFE SYDNEY AUS"], [394, 425, "-$5.50"]]),
+    L(1, 680, [[50, 100, "12 Oct 2026"], [136, 250, "FERN CAFE EXAMPLETON AUS"], [394, 425, "-$5.50"]]),
     L(1, 660, [[50, 100, "12 Oct 2026"], [136, 250, "REFUND SHOP ONE"], [474, 500, "$19.99"]]),
     L(1, 640, [[32, 80, "Nov 2025"]]),
     L(1, 620, [[32, 60, "Nov 6"], [136, 250, "Purchase at BANK ONE"], [394, 425, "-$12.00"]])
@@ -131,7 +131,7 @@ test("a card statement: 'Date of' and 'Credits (-)' are the columns; purchases a
     L(1, 780, [[60, 160, "Statement From 3 Mar 2026"], [200, 300, "Statement To 02 Apr 2026"]]),
     L(3, 700, [[54, 81, "Date of"], [112, 156, "Description"], [459, 483, "Debits"], [517, 555, "Credits (-)"]]),
     L(3, 690, [[54, 100, "Transaction"]]),
-    L(3, 670, [[54, 90, "05 Mar 26"], [112, 300, "FERN CAFE SYDNEY AUS"], [460, 483, "12.40"]]),
+    L(3, 670, [[54, 90, "05 Mar 26"], [112, 300, "FERN CAFE EXAMPLETON AUS"], [460, 483, "12.40"]]),
     L(3, 650, [[54, 90, "14 Mar 26"], [112, 300, "PAYMENT-BPAY-THANK YOU"], [520, 549, "300.00"], [551, 555, "-"]]),
     L(3, 630, [[54, 90, "20 Mar 26"], [112, 300, "BANK ONE SHOP AUS"], [455, 483, "1,034.50"]])
   ];

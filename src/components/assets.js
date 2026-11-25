@@ -1,5 +1,5 @@
 import { keepUi } from "../lib/keepui.js";
-import { fieldHtml } from "../lib/field.js";
+import { fieldHtml, formatMoney } from "../lib/field.js";
 import { drawFor } from "../calc/cashdraw.js";
 import { state, persist, genId } from "../state.js";
 import { listToolbarHtml, listActionsHtml } from "../lib/listtoolbar.js";
@@ -92,11 +92,15 @@ function windowFallbackHtml(){
   var label = win ? sharesWindowLabel(win) : "";
   return '<span class="calc-note" title="No price logged from at least ' + escapeAttr(label) + ' ago — paste updated prices or use Log to start tracking this.">— ' + escapeAttr(label) + '</span>';
 }
+// The assessment (November 2026): a change that rounds to 0.0% isn't a rise or a fall — shown flat, in plain ink.
+var FLAT_PCT = 0.0005;
+function changeDir(pct){ return Math.abs(Number(pct) || 0) < FLAT_PCT ? 0 : pct > 0 ? 1 : -1; }
 function gainLossHtml(item){
   var g = holdingWindowChange(item);
   if(!g) return windowFallbackHtml();
-  var cls = g.gainDollar > 0 ? "up" : (g.gainDollar < 0 ? "down" : "");
-  var arrow = g.gainDollar > 0 ? "▲" : (g.gainDollar < 0 ? "▼" : "–");
+  var dir = changeDir(g.pct);
+  var cls = dir > 0 ? "up" : (dir < 0 ? "down" : "");
+  var arrow = dir > 0 ? "▲" : (dir < 0 ? "▼" : "–");
   return '<span class="asset-trend gain-cell ' + cls + '">' + arrow + ' ' + fmtCurrency0For(holdingCurrency(item)).format(Math.abs(g.gainDollar)) +
     ' (' + fmtPercent1.format(Math.abs(g.pct)) + ')</span>';
 }
@@ -398,8 +402,9 @@ function priceChangeHtml(item){
   var win = SHARES_CHANGE_WINDOWS.find(function(w){ return w.key === sharesChangeWindow; });
   var label = win ? sharesWindowLabel(win) : "";
   if(!c) return windowFallbackHtml();
-  var cls = c.pct > 0 ? "up" : (c.pct < 0 ? "down" : "");
-  var arrow = c.pct > 0 ? "▲" : (c.pct < 0 ? "▼" : "–");
+  var dir = changeDir(c.pct);
+  var cls = dir > 0 ? "up" : (dir < 0 ? "down" : "");
+  var arrow = dir > 0 ? "▲" : (dir < 0 ? "▼" : "–");
   return '<span class="asset-trend ' + cls + '" title="Since ' + escapeAttr(fmtDate(c.fromDate, { year: true })) + '">' + arrow + ' ' + fmtPercent1.format(Math.abs(c.pct)) + ' ' + escapeAttr(label) + '</span>';
 }
 // "YTD" on the calendar basis, "FYTD" on the financial one — see SHARES_CHANGE_WINDOWS.
@@ -1703,12 +1708,12 @@ function offsetRowHtml(property, loan, li, colorIdx){
   var dot = '<span class="m-row-dot series-color-' + colorIdx + '" aria-hidden="true"></span>';
   return '<div class="m-row computed offset-row"><div class="m-row-summary" style="cursor:default">' +
     dot +
-    '<div style="flex:1 1 auto;min-width:0">' +
+    '<div class="offset-row-name">' +
       '<div class="m-row-name">' + escapeAttr(loan.what) + '</div>' +
       '<div class="m-row-sub">' + escapeAttr(property.what) + '</div>' +
     '</div>' +
-    '<div class="field offset-balance"><label class="field-label" for="' + fieldId + '">Offset</label><input type="number" step="1000" min="0" class="offset-balance-input field-control" id="' + fieldId + '" aria-describedby="' + fieldId + '-error" data-offset-property="' + escapeAttr(property.id) + '" data-offset-loan="' + li + '"' +
-      ' value="' + (Number(loan.offsetBalance) || 0) + '" aria-label="Offset balance for ' + escapeAttr(loan.what) + ' on ' + escapeAttr(property.what) + '"' +
+    '<div class="field offset-balance"><label class="field-label" for="' + fieldId + '">Offset</label><input type="text" inputmode="decimal" autocomplete="off" data-money class="offset-balance-input field-control" id="' + fieldId + '" aria-describedby="' + fieldId + '-error" data-offset-property="' + escapeAttr(property.id) + '" data-offset-loan="' + li + '"' +
+      ' value="' + escapeAttr(formatMoney(Number(loan.offsetBalance) || 0)) + '" aria-label="Offset balance for ' + escapeAttr(loan.what) + ' on ' + escapeAttr(property.what) + '"' +
       '><p class="field-error" id="' + fieldId + '-error" aria-live="polite"></p></div>' +
     '<button type="button" class="icon-btn" style="flex:none" data-jump-property="' + escapeAttr(property.id) + '" aria-label="View ' + escapeAttr(property.what) + ' on Properties" title="View on Properties">' +
       '<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5h8v8"/><path d="M15 5L5 15"/></svg>' +
@@ -1739,7 +1744,7 @@ function drawOffsetsSubpage(){
 // until the next full renderAssets().
 export function patchOffsetsRow(propertyId, loanIdx, offsetBalance){
   var input = document.querySelector('#assetsSub-Offsets [data-offset-property="' + CSS.escape(propertyId) + '"][data-offset-loan="' + loanIdx + '"]');
-  if(input && document.activeElement !== input) input.value = offsetBalance;
+  if(input && document.activeElement !== input) input.value = formatMoney(Number(offsetBalance) || 0);
   var totalEl = document.getElementById("totalOffsetsAmount");
   if(totalEl) totalEl.textContent = fmtCurrency0.format(propertiesOffsetTotal());
 }

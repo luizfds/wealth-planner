@@ -4264,7 +4264,7 @@ const JOURNEYS = {
     const properLabels=await row.locator('.field input:not([type=radio]):not([type=checkbox]),.field select').evaluateAll(es=>es.every(e=>e.labels?.length && (e.getAttribute('aria-describedby')||'').split(' ').filter(Boolean).every(id=>document.getElementById(id))));
     check(properLabels,'loan label/help links lost');
     await row.locator('.loan-offset').fill('2000');check(await saved()===2000,'loan offset did not save');
-    check(await page.locator('.offset-balance-input[data-offset-property="'+property+'"][data-offset-loan="'+loan+'"]').inputValue()==='2000','loan edit did not mirror into Offsets');
+    check(await page.locator('.offset-balance-input[data-offset-property="'+property+'"][data-offset-loan="'+loan+'"]').inputValue()==='2,000','loan edit did not mirror into Offsets (a money field since the whole-app assessment)');
     const oldBalance=await row.locator('.loan-balance').inputValue();await row.locator('.loan-balance').fill('');
     check(await row.locator('.loan-balance').getAttribute('aria-invalid')==='true','loan blank balance has no error');
     await row.locator('.loan-balance').fill(oldBalance);

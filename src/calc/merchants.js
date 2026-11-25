@@ -1,7 +1,7 @@
 // Grouping hand-typed transaction descriptions into merchants.
 //
 // Deliberately NOT import-rules.js's merchantKey(). That one is tuned for bank export strings
-// ("EFTPOS WOOLWORTHS 1234 SYDNEY NS") and earns its aggression there — it drops leading payment
+// ("EFTPOS GROCERMART 1234 EXAMPLETON NS") and earns its aggression there — it drops leading payment
 // rails, stops at the first token containing a digit, and caps at three tokens. Run it over
 // something a person typed and it mangles: "Dinners Out / Takeaway" comes out as
 // "out takeaway". The two inputs have nothing in common except being strings.

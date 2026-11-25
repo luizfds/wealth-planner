@@ -57,7 +57,7 @@ export function tripSpend(trip, transactions){
   return Math.round((transactions || []).reduce(function(s, t){
     if(!t) return s;
     if(t.trip === trip.id) return s + (Number(t.amount) || 0);
-    var legacy = !t.trip && t.tripNo !== trip.id && trip.from && t.date >= trip.from && t.date <= (trip.to || trip.from) && t.linkedExpenseId === trip.lineId;
+    var legacy = !t.project && !t.trip && t.tripNo !== trip.id && trip.from && t.date >= trip.from && t.date <= (trip.to || trip.from) && t.linkedExpenseId === trip.lineId;
     return legacy ? s + (Number(t.amount) || 0) : s;
   }, 0) * 100) / 100;
 }
@@ -69,6 +69,7 @@ export function normaliseTrip(t, idFactory){
   var budget = Math.max(0, Math.round((Number(t.budget) || 0) * 100) / 100);
   var month = !from && /^\d{4}-\d{2}$/.test(String(t.month || "")) ? String(t.month) : "";
   var out = { id: t.id || (idFactory ? idFactory() : "trip" + Date.now().toString(36)), name: String(t.name || "Trip").trim() || "Trip", from: from, to: from ? to : "", lineId: t.lineId || "", budget: budget };
+  if(t.purchaseId) out.purchaseId = t.purchaseId;
   if(month) out.month = month;
   return out;
 }
@@ -107,7 +108,7 @@ export function tripPending(trip, transactions, lines, protectedIds){
   (lines || []).forEach(function(l){ if(l && l.id) byId[l.id] = l; });
   return (transactions || []).filter(function(t){
     if(!t || !t.date || t.date < trip.from || t.date > (trip.to || trip.from)) return false;
-    if(t.trip || t.tripNo === trip.id) return false;
+    if(t.project || t.trip || t.tripNo === trip.id) return false;
     if(t.linkedExpenseId === trip.lineId) return false;
     if(!(Number(t.amount) > 0)) return false;
     return tripTakes(t.linkedExpenseId ? byId[t.linkedExpenseId] : null, protectedIds);
@@ -151,7 +152,7 @@ export function addTrip(st, fields, idFactory){
 export function updateTrip(st, id, fields){
   var i = (st.trips || []).findIndex(function(t){ return t && t.id === id; });
   if(i === -1) return null;
-  st.trips[i] = normaliseTrip(Object.assign({}, fields, { id: id }));
+  st.trips[i] = normaliseTrip(Object.assign({}, st.trips[i], fields, { id: id }));
   return st.trips[i];
 }
 export function removeTrip(st, id){

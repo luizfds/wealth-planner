@@ -3,7 +3,6 @@ import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
 import { fieldHtml } from "../lib/field.js";
-import { emptyStateHtml } from "../lib/empty.js";
 import { keepUi } from "../lib/keepui.js";
 import { periodsOf, householdYearWindow } from "../calc/ledger.js";
 import { tripRefilePlan, tripSpend, tripStatus, tripLeft, tripPending, tripLineSplit } from "../calc/trips.js";
@@ -89,7 +88,7 @@ function tripCardHtml(t, today, lineName){
     (open ? confirmListHtml(t, pending, lineName) : '') +
     (tripsUi.editing === t.id ? formHtml(t) : '') +
     '<div class="trip-actions">' +
-      '<button type="button" class="btn btn-sm" data-book-trip="' + escapeAttr(t.id) + '">Log a booking</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' +
+      '<button type="button" class="btn btn-sm" data-book-trip="' + escapeAttr(t.id) + '">Log purchase</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-trip-edit="' + escapeAttr(t.id) + '">Edit<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
       '<button type="button" class="btn btn-sm btn-danger" data-trip-del="' + escapeAttr(t.id) + '">Remove<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
     '</div>' +
@@ -154,18 +153,17 @@ export function tripsCardHtml(today){
   if(!lines.length && defaultTripLine()) lines.push(defaultTripLine());
   var pastSpent = past.reduce(function(s, t){ return s + tripSpend(t, state.transactions); }, 0);
   var pastBudget = past.reduce(function(s, t){ return s + (Number(t.budget) || 0); }, 0);
-  return lines.map(function(l){ return splitHtml(l, today, lineName); }).join("") +
-    (now.length ? '<ul class="trip-list">' + now.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul>'
-      : emptyStateHtml(past.length ? "No trips coming up — plan the next one below, with its own budget." : "No trips yet — plan one below: a name, its dates (or just a month), a budget and the line it comes out of.", { scroll: "#tripNewSummary", label: "Plan a trip ↓" })) +
-    (past.length ? '<details class="trip-past"><summary><b>Past trips</b><span>' + past.length + ' · ' + fmtCurrency0.format(pastSpent) + ' spent' + (pastBudget ? ' of ' + fmtCurrency0.format(pastBudget) : '') + '</span></summary>' +
-      '<ul class="trip-list">' + past.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul></details>' : '') +
-    '<details class="trip-new"><summary id="tripNewSummary">+ Add trip</summary>' + formHtml(null) + "</details>";
+  return furnishingHtml() + (!now.length && !past.length && !(state.projects || []).length ? '<p class="ledger-note">Add a budget for an event you’re saving or spending for.</p>' : '') +
+    '<ul class="trip-list">' + now.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul>' +
+    (past.length ? '<details class="trip-past"><summary><b>Past events</b><span>' + past.length + ' · ' + fmtCurrency0.format(pastSpent) + ' spent' + (pastBudget ? ' of ' + fmtCurrency0.format(pastBudget) : '') + '</span></summary><ul class="trip-list">' + past.map(function(t){ return tripCardHtml(t,today,lineName); }).join("") + '</ul></details>' : '') +
+    (trips.length ? lines.map(function(l){ return splitHtml(l,today,lineName); }).join("") : "");
+
 }
 
 export function renderTrips(){ return keepUi(drawTrips); }
 function drawTrips(){
   var el = typeof document !== "undefined" && document.getElementById("tripsBody");
   if(!el) return;
-  el.innerHTML = furnishingHtml() + tripsCardHtml();
+  el.innerHTML = tripsCardHtml();
 
 }

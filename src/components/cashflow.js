@@ -105,7 +105,7 @@ export function filterBarHtml(entries, lines, options){
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
       (ch.people.length ? selectHtml("person", "Person", ch.people, txFilters.person) : '') +
       // A trip filters by its dates, so one still being planned (no dates yet) isn't offered.
-      ((state.trips || []).concat(state.projects || []).length ? selectHtml("trip", "Project", (state.trips || []).concat(state.projects || []).map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
+      ((state.trips || []).concat(state.projects || []).length ? selectHtml("trip", "Event budget", (state.trips || []).concat(state.projects || []).map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
       inputHtml("min", "Amount from", "number", txFilters.min, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("from", "Date from", "date", txFilters.from) +

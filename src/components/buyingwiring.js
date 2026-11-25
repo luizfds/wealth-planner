@@ -48,9 +48,12 @@ function settleNow(p){
   var name = p.what || "The home";
   settleUi.open = null;
   requestCloseActiveOverlay();
-  undoable(name + " is settled — it's on Property now", ["purchases", "properties", "assets", "transactions", "shared", "home"], function(){
+  undoable(name + " is settled — it's on Property now", ["purchases", "properties", "assets", "transactions", "shared", "home", "projects", "trips"], function(){
     var prop = settlePurchase(state, fed, localDateStr(), genId);
     moveToProperty(state, p.id, prop.id, fed);
+    (state.projects || []).concat(state.trips || []).forEach(function(event){
+      if(event.purchaseId === p.id){ event.purchaseId = prop.id; event.propertyName = prop.what; }
+    });
     rents.forEach(function(r){ r.line.endDate = settleUi.rentDate[r.ref] || p.settlementDate || localDateStr(); });
   });
 }

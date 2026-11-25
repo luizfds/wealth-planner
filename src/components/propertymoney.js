@@ -1,3 +1,5 @@
+import { tripSpend } from "../calc/trips.js";
+import { projectSpent } from "../calc/projects.js";
 // ---------------- Property money on screen (November 2026) — calc/propertymoney.js ----------------
 //
 // A transaction's "What it's for" (Budget line · A property · One-off), the property chip a row wears, a purchase's
@@ -171,6 +173,15 @@ export function settlementSheetHtml(p, st, rentLines, figures){
 function propertyLooseOnes(st, p){ return propertySuggestions(st, p.settlementDate || new Date().toISOString().slice(0, 10), st.tidyOk || {}).filter(function(x){ return x.to.id === p.id; }); }
 
 // ---------------- A property's money (board P): its year, its lines, its transactions, what's claimable ----------------
+export function propertyEventsHtml(id, st){
+  var events = (st.projects || []).concat(st.trips || []).filter(function(e){ return e.purchaseId === id; });
+  if(!events.length) return "";
+  return '<section class="pmoney-sec"><h4>Event budgets</h4>' + events.map(function(e){
+    var spent = e.lineId ? tripSpend(e, st.transactions) : projectSpent(e, st.transactions);
+    return '<button type="button" class="btn" data-sv data-sv-trip="' + escapeAttr(e.id) + '">' + escapeAttr(e.name) +
+      ' · ' + fmtCurrency0.format(spent) + ' spent of ' + fmtCurrency0.format(e.budget) + ' ›</button>';
+  }).join("") + '</section>';
+}
 export function propertyMoneyHtml(p, st, today){
   st = st || state;
   today = today || localDateStr();
@@ -206,7 +217,7 @@ export function propertyMoneyHtml(p, st, today){
       return '<li><span class="pmoney-date">' + escapeAttr(shortDate(t.date)) + '</span><span><span>' + escapeAttr(t.what || "Transaction") + '</span><small>' + escapeAttr((o && o.what) || "") + (t.account ? ' · ' + escapeAttr(t.account) : '') + '</small></span><b>' + fmtCurrency0.format(Number(t.amount) || 0) + '</b></li>';
     }).join("") + '</ul><button type="button" class="link-btn" data-pmoney-tx="' + escapeAttr(p.id) + '">See them in Transactions →</button>'
       : '<p class="field-help">None linked this year. In Transactions, open one and pick What it\'s for → A property.</p>') + '</section>';
-  return '<div class="pmoney">' + hero + lines + txs + tax + '</div>';
+  return '<div class="pmoney">' + hero + propertyEventsHtml(p.id, st) + lines + txs + tax + '</div>';
 }
 function act_share(act){ return act ? act.share : 1; }
 function fyStart(today){ var y = Number(today.slice(0, 4)), m = Number(today.slice(5, 7)); return (m >= 7 ? y : y - 1) + "-07-01"; }

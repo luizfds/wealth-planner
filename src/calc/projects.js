@@ -7,6 +7,7 @@ export function projectRemaining(project, transactions){
   return Math.max(0, (Number(project.budget) || 0) - projectSpent(project, transactions));
 }
 export function fileProject(st, tx, id){
+  if(tx.trip && !id) tx.tripNo = tx.trip;
   delete tx.project;
   delete tx.trip;
   var trip = (st.trips || []).find(function(t){ return t.id === id; });

@@ -2446,3 +2446,8 @@
 .qlog-trip small{ flex-basis:100%; color: var(--warn-ink); }
 .qlog-trip .btn.is-on, .bank-import-trip .btn.is-on{ background: var(--warn-ink); border-color: var(--warn-ink); color: var(--paper); font-weight:600; }
 .bank-import-trip > span{ flex-basis:100%; font-weight:600; }
+
+.event-heading{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.event-picker{ display:grid; gap:4px; font-weight:600; }
+.event-tag{ display:inline-block; max-width:100%; overflow-wrap:anywhere; padding:2px 8px; border-radius:99px; background:var(--tab-money-wash); color:var(--tab-money-ink); font-size:var(--fs-xs); }
+.project-card{ margin-bottom:10px; }

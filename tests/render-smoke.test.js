@@ -1307,7 +1307,7 @@ test("Money → Trips: each trip with its budget, the line's year shared out, pu
     assert.match(html, /Mountains[\s\S]*Apr 2027 · dates to set[\s\S]*Planning/);
     assert.match(html, /<details class="trip-past">[\s\S]*Old trip/);
     assert.match(html, /Split across 3 trips: \$3,300/);
-    assert.match(html, /data-trip-save="new"/);
+    assert.match(html, /data-project-edit="new"/);
     assert.match(html, /class="btn btn-sm btn-danger" data-trip-del="t1">Remove<span class="visually-hidden"> Coast/);
     tripsUi.confirming = "t1";
     var open = tripsCardHtml("2027-03-11");
@@ -1315,7 +1315,7 @@ test("Money → Trips: each trip with its budget, the line's year shared out, pu
     assert.match(open, /data-trip-all="t1">All 1 are the trip/);
     assert.doesNotMatch(open, /NaN|undefined/);
     state.trips = [];
-    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripNewSummary"/);
+    assert.match(tripsCardHtml("2027-03-11"), /Add a budget for an event/);
   } finally { Object.assign(state, keep); tripsUi.confirming = ""; }
 });
 

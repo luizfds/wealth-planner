@@ -1,3 +1,5 @@
+import { eventBudget } from "../calc/projects.js";
+import { eventItemHint } from "./eventitems.js";
 import { keepUi } from "../lib/keepui.js";
 // ---------------- Cash flow, wired (v3.206.1, item 237) ----------------
 //
@@ -186,6 +188,13 @@ function rerenderQuickLogPreservingInput(apply){
   var newNote = document.getElementById("quickLogNote");
   if(newAmount) newAmount.value = amount;
   if(newNote) newNote.value = note;
+  updateQuickLogItemHint();
+}
+function updateQuickLogItemHint(){
+  var hint = document.getElementById("quickLogItemHint");
+  if(!hint) return;
+  var amount = Number(document.getElementById("quickLogAmount").value) || 0;
+  hint.textContent = eventItemHint(eventBudget(state, quickLog.projectId), quickLog.eventItemId, Math.abs(amount) * quickLog.sign);
 }
 // The trip question follows the sheet's date and line (expenses.js quickLogTripHtml).
 function patchQuickLogTrip(){
@@ -376,6 +385,7 @@ export function wireCashflowSheets(){
       var eventId = choice.dataset.eventChip || choice.dataset.eventAnswer || "";
       var lineId = choice.dataset.qlogChip || "";
       rerenderQuickLogPreservingInput(function(){
+        if(quickLog.projectId !== eventId) quickLog.eventItemId = "";
         quickLog.projectId = eventId;
         setQuickLogLink(lineId);
         renderQuickLogSheet();
@@ -434,6 +444,10 @@ export function wireCashflowSheets(){
   // being typed into, the same reason picking a chip patches in place.
   document.getElementById("quickLogRoot").addEventListener("change", function(e){
 
+    if(e.target.id === "quickLogItem"){
+      quickLog.eventItemId = e.target.value;
+      updateQuickLogItemHint();
+    }
     if(e.target.id === "quickLogDate"){
       quickLog.date = e.target.value;
       patchQuickLogTrip();
@@ -448,7 +462,7 @@ export function wireCashflowSheets(){
     // toggle carries the sign, which is the one rule this sheet has about the two of them.
     if(e.target.id !== "quickLogAmount") return;
     var typed = parseFloat(e.target.value);
-    if(!(typed < 0)) return;
+    if(!(typed < 0)){ updateQuickLogItemHint(); return; }
     e.target.value = String(Math.abs(typed));
     rerenderQuickLogPreservingInput(function(){ setQuickLogSign(-1); });
   });  // Enter anywhere in the sheet logs it — on a phone that's the keyboard's own "go" key, so the
@@ -457,7 +471,7 @@ export function wireCashflowSheets(){
   // a keyboard user can type three letters, press Enter and be on the right line without leaving
   // the field to hunt for the chip.
   document.getElementById("quickLogRoot").addEventListener("keydown", function(e){
-    if(e.key !== "Enter") return;
+    if(e.key !== "Enter" || e.target.id === "quickLogItem") return;
     e.preventDefault();
     if(e.target.id === "quickLogSearch"){
       var topMatch = document.querySelector(".qlog-chips [data-qlog-chip]");

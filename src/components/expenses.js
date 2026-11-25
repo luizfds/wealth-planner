@@ -921,7 +921,8 @@ export function quickLogTrip(dateStr){
   if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
   return trip;
 }
-import { fileProject, projectSpent } from "../calc/projects.js";
+import { fileProject, projectSpent, eventBudget, eventItem } from "../calc/projects.js";
+import { eventItemOptions } from "./eventitems.js";
 import { projectOptions } from "./furnishing.js";
 export function quickLogTripHtml(dateStr){
   if(!(state.trips || []).length && !(state.projects || []).length) return "";
@@ -1032,7 +1033,10 @@ export function submitQuickLog(amount, note, dateStr, category){
   var trip = quickLogTrip(t.date);
   var eventId = quickLog.projectId;
   if(trip && !eventId) answerTrip(t, trip, false);
-  if(eventId) fileProject(state, t, eventId);
+  if(eventId){
+    fileProject(state, t, eventId);
+    if(eventItem(eventBudget(state, eventId), quickLog.eventItemId)) t.eventItemId = quickLog.eventItemId;
+  }
   state.transactions.push(t);
   return t;
 }
@@ -1202,6 +1206,7 @@ export function renderQuickLogSheet(){
     return;
   }
   var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
+  var event = eventBudget(state, quickLog.projectId);
   root.innerHTML = '<div class="review-backdrop" data-qlog-backdrop>' +
     // The heading follows the toggle. It is the first thing read on the way back to the sheet and
     // the last thing read on the way out of it, and a sheet titled "Log spend" over a button that
@@ -1215,6 +1220,7 @@ export function renderQuickLogSheet(){
       quickLogSearchHtml() +
       quickLogChipsHtml() +
       '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
+      (event && event.items && event.items.length ? '<div class="qlog-item"><label>Item <span class="label-optional">(optional)</span><select id="quickLogItem" class="field-control">' + eventItemOptions(event, quickLog.eventItemId) + '</select></label><small id="quickLogItemHint" aria-live="polite"></small></div>' : '') +
       quickLogRefundChipsHtml(item) +
       '<input type="text" id="quickLogNote" class="qlog-note field-control" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
       quickLogMerchantChipsHtml(item) +
@@ -1504,6 +1510,7 @@ function transactionRowHtml(t, idx){
   var acctSelect = '<select class="tx-account field-control" data-tx-index="' + idx + '" aria-label="Account">' + transactionAccountOptionsHtml(t.account || "") + '</select>';
   var eventId = t.project || t.trip;
   var event = eventId && (state.projects || []).concat(state.trips || []).find(function(b){ return b.id === eventId; });
+  var plannedItem = eventItem(event, t.eventItemId);
   var propSub = propertySubHtml(t, state, propertyCacheFor());
   var summary = modernRowSummaryHtml({
     leadHtml: propSub ? '<span class="pm-icon' + (/is-ip/.test(propSub) ? ' is-ip' : '') + '" aria-hidden="true">⌂</span>' : categoryIconHtml(transactionCategory(t)),
@@ -1511,7 +1518,7 @@ function transactionRowHtml(t, idx){
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
     // November 2026: a property's money says which property and what for (calc/propertymoney.js).
-    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t), event ? '<span class="event-tag"><span class="visually-hidden">Event budget: </span>' + iconSvg("calendar",14) + ' ' + escapeAttr(event.name) + '</span>' : ""],
+    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t), event ? '<span class="event-tag"><span class="visually-hidden">Event budget: </span>' + iconSvg("calendar",14) + ' ' + escapeAttr(event.name) + (plannedItem ? ' · ' + escapeAttr(plannedItem.name) : '') + '</span>' : ""],
     // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub || event ? '' : '<small class="cf-tag">one-off</small>')
   });
@@ -1524,6 +1531,7 @@ function transactionRowHtml(t, idx){
     // November 2026: What it's for — a budget line, a property (and which of its costs or lines), or a one-off.
     txForHtml(t, idx, linkSelect, state) +
     '<label class="m-edit-field">Event budget<select class="tx-project field-control" data-tx-index="' + idx + '">' + projectOptions(t.project || t.trip) + '</select></label>' +
+    '<label class="m-edit-field tx-item-field"' + (event && event.items && event.items.length ? "" : " hidden") + '>Item (optional)<select class="tx-event-item field-control" data-tx-index="' + idx + '">' + eventItemOptions(event, t.eventItemId) + '</select></label>' +
     '<div class="m-edit-field span3"><label>Description <span class="label-optional">(optional)</span></label>' + whatInput + '</div>' +
     '<div class="m-edit-field"><label>Amount</label>' + amountInput + '</div>' +
     '<div class="m-edit-field"><label>Date</label>' + dateInput + '</div>' +

@@ -1,3 +1,4 @@
+import { eventItemsHtml } from "./eventitems.js";
 import { state, commit, genId } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
@@ -65,7 +66,7 @@ export function furnishingHtml(){
     var spent = projectSpent(p,state.transactions);
     return '<article class="trip-row project-card"><h2 class="section-title">' + escapeAttr(p.name) + '</h2><p>' + 'Paid from savings' +
       (p.propertyName ? ' · ' + escapeAttr(p.propertyName) : '') + '</p><div class="trip-figures"><b class="trip-spent">' + money(spent) + '</b><span>of ' + money(p.budget) + '</span></div>' + projectBudgetBarHtml(spent,p.budget) +
-      '<p>Remaining ' + money(projectRemaining(p,state.transactions)) + '</p>' + (decision(p) ? '<details><summary>Can I buy this now?</summary><p>' + decision(p) + '</p></details>' : '') + '<div class="trip-actions"><button class="btn" data-book-trip="' + escapeAttr(p.id) + '">Log purchase</button> <button class="btn" data-sv data-sv-trip="' + escapeAttr(p.id) + '">Its transactions</button> <button class="btn" data-project-edit="' + escapeAttr(p.id) + '">Edit budget</button></div></article>';
+      '<p>Remaining ' + money(projectRemaining(p,state.transactions)) + '</p>' + (decision(p) ? '<details><summary>Can I buy this now?</summary><p>' + decision(p) + '</p></details>' : '') + eventItemsHtml(p) + '<div class="trip-actions"><button class="btn" data-book-trip="' + escapeAttr(p.id) + '">Log purchase</button> <button class="btn" data-sv data-sv-trip="' + escapeAttr(p.id) + '">Its transactions</button> <button class="btn" data-project-edit="' + escapeAttr(p.id) + '">Edit budget</button></div></article>';
   }).join("");
   return '<div class="event-heading"><h2 class="section-title">Event budgets</h2>' + (editing === "new" ? '' : '<button class="btn" data-project-edit="new">+ Add budget</button>') + '</div>' + (editing === "new" ? editor({}) : '') + cards;
 }

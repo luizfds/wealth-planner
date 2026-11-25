@@ -2452,3 +2452,15 @@
 .event-tag{ display:inline-block; max-width:100%; overflow-wrap:anywhere; padding:2px 8px; border-radius:99px; background:var(--tab-money-wash); color:var(--tab-money-ink); font-size:var(--fs-xs); }
 .project-card{ margin-bottom:10px; }
 .event-tag svg, [data-event-chip] svg, [data-cf-chip-clear="trip"] svg{ vertical-align:-2px; }
+
+.event-items{ border-block:1px solid var(--border); }
+.event-items summary{ padding:10px 0; font-weight:600; cursor:pointer; }
+.event-items summary small{ margin-inline-start:4px; color:var(--ink-soft); }
+.event-items ul{ margin:0; padding:0; list-style:none; }
+.event-items li{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; border-bottom:1px solid var(--border); }
+.event-items li small{ display:block; color:var(--ink-soft); }
+.event-items p{ margin:8px 0; color:var(--ink-soft); font-size:var(--fs-sm); }
+.event-items > button{ margin-bottom:8px; }
+.event-items form label{ display:grid; gap:4px; }
+.qlog-item{ display:grid; gap:4px; }
+.qlog-item small:empty{ display:none; }

@@ -1,3 +1,4 @@
+import { eventItemsHtml } from "./eventitems.js";
 import { furnishingHtml, eventEditorHtml, projectBudgetBarHtml } from "./furnishing.js";
 import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
@@ -85,7 +86,7 @@ function tripCardHtml(t, today, lineName){
     figure + (t.from ? '<p>Before event · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date < t.from; }))) + ' · During event · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date >= t.from && tx.date <= (t.to || t.from); }))) + '</p>' : '') +
     (pending.length ? '<button type="button" class="btn btn-sm trip-confirm-btn" data-trip-confirm="' + escapeAttr(t.id) + '" aria-expanded="' + open + '">' + pending.length + ' purchase' + (pending.length === 1 ? '' : 's') + ' on these days to confirm</button>' : '') +
     (open ? confirmListHtml(t, pending, lineName) : '') +
-    eventEditorHtml(t) +
+    eventItemsHtml(t) + eventEditorHtml(t) +
     '<div class="trip-actions">' +
       '<button type="button" class="btn btn-sm" data-book-trip="' + escapeAttr(t.id) + '">Log purchase</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-project-edit="' + escapeAttr(t.id) + '">Edit<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +

@@ -1,3 +1,4 @@
+import { wireEventItems } from "./eventitems.js";
 import { wireFurnishing } from "./furnishing.js";
 // ---------------- Money → Trips: its listeners (November 2026) ----------------
 //
@@ -12,6 +13,7 @@ import { showToast } from "../lib/toast.js";
 export function wireTrips(){
   var body = document.getElementById("tripsBody");
   wireFurnishing(body, renderTrips);
+  wireEventItems(body);
   body.addEventListener("click", function(e){
     var conf = e.target.closest("[data-trip-confirm]");
     if(conf){

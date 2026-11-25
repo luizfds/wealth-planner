@@ -69,6 +69,7 @@ export function normaliseTrip(t, idFactory){
   var budget = Math.max(0, Math.round((Number(t.budget) || 0) * 100) / 100);
   var month = !from && /^\d{4}-\d{2}$/.test(String(t.month || "")) ? String(t.month) : "";
   var out = { id: t.id || (idFactory ? idFactory() : "trip" + Date.now().toString(36)), name: String(t.name || "Trip").trim() || "Trip", from: from, to: from ? to : "", lineId: t.lineId || "", budget: budget };
+  if(Array.isArray(t.items)) out.items = t.items;
   if(t.purchaseId) out.purchaseId = t.purchaseId;
   if(month) out.month = month;
   return out;
@@ -159,7 +160,7 @@ export function removeTrip(st, id){
   var before = (st.trips || []).length;
   st.trips = (st.trips || []).filter(function(t){ return t && t.id !== id; });
   (st.transactions || []).forEach(function(t){
-    if(t && t.trip === id) delete t.trip;
+    if(t && t.trip === id){ delete t.trip; delete t.eventItemId; }
     if(t && t.tripNo === id) delete t.tripNo;
   });
   return st.trips.length < before;

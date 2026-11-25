@@ -8535,7 +8535,8 @@ const JOURNEYS = {
     await go(page, "expenses", "data-expenses-sub", "spending");
     await page.locator("#quickLogBtn").click();
     await page.locator("#quickLogAmount").fill("42.50");
-    check(await page.locator("#quickLogProject").inputValue() === trip.id, "Log spend did not suggest the dated event");
+    await page.locator('[data-event-answer="'+trip.id+'"]').click();
+    check(await page.locator('[data-event-chip="'+trip.id+'"]').getAttribute("aria-pressed") === "true", "Confirming the event did not select its chip");
     await page.locator("[data-qlog-submit]").click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 42.5) < 0.001));
     const yes = await stored(page, 'state.transactions.find(t => Math.abs(t.amount - 42.5) < 0.001)');
@@ -8543,7 +8544,7 @@ const JOURNEYS = {
     // And No: the line as picked, the answer remembered.
     await page.locator("#quickLogBtn").click();
     await page.locator("#quickLogAmount").fill("13.20");
-    await page.locator("#quickLogProject").selectOption("");
+    await page.locator('[data-event-answer=""]').click();
     check(await page.locator("#quickLogAmount").inputValue() === "13.20", "answering the trip question lost the amount");
     await page.locator("[data-qlog-submit]").click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 13.2) < 0.001));

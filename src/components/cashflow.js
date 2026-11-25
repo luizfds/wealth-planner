@@ -1,3 +1,4 @@
+import { iconSvg } from "../lib/caticons.js";
 import { stackBarHtml } from "../lib/bars.js";
 import { budgetPlanData } from "../calc/budgetplan.js";
 import { state } from "../state.js";
@@ -85,7 +86,7 @@ export function filterBarHtml(entries, lines, options){
   var on = FILTER_KEYS.filter(function(k){ return txFilters[k[0]]; });
   var chips = on.length ? on.map(function(k){
     var d = describeFilter(k[0], txFilters[k[0]], { lineName: labelOf, tripName: tripName, date: fmtDate });
-    return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + d.text) + '">' + escapeAttr(d.label + d.sep) + '<b>' + escapeAttr(d.value) + '</b> <span aria-hidden="true">✕</span></button>';
+    return '<button type="button" class="cf-chip" data-cf-chip-clear="' + k[0] + '" aria-label="' + escapeAttr("Remove filter " + d.text) + '">' + (k[0] === "trip" ? iconSvg("calendar",15) + " " : escapeAttr(d.label + d.sep)) + '<b>' + escapeAttr(d.value) + '</b> <span aria-hidden="true">✕</span></button>';
   }).join("") : '';
   if(opts.scopeActive) chips += '<button type="button" class="cf-chip" data-tx-range="month">' + escapeAttr(opts.scopeLabel) + ' ✕</button>';
   if(chips) chips = '<div class="cf-chips">' + chips + '</div>';

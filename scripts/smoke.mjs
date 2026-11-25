@@ -59,6 +59,7 @@ const VIEWS = [
 ];
 // #267: the regions meant to scroll sideways, and why. Anything else that does is a failure.
 const LOCAL_SCROLL = [
+  "#expensesSubnav",                        // Money sections stay in a single swipeable row on phones.
   ".range-strip",                          // Shares' change window: every period stays a 44px button (the owner's Shares choice, #259)
   ".md-strip",                             // Reports → Month: twelve 44px months, so neighbours can't take each other's taps (#255)
   ".rp-scroll",                            // a report's full table: rows and columns both matter (#258's optional Full table)

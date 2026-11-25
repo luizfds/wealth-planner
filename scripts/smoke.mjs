@@ -159,8 +159,8 @@ for (const [scheme, width] of PASSES) {
         // exempt (WCAG 2.5.8), and so is anything inside a closed row's editor (not on screen).
         const small = [];
         // #259: document overflow alone misses sideways navigation inside a rail.
-        // Financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
-        const navigationOverflow = [...pageEl.querySelectorAll('.subnav, .time-range-control:not(.range-strip)')]
+        //  Money tabs, financial range strips and Investments' pills (#422) deliberately scroll on narrow screens (the owner's choices).
+        const navigationOverflow = [...pageEl.querySelectorAll('.subnav:not(#expensesSubnav), .time-range-control:not(.range-strip)')]
           .filter(el => el.getClientRects().length && el.scrollWidth > el.clientWidth + 1)
           .map(el => el.getAttribute('aria-label') || el.id);
         if(w < 880){

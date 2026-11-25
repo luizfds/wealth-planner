@@ -110,7 +110,7 @@ for(const width of widths)for(const scheme of schemes){
    await fundingHelp.click();
   }
   if(pg==='plan' && sub==='scenarios' && width<768){
-   await page.locator("#scenarioComparisonFold > summary").click();
+   if(!await page.locator("#scenarioComparisonFold").evaluate(d=>d.open)) await page.locator("#scenarioComparisonFold > summary").click();
    await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
    await scan('purchase-funding/details', '#netWorthPanel');
@@ -126,7 +126,7 @@ for(const width of widths)for(const scheme of schemes){
    await page.locator('[data-proj-reading-full-toggle]').uncheck();
   }
   if(pg==='plan' && sub==='scenarios' && width<768){
-   await page.locator("#scenarioComparisonFold > summary").click();
+   if(!await page.locator("#scenarioComparisonFold").evaluate(d=>d.open)) await page.locator("#scenarioComparisonFold > summary").click();
    await page.locator('.cmp-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    await scan('scenario-comparison/details');
    const choices=await page.locator('[data-cmp-scenario] option').evaluateAll(os=>os.map(o=>o.value));

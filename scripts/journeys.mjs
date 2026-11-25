@@ -2515,7 +2515,7 @@ const JOURNEYS = {
       s.state.yearBasis = 'financial';
       s.state.transactions = [
         {id:'example-current',what:'Example current month',date:'2026-11-01',amount:100,category:'Groceries'},
-        {id:'example-prior',what:'Example prior month',date:'2026-10-06',amount:200,category:'Groceries'},
+        {id:'example-prior',what:'Example prior month',date:'2026-10-02',trip:'example-trip',amount:200,category:'Groceries'},
         {id:'example-old',what:'Example prior year',date:'2025-11-01',amount:300,category:'Groceries'}
       ];
       s.state.trips = [{id:'example-trip',name:'Example trip',from:'2026-10-05',to:'2026-10-10'}];
@@ -2551,11 +2551,11 @@ const JOURNEYS = {
     await tx.locator('[data-cf-filter="to"]').fill('2026-11-01');
     check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 300,'dated filter does not state its actual window');
     await tx.locator('[data-cf-filter="trip"]').selectOption('example-trip');
-    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'trip intersection does not state its effective dates');
+    check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 200,'dated trip filter missed an advance booking or misstated the selected dates');
     await page.keyboard.press('Escape');
     check(await heading.isVisible() && !await tx.locator('#cfFilterRow').isVisible(),'dates disappear with Filters closed');
     await headerYear(2026);
-    check(await heading.textContent() === '5 Oct 2026 – 10 Oct 2026' && await amount() === 200,'global period changed a dated trip filter');
+    check(await heading.textContent() === '1 Oct 2026 – 1 Nov 2026' && await amount() === 200,'global period changed a dated trip filter');
     await openFilters(); await tx.locator('[data-cf-clear]').click();
     await page.locator('#periodBtn').click(); await page.locator('[data-period-basis="calendar"]').click(); await page.keyboard.press('Escape');
     await openFilters(); await tx.locator('[data-tx-range="year"]').click();
@@ -6838,6 +6838,7 @@ const JOURNEYS = {
     await page.keyboard.press('Escape');
     await go(page,'plan','data-plan-sub','scenarios');
     check(await page.locator('.card-funding').count() > 0, 'unfunded scenario cards lack funding status');
+    if(!await page.locator('#scenarioComparisonFold').evaluate(d=>d.open)) await page.locator('#scenarioComparisonFold > summary').click();
     await page.locator('.cmp-scenario:not([hidden]) .cmp-summary-details > summary').click();
     const longterm=page.locator('.cmp-scenario:not([hidden]) .cmp-longterm');
     check(!await longterm.evaluate(e=>e.open), 'long-term detail is not collapsed');

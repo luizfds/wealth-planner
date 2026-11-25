@@ -190,8 +190,7 @@ function patchQuickLogTrip(){
   if(!box) return;
   var dateEl = document.getElementById("quickLogDate");
   box.innerHTML = quickLogTripHtml(dateEl && dateEl.value ? dateEl.value : undefined);
-  var lines = document.querySelector("[data-qlog-lines]");
-  if(lines) lines.hidden = !!box.querySelector("select")?.value;
+
 }
 function performQuickLog(){
   var amountEl = document.getElementById("quickLogAmount");
@@ -369,6 +368,13 @@ export function wireCashflowSheets(){
     if(e.target.closest("[data-tx-add-full]")){ requestCloseActiveOverlay(); return; }
     // On a trip's days: part of the trip? (November 2026) — patched in place, so what's typed stays.
 
+    var answer = e.target.closest("[data-event-answer]");
+    if(answer){
+      quickLog.projectId = answer.dataset.eventAnswer;
+      patchQuickLogTrip();
+      document.querySelector('#quickLogTrip [aria-pressed="true"]')?.focus();
+      return;
+    }
     var chip = e.target.closest("[data-qlog-chip]");
     if(chip){
       // Patched in place rather than re-rendered: the whole point of picking the line after

@@ -12,7 +12,7 @@ import { autoPaysForMonth, autoPayLineIds } from "../calc/autopay.js";
 import { renameAccount } from "../calc/accountlinks.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
-import { tripOn, tripTakes, answerTrip } from "../calc/trips.js";
+import { tripOn, tripTakes, tripLeft, tripSpend, answerTrip } from "../calc/trips.js";
 import { tripProtectedLineIds } from "./trips.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
@@ -921,7 +921,7 @@ export function quickLogTrip(dateStr){
   if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
   return trip;
 }
-import { fileProject } from "../calc/projects.js";
+import { fileProject, projectSpent } from "../calc/projects.js";
 import { projectOptions } from "./furnishing.js";
 export function quickLogTripHtml(dateStr){
   if(!(state.trips || []).length && !(state.projects || []).length) return "";
@@ -929,8 +929,21 @@ export function quickLogTripHtml(dateStr){
   var id = quickLog.projectId == null ? suggested && suggested.id : quickLog.projectId;
   var lineEvent = (state.trips || []).find(function(t){ return t.id === id; });
   var line = lineEvent && budgetLineItems().find(function(l){ return l.id === lineEvent.lineId; });
+  var event = lineEvent || (state.projects || []).find(function(p){ return p.id === id; });
+  var hint = "";
+  if(event){
+    var spent = lineEvent ? tripSpend(event,state.transactions) : projectSpent(event,state.transactions);
+    var left = tripLeft(event, spent, dateStr || localDateStr());
+    hint = (line ? 'Files to ' + escapeAttr(line.what) : 'Paid from savings') +
+      (left.budget > 0 ? ' · ' + fmtCurrency0.format(Math.abs(left.left)) + (left.over ? ' over' : ' left of ' + fmtCurrency0.format(left.budget)) : '') +
+      (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' days' : '');
+  }
+  var ask = suggested && (!id || id === suggested.id);
   return '<label class="event-picker">Event budget<select id="quickLogProject" class="field-control">' + projectOptions(id) + '</select></label>' +
-    (id ? '<small>' + (line ? 'Paid from ' + escapeAttr(line.what) : 'Paid from savings') + '</small>' : '');
+    (ask ? '<div class="qlog-trip"><b>Part of ' + escapeAttr(suggested.name) + '?</b><div class="qlog-trip-acts">' +
+      [true,false].map(function(yes){ var on = yes === !!id; return '<button type="button" class="btn btn-sm' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" data-event-answer="' + (yes ? escapeAttr(suggested.id) : '') + '">' + (yes ? 'Yes, this event' : 'No, everyday') + '</button>'; }).join("") +
+      '</div><small>' + (hint || 'Stays on the line you pick') + '</small></div>' : hint ? '<small>' + hint + '</small>' : '');
+
 }
 export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
@@ -1180,16 +1193,16 @@ export function renderQuickLogSheet(){
       '<div class="review-head"><h4>' + (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</h4>' +
       '<button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
       quickLogAmountRowHtml() +
-      '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
-      '<div data-qlog-lines' + (quickLog.projectId || (quickLog.projectId == null && quickLogTrip()) ? ' hidden' : '') + '><div class="qlog-section-label">What was it for?</div>' +
+      '<div class="qlog-section-label">What was it for?</div>' +
       quickLogSearchHtml() +
       quickLogChipsHtml() +
-      '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p></div>' +
+      '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
       quickLogRefundChipsHtml(item) +
       '<input type="text" id="quickLogNote" class="qlog-note field-control" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
+      '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
       // The follow-up review: the page had a second button for this beside + Log spend; it's the sheet's way further.

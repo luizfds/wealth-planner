@@ -8,7 +8,7 @@
 // the new one included. It says the lowest balance and when, what of today's cash is set aside for settlement (not
 // emergency money), and which months fall under the emergency reserve — and only says there's a shortfall when the
 // balance actually goes below nothing. What it assumes and what's missing are listed, never filled in as $0.
-import { projectRemaining } from "./projects.js";
+import { eventItem, itemSpending, projectRemaining } from "./projects.js";
 import { purchaseFigures } from "./purchase.js";
 import { calcRepaymentMonthly } from "./property.js";
 
@@ -17,6 +17,41 @@ function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
 function r2(n){ return Math.round(n * 100) / 100; }
 function ym(iso){ var m = /^(\d{4})-(\d{2})/.exec(String(iso || "")); return m ? { year: +m[1], month: +m[2] } : null; }
 function idx(start, at){ return (at.year - start.year) * 12 + (at.month - start.month); }
+
+// Starting cash already reflects recorded payments through today. A future-dated payment uses its
+// recorded month and reduces the corresponding planned balance, just like an earlier payment.
+function projectCashEntries(project, transactions, today, start, missing){
+  var linked = transactions.filter(function(tx){ return tx.project === project.id; });
+  var spentByItem = itemSpending(project, linked);
+  var entries = [];
+  var scheduled = 0;
+  (project.items || []).forEach(function(item){
+    if(!item.paymentDate) return;
+    var at = ym(item.paymentDate);
+    if(!at || at.month < 1 || at.month > 12) return;
+    var amount = r2(Math.max(0, Number(item.budget) - (spentByItem.get(item.id) || 0) / 100));
+    if(!amount) return;
+    scheduled += amount;
+    entries.push({ index: Math.max(0, idx(start, at)), what: project.name + " · " + item.name, amount: -amount });
+  });
+  linked.forEach(function(tx){
+    var item = eventItem(project, tx.eventItemId);
+    if(!today || tx.date <= today || !item) return;
+    var at = ym(tx.date), amount = r2(num(tx.amount));
+    if(at && amount) entries.push({ index: idx(start, at), what: project.name + " · " + item.name + " (recorded)", amount: -amount });
+  });
+  var rest = r2(Math.max(0, projectRemaining(project, linked) - scheduled));
+  var fallback = ym(project.month);
+  if(rest && fallback && fallback.month >= 1 && fallback.month <= 12){
+    var monthIndex = idx(start, fallback);
+    // Preserve past event months for old budgets. In an item schedule, an overdue default
+    // belongs alongside other remaining payments in the first forecast month.
+    if(monthIndex >= 0 || scheduled) entries.push({ index: Math.max(0, monthIndex), what: project.name + (scheduled ? " · remaining budget" : ""), amount: -rest });
+  } else if(rest && (project.items || []).some(function(item){ return item.paymentDate; })){
+    missing.push(project.name + " has remaining spending with no forecast month.");
+  }
+  return entries;
+}
 
 // o: { months: [{ year, month, net, items }] (monthlyCashFlowForecast), startCash (null when there's no balance to start
 // from), purchases, loans: [{ balance, rate }] (today's loans), stressPct (0, 1, 2), reserveTarget, today }
@@ -49,6 +84,14 @@ export function liquidityForecast(o){
     assumptions.push(name + ": anything that stops at settlement (rent you pay now, say) carries on unless its budget line has an end date.");
   });
 
+  var projectEntries = new Map();
+  (o.projects || []).forEach(function(project){
+    projectCashEntries(project, o.transactions || [], today, start, missing).forEach(function(entry){
+      if(!projectEntries.has(entry.index)) projectEntries.set(entry.index, []);
+      projectEntries.get(entry.index).push(entry);
+    });
+  });
+
   var bal = known ? num(o.startCash) : 0, out = [], lowest = { balance: bal, index: -1 };
   months.forEach(function(m, i){
     var flow = num(m.net) - loanStress, lines = [];
@@ -56,14 +99,13 @@ export function liquidityForecast(o){
       if(e.index === i){ flow -= e.cashToBring; lines.push({ what: e.what + " settles — cash to bring", amount: -e.cashToBring }); }
       if(i > e.index && e.repayment > 0){ flow -= e.repayment; if(i === e.index + 1) lines.push({ what: e.what + " — loan repayments begin", amount: -e.repayment }); }
     });
-    (o.projects || []).forEach(function(p){
-      var at = ym(p.month);
-      if(!at || at.year !== m.year || at.month !== m.month) return;
-      var remaining = projectRemaining(p, o.transactions);
-      if(remaining){ flow -= remaining; lines.push({ what:p.name, amount:-remaining }); }
+    var payments = projectEntries.get(i) || [];
+    payments.forEach(function(entry){
+      flow += entry.amount;
+      lines.push({ what: entry.what, amount: entry.amount });
     });
     bal = r2(bal + flow);
-    out.push({ year: m.year, month: m.month, net: r2(flow), balance: bal, items: (m.items || []).concat(lines) });
+    out.push({ year: m.year, month: m.month, net: r2(flow), balance: bal, items: (m.items || []).concat(lines), payments: payments });
     if(bal < lowest.balance) lowest = { balance: bal, index: i };
   });
 

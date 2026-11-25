@@ -889,9 +889,21 @@ export function quickLogChipOrder(){
     })
     .map(function(x){ return x.item; });
 }
-export function openQuickLog(projectId){
+export function openQuickLog(projectId, itemId){
   quickLog = { projectId: typeof projectId === "string" ? projectId : null, linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
+  var event = eventBudget(state, quickLog.projectId);
+  var item = eventItem(event, itemId);
+  if(item) quickLog.eventItemId = item.id;
   renderQuickLogSheet();
+  if(item){
+    var amount = Math.round(item.budget * 100) - (itemSpending(event, state.transactions).get(item.id) || 0);
+    var input = document.getElementById("quickLogAmount");
+    if(input && amount > 0){
+      input.value = String(amount / 100);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.select();
+    }
+  }
 }
 export function closeQuickLog(){
   quickLog = null;
@@ -921,7 +933,7 @@ export function quickLogTrip(dateStr){
   if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
   return trip;
 }
-import { fileProject, projectSpent, eventBudget, eventItem } from "../calc/projects.js";
+import { fileProject, projectSpent, eventBudget, eventItem, itemSpending } from "../calc/projects.js";
 import { eventItemOptions } from "./eventitems.js";
 import { projectOptions } from "./furnishing.js";
 export function quickLogTripHtml(dateStr){

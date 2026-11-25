@@ -59,3 +59,35 @@ test("what's missing is said, never filled in: no settlement date, no rate, cost
   assert.match(f.assumptions.join(" | "), /Later settles after these 12 months/);
   assert.equal(f.events.length, 1);
 });
+
+test("event payments use their own months and leave the remainder in the default month", function(){
+  const project = { id: "home", name: "Furnishing", budget: 12000, month: "2027-01", items: [
+    { id: "sofa", name: "Sofa", budget: 3000, paymentDate: "2026-12-22" },
+    { id: "bed", name: "Bed", budget: 2500, paymentDate: "2027-01-12" },
+    { id: "fridge", name: "Fridge", budget: 1500 }
+  ] };
+  const deposit = { project: "home", eventItemId: "sofa", amount: 2350, date: "2026-11-12" };
+  const options = { months: months(0, 4), startCash: 35000, today: "2026-11-25", projects: [project] };
+  const forecast = tx => liquidityForecast({ ...options, transactions: tx }).months;
+  const base = forecast([deposit]);
+  assert.deepEqual(base.map(m => m.net), [0, -650, -9000, 0]);
+  assert.deepEqual(base[2].items, [
+    { what: "Furnishing · Bed", amount: -2500 },
+    { what: "Furnishing · remaining budget", amount: -6500 }
+  ]);
+  const payment = { project: "home", eventItemId: "sofa", amount: 400, date: "2026-11-24" };
+  assert.deepEqual(forecast([deposit, payment]).map(m => m.net), [0, -250, -9000, 0]);
+  payment.date = "2026-11-26";
+  const future = forecast([deposit, payment]);
+  assert.deepEqual(future.map(m => m.net), [-400, -250, -9000, 0]);
+  assert.equal(future[0].items[0].what, "Furnishing · Sofa (recorded)");
+});
+
+test("overdue event payments start this month and later payments don't fall into the fallback month", function(){
+  const project = { id: "event", name: "Event", budget: 1000, month: "2026-12", items: [
+    { id: "late", name: "Overdue", budget: 300, paymentDate: "2026-10-10" },
+    { id: "later", name: "Later", budget: 500, paymentDate: "2028-01-10" }
+  ] };
+  const f = liquidityForecast({ months: months(0, 3), projects: [project] });
+  assert.deepEqual(f.months.map(m => m.net), [-300, -200, 0]);
+});

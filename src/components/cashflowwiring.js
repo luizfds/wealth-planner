@@ -169,8 +169,8 @@ function performReviewConfirm(){
 // The everyday "I just spent money" path — the Expenses page's primary action and what the
 // mobile quick-action fab points at there. Deliberately a thin controller: expenses.js owns the
 // sheet's markup and session state, this owns the DOM events and the cross-cutting refresh.
-function openQuickLogSheet(projectId){
-  openQuickLog(projectId);
+function openQuickLogSheet(projectId, itemId){
+  openQuickLog(projectId, itemId);
   if(document.querySelector("[data-qlog-backdrop]")) pushActiveOverlay(closeQuickLog);
 }
 // Chip changes and expanding the date row re-render the sheet, which would otherwise discard
@@ -369,7 +369,7 @@ export function wireCashflowSheets(){
     if(btn) btn.textContent = "Confirm " + document.querySelectorAll("#expenseReviewRoot .bc-confirm-check:checked").length;
   });
   quickLogBtn = document.getElementById("quickLogBtn");
-  document.addEventListener("click", function(e){ var book = e.target.closest("[data-book-trip]"); if(book) openQuickLogSheet(book.dataset.bookTrip); });
+  document.addEventListener("click", function(e){ var book = e.target.closest("[data-book-trip]"); if(book) openQuickLogSheet(book.dataset.bookTrip, book.dataset.bookItem); });
   if(quickLogBtn) quickLogBtn.addEventListener("click", openQuickLogSheet);
   document.getElementById("quickLogRoot").addEventListener("click", function(e){
     if(e.target.closest("[data-qlog-close]") || e.target === e.target.closest("[data-qlog-backdrop]")){

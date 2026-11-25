@@ -32,7 +32,7 @@ function editor(p){
     '</div><details><summary>Dates and property</summary><div class="trip-form-grid">' +
     field("from","Starts",p.from,"date","") + field("to","Ends",p.to,"date","") +
     '<label class="field-label">Linked property<select class="field-control" name="purchaseId"><option value="">None</option>' + options(links, p.purchaseId) + '</select></label>' +
-    field("month","Forecast month",p.month,"month","") + '</div></details><details data-savings-only' + (p.lineId ? " hidden" : "") + '><summary>Spending and purchase estimate</summary><div class="trip-form-grid">' +
+    field("month","Forecast month for the rest",p.month,"month","") + '</div></details><details data-savings-only' + (p.lineId ? " hidden" : "") + '><summary>Spending and purchase estimate</summary><div class="trip-form-grid">' +
     field("spent","Already spent outside linked transactions ($)",p.spent,"number",'min="0" step="0.01"') +
     field("cash","Expected cash after settlement before this purchase ($)",p.cash,"number",'step="0.01"') +
     field("buffer","Cash buffer to keep ($)",p.buffer,"number",'min="0" step="0.01"') +

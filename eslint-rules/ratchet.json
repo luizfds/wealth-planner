@@ -116,8 +116,8 @@
   "stateWrites": 6
  },
  "src/components/spendingwiring.js": {
-  "persist": 13,
-  "stateWrites": 7
+  "persist": 11,
+  "stateWrites": 5
  },
  "src/components/taxwiring.js": {
   "persist": 12,

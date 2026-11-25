@@ -6070,3 +6070,14 @@ questions (name, address, who makes it, numbers, feedback, tone) first.
 - `[ ]` The errorsummarybounds journey's "context destroyed" — find the cause if it recurs after its one re-run.
 - `[ ]` #299, a screen reader on a real device (the owner's checklist).
 - `[ ]` The first five minutes as a timed journey: landing → setup → a first import.
+
+## Trips planned, each with its own budget (November 2026)
+
+`[x]` Asked for by the owner, mocked up (canvas boards Trips, Trips-ask) and agreed: a Trips tab in Money, one total
+per trip, Yes pre-selected. Trips were a fold under Transactions that filed a trip's spending to its line unasked.
+- **Money › Trips:** the line a trip is paid from (Holidays) shared between its trips this year, and what's not given
+  to one yet; each trip's budget, spent, what's left a day while away; trips can be planned with a month before dates.
+- **Asked on a trip's days:** Log spend ("Part of …? Yes, the trip / No, everyday"); an import's groups (Yes set, No
+  puts back where it would have gone); what's already logged, one by one or all at once — replacing "Move N here" —
+  and a To do on Today. The answer lives on the purchase (`trip`, `tripNo`), so nothing is asked twice.
+- Migration step 38: a trip's budget and month; older spending on a trip's line in its dates counts as answered yes.

@@ -546,7 +546,8 @@ export var MIGRATION_STEPS = [
     delete s.receiptFiles;
     // v3.171.0: who changed what (calc/activity.js).
     if(!Array.isArray(s.activity)) s.activity = [];
-    s.trips = s.trips.filter(function(t){ return t && t.from; });
+    // November 2026: a trip being planned may have no dates yet — kept while it has a name.
+    s.trips = s.trips.filter(function(t){ return t && typeof t === "object" && (t.from || t.name); });
     if(!s.priceSheet || typeof s.priceSheet !== "object") s.priceSheet = {};
     ["url", "lastRead", "backfillFrom"].forEach(function(k){ if(typeof s.priceSheet[k] !== "string") s.priceSheet[k] = ""; });
     if(s.priceSheet.lastResult === undefined) s.priceSheet.lastResult = null;
@@ -927,6 +928,25 @@ export var MIGRATION_STEPS = [
       if(!str(t.forWhat)) delete t.forWhat;
     });
     (Array.isArray(s.shared) ? s.shared : []).forEach(function(l){ if(l && typeof l === "object" && "propertyId" in l && !str(l.propertyId)) delete l.propertyId; });
+  } },
+  { n: 38, name: "a trip's budget and planned month; a purchase answered as a trip's, or not", run: function(s){
+    var trips = (Array.isArray(s.trips) ? s.trips : []).filter(function(t){ return t && typeof t === "object"; });
+    trips.forEach(function(t){
+      var b = Number(t.budget);
+      t.budget = isFinite(b) && b > 0 ? Math.round(b * 100) / 100 : 0;
+      if(t.from || !/^\d{4}-\d{2}$/.test(String(t.month || ""))) delete t.month;
+    });
+    var ids = {};
+    trips.forEach(function(t){ if(t.id) ids[t.id] = t; });
+    (Array.isArray(s.transactions) ? s.transactions : []).forEach(function(tx){
+      if(!tx || typeof tx !== "object") return;
+      if("trip" in tx && !(typeof tx.trip === "string" && ids[tx.trip])) delete tx.trip;
+      if("tripNo" in tx && !(typeof tx.tripNo === "string" && ids[tx.tripNo])) delete tx.tripNo;
+      // Spending filed to a trip's line inside its dates before trips were asked about counts as answered "yes".
+      if(tx.trip || tx.tripNo) return;
+      var hit = trips.find(function(t){ return t.id && t.from && t.lineId && tx.linkedExpenseId === t.lineId && tx.date >= t.from && tx.date <= (t.to || t.from); });
+      if(hit) tx.trip = hit.id;
+    });
   } }
 ];
 

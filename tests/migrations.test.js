@@ -365,3 +365,15 @@ test("step 37: a transaction's property, cost and cost name, and a line's proper
   assert.ok(!("propertyId" in s.shared[1]));
   assert.doesNotThrow(() => run(37, {}));
 });
+
+test("step 38: a trip's budget and planned month; older trip spending answered yes; answers to a gone trip dropped", function(){
+  const s = run(38, {
+    trips: [{ id: "t1", name: "Coast", from: "2026-03-10", to: "2026-03-13", lineId: "trips", budget: "900", month: "2026-03" },
+      { id: "t2", name: "Later", from: "", lineId: "trips", month: "2027-04", budget: -3 }, null],
+    transactions: [{ id: "a", date: "2026-03-11", linkedExpenseId: "trips" }, { id: "b", date: "2026-03-20", linkedExpenseId: "trips" },
+      { id: "c", date: "2026-03-11", linkedExpenseId: "cafe" }, { id: "d", trip: "gone", tripNo: 4 }, { id: "e", date: "2026-03-12", linkedExpenseId: "trips", tripNo: "t1" }, null]
+  });
+  assert.deepEqual([s.trips[0].budget, s.trips[0].month, s.trips[1].budget, s.trips[1].month], [900, undefined, 0, "2027-04"]);
+  assert.deepEqual(s.transactions.slice(0, 5).map(t => [t.trip, t.tripNo]), [["t1", undefined], [undefined, undefined], [undefined, undefined], [undefined, undefined], [undefined, "t1"]]);
+  assert.doesNotThrow(() => run(38, {}));
+});

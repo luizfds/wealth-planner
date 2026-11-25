@@ -113,7 +113,7 @@ function assetsShown(id){ return id === "Vehicle" || id === "Other" ? ["Vehicle"
 // are already lowercase route slugs, so they double as their own DOM ids and URL segments.
 // #427: Money's tabs. November 2026: Income is a tab again (Budget leads with spending), so every link that says "income"
 // — /expenses/income, a notice, search — lands on it.
-var EXPENSES_SUBS = ["budget", "spending", "bills", "income"];
+var EXPENSES_SUBS = ["budget", "spending", "bills", "income", "trips"];
 var currentExpensesSub = "budget";
 // Tax's three halves (v3.43.0): the year as a plan, past years as returns, and the papers behind
 // them. Deep-linkable like Expenses — "open the return" is worth a bookmark in October.

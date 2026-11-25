@@ -56,7 +56,7 @@ property against its suburb (growth, yield, rent).
 A guided ten-minute check-in for a month (‹ month ›): each step says what's missing and takes you to fix it. **Checks**
 sit here: data problems (a name shared by two things, a stale balance…), each with *Open* and *Looks right*.
 
-## Money — `/expenses/<tab>`
+## Money — `/expenses/<tab>` (Budget · Transactions · Bills · Income · Trips)
 
 ### Budget — `/expenses/budget`
 - **Left for Lifestyle** hero — what's left this month, a day's allowance, the month's pace line, "at this pace…";
@@ -75,7 +75,6 @@ sit here: data problems (a name shared by two things, a stale balance…), each 
 - Header: the month's spending, a search, *Filters*, ⋯ (saved views, CSV), kind chips (*All*, *On your budget*,
   *One-offs*, *Moved, not spent*, *Money in*).
 - The list by day; each row opens to edit, split or delete (phone: swipe left); *+ Log spend*, *Show all*.
-- **Trips** (advanced) — a trip's dates file spending to its line; *+ Add trip*.
 - **Import from your bank** — CSV, PDF, OFX/QFX, QIF (and from a Statements folder or the phone's share sheet). The
   review groups rows by merchant: one **Goes to** per group (a budget line, a new line, spending not on a line, a
   transfer to an account — or a new one —, income received), the category under it, badges (learned, guessed,
@@ -95,6 +94,15 @@ page, and a low point shows on Today.
   rows, *Show as* (Year, Month, Fortnight, Week, Hour), *Monthly total*.
 - **Received** — money in, actual against planned.
 - **Your month, planned** — money in, money out, once-a-year averaged, left over in a normal month.
+
+### Trips — `/expenses/trips`
+Each trip with its own budget, taken from the line it's paid from (November 2026; was a fold under Transactions):
+the line's year shared between its trips (and what no trip has yet), each trip's card — dates or just a month while
+planning, Planning / Coming up / Away now, spent against its budget, what's left a day while away — *Its
+transactions*, *Edit*, *Remove*; past trips folded; *Plan a trip* (name, dates or a month, budget, the line).
+On a trip's days every purchase is asked about — "Part of the trip?", Yes by default — in Log spend, in a statement
+import's review, and for what's already logged ("N purchases on these days to confirm", also a To do on Today while
+the trip is on and for a week after). Bills, rent and property costs aren't asked about.
 
 ## Accounts — `/networth`
 

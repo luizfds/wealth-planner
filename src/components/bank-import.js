@@ -53,7 +53,7 @@ function groupRows(rows){
         rows: [], total: 0,
         choice: { linkedExpenseId: row.suggestion.linkedExpenseId, category: row.suggestion.category, account: row.suggestion.account, transferAccount: row.suggestion.transferAccount || "" },
         source: row.suggestion.source, word: row.suggestion.word || "",
-        tripId: row.tripId || null, tripName: row.tripName || ""
+        tripId: row.tripId || null, tripName: row.tripName || "", tripLineId: row.tripLineId || "", preTrip: row.preTrip || null
       };
       order.push(key);
     }
@@ -153,7 +153,9 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
     var current = r.suggestion && r.suggestion.linkedExpenseId ? lines.find(function(l){ return l.id === r.suggestion.linkedExpenseId; }) : null;
     if(r.suggestion && r.suggestion.transferAccount) return;
     if(!tripTakes(current, protectedIds)) return;
-    r.tripId = trip.id; r.tripName = trip.name;
+    r.tripId = trip.id; r.tripName = trip.name; r.tripLineId = trip.lineId;
+    // November 2026: kept, so "No, not the trip" puts back where it would have gone.
+    r.preTrip = r.suggestion;
     r.suggestion = Object.assign({}, r.suggestion, { linkedExpenseId: trip.lineId, category: "", source: "trip" });
   });
   // v3.149.1: a row that's a transfer already logged — a card repayment typed in by hand, then met
@@ -601,7 +603,7 @@ function groupRowHtml(g){
     : g.source === "name" ? '<span class="bank-import-badge" title="Matched to a budget line by name — worth a glance">guessed</span>'
     : g.source === "known" ? '<span class="bank-import-badge" title="A well-known business, filed where that kind of spending usually goes — worth a glance">known shop</span>'
     : g.source === "word" && g.word ? '<span class="bank-import-badge" title="Its description says what kind of place it was, so filed where that usually goes — worth a glance">guessed from “' + escapeAttr(g.word) + '”</span>' : "";
-  if(g.tripId && g.choice.linkedExpenseId) badge = '<span class="bank-import-badge is-trip" title="Inside the dates of a trip, so filed to the trip\'s line. Pick another line to file it elsewhere.">trip · ' + escapeAttr(g.tripName) + '</span>';
+  if(g.tripId) badge = '<span class="bank-import-badge is-trip" title="On a trip\'s days — part of the trip unless you say no">on ' + escapeAttr(g.tripName) + '\'s days</span>';
   else if(g.choice.transferAccount) badge = '<span class="bank-import-badge is-transfer" title="Money moved between your own accounts — saved as a transfer, not spending or income">transfer</span>';
   else if(g.transferHint) badge = '<span class="bank-import-badge is-transfer" title="Reads like a transfer between your own accounts. If it is, pick the account under Transfer.">looks like a transfer</span>';
   else if(g.isCredit && g.source === "income" && g.choice.incomeTarget) badge = '<span class="bank-import-badge is-credit" title="Its amount or words fit this income row, so it is offered as that income received — worth a glance">matches ' + escapeAttr(g.matchLabel) + '</span>';
@@ -642,6 +644,7 @@ function groupRowHtml(g){
         '</label>' +
       '</details>' +
       newLineNoteHtml(g) +
+      tripQuestionHtml(g) +
     '</div>' +
   '</div>';
 }
@@ -650,6 +653,30 @@ function groupRowHtml(g){
 function catApplies(g){ return !(g.choice.incomeTarget || g.choice.transferAccount); }
 function categorySummaryHtml(category){
   return '<span data-bank-cat-text>Category: <b>' + escapeAttr(category || "none") + '</b></span><span class="bank-import-cat-change"><span aria-hidden="true">· </span>' + (category ? "Change" : "Set one") + '</span>';
+}
+
+// November 2026: a group on a trip's days asks — part of the trip? Yes (the default) keeps it on the trip's line and
+// counts it to the trip; No puts back where it would have gone. Answered by the line it ends on: still the trip's line
+// at Import is yes (commitBankImport).
+function tripQuestionHtml(g){
+  if(!g.tripId) return "";
+  var yes = g.choice.linkedExpenseId === g.tripLineId;
+  return '<div class="bank-import-trip" role="group" aria-label="' + escapeAttr("Part of " + g.tripName + "?") + '" data-bank-trip="' + escapeAttr(g.key) + '">' +
+    '<span>Part of ' + escapeAttr(g.tripName) + '?</span>' +
+    '<button type="button" class="btn btn-sm' + (yes ? ' is-on' : '') + '" aria-pressed="' + yes + '" data-bank-trip-yes="' + escapeAttr(g.key) + '">Yes, the trip</button>' +
+    '<button type="button" class="btn btn-sm' + (yes ? '' : ' is-on') + '" aria-pressed="' + !yes + '" data-bank-trip-no="' + escapeAttr(g.key) + '">No, not the trip</button></div>';
+}
+export function setBankImportGroupTrip(key, yes){
+  var g = findGroup(key);
+  if(!g || !g.tripId) return;
+  if(yes){
+    g.choice.linkedExpenseId = g.tripLineId; g.choice.category = ""; g.choice.newLine = null; g.choice.transferAccount = "";
+  } else {
+    var pre = g.preTrip || {};
+    g.choice.linkedExpenseId = pre.linkedExpenseId || null; g.choice.category = pre.category || ""; g.choice.newLine = null;
+    if(pre.account) g.choice.account = pre.account;
+  }
+  g.source = "chosen";
 }
 
 // The amount on a created line is derived, not typed, so the screen shows its working — the user is
@@ -829,6 +856,11 @@ export function patchBankImportPanel(groupKey){
       if(nameEl) nameEl.appendChild(span);
     }
     row.classList.toggle("is-unplaced", !placed);
+    // Answering a trip's question changes the line: the list and the question follow it.
+    var lineSel = row.querySelector(".bank-group-line");
+    if(lineSel && !g.choice.newLine && lineSel.value !== (g.choice.linkedExpenseId || "")) lineSel.value = g.choice.linkedExpenseId || "";
+    var tripQ = row.querySelector(".bank-import-trip");
+    if(tripQ) tripQ.outerHTML = tripQuestionHtml(g);
     // A line brings its category: the line of text and the list follow it.
     var catSel = row.querySelector(".bank-group-category");
     if(catSel && catSel.value !== (g.choice.category || "")) catSel.value = g.choice.category || "";
@@ -958,6 +990,8 @@ export function commitBankImport(inboxSource){
         // v3.163.0 (item 193): waits in the review queue until kept or refiled (calc/reviewqueue.js).
         reviewed: false
       };
+      // November 2026: on a trip's days, the answer — still on the trip's line is "part of the trip".
+      if(g.tripId){ if(g.choice.linkedExpenseId && g.choice.linkedExpenseId === g.tripLineId) t.trip = g.tripId; else t.tripNo = g.tripId; }
       state.transactions.push(t);
       created.push(t.id);
     });

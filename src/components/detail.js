@@ -196,7 +196,7 @@ export function detailView(kind, id, today){
           (spent12 > 0 ? '<p class="dt-pot-year">The last 12 months you spent <b>' + money(spent12) + '</b> on it. ' + money(pot.monthly) + ' a month puts by ' + money(pot.monthly * 12) + (pot.monthly * 12 < spent12 * 0.95 ? ' — less than that, so the pot runs down.' : '.') + '</p>' : '') +
           facts([[line.potFrom ? "Held on " + fmtDate(pot.from, { year: true }) : "Started empty on " + fmtDate(pot.from, { year: true }), money(pot.start)], ["Put in since", "+" + money(pot.putIn)], ["Spent since", "−" + money(pot.spent)]])) +
         (trips.length ? section("Trips", '<ul class="dt-list">' + trips.map(function(x){
-          return '<li>' + escapeAttr(x.trip.name || "Trip") + ' <small>' + escapeAttr(fmtDate(x.trip.from) + (x.trip.to && x.trip.to !== x.trip.from ? " – " + fmtDate(x.trip.to, { year: true }) : "")) + '</small> <b>' + money(x.spent) + '</b></li>';
+          return '<li>' + escapeAttr(x.trip.name || "Trip") + ' <small>' + escapeAttr(x.trip.from ? fmtDate(x.trip.from) + (x.trip.to && x.trip.to !== x.trip.from ? " – " + fmtDate(x.trip.to, { year: true }) : "") : "dates to set") + '</small> <b>' + money(x.spent) + '</b></li>';
         }).join("") + '</ul>') : "");
     }
     // November 2026: a line, opened — one place for this month, the year against the plan, where it goes, what's recent

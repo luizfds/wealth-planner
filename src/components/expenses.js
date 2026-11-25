@@ -12,6 +12,8 @@ import { autoPaysForMonth, autoPayLineIds } from "../calc/autopay.js";
 import { renameAccount } from "../calc/accountlinks.js";
 import { scenarioIncomeRows } from "../calc/tax.js";
 import { fmtCurrency0, fmtCurrency2, fmtPercent0, fmtPercent1, localDateStr, fmtDate } from "../lib/format.js";
+import { tripOn, tripTakes, tripLeft, tripSpend, answerTrip } from "../calc/trips.js";
+import { tripProtectedLineIds } from "./trips.js";
 import { spendingTrends, monthKeyLabel } from "../calc/trends.js";
 import { figureAttrs, escapeAttr, segLabel } from "../lib/html.js";
 import { renderAccountsPage } from "./accounts.js";
@@ -888,7 +890,7 @@ export function quickLogChipOrder(){
     .map(function(x){ return x.item; });
 }
 export function openQuickLog(){
-  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null };
+  quickLog = { linkedId: null, dateOpen: false, showAllChips: false, chipFilter: "", sign: 1, refundOf: null, tripYes: true };
   renderQuickLogSheet();
 }
 export function closeQuickLog(){
@@ -906,6 +908,32 @@ export function setQuickLogLink(id){
   // — changing lines invalidates it, so a stale selection can't survive onto a different line's
   // history and silently misattribute the refund.
   quickLog.refundOf = null;
+}
+// ---------------- On a trip's days: part of the trip? (November 2026) ----------------
+// A spend dated inside a trip asks whether it's the trip's — "Yes" (the default) files it to the trip's line and counts
+// it to the trip; "No" leaves the line as picked and remembers the answer. Not asked for a refund, a bill or a
+// protected line (rent, a property's costs) — calc/trips.js tripTakes.
+export function quickLogTrip(dateStr){
+  if(!quickLog || quickLog.sign < 0) return null;
+  var trip = tripOn(dateStr || localDateStr(), state.trips);
+  if(!trip || !trip.lineId || !budgetLineItems().some(function(l){ return l.id === trip.lineId; })) return null;
+  var item = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
+  if(item && item.id !== trip.lineId && !tripTakes(item, tripProtectedLineIds())) return null;
+  return trip;
+}
+export function setQuickLogTrip(yes){ if(quickLog) quickLog.tripYes = !!yes; }
+export function quickLogTripHtml(dateStr){
+  var trip = quickLogTrip(dateStr);
+  if(!trip) return "";
+  var yes = quickLog.tripYes !== false;
+  var left = tripLeft(trip, tripSpend(trip, state.transactions), dateStr || localDateStr());
+  var lineName = (budgetLineItems().find(function(l){ return l.id === trip.lineId; }) || {}).what || "the trip's line";
+  return '<div class="qlog-trip" role="group" aria-labelledby="quickLogTripQ"><b id="quickLogTripQ">Part of ' + escapeAttr(trip.name) + '?</b>' +
+    '<div class="qlog-trip-acts"><button type="button" class="btn btn-sm' + (yes ? ' is-on' : '') + '" aria-pressed="' + yes + '" data-qlog-trip="yes">Yes, the trip</button>' +
+      '<button type="button" class="btn btn-sm' + (yes ? '' : ' is-on') + '" aria-pressed="' + !yes + '" data-qlog-trip="no">No, everyday</button></div>' +
+    '<small>' + (yes ? 'Files to ' + escapeAttr(lineName) : 'Stays on the line you pick') +
+      (left.budget > 0 ? ' · ' + (left.over ? fmtCurrency0.format(-left.left) + ' over its budget' : fmtCurrency0.format(left.left) + ' left of ' + fmtCurrency0.format(left.budget)) +
+        (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' day' + (left.daysLeft === 1 ? '' : 's') : '') : '') + '</small></div>';
 }
 export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
@@ -990,6 +1018,8 @@ export function submitQuickLog(amount, note, dateStr, category){
   // display/traceability only (see transactionSummaryText), never required, so guarded on Refund
   // mode rather than trusted to have been cleared by every path that could get here.
   if(quickLog.sign < 0 && quickLog.refundOf) t.refundOf = quickLog.refundOf;
+  var trip = quickLogTrip(t.date);
+  if(trip) answerTrip(t, trip, quickLog.tripYes !== false);
   state.transactions.push(t);
   return t;
 }
@@ -1160,6 +1190,7 @@ export function renderQuickLogSheet(){
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
+      '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
       // The follow-up review: the page had a second button for this beside + Log spend; it's the sheet's way further.

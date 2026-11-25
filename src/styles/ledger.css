@@ -1690,17 +1690,8 @@
   .bank-maybe-list{ margin:6px 0 0; padding-left:18px; font-size:var(--fs-xs); line-height:1.6; }
   .bank-maybe-list b{ font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight:600; }
 
-  /* ---------------- Trips (v3.78.0) ---------------- */
-  .trip-list{ list-style:none; margin:10px 0; padding:0; display:flex; flex-direction:column; }
-  .trip-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dashed var(--border); }
-  .trip-main{ display:flex; flex-direction:column; min-width:0; }
-  .trip-main span{ font-size:var(--fs-xs); color: var(--ink-soft); }
-  .trip-side{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
-  .trip-spent{ font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-  .trip-add{ display:grid; grid-template-columns: 1.3fr 1fr 1fr 1.4fr auto; gap:8px; align-items:end; margin-top:10px; }
-  .trip-add select, .trip-add input{ width:100%; min-width:0; }
+  /* Trips (v3.78.0): an import's group on a trip's days. The rest of Trips is at the end (November 2026). */
   .bank-import-badge.is-trip{ background: color-mix(in srgb, var(--brass) 18%, transparent); color: var(--brass-strong); }
-  @media (max-width:700px){ .trip-add{ grid-template-columns: 1fr 1fr; } .trip-add .fr-field:first-child, .trip-add .fr-field:last-of-type, .trip-add button{ grid-column: 1 / -1; } }
 
   /* v3.100.0: Cash flow → Budget → Trim */
   .tr-note{ margin:0 0 6px; }
@@ -2391,3 +2382,58 @@
   .dt-pot-year b{ color: var(--ink); font-family: var(--font-num); }
   .bc-hero-soon{ font-size:var(--fs-sm); color: var(--ink); } .bc-hero-soon b{ font-family: var(--font-num); }
   .pat-quiet{ margin:8px 0 0; font-size:var(--fs-xs); color: var(--ink-soft); }
+
+/* ---------------- Money → Trips (November 2026) ---------------- */
+.trip-split .ledger-note{ margin:0; }
+.trip-split{ display:flex; flex-direction:column; gap:8px; padding:12px 14px; margin-bottom:12px; border-radius:12px; background: var(--paper-raised); border:1px solid var(--border); }
+.trip-split-head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.trip-split-head span{ color: var(--ink-soft); font-size:var(--fs-sm); }
+.trip-split-bar{ display:flex; gap:2px; height:12px; border-radius:999px; overflow:hidden; background: var(--paper-sunken); }
+.trip-split-seg{ min-width:4px; }
+.trip-split-seg.tone-0{ background: var(--tab-money-1, var(--good)); }
+.trip-split-seg.tone-1{ background: color-mix(in srgb, var(--tab-money-1, var(--good)) 70%, white); }
+.trip-split-seg.tone-2{ background: color-mix(in srgb, var(--tab-money-1, var(--good)) 45%, white); }
+.trip-split-seg.tone-3{ background: color-mix(in srgb, var(--tab-money-1, var(--good)) 30%, white); }
+.trip-split-seg.is-free{ background: transparent; }
+.trip-split .is-over{ color: var(--bad-ink); }
+.trip-list{ list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:10px; }
+.trip-row{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:14px; text-align:left; border-radius:14px; border:1px solid var(--border); background: var(--paper); }
+.trip-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.trip-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.trip-main span{ color: var(--ink-soft); font-size:var(--fs-sm); }
+.trip-status{ flex:none; font-size:var(--fs-xs); font-weight:600; padding:3px 10px; border-radius:999px; background: var(--paper-raised); color: var(--ink-soft); }
+.trip-status.is-away{ background: var(--warn-wash, color-mix(in srgb, var(--warn-ink) 14%, transparent)); color: var(--warn-ink); }
+.trip-status.is-coming{ background: color-mix(in srgb, var(--brass) 14%, transparent); color: var(--brass-strong); }
+.trip-figures{ display:flex; align-items:baseline; gap:6px; }
+.trip-figures .trip-spent{ font-family: var(--font-num); font-size:var(--fs-xl, 22px); font-weight:600; }
+.trip-figures span{ color: var(--ink-soft); }
+.trip-bar{ height:10px; border-radius:999px; background: var(--paper-sunken); overflow:hidden; }
+.trip-bar > span{ display:block; height:100%; background: var(--good); }
+.trip-bar.is-over > span{ background: var(--bad); }
+.trip-left{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.trip-left.is-over{ color: var(--bad-ink); font-weight:600; }
+.trip-confirm-btn{ align-self:flex-start; }
+.trip-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+.trip-confirm .ledger-note{ margin:0; }
+.trip-confirm{ display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:12px; background: var(--paper-raised); }
+.trip-confirm-list{ list-style:none; margin:0; padding:0; }
+.trip-confirm-row{ display:grid; grid-template-columns:1fr auto; gap:4px 10px; padding:8px 0; border-top:1px solid var(--border); align-items:center; }
+.trip-confirm-what{ display:flex; flex-direction:column; min-width:0; }
+.trip-confirm-what b{ overflow-wrap:anywhere; }
+.trip-confirm-what small{ color: var(--ink-soft); }
+.trip-confirm-amt{ font-family: var(--font-num); }
+.trip-confirm-acts{ grid-column:1 / -1; display:flex; gap:8px; }
+.trip-past{ margin:0 0 12px; }
+.trip-past > summary{ cursor:pointer; min-height:48px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.trip-past > summary span{ color: var(--ink-soft); font-size:var(--fs-sm); }
+.trip-form{ display:flex; flex-direction:column; gap:10px; padding:14px; border-radius:14px; border:1px dashed var(--border); }
+.trip-form-title{ margin:0; font-size:var(--fs-md, 16px); font-weight:600; }
+.trip-form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.trip-form-grid .span2{ grid-column:1 / -1; }
+/* Asking on a trip's days: the Log spend sheet and an import's group. */
+.qlog-trip, .bank-import-trip{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; background: color-mix(in srgb, var(--warn-ink) 10%, transparent); }
+.qlog-trip > b{ flex-basis:100%; }
+.qlog-trip-acts{ display:flex; gap:8px; }
+.qlog-trip small{ flex-basis:100%; color: var(--warn-ink); }
+.qlog-trip .btn.is-on, .bank-import-trip .btn.is-on{ background: var(--warn-ink); border-color: var(--warn-ink); color: var(--paper); font-weight:600; }
+.bank-import-trip > span{ flex-basis:100%; font-weight:600; }

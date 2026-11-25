@@ -18,7 +18,7 @@ import { pdfLines } from "../lib/pdftext.js";
 import { savedFolder } from "../lib/safekeeping.js";
 import { showToast, showUndoToast, showPersistentToast } from "../lib/toast.js";
 import { state, persist, commit, onStateReplaced } from "../state.js";
-import { useLoanForStatement, setBankRead, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
+import { useLoanForStatement, setBankRead, startBankImport, reparseBankImportWith, clearBankImport, setBankImportGroupLine, setBankImportGroupCategory, setBankImportGroupTrip, renderBankImportPanel, patchBankImportPanel, setIncludePossibleDuplicates, commitBankImport, undoBankImport, setStatementAccount, setStatementBalanceOn, inboxNoteHtml, bankImport } from "./bank-import.js";
 import { currentHistoryBudget, renderBudgetFromHistory, renderRecurring } from "./budgettoolswiring.js";
 import { renderCards, renderDetail } from "./dashboard.js";
 import { renderSharedGroups, renderTransactions, renderActualVsPlannedPanel, renderYearSpending, renderSpendCategoryChart, renderSpendingTrends } from "./expenses.js";
@@ -28,7 +28,8 @@ import { showPage, showExpensesSubpage, showTaxSubpage, appAssetUrl } from "./na
 import { renderProjectionOutputs } from "./projections.js";
 import { renderReceived } from "./received.js";
 import { renderTotals, renderAll } from "./redraw.js";
-import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
+import { renderTxReviewBanner } from "./spendingwiring.js";
+import { renderTrips } from "./trips.js";
 import { wireRowImports } from "./rowimport.js";
 import { chooseInvestmentProperty, openStatementForm, investmentProperties } from "./rentstatement.js";
 import { agentStatementFromLines, isAgentStatement, propertyNamedIn } from "../calc/pdfstatement.js";
@@ -356,6 +357,14 @@ export function wireImports(){
     if(lineSel || catSel) patchBankImportPanel((lineSel || catSel).getAttribute("data-bank-group"));
   });
   document.getElementById("bankImportPanel").addEventListener("click", function(e){
+    // November 2026: part of the trip? — patched in place, like a line picked from the list.
+    var tripAns = e.target.closest("[data-bank-trip-yes], [data-bank-trip-no]");
+    if(tripAns){
+      var tkey = tripAns.getAttribute("data-bank-trip-yes") || tripAns.getAttribute("data-bank-trip-no");
+      setBankImportGroupTrip(tkey, tripAns.hasAttribute("data-bank-trip-yes"));
+      patchBankImportPanel(tkey);
+      return;
+    }
     if(e.target.closest("[data-bank-read-retry]")){
       if(bankRequest && bankRequest.file) importBankFile(bankRequest.file, bankRequest.fromInbox);
       else if(bankRequest && bankRequest.fromInbox) openNextInbox(bankRequest.fromInbox);

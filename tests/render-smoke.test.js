@@ -1290,18 +1290,33 @@ test("Investments → Shares: the price sheet card and its template", async func
   } finally { state.assets = keepA; state.priceSheet = keepP; }
 });
 
-test("Cash flow → Spending → Trips: the card lists trips and offers the move", async function(){
-  const { tripsCardHtml } = await import("../src/components/trips.js");
+test("Money → Trips: each trip with its budget, the line's year shared out, purchases to confirm, the plan form", async function(){
+  const { tripsCardHtml, tripsUi } = await import("../src/components/trips.js");
   var keep = { trips: state.trips, shared: state.shared, transactions: state.transactions };
   try {
-    state.shared = [{ id: "trips", what: "Trips", freq: "Yearly", irregular: true, amount: 1000 }, { id: "cafe", what: "Coffee", freq: "Weekly", irregular: true, amount: 20 }];
-    state.trips = [{ id: "t1", name: "Coast", from: "2026-03-10", to: "2026-03-13", lineId: "trips" }];
-    state.transactions = [{ id: "a", date: "2026-03-11", amount: 6, linkedExpenseId: "cafe" }];
-    var html = tripsCardHtml();
-    assert.match(html, /Coast/);
-    assert.match(html, /data-trip-move="t1"[^>]*>Move 1 here/);
-    assert.match(html, /data-trip-add/);
-  } finally { Object.assign(state, keep); }
+    state.shared = [{ id: "trips", what: "Holidays", freq: "Yearly", irregular: true, amount: 6000 }, { id: "cafe", what: "Coffee", freq: "Weekly", irregular: true, amount: 20 }];
+    state.trips = [{ id: "t1", name: "Coast", from: "2027-03-10", to: "2027-03-13", lineId: "trips", budget: 900 },
+      { id: "t2", name: "Mountains", from: "", to: "", month: "2027-04", lineId: "trips", budget: 2400 },
+      { id: "t3", name: "Old trip", from: "2027-01-02", to: "2027-01-04", lineId: "trips", budget: 0 }];
+    state.transactions = [{ id: "a", date: "2027-03-11", amount: 6, linkedExpenseId: "cafe", what: "FERN CAFE" }, { id: "b", date: "2027-03-12", amount: 280, linkedExpenseId: "trips", trip: "t1" }];
+    var html = tripsCardHtml("2027-03-11");
+    assert.match(html, /Coast[\s\S]*day 2 of 4[\s\S]*Away now/);
+    assert.match(html, /\$280<\/b><span>of \$900/);
+    assert.match(html, /\$620 left · \$206 a day for 3 days/);
+    assert.match(html, /data-trip-confirm="t1"[^>]*>1 purchase on these days to confirm/);
+    assert.match(html, /Mountains[\s\S]*Apr 2027 · dates to set[\s\S]*Planning/);
+    assert.match(html, /<details class="trip-past">[\s\S]*Old trip/);
+    assert.match(html, /Split across 3 trips: \$3,300/);
+    assert.match(html, /data-trip-save="new"/);
+    assert.match(html, /class="btn btn-sm btn-danger" data-trip-del="t1">Remove<span class="visually-hidden"> Coast/);
+    tripsUi.confirming = "t1";
+    var open = tripsCardHtml("2027-03-11");
+    assert.match(open, /data-trip-yes="t1" data-trip-tx="a">Yes, the trip/);
+    assert.match(open, /data-trip-all="t1">All 1 are the trip/);
+    assert.doesNotMatch(open, /NaN|undefined/);
+    state.trips = [];
+    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripPlanTitle"/);
+  } finally { Object.assign(state, keep); tripsUi.confirming = ""; }
 });
 
 test("Property → rent panel: the statement form and the year's statements", async function(){

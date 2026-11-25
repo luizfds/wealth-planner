@@ -22,6 +22,7 @@ import { planProgress } from "../calc/planprogress.js";
 import { proposeBudget } from "../calc/budgetfromhistory.js";
 import { currentScenario } from "../calc/engine.js";
 import { shouldShowSetup } from "./setup.js";
+import { tripStatus, tripPending } from "../calc/trips.js";
 
 // ---------------- Notifications: a small, backend-shaped layer over locally-computed alerts ----------------
 // This app has no backend (see CLAUDE.md) — every notification here is derived live from
@@ -423,6 +424,30 @@ function monthReviewNotification(){
     detail: "Money in, card statements, checks and the month against the plan — Today → Monthly review.", date: today, page: "dashboard", sub: "review" }];
 }
 
+// ---------------- A trip's purchases to confirm (November 2026) ----------------
+// While a trip is on, and for a week after it ends, the purchases on its days that haven't been answered — part of
+// the trip or not — are one To do opening Money → Trips. Bills, rent and property costs aren't asked about.
+function tripNotifications(){
+  var today = todayStr();
+  var lines = [], protectedIds = {};
+  (state.shared || []).forEach(function(l){ if(l) lines.push(l); });
+  Object.keys(state.home || {}).forEach(function(k){ (state.home[k] || []).forEach(function(r){ if(r){ lines.push(r); if(r.id) protectedIds[r.id] = true; } }); });
+  (state.properties || []).forEach(function(p){ (p.expenses || []).forEach(function(e){ if(e){ lines.push(e); if(e.id) protectedIds[e.id] = true; } }); });
+  var weekAgo = new Date(today + "T00:00:00"); weekAgo.setDate(weekAgo.getDate() - 7);
+  var since = localDateStr(weekAgo);
+  var out = [];
+  (state.trips || []).forEach(function(t){
+    var st = tripStatus(t, today);
+    if(!(st === "away" || (st === "past" && (t.to || t.from) >= since))) return;
+    var n = tripPending(t, state.transactions, lines, protectedIds).length;
+    if(!n) return;
+    out.push({ id: "trip:" + t.id + ":" + n, type: "trip", severity: "warn",
+      title: n + " purchase" + (n === 1 ? "" : "s") + " on " + t.name + "'s days to confirm",
+      detail: "Part of the trip or not — each is asked once. Money → Trips.", date: today, page: "expenses", sub: "trips" });
+  });
+  return out;
+}
+
 // ---------------- Budget lines your spending suggests ----------------
 // "Your first month" asks for them while the household is new. After that (lib/setup.js settledHousehold) new
 // suggestions — a new merchant, a habit that's grown — are a To do opening Budget, where they're kept, changed or
@@ -768,6 +793,7 @@ function computeLocalNotifications(){
     propertyDateNotifications(),
     monthReviewNotification(),
     budgetSuggestionNotification(),
+    tripNotifications(),
     yearReviewNotification(),
     planProgressNotification(),
     weekRecapNotification(),

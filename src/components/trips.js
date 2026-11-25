@@ -1,4 +1,4 @@
-import { furnishingHtml } from "./furnishing.js";
+import { furnishingHtml, projectBudgetBarHtml } from "./furnishing.js";
 import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
@@ -51,11 +51,6 @@ export function defaultTripLine(){
   return l ? l.id : "";
 }
 
-function barHtml(spent, budget){
-  if(!(budget > 0)) return "";
-  var pct = Math.max(0, Math.min(100, Math.round(spent / budget * 100)));
-  return '<div class="trip-bar' + (spent > budget ? " is-over" : "") + '" role="img" aria-label="' + escapeAttr(fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(budget)) + '"><span style="width:' + pct + '%"></span></div>';
-}
 
 function confirmListHtml(t, pending, lineName){
   if(!pending.length) return '<p class="ledger-note">Every purchase on these days is answered.</p>';
@@ -82,7 +77,7 @@ function tripCardHtml(t, today, lineName){
   var pending = st === "planning" ? [] : tripToConfirm(t);
   var open = tripsUi.confirming === t.id;
   var figure = t.budget > 0
-    ? '<div class="trip-figures"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b><span>of ' + fmtCurrency0.format(t.budget) + '</span></div>' + barHtml(spent, t.budget) +
+    ? '<div class="trip-figures"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b><span>of ' + fmtCurrency0.format(t.budget) + '</span></div>' + projectBudgetBarHtml(spent, t.budget) +
       '<p class="trip-left' + (left.over ? " is-over" : "") + '">' + (left.over ? fmtCurrency0.format(-left.left) + ' over' : fmtCurrency0.format(left.left) + ' left') +
         (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' day' + (left.daysLeft === 1 ? '' : 's') : '') + '</p>'
     : '<div class="trip-figures"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b><span>spent · no budget set</span></div>';

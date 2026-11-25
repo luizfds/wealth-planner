@@ -10,7 +10,7 @@
     --fs-3xl: 32px;  /* the one big number */
     /* v3.159.0 (item 189): one card — every card on a page shares its corners and padding (tighter on a
        phone, below), and a card inside a card shares the inner radius. */
-    --card-radius: 14px;
+    --card-radius: 16px;
     --card-px: 20px;
     --card-py: 18px;
     --inner-radius: 10px;
@@ -27,7 +27,7 @@
     --field-border-hover: var(--ink-soft);
     --field-focus: var(--brass);
     --field-muted-bg: var(--paper-sunken);
-    --paper: #f8fafc;
+    --paper: #f5f6fa;
     --paper-raised: #ffffff;
     --paper-sunken: #eef2f7;
     --ink: #0f172a;
@@ -63,10 +63,10 @@
      deep pair for its hero (white text at 4.5:1 or better on both ends), a wash and an ink for tinted controls, and an
      icon shade for its mark on white. */
   :root{
-    --tab-today-1: #4338ca; --tab-today-2: #6d28d9; --tab-today-wash: #eef2ff; --tab-today-ink: #3730a3; --tab-today-icon: #4f46e5;
-    --tab-money-1: #0f766e; --tab-money-2: #0e7490; --tab-money-wash: #f0fdfa; --tab-money-ink: #115e59; --tab-money-icon: #0d9488;
-    --tab-accounts-1: #6d28d9; --tab-accounts-2: #a21caf; --tab-accounts-wash: #f5f3ff; --tab-accounts-ink: #5b21b6; --tab-accounts-icon: #7c3aed;
-    --tab-plan-1: #075985; --tab-plan-2: #0369a1; --tab-plan-wash: #f0f9ff; --tab-plan-ink: #075985; --tab-plan-icon: #0284c7;
+    --tab-today-1: #4f46e5; --tab-today-2: #783bef; --tab-today-wash: #eef2ff; --tab-today-ink: #3730a3; --tab-today-icon: #4f46e5;
+    --tab-money-1: #0f766e; --tab-money-2: #078178; --tab-money-wash: #f0fdfa; --tab-money-ink: #115e59; --tab-money-icon: #0d9488;
+    --tab-accounts-1: #7838df; --tab-accounts-2: #ac23bf; --tab-accounts-wash: #f5f3ff; --tab-accounts-ink: #5b21b6; --tab-accounts-icon: #7c3aed;
+    --tab-plan-1: #075985; --tab-plan-2: #087ab1; --tab-plan-wash: #f0f9ff; --tab-plan-ink: #075985; --tab-plan-icon: #0284c7;
     --tab-more-1: #334155; --tab-more-2: #475569; --tab-more-wash: #f1f5f9; --tab-more-ink: #334155; --tab-more-icon: #64748b;
     /* Budget's groups: shades of Money's teal, the same on Budget, Income and every bar that splits the plan. */
     --grp-essential: #115e59; --grp-lifestyle: #14b8a6; --grp-setaside: #5eead4; --grp-loan: #94a3b8; --grp-left: #10b981;

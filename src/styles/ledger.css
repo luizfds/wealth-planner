@@ -2398,7 +2398,7 @@
 .trip-split-seg.is-free{ background: transparent; }
 .trip-split .is-over{ color: var(--bad-ink); }
 .trip-list{ list-style:none; margin:0 0 12px; padding:0; display:flex; flex-direction:column; gap:10px; }
-.trip-row{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:14px; text-align:left; border-radius:14px; border:1px solid var(--border); background: var(--paper); }
+.trip-row{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:14px; text-align:left; border-radius:var(--card-radius); border:1px solid var(--border); background: var(--paper-raised); }
 .trip-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
 .trip-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
 .trip-main span{ color: var(--ink-soft); font-size:var(--fs-sm); }
@@ -2410,6 +2410,8 @@
 .trip-figures span{ color: var(--ink-soft); }
 .trip-bar{ height:10px; border-radius:999px; background: var(--paper-sunken); overflow:hidden; }
 .trip-bar > span{ display:block; height:100%; background: var(--good); }
+.project-card .trip-figures{ justify-content:space-between; }
+.project-card .trip-bar:not(.is-over) > span{ background:var(--tab-accounts-1); }
 .trip-bar.is-over > span{ background: var(--bad); }
 .trip-left{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
 .trip-left.is-over{ color: var(--bad-ink); font-weight:600; }

@@ -1033,7 +1033,7 @@ test("Home summary: net worth, the month, bills and to-dos", async function(){
     assert.deepEqual(bills.map(function(b){ return b.what + "@" + b.due; }), ["Phone@2026-10-20"]);
     var html = homeSummaryHtml("2026-10-14", { netWorth: 105000, items: items, todos: [{ id: "review:2026-09", title: "Review September 2026", page: "dashboard", sub: "review", severity: "warn" }] });
     // Net worth is the glance's hero, a way to Accounts; the card that said it again under it went (the owner).
-    assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth">[\s\S]*?<b>\$105(?:\.0)?k<\/b>/);
+    assert.match(html, /class="home-glance-tile is-hero" data-home-go="networth">[\s\S]*?<b>\$105,000<\/b>/);
     assert.doesNotMatch(html, /data-home-card="nw"/);
     // Net worth is the page's one hero, with its line; the app assessment (November 2026): each figure once, so the
     // three tiles that said again what a card below says (the month, the next bill, Needs you's count) are gone.

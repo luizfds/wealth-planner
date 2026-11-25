@@ -115,3 +115,15 @@ test("every kind of thing in the demo has a detail page, and a missing one says 
     assert.match(detailPageHtml(TODAY), /data-detail-edit/);
   });
 });
+
+// The whole-app assessment (B6): the sample is the first thing a new visitor sees, and the landing page's pictures —
+// so its own Checks find nothing to flag, and each person's super fund says whose it is.
+test("the sample household raises none of its own Checks", async function(){
+  const { dataHealthChecks } = await import("../src/calc/health.js");
+  withDemo(function(){
+    var checks = dataHealthChecks({ today: TODAY });
+    assert.deepEqual(checks.map(function(c){ return c.id + ": " + (c.title || ""); }), []);
+    var supers = state.assets.filter(function(a){ return a.category === "Super"; }).map(function(a){ return a.what; });
+    assert.deepEqual(supers, ["Alex's super", "Sam's super"]);
+  });
+});

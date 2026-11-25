@@ -45,6 +45,7 @@
        container inset. The padding puts the first/last tab back in line with the page text. */
     scrollbar-width:none; -ms-overflow-style:none;
   }
+  #expensesSubnav{ flex-wrap:wrap; }
   .subnav::-webkit-scrollbar{ display:none; }
   .subnav-item{
     all:unset; box-sizing:border-box; padding:9px 12px 10px;

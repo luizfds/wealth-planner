@@ -2061,7 +2061,10 @@
   .debt-bal { flex:1 1 auto; }
 }
 .debt-bal .debt-balance { width:110px; text-align:right; font-family:var(--font-num); }
-.offset-balance { width:110px; flex:none; }
+/* The assessment (Nov 2026): the name keeps room to read on a phone; the balance wraps under it when they can't share a line. */
+.offset-row .m-row-summary{ flex-wrap:wrap; row-gap:6px; }
+.offset-row-name{ flex:1 1 140px; min-width:0; }
+.offset-balance { width:140px; flex:none; }
 .offset-balance-input { width:100%; text-align:right; font-family:var(--font-num); }
 
 /* #336–337: totals first; the statement is available one section at a time. */

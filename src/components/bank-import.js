@@ -36,7 +36,7 @@ function genId(prefix){ return prefix + "_" + Math.random().toString(36).slice(2
 // ---------------- Grouping ----------------
 // The single decision that makes this usable on a phone: one row per *merchant*, not one per
 // transaction. A month of spending is 40-odd transactions and about a dozen merchants, and being
-// asked "where does WOOLWORTHS go" eight times is how a review screen gets abandoned halfway.
+// asked "where does GROCERMART go" eight times is how a review screen gets abandoned halfway.
 //
 // Grouped across the whole file rather than per month, so a merchant you see weekly is answered
 // once for the quarter.
@@ -220,7 +220,7 @@ function rebuildBankImport(parsed, fileName, rawRows, includePossibleDuplicates)
   return bankImport;
 }
 // Re-buckets the same parse with the maybes folded in (or back out). Any group assignments made so
-// far are deliberately preserved: re-deciding where WOOLWORTHS goes because you ticked a checkbox
+// far are deliberately preserved: re-deciding where GROCERMART goes because you ticked a checkbox
 // about something else would be its own small betrayal.
 export function setIncludePossibleDuplicates(include){
   if(!bankImport) return null;
@@ -949,7 +949,7 @@ export function commitBankImport(inboxSource){
         amount: g.isRefund ? -row.amount : row.amount,
         // The bank's own description is kept as the transaction's `what`. A linked transaction
         // normally leaves this blank and shows its budget line's name, but here it's the only
-        // record of which of eight Woolworths trips this row was — and it's what makes a re-import
+        // record of which of eight Grocermart trips this row was — and it's what makes a re-import
         // recognise this row as a duplicate.
         what: row.description || "",
         linkedExpenseId: g.choice.linkedExpenseId || null,

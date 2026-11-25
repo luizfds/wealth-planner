@@ -1,3 +1,4 @@
+import { formatMoney } from "../lib/field.js";
 import { draftFieldKey, errorSummaryLiveHtml } from "../lib/error-summary.js";
 import { keepUi } from "../lib/keepui.js";
 import { state } from "../state.js";
@@ -274,7 +275,7 @@ function rentHtml(fy){
     var rows = sch.lines.map(function(l){
       var lg = logged.has[l.key] ? '<small class="ty-logged">Logged ' + money(logged.lines[l.key]) + (logged.wholeYear ? '' : ' so far') + '</small>' : '';
       return '<div class="ty-rent-row' + (l.actual != null ? " has-actual" : "") + '"><span>' + l.label + lg + '</span>' +
-        '<input class="ty-rent-in field-control field-compact" id="ty-rent-' + fy + '-' + escapeAttr(encodeURIComponent(p.id) + "-" + l.key) + '" type="number" step="0.01" data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? l.actual : "") + '" placeholder="' + l.model.toFixed(2) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
+        '<input class="ty-rent-in field-control field-compact" id="ty-rent-' + fy + '-' + escapeAttr(encodeURIComponent(p.id) + "-" + l.key) + '" type="text" inputmode="decimal" autocomplete="off" data-money data-ty-rent="' + escapeAttr(p.id) + '" data-ty-key="' + l.key + '" value="' + (l.actual != null ? escapeAttr(formatMoney(l.actual)) : "") + '" placeholder="' + escapeAttr(formatMoney(Math.round(l.model * 100) / 100)) + '" aria-label="' + escapeAttr(l.label) + ' for ' + fyLabel(fy) + '" aria-describedby="' + helpId + '"></div>';
     }).join("");
     return '<details class="row-more-options ty-rent"' + (sch.actualCount ? " open" : "") + '><summary>' + escapeAttr(p.what || "Property") + ' — rental schedule</summary>' +
       '<p class="ledger-note" id="' + helpId + '" style="margin-left:0">Whole-property totals for ' + fyLabel(fy) + ' (' + shares + '). Grey figures are estimates from the property\'s rows, loans and depreciation; type the agent\'s summary, loan statement and bills over them — a line left blank uses its estimate. ' + sch.actualCount + ' of ' + RENT_LINES.length + ' lines from documents.</p>' +

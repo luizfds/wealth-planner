@@ -198,7 +198,7 @@ export function refundableTransactions(transactions, linkedExpenseId, limit){
 // time, also means renaming a budget line renames its whole logged history with it.
 export function transactionDisplayName(t, sharedList){
   var own = (t.what || "").trim();
-  // v3.111.0: bank text ("SQ *FERN CAFE 4029 ULTIMO") shown as the merchant ("Fern Cafe"); what
+  // v3.111.0: bank text ("SQ *FERN CAFE 4029 OAKBAY") shown as the merchant ("Fern Cafe"); what
   // someone typed, as typed. The transaction keeps the bank's text.
   if(own) return cleanMerchantName(own);
   var linked = t.linkedExpenseId && (sharedList || []).find(function(i){ return i.id === t.linkedExpenseId; });

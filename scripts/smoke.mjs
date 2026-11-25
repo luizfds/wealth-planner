@@ -266,6 +266,16 @@ for (const [scheme, width] of PASSES) {
             ([...e.attributes].filter(a => a.name.indexOf("data-") === 0).map(a => "[" + a.name + "]")[0] || "")));
         if(offSkin.length) failures.push(where + ": fields off the shared skin: " + [...new Set(offSkin)].slice(0, 6).join(", "));
       }
+      // The whole-app assessment (A1): a switch is a small track beside its words — one stretched by a page's
+      // "input { width:100% }" was drawn over its own label (Calculators' First home buyer).
+      const overSwitch = await page.evaluate(() => [...document.querySelectorAll(".app-page:not([hidden]) .switch-row")].filter(r => r.getClientRects().length).flatMap(r => {
+        const i = r.querySelector(".switch-input"), t = r.querySelector(".switch-text");
+        if(!i || !t) return [];
+        const a = i.getBoundingClientRect(), b = t.getBoundingClientRect();
+        const overlaps = a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+        return a.width > 80 || overlaps ? [(t.textContent || "").trim().slice(0, 40) + " (" + Math.round(a.width) + "px)"] : [];
+      }));
+      if(overSwitch.length) failures.push(where + ": a switch drawn over its label: " + overSwitch.slice(0, 4).join(", "));
       errors.splice(0).forEach(e => failures.push(where + ": " + e));
       if(SHOTS){
         await page.evaluate(() => document.querySelectorAll("#toastWrap .toast").forEach(t => t.remove()));

@@ -577,7 +577,7 @@
 .cq-fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 10px; }
 .cq-field{ display:flex; flex-direction:column; gap:3px; font-size:var(--fs-xs); color: var(--ink-soft); min-width:0; }
 .cq-field-wide{ grid-column:1 / -1; }
-.cq-field input, .cq-field select{ width:100%; box-sizing:border-box; }
+.cq-field input:not(.switch-input), .cq-field select{ width:100%; box-sizing:border-box; }
 .cq-money{ display:flex; align-items:center; gap:6px; color: var(--ink); }
 .cq-money > span{ color: var(--ink-soft); font-size:var(--fs-sm); }
 .cq-out{ border-top:1px dashed var(--border); padding-top:8px; }

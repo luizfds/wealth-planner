@@ -12,7 +12,7 @@ import { parseCsv } from "../src/lib/backup.js";
 
 // CommBank: no header row at all, date / signed amount / description / running balance.
 var COMMBANK = [
-  "02/09/2026,-45.20,\"WOOLWORTHS 1234 SYDNEY NS\",1250.30",
+  "02/09/2026,-45.20,\"GROCERMART 1234 EXAMPLETON NS\",1250.30",
   "03/09/2026,-12.50,\"CAFE MILANO\",1237.80",
   "15/09/2026,-1890.00,\"RENT PAYMENT\",-652.20",
   "16/09/2026,+4200.00,\"SALARY ACME PTY LTD\",3547.80"
@@ -89,8 +89,8 @@ test("a signed Amount column keeps its own sign", function(){
   var parsed = parseBankCsv(parseCsv(COMMBANK));
   var byDesc = {};
   parsed.rows.forEach(function(r){ byDesc[r.description] = r; });
-  assert.equal(byDesc["WOOLWORTHS 1234 SYDNEY NS"].direction, "debit");
-  assert.equal(byDesc["WOOLWORTHS 1234 SYDNEY NS"].amount, 45.20);
+  assert.equal(byDesc["GROCERMART 1234 EXAMPLETON NS"].direction, "debit");
+  assert.equal(byDesc["GROCERMART 1234 EXAMPLETON NS"].amount, 45.20);
   assert.equal(byDesc["SALARY ACME PTY LTD"].direction, "credit", "+4200 is money in, not a $4,200 purchase");
   assert.equal(byDesc["SALARY ACME PTY LTD"].amount, 4200);
 });
@@ -125,10 +125,10 @@ test("the description column is the longest free text, not merely the most", fun
   // A NAB-shaped export: an account number column is text in every row too, and shorter.
   var rows = parseCsv([
     "Date,Amount,Account Number,Transaction Type,Transaction Details",
-    "02/09/2026,-45.20,084-123 55512345,EFTPOS DEBIT,WOOLWORTHS 1234 SYDNEY NSW AU"
+    "02/09/2026,-45.20,084-123 55512345,EFTPOS DEBIT,GROCERMART 1234 EXAMPLETON NSW AU"
   ].join("\n"));
   var parsed = parseBankCsv(rows);
-  assert.equal(parsed.rows[0].description, "WOOLWORTHS 1234 SYDNEY NSW AU");
+  assert.equal(parsed.rows[0].description, "GROCERMART 1234 EXAMPLETON NSW AU");
 });
 
 test("re-importing the same file flags every row as a duplicate, not none and not some", function(){
@@ -156,10 +156,10 @@ test("two genuinely identical purchases on one day both survive a re-import", fu
 });
 
 test("duplicate matching ignores punctuation and case in the description", function(){
-  assert.equal(normaliseDescription("WOOLWORTHS 1234  SYDNEY-NS"), "woolworths 1234 sydney ns");
+  assert.equal(normaliseDescription("GROCERMART 1234  EXAMPLETON-NS"), "grocermart 1234 exampleton ns");
   assert.equal(
-    transactionKey("2026-09-02", -45.2, "WOOLWORTHS 1234 SYDNEY NS"),
-    transactionKey("2026-09-02", 45.2, "woolworths  1234, sydney ns")
+    transactionKey("2026-09-02", -45.2, "GROCERMART 1234 EXAMPLETON NS"),
+    transactionKey("2026-09-02", 45.2, "grocermart  1234, exampleton ns")
   );
 });
 
@@ -221,7 +221,7 @@ test("a purchase already logged BY HAND is not imported a second time", function
   // feature is for — someone who has been logging by hand and now imports instead — would
   // re-import everything they'd already logged, and watch their spending silently double.
   var handLogged = [{ id: "t1", date: "2026-09-02", amount: 45.20, what: "", linkedExpenseId: "e1" }];
-  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS 1234 SYDNEY NS",1250.30'), { existing: handLogged });
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"GROCERMART 1234 EXAMPLETON NS",1250.30'), { existing: handLogged });
   assert.equal(parsed.rows[0].duplicate, false, "not a certain duplicate — the descriptions don't match");
   assert.equal(parsed.rows[0].possibleDuplicate, true, "but the date and amount do, which is all the evidence there is");
   assert.equal(bankImportSummary(parsed).newSpend, 0, "so it is not counted as new spending");
@@ -244,15 +244,15 @@ test("a possible duplicate is consumed per match, not treated as a blanket rule"
 
 test("an exact duplicate is never also counted as a possible one", function(){
   // Double-counting the same row in two buckets would overstate what's being skipped.
-  var existing = [{ id: "t1", date: "2026-09-02", amount: 45.20, what: "WOOLWORTHS 1234 SYDNEY NS" }];
-  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS 1234 SYDNEY NS",1250.30'), { existing: existing });
+  var existing = [{ id: "t1", date: "2026-09-02", amount: 45.20, what: "GROCERMART 1234 EXAMPLETON NS" }];
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"GROCERMART 1234 EXAMPLETON NS",1250.30'), { existing: existing });
   assert.equal(parsed.rows[0].duplicate, true);
   assert.equal(parsed.rows[0].possibleDuplicate, false);
 });
 
 test("a hand-logged row well apart in date, or a different amount, doesn't suppress anything", function(){
   var handLogged = [{ id: "t1", date: "2026-08-20", amount: 45.20, what: "" }, { id: "t2", date: "2026-09-02", amount: 45.10, what: "" }];
-  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"WOOLWORTHS",1250.30'), { existing: handLogged });
+  var parsed = parseBankCsv(parseCsv('02/09/2026,-45.20,"GROCERMART",1250.30'), { existing: handLogged });
   assert.equal(parsed.rows[0].possibleDuplicate, false);
   assert.equal(bankImportSummary(parsed).newSpend, 1);
 });
@@ -278,7 +278,7 @@ test("a credit is kept and labelled, not silently dropped", function(){
 
 test("parseDiagnosis names what was missing and what was found", function(){
   // Merchant,Spend,Notes — an amount column and a description, but nothing resembling a date.
-  var noDate = detectColumns([["Merchant", "Spend", "Notes"], ["Woolworths", "45.20", "groceries"]]);
+  var noDate = detectColumns([["Merchant", "Spend", "Notes"], ["Grocermart", "45.20", "groceries"]]);
   var d = parseDiagnosis(noDate);
   assert.deepEqual(d.missing, ["date"], "only the date is missing — saying 'and an amount' sends the reader the wrong way");
   assert.ok(d.found.indexOf("amount") !== -1);
@@ -298,7 +298,7 @@ test("parseDiagnosis names what was missing and what was found", function(){
 });
 
 test("an unreadable file hands back the row it read, for the reader to recognise", function(){
-  var parsed = parseBankCsv([["Merchant", "Spend", "Notes"], ["Woolworths", "45.20", "groceries"]], { existing: [] });
+  var parsed = parseBankCsv([["Merchant", "Spend", "Notes"], ["Grocermart", "45.20", "groceries"]], { existing: [] });
   assert.equal(parsed.headerOk, false);
   assert.deepEqual(parsed.firstRow, ["Merchant", "Spend", "Notes"],
     "showing the row beats any rule about columns — the reader recognises their own file");

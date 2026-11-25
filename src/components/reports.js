@@ -316,9 +316,9 @@ function familyViewsHtml(){
 function pickerHtml(){
   var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
   // The report's family (the app assessment): its name above, and its other views beside this one as chips.
-  var fam = reportFamily(current.key), avail = availableReports();
-  var sibs = fam ? fam.reports.map(function(k){ return avail.find(function(r){ return r.key === k; }); }).filter(Boolean) : [];
-  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><span class="rp-selection-name">' + (fam && sibs.length > 1 ? '<small>' + escapeAttr(fam.label) + '</small>' : '') + '<strong>' + escapeAttr(current.label) + '</strong></span>' +
+  // Every report names its family, one report in it or several (the whole-app assessment, C2).
+  var fam = reportFamily(current.key);
+  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><span class="rp-selection-name">' + (fam ? '<small>' + escapeAttr(fam.label) + '</small>' : '') + '<strong>' + escapeAttr(current.label) + '</strong></span>' +
     '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
     ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
 }

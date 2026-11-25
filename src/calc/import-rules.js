@@ -12,7 +12,7 @@ import { knownMerchant, knownWord } from "./merchantbook.js";
 
 // The part of a bank's description that identifies *who you paid*, with the noise dropped.
 //
-// "WOOLWORTHS 1234 SYDNEY NS" is one merchant wearing a store number and a suburb; matching on the
+// "GROCERMART 1234 EXAMPLETON NS" is one merchant wearing a store number and a suburb; matching on the
 // whole string would make every store its own rule and the learning worthless. Tokens are taken
 // from the start and stop at the first one containing a digit, because that is reliably where the
 // merchant name ends and the reference/store/location noise begins. Three tokens is the cap: past
@@ -33,7 +33,7 @@ export function merchantKey(description){
   var norm = normaliseDescription(description);
   if(!norm) return "";
   var tokens = norm.split(" ");
-  // A leading "EFTPOS DEBIT WOOLWORTHS..." names the rail, not the shop. Dropped only from the
+  // A leading "EFTPOS DEBIT GROCERMART..." names the rail, not the shop. Dropped only from the
   // front, and never all of them: "DIRECT DEBIT" on its own is the best name that row has.
   var moved = true;
   while(moved){
@@ -110,8 +110,8 @@ export function mergeSimilarRules(rules){
 
 // ---------------- Matching ----------------
 // A rule matches when its key is a whole-word prefix-or-contained run of the description's
-// normalised text. Longest match wins, so a specific rule ("woolworths petrol") beats the general
-// one ("woolworths") that was learned first — which is the only way a second, more precise answer
+// normalised text. Longest match wins, so a specific rule ("grocermart petrol") beats the general
+// one ("grocermart") that was learned first — which is the only way a second, more precise answer
 // can ever override an earlier rough one without a rule editor.
 export function matchRule(description, rules){
   var norm = normaliseDescription(description);
@@ -154,7 +154,7 @@ function containsWholeWords(haystack, needle){
 // Whole-word matching is what stops a short line name from swallowing unrelated merchants: a line
 // called "Gas" must not claim GASTRONOMY, because a wrong suggestion accepted in bulk is worse than
 // no suggestion at all. Whole words handle that on their own — "gas" isn't a word in "gastronomy
-// bar sydney" but is one in "origin gas bill" — so the length floor is only here to block names so
+// bar exampleton" but is one in "origin gas bill" — so the length floor is only here to block names so
 // short they'd be noise as whole words too. Three, not four: "Gas", "Car" and "Pet" are real budget
 // line names and genuinely identify their merchants.
 var MIN_NAME_MATCH = 3;
@@ -242,7 +242,7 @@ export function applySuggestions(rows, rules, budgetLines, opts){
 
 // ---------------- Learning ----------------
 // Called once per row the user actually confirmed, with what they chose. Keyed on merchantKey, so
-// confirming one Woolworths row teaches every Woolworths row — including next month's, which is
+// confirming one Grocermart row teaches every Grocermart row — including next month's, which is
 // the entire point.
 //
 // A choice always wins over the stored rule rather than being ignored as a duplicate: correcting
@@ -299,7 +299,7 @@ export function learnRule(rules, description, choice, idFactory){
   return generaliseLatest(rules);
 }
 // v3.110.0: the rule just learnt, merged with one already filing to the same place under the same
-// merchant ("fern cafe ultimo" + "fern cafe newtown" → "fern cafe"). In place, so callers holding
+// merchant ("fern cafe oakbay" + "fern cafe fernvale" → "fern cafe"). In place, so callers holding
 // state.importRules see it.
 function generaliseLatest(rules){
   var n = rules[rules.length - 1];
@@ -355,7 +355,7 @@ export function coverageOf(rows){
 
 // A merchant key is lowercase and stripped; a budget line is something you read in a list. Only
 // the first letter of each word — not a smart-casing attempt, because "BP" becoming "Bp" is a worse
-// failure than "Woolworths" being slightly over-formal, and the field is editable either way.
+// failure than "Grocermart" being slightly over-formal, and the field is editable either way.
 export function suggestedLineName(key){
   return (key || "").split(" ").filter(Boolean).map(function(word){
     return word.charAt(0).toUpperCase() + word.slice(1);
@@ -365,7 +365,7 @@ export function suggestedLineName(key){
 // What this merchant costs per month, derived from the rows themselves rather than guessed.
 //
 // The denominator is the number of distinct calendar months the *import* touches, not the months
-// this merchant appears in: shopping at Woolworths in two of the three months you imported is still
+// this merchant appears in: shopping at Grocermart in two of the three months you imported is still
 // a three-month average, and dividing by two would overstate it by half. Floor of 1, so a
 // single-month import returns that month's spend rather than dividing by zero.
 //

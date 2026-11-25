@@ -15,7 +15,7 @@ test("knownMerchant finds a brand, short ones only where the merchant starts", (
 });
 
 test("cleanMerchantName tidies bank text and leaves typed names alone", () => {
-  assert.equal(cleanMerchantName("SQ *FERN CAFE 4029 ULTIMO"), "Fern Cafe");
+  assert.equal(cleanMerchantName("SQ *FERN CAFE 4029 OAKBAY"), "Fern Cafe");
   assert.equal(cleanMerchantName("COLES 0712 EXAMPLETOWN NSW"), "Coles");
   assert.equal(cleanMerchantName("Fern Café"), "Fern Café", "typed by hand: as typed");
   assert.equal(cleanMerchantName("Rent"), "Rent");

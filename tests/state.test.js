@@ -227,7 +227,7 @@ test("migrateState gives an old save an empty importRules and drops rules that c
     home: { "Current situation": [] },
     purchase: {},
     importRules: [
-      { id: "r1", match: "woolworths", linkedExpenseId: "e1", category: "Groceries" },
+      { id: "r1", match: "grocermart", linkedExpenseId: "e1", category: "Groceries" },
       { id: "r2", match: "", linkedExpenseId: "e2", category: "Subs" },
       { id: "r3", match: "mystery", linkedExpenseId: null, category: "" },
       null

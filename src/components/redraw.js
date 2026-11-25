@@ -42,7 +42,8 @@ import { renderSafekeeping } from "./safekeeping.js";
 import { selectScenario, renderHomeBody, renderScenarioEditorSummary } from "./scenarios.js";
 import { renderNeedsTargetPref } from "./needstarget.js";
 import { renderPlanCheckInPref } from "./planprogress.js";
-import { renderTrips, renderTxReviewBanner } from "./spendingwiring.js";
+import { renderTxReviewBanner } from "./spendingwiring.js";
+import { renderTrips } from "./trips.js";
 import { renderPeopleTab } from "./taxwiring.js";
 import { renderTaxYear } from "./taxyear.js";
 import { renderTrim } from "./trim.js";
@@ -206,7 +207,7 @@ function defineViews(){
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);
-  defineView("trips", ["expenses"], renderTrips, ["trips", "transactions", "shared"]);
+  defineView("trips", ["expenses"], renderTrips, ["trips", "transactions", "shared", "home", "properties", "yearBasis"], { tabs: { expenses: ["expensesSub-trips"] } });
   defineView("retirement", ["plan"], renderRetirement, ["*"]);
 }
 function renderAll(){

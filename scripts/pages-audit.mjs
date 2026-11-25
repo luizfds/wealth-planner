@@ -23,7 +23,7 @@ await new Promise(r => server.listen(0, r));
 const base = "http://127.0.0.1:" + server.address().port;
 const VIEWS = [
   ["dashboard", "dashboard-sub", ["overview", "insights", "benchmarks", "review"]],
-  ["expenses", "expenses-sub", ["budget", "income", "spending", "bills"]],
+  ["expenses", "expenses-sub", ["budget", "income", "spending", "bills", "trips"]],
   ["networth", null, [null]], ["accounts", null, [null]],
   ["assets", "assets-sub", ["summary", "Cash", "Shares", "Super", "Vehicle", "Other", "Offsets"]],
   ["properties", null, [null]],

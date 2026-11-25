@@ -1,4 +1,3 @@
-import { confirmDialog } from "../lib/dialogs.js";
 // ---------------- Spending, wired (v3.206.1, item 237) ----------------
 //
 // Cash flow → Spending: the list's filters, money in, transfers, splits, bulk edit, the transaction table, trips,
@@ -14,7 +13,6 @@ import { transactionDisplayName } from "../calc/ledger.js";
 import { attachReceipt, detachReceipt } from "../calc/receipts.js";
 import { deleteIncomeReceived } from "../calc/received.js";
 import { toReview, keepTransaction, refileTransaction, applyRuleFromReview, keepAll, ruleOfferFor } from "../calc/reviewqueue.js";
-import { normaliseTrip, applyTripRefile } from "../calc/trips.js";
 import { saveView, deleteView, applyView, FILTER_FIELDS } from "../calc/txviews.js";
 import { fmtCurrency0, fmtCurrency2, localDateStr, parseAmountInput } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
@@ -30,11 +28,9 @@ import { offerTour } from "./tourwiring.js";
 import { renderHomeSummary } from "./home.js";
 import { showPage, showExpensesSubpage } from "./nav.js";
 import { receiptHolder } from "./receipts.js";
-import { withUndo } from "./redraw.js";
 import { txReview, txReviewHtml, reviewBannerHtml } from "./reviewqueue.js";
 import { rerenderTableFor, closeActiveModernRow, wireModernRowToggle, openNewRowModal, defineSavedValue } from "./rows.js";
 import { renderTaxYear } from "./taxyear.js";
-import { tripsCardHtml, tripPlan, tripProtectedLineIds } from "./trips.js";
 import { defineSection } from "../lib/sections.js";
 import { pushActiveOverlay, requestCloseActiveOverlay } from "../lib/overlaystack.js";
 import { readInput, markField } from "../lib/validate.js";
@@ -251,11 +247,6 @@ function saveTransfer(t, moveBalances, message){
     commit(transferTouched(before.length > 0));
   });
   return rec;
-}
-// ---------------- Cash flow → Spending → Trips (v3.78.0) ----------------
-function renderTrips(){
-  var el = document.getElementById("tripsBody");
-  if(el) el.innerHTML = tripsCardHtml();
 }
 var firstRunReturnFocus = null, firstRunInertSiblings = [];
 function renderFirstRun(){
@@ -671,42 +662,6 @@ export function wireSpending(){
   });
 }
 
-export function wireTrips(){  document.getElementById("tripsBody").addEventListener("click", async function(e){
-    if(e.target.closest("[data-trip-add]")){
-      var q = function(sel){ var x = document.querySelector(sel); return x ? x.value : ""; };
-      var from = q("[data-trip-from]"), to = q("[data-trip-to]") || from, lineId = q("[data-trip-line]");
-      if(!from){ showToast("Pick the first day of the trip"); return; }
-      if(!lineId){ showToast("Pick the line its spending goes to"); return; }
-      var trip = normaliseTrip({ name: q("[data-trip-name]"), from: from, to: to, lineId: lineId }, function(){ return genId("trip"); });
-      state.trips.push(trip);
-      persist(); renderTrips();
-      var n = tripPlan(trip).length;
-      showToast("Trip added" + (n ? " — " + n + " transaction" + (n === 1 ? "" : "s") + " in those dates can be moved to it" : ""));
-      return;
-    }
-    var mv = e.target.closest("[data-trip-move]");
-    if(mv){
-      var t = state.trips.find(function(x){ return x.id === mv.getAttribute("data-trip-move"); });
-      if(!t) return;
-      var plan = tripPlan(t);
-      if(!plan.length) return;
-      if(!(await confirmDialog("Move " + plan.length + " transaction" + (plan.length === 1 ? "" : "s") + " between " + t.from + " and " + t.to + " to this trip's line? Regular bills, rent and property costs stay where they are.", {"title":"Move transactions","accept":"Move transactions"}))) return;
-      var moved = applyTripRefile(t, state.transactions, budgetLineItems(), tripProtectedLineIds());
-      persist(); afterTransactionsChange(); renderTrips();
-      showToast(moved + " moved to " + t.name);
-      return;
-    }
-    var del = e.target.closest("[data-trip-del]");
-    if(del){
-      var id = del.getAttribute("data-trip-del");
-      var trip2 = state.trips.find(function(x){ return x.id === id; });
-      if(!trip2) return;
-      withUndo("Removed the trip \u201c" + trip2.name + "\u201d — transactions moved to its line stay there", function(){ state.trips = state.trips.filter(function(x){ return x.id !== id; }); renderTrips(); });
-    }
-  });
-  renderTrips();
-}
-
 export function wireReviewQueue(){
   // ---------------- First-run setup (v3.74.0) ----------------
   // Offered once to an empty app; also from Home's setup card ("Guided setup"). Answers are held in
@@ -788,4 +743,4 @@ export function wireReceipts(){
   setTimeout(function(){ pruneReceipts(state).catch(function(){}); }, 4000);
 }
 
-export { firstRunRoot, openTxReview, renderFirstRun, renderTrips, renderTxReviewBanner, saveTransfer };
+export { firstRunRoot, openTxReview, renderFirstRun, renderTxReviewBanner, saveTransfer };

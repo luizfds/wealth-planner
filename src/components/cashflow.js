@@ -104,7 +104,8 @@ export function filterBarHtml(entries, lines, options){
       selectHtml("category", "Category", ch.categories, txFilters.category) +
       selectHtml("line", "Line", ch.lines, txFilters.line, labelOf) +
       (ch.people.length ? selectHtml("person", "Person", ch.people, txFilters.person) : '') +
-      ((state.trips || []).length ? selectHtml("trip", "Trip", state.trips.map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
+      // A trip filters by its dates, so one still being planned (no dates yet) isn't offered.
+      ((state.trips || []).some(function(t){ return t.from; }) ? selectHtml("trip", "Trip", state.trips.filter(function(t){ return t.from; }).map(function(t){ return t.id; }), txFilters.trip, tripName) : '') +
       inputHtml("min", "Amount from", "number", txFilters.min, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("max", "Amount up to", "number", txFilters.max, ' min="0" step="0.01" inputmode="decimal"') +
       inputHtml("from", "Date from", "date", txFilters.from) +

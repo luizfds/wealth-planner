@@ -401,6 +401,7 @@
           <button type="button" class="subnav-item" data-expenses-sub="spending">Transactions</button>
           <button type="button" class="subnav-item" data-expenses-sub="bills">Bills</button>
           <button type="button" class="subnav-item" data-expenses-sub="income">Income</button>
+          <button type="button" class="subnav-item" data-expenses-sub="trips">Trips</button>
         </div>
         <div class="expenses-subpage" id="expensesSub-budget">
         <div class="page-intro-row">
@@ -562,13 +563,6 @@
               </div>
             </div>
           </section>
-          <!-- Trips: a way to file a holiday's spending, used a few times a year — put away in Simple (the app assessment). -->
-          <details class="ledger" id="tripsCard" data-level="advanced">
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Trips</h2></div>
-            </summary>
-            <div class="ledger-body" id="tripsBody"></div>
-          </details>
           <details class="ledger" id="bankImportCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Import from your bank</h2></div>
@@ -651,6 +645,18 @@
         <div class="panel bills-by-account" id="acctPanel">
           <h2 class="section-title">Monthly expenses by account</h2>
           <div id="acctList"></div>
+        </div>
+        </div>
+        <!-- November 2026: trips planned with their own budgets, out of the line they're paid from; every purchase on a
+             trip's days is asked about (calc/trips.js). Was a fold under Transactions that only filed spending. -->
+        <div class="expenses-subpage" id="expensesSub-trips" hidden>
+        <div class="page-intro-row">
+          <p class="page-intro help">Each trip with its own budget, taken from the line it's paid from. On a trip's days, every purchase asks whether it's part of the trip.</p>
+        </div>
+        <div class="ledgers">
+          <section class="ledger trips-card" id="tripsCard" aria-label="Trips">
+            <div class="ledger-body" id="tripsBody"></div>
+          </section>
         </div>
         </div>
       </section>

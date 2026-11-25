@@ -8491,6 +8491,70 @@ const JOURNEYS = {
     await click(page, "[data-bank-loanpick]");
     await page.waitForSelector("[data-bank-loan]", { timeout: 5000 });
     check(/Record 5 on the loan/.test(await page.evaluate(() => document.getElementById("bankImportConfirmBtn").textContent)), "picking the loan didn't read it as the loan's");
+  },
+  // November 2026: trips planned with their own budget on Money → Trips, and every purchase on a trip's days asked
+  // about — the plan form, the purchases already logged, Log spend (yes and no), an import, and Today's To do.
+  async trips(page){
+    await go(page, "expenses", "data-expenses-sub", "trips");
+    const form = page.locator('[data-trip-form="new"]');
+    await form.locator("[data-trip-name]").fill("Beach weekend");
+    await form.locator("[data-trip-from]").fill("2026-11-01");
+    await form.locator("[data-trip-to]").fill("2026-11-05");
+    await form.locator("[data-trip-budget]").fill("900");
+    await form.locator("[data-trip-line]").selectOption({ label: "Holidays" });
+    await form.locator('[data-trip-save="new"]').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).trips.some(t => t.name === "Beach weekend"));
+    const trip = await stored(page, 'state.trips.find(t => t.name === "Beach weekend")');
+    check(trip.budget === 900 && trip.lineId === "demo-travel" && trip.from === "2026-11-01" && trip.to === "2026-11-05", "the trip didn't save its dates, budget and line: " + JSON.stringify(trip));
+    const card = page.locator('.trip-row[data-trip-id="' + trip.id + '"]');
+    check(/Away now/.test(await card.innerText()) && /of \$900/.test(await card.innerText()), "the trip's card doesn't show it's on, against its budget");
+    // What's already logged on its days is asked about, one at a time; a "No" is remembered and never asked again.
+    const pending = await stored(page, 'state.transactions.filter(t => t.date >= "2026-11-01" && t.date <= "2026-11-05" && !t.trip && !t.tripNo && t.amount > 0).length');
+    if(pending){
+      if(!await card.locator(".trip-confirm").count()) await card.locator("[data-trip-confirm]").click();
+      const first = card.locator("[data-trip-no]").first();
+      const id = await first.getAttribute("data-trip-tx");
+      await first.click();
+      await page.waitForFunction(id => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.find(t => t.id === id).tripNo, id);
+      check(!await page.locator('[data-trip-tx="' + id + '"]').count(), "an answered purchase is still asked about");
+    }
+    // Log spend on a trip's day: asked, Yes by default — filed to the trip's line and counted to the trip.
+    await go(page, "expenses", "data-expenses-sub", "spending");
+    await page.locator("#quickLogBtn").click();
+    await page.locator("#quickLogAmount").fill("42.50");
+    const q = page.locator("#quickLogTrip");
+    check(/Part of Beach weekend\?/.test(await q.innerText()), "Log spend didn't ask about the trip on its days");
+    check(await q.locator('[data-qlog-trip="yes"]').getAttribute("aria-pressed") === "true", "Yes wasn't the trip question's default");
+    await page.locator("[data-qlog-submit]").click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 42.5) < 0.001));
+    const yes = await stored(page, 'state.transactions.find(t => Math.abs(t.amount - 42.5) < 0.001)');
+    check(yes.trip === trip.id && yes.linkedExpenseId === "demo-travel", "a Yes didn't file the spend to the trip: " + JSON.stringify(yes));
+    // And No: the line as picked, the answer remembered.
+    await page.locator("#quickLogBtn").click();
+    await page.locator("#quickLogAmount").fill("13.20");
+    await page.locator('#quickLogTrip [data-qlog-trip="no"]').click();
+    check(await page.locator('#quickLogTrip [data-qlog-trip="no"]').getAttribute("aria-pressed") === "true", "No didn't take");
+    check(await page.locator("#quickLogAmount").inputValue() === "13.20", "answering the trip question lost the amount");
+    await page.locator("[data-qlog-submit]").click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => Math.abs(t.amount - 13.2) < 0.001));
+    const no = await stored(page, 'state.transactions.find(t => Math.abs(t.amount - 13.2) < 0.001)');
+    check(no.tripNo === trip.id && !no.trip && no.linkedExpenseId !== "demo-travel", "a No didn't stay off the trip: " + JSON.stringify(no));
+    // An import: a group on the trip's days asks, set to Yes; No puts back where it would have gone, and Yes again.
+    await page.setInputFiles("#bankImportFile", { name: "trip.csv", mimeType: "text/csv", buffer: Buffer.from("Date,Description,Amount\n02/11/2026,FERN CAFE 1234,-48.20\n") });
+    const group = page.locator(".bank-import-group", { hasText: "Fern Cafe" }).first();
+    await group.waitFor();
+    check(await group.locator("[data-bank-trip-yes]").getAttribute("aria-pressed") === "true", "the import didn't ask about the trip, set to Yes");
+    await group.locator("[data-bank-trip-no]").click();
+    check(await group.locator(".bank-group-line").inputValue() !== "demo-travel", "No didn't take it off the trip's line");
+    await group.locator("[data-bank-trip-yes]").click();
+    check(await group.locator(".bank-group-line").inputValue() === "demo-travel", "Yes didn't put it back on the trip's line");
+    await page.locator("#bankImportConfirmBtn").click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("wealthPlanner.v1")).transactions.some(t => /FERN CAFE 1234/.test(t.what || "")));
+    check(await stored(page, 'state.transactions.find(t => /FERN CAFE 1234/.test(t.what || "")).trip') === trip.id, "the imported purchase wasn't counted to the trip");
+    // A purchase on its days not yet answered is one To do on Today, opening Money → Trips.
+    await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.transactions.push({ id: "tx-trip-pending", date: "2026-11-03", amount: 9.5, what: "Fern Bakery", linkedExpenseId: null, category: "Eating out" }); m.commit(["transactions"]); });
+    const todo = await page.evaluate(async () => (await import("/src/lib/notifications.js")).getNotifications().filter(n => n.type === "trip").map(n => n.title + "|" + n.page + "|" + n.sub));
+    check(todo.length === 1 && /^\d+ purchases? on Beach weekend's days to confirm\|expenses\|trips/.test(todo[0]), "Today's To do doesn't carry the trip's unanswered purchase: " + JSON.stringify(todo));
   }
 };
 

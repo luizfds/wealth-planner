@@ -39,7 +39,7 @@ var SEVERITY_ORDER = { bad: 0, warn: 1, info: 2 };
 // What an item is about, at a glance (the owner: more colour, where it means something): an icon for its kind — a
 // bill a calendar, a return a receipt, a property its building — in its label's colour: Urgent and Watch red, To do
 // amber, Opportunity green, the rest quiet. Decorative: the label and the title say it in words.
-var KIND_ICON = { bill: "calendar", duebill: "calendar", budget: "bag", budgetsuggest: "piggy", review: "check", txreview: "check",
+var KIND_ICON = { trip: "bag", bill: "calendar", duebill: "calendar", budget: "bag", budgetsuggest: "piggy", review: "check", txreview: "check",
   tax: "receipt", loan: "house", property: "building", account: "piggy", accounts: "piggy", income: "chart", investments: "chart",
   planprogress: "chart", week: "chart", yearreview: "chart", plan: "chart", cashflow: "bag", backup: "shield", data: "shield" };
 var TONE_CLASS = { urgent: "att-bad", risk: "att-bad", todo: "att-warn", opportunity: "att-good" };

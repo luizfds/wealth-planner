@@ -1,4 +1,5 @@
-import { fileProject } from "../calc/projects.js";
+import { eventItemOptions } from "./eventitems.js";
+import { fileProject, eventBudget, eventItem } from "../calc/projects.js";
 // ---------------- Spending, wired (v3.206.1, item 237) ----------------
 //
 // Cash flow → Spending: the list's filters, money in, transfers, splits, bulk edit, the transaction table, trips,
@@ -558,7 +559,21 @@ export function wireSpending(){
       var amtEl = txRow && txRow.querySelector(".m-row-amt");
       if(amtEl) amtEl.textContent = fmtCurrency2.format(t.amount);
     }
-    else if(e.target.classList.contains("tx-project")){ fileProject(state, t, e.target.value); }
+    else if(e.target.classList.contains("tx-project")){
+      fileProject(state, t, e.target.value);
+      var event = eventBudget(state, t.project || t.trip);
+      var field = txRow && txRow.querySelector(".tx-item-field");
+      if(field){
+        field.hidden = !(event && event.items && event.items.length);
+        field.querySelector("select").innerHTML = eventItemOptions(event, t.eventItemId);
+      }
+    }
+    else if(e.target.classList.contains("tx-event-item")){
+      if(eventItem(eventBudget(state, t.project || t.trip), e.target.value)) t.eventItemId = e.target.value;
+      else delete t.eventItemId;
+      setTimeout(function(){ commit(["transactions"]); }, 0);
+      return;
+    }
     else if(e.target.classList.contains("tx-link")){
       var linkedId = e.target.value || null;
       t.linkedExpenseId = linkedId;

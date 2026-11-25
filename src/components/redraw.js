@@ -143,7 +143,7 @@ function defineViews(){
   defineView("incomeGroups", ["expenses"], renderIncomeGroups, ["income", "incomeLog", "tax", "properties", "people", "accounts"]);
   defineView("cashRate", ["properties"], renderCashRatePanel, ["cashRate", "properties"]); // item 249
   // A home being bought (November 2026): its card reads the cash on hand (cash accounts, offsets) too.
-  defineView("buying", ["properties"], renderBuying, ["purchases", "assets", "properties", "accounts", "balances"]);
+  defineView("buying", ["properties"], renderBuying, ["projects", "transactions", "purchases", "assets", "properties", "accounts", "balances"]);
   // On Cash flow it draws one block, Budget's property expenses (propertyExpensesModern).
   defineView("properties", ["properties", "expenses"], renderProperties, ["properties", "balances", "shared", "transactions", "accounts", "income", "tax", "incomeLog"],
     { tabs: { expenses: ["expensesSub-budget"] } });
@@ -207,7 +207,7 @@ function defineViews(){
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
   defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);
-  defineView("trips", ["expenses"], renderTrips, ["trips", "transactions", "shared", "home", "properties", "yearBasis"], { tabs: { expenses: ["expensesSub-trips"] } });
+  defineView("trips", ["expenses"], renderTrips, ["projects", "purchases", "trips", "transactions", "shared", "home", "properties", "yearBasis"], { tabs: { expenses: ["expensesSub-trips"] } });
   defineView("retirement", ["plan"], renderRetirement, ["*"]);
 }
 function renderAll(){

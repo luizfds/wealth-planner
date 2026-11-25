@@ -217,6 +217,7 @@ export function defaultState(){
     savingsGoals: [],
     // v3.75.0: the Google Sheet share prices are read from on open (calc/pricesheet.js).
     // v3.78.0: trips as date ranges (calc/trips.js).
+    projects: [],
     trips: [],
     // v3.168.0: saved views of Spending (calc/txviews.js) — [{ id, name, filter }].
     txViews: [],
@@ -946,6 +947,14 @@ export var MIGRATION_STEPS = [
       if(tx.trip || tx.tripNo) return;
       var hit = trips.find(function(t){ return t.id && t.from && t.lineId && tx.linkedExpenseId === t.lineId && tx.date >= t.from && tx.date <= (t.to || t.from); });
       if(hit) tx.trip = hit.id;
+    });
+  } },
+  { n: 39, name: "saved projects and furnishing estimates", run: function(s){
+    if(!Array.isArray(s.projects)) s.projects = [];
+    (s.purchases || []).forEach(function(p){
+      if(!p.furnishing) return;
+      s.projects.push(Object.assign({}, p.furnishing, {id:"project-" + p.id, name:"Furnish the new home", kind:"Home setup", purchaseId:p.id, propertyName:p.what}));
+      delete p.furnishing;
     });
   } }
 ];

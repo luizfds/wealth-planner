@@ -26,7 +26,7 @@ function check(fields, form){
 
 export function wireTrips(){
   var body = document.getElementById("tripsBody");
-  wireFurnishing(body);
+  wireFurnishing(body, renderTrips);
   body.addEventListener("click", function(e){
     var save = e.target.closest("[data-trip-save]");
     if(save){

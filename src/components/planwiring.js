@@ -9,7 +9,7 @@ import { whatIfMoved, keepWhatIf } from "../calc/whatif.js";
 import { exportProjectionCsv } from "../lib/backup.js";
 import { fmtCurrency0 } from "../lib/format.js";
 import { showToast } from "../lib/toast.js";
-import { state, persist, genId } from "../state.js";
+import { state, persist, genId, commit } from "../state.js";
 import { renderGoalsTab } from "./accountswiring.js";
 import { renderDetail } from "./dashboard.js";
 import { lifeEventsHtml, addLifeEvent, setLifeEventField, removeLifeEvent } from "./lifeevents.js";
@@ -277,6 +277,7 @@ export function wireRetirement(){  retireBody = document.getElementById("retirem
       if(again) again.focus();
       return;
     }
+    if(e.target.matches("[data-retire-person]")){ Object.assign(state.fire, {person:e.target.value}); commit(["fire"]); return; }
     var fk = e.target.getAttribute("data-rt-fire");
     if(fk){
       if(!state.fire) state.fire = {};

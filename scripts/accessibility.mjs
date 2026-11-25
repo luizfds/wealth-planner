@@ -90,6 +90,7 @@ for(const width of widths)for(const scheme of schemes){
   if(pg==='expenses' && sub==='spending'){
    const numbers=page.locator('.trend-numbers');
    if(await numbers.count()){
+    if(!await page.locator("#patternsCard").evaluate(d=>d.open)) await page.locator("#patternsCard > summary").click();
     await page.locator('[data-pattern-span="six"]').click(); // Patterns shows one span at a time (November 2026)
     await page.evaluate(() => document.querySelectorAll('.pat-more').forEach(d => { d.open = true; }));
     await numbers.evaluate(d=>d.open=true);
@@ -109,6 +110,7 @@ for(const width of widths)for(const scheme of schemes){
    await fundingHelp.click();
   }
   if(pg==='plan' && sub==='scenarios' && width<768){
+   await page.locator("#scenarioComparisonFold > summary").click();
    await page.locator('.funding-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    if(await page.locator('[data-funding-scenario]').count())await page.locator('[data-funding-scenario]').evaluate(e=>e.scrollIntoView({block:'center',behavior:'instant'}));
    await scan('purchase-funding/details', '#netWorthPanel');
@@ -124,6 +126,7 @@ for(const width of widths)for(const scheme of schemes){
    await page.locator('[data-proj-reading-full-toggle]').uncheck();
   }
   if(pg==='plan' && sub==='scenarios' && width<768){
+   await page.locator("#scenarioComparisonFold > summary").click();
    await page.locator('.cmp-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    await scan('scenario-comparison/details');
    const choices=await page.locator('[data-cmp-scenario] option').evaluateAll(os=>os.map(o=>o.value));
@@ -132,6 +135,7 @@ for(const width of widths)for(const scheme of schemes){
     await page.locator('.cmp-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
     await scan('scenario-comparison/'+choice);
    }
+    if(!await page.locator("#scenarioComparisonFold").evaluate(d=>d.open)) await page.locator("#scenarioComparisonFold > summary").click();
    await page.locator('[data-cmp-full-table-toggle]').check();
    await page.locator('.cmp-table-view .cmp-longterm').evaluate(d=>d.open=true);
    await scan('scenario-comparison/full-table');

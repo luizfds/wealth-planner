@@ -1,3 +1,4 @@
+import { restoreFolds } from "../lib/folds.js";
 // ---------------- Buying a home (November 2026) — calc/purchase.js ----------------
 //
 // The owner, part-way through buying a home to live in: the app had nowhere for a purchase that hasn't settled, and
@@ -6,6 +7,7 @@
 // card here — Today's hero style: the price and the days to settlement, what's paid so far, what's still to find,
 // the cash needed at settlement against the cash on hand, and its costs ticked off as they're paid — until "Settled"
 // makes it an ordinary property. Listeners: buyingwiring.js.
+import { projectRemaining } from "../calc/projects.js";
 import { state } from "../state.js";
 import { purchaseFigures, commonCostsToAdd, payingAccounts, LENDER_SOURCES, loanHoldsFees } from "../calc/purchase.js";
 import { propertiesOffsetTotal } from "../calc/property.js";
@@ -182,7 +184,7 @@ export function purchaseCardHtml(p, cash, today){
     '<button type="button" class="btn btn-primary" data-buy-settled>Settled — make it a property</button>' +
     '<button type="button" class="btn btn-danger btn-sm" data-buy-remove>Remove</button></div>';
   return '<section class="buy-card" data-purchase="' + escapeAttr(p.id) + '" data-part="property" aria-label="' + escapeAttr("Buying " + name) + '">' + hero +
-    '<div class="buy-body">' + bar + borrowedLine + tiles + suggestBannerHtml(stored, today) + fields + costs + reconHtml(p, f) + actions + '</div></section>';
+    '<div class="buy-body">' + bar + borrowedLine + tiles + suggestBannerHtml(stored, today) + (state.projects || []).filter(function(project){ return project.purchaseId === p.id; }).map(function(project){ return '<p>Linked project · ' + escapeAttr(project.name) + ' · ' + fmtCurrency0.format(projectRemaining(project, state.transactions)) + ' remaining</p>'; }).join("") + fields + '<details class="buy-fold" data-remember-fold id="' + escapeAttr(id('costs')) + '"><summary>Deposit and costs · ' + escapeAttr(said.join(' · ')) + '</summary>' + costs + '</details><details class="buy-fold" data-remember-fold id="' + escapeAttr(id('more')) + '"><summary>More detail and settlement</summary>' + reconHtml(p, f) + actions + '</details>' + '</div></section>';
 }
 
 // The purchase's figures as its transactions say — for the settlement sheet.
@@ -218,5 +220,6 @@ function drawBuying(){
   var list = state.purchases || [];
   el.hidden = !list.length;
   el.innerHTML = list.length ? buyingHtml(list, cashOnHand(), localDateStr()) : "";
+  restoreFolds(el);
 }
 

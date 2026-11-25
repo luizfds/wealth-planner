@@ -32,18 +32,9 @@ export function sameFilter(a, b){
 // Whether the dates come from the filter itself (a view, a trip) rather than the header's period.
 export function hasOwnDates(f){ return !!(f && (f.from || f.to || f.trip)); }
 
-// The filter as the list applies it: a trip narrows the dates to its own (and to from/to, if both).
-export function effectiveFilter(f, trips){
-  var e = Object.assign(emptyFilter(), f || {});
-  if(e.trip){
-    var t = (trips || []).find(function(x){ return x && x.id === e.trip; });
-    if(t && t.from){
-      var end = t.to || t.from;
-      if(!e.from || t.from > e.from) e.from = t.from;
-      if(!e.to || end < e.to) e.to = end;
-    } else { e.from = "9999-12-31"; } // a deleted trip matches nothing rather than everything
-  }
-  return e;
+// An explicit date range further narrows the project's linked transactions.
+export function effectiveFilter(f){
+  return Object.assign(emptyFilter(), f || {});
 }
 
 // The view a filter set is, if any — so its chip shows as the one you're on.

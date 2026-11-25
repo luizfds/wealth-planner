@@ -527,7 +527,7 @@ export function liquidityInputs(months, stressPct){
   var hasCash = (state.assets || []).some(function(a){ return a.category === "Cash"; }) || (state.properties || []).some(function(p){ return (p.loans || []).some(function(l){ return Number(l.offsetBalance) > 0; }); });
   var reserve = null;
   try { reserve = emergencyFund().target; } catch(e){ reserve = null; }
-  return { months: months, startCash: hasCash ? cashOnHand() : null, purchases: state.purchases || [], loans: loans, stressPct: stressPct == null ? liqUi.stress : stressPct, reserveTarget: reserve, today: localDateStr() };
+  return { months: months, startCash: hasCash ? cashOnHand() : null, projects: state.projects, transactions: state.transactions, purchases: state.purchases || [], loans: loans, stressPct: stressPct == null ? liqUi.stress : stressPct, reserveTarget: reserve, today: localDateStr() };
 }
 function liquidityHtml(forecast){
   var f = liquidityForecast(liquidityInputs(forecast.months));
@@ -641,12 +641,8 @@ export function renderDetail(){
 // big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
 // question that actually decides whether an early retirement is possible.
 function fireAgeInputsHtml(settings){
-  return '<div class="fire-ages">' +
-    '<label class="fire-age-field">I\'m<input class="field-control" type="number" min="16" max="99" step="1" id="fireCurrentAge" ' +
-      'value="' + (settings.currentAge == null ? "" : settings.currentAge) + '" placeholder="--" aria-label="My age now"></label>' +
-    '<label class="fire-age-field">and want to stop working at<input class="field-control" type="number" min="16" max="99" step="1" id="fireRetireAge" ' +
-      'value="' + (settings.retireAge == null ? "" : settings.retireAge) + '" placeholder="--" aria-label="Target retirement age"></label>' +
-  '</div>';
+  if(settings.currentAge == null || settings.retireAge == null) return '<p>Set your ages under Retirement above.</p>';
+  return '<p>Age ' + settings.currentAge + ' today · Stop working at ' + settings.retireAge + '</p>';
 }
 
 // A timeline, not a progress bar: the point is *when* each pot becomes usable, which a percentage

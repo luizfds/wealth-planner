@@ -22,7 +22,7 @@ import { cashRateDue, readCashRateNow } from "./cashrate.js";
 import { renderNotifBadge } from "./notifpanel.js";
 import { transferForm } from "./cashflow.js";
 import { openQuickLogSheet, openReceivedSheetFor } from "./cashflowwiring.js";
-import { renderDetail, logNetWorthSnapshot, renderCashFlowForecastPanel, liqUi } from "./dashboard.js";
+import { logNetWorthSnapshot, renderCashFlowForecastPanel, liqUi } from "./dashboard.js";
 import { keepUi } from "../lib/keepui.js";
 import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis, setLineView } from "./expenses.js";
@@ -319,7 +319,7 @@ export function wireNavigation(){
   // Written on "change" (not "input"): re-rendering the panel mid-keystroke would pull the field
   // out from under the caret, and a half-typed "5" on the way to "52" would briefly report a plan
   // that fails. Blurring or pressing Enter commits it.
-  document.getElementById("firePanel").addEventListener("change", function(e){
+  document.getElementById("retirementBody").addEventListener("change", function(e){
     var isCurrent = e.target.id === "fireCurrentAge";
     var isRetire = e.target.id === "fireRetireAge";
     if(!isCurrent && !isRetire) return;
@@ -328,8 +328,7 @@ export function wireNavigation(){
     var age = readInput(e.target, { min: 16, max: 99, whole: true, range: "Enter an age from 16 to 99, in whole years." });
     if(!age) return;
     state.fire[isCurrent ? "currentAge" : "retireAge"] = age.value;
-    renderDetail();
-    persist();
+    commit(["fire"]);
   });
   // #454: the cash forecast's rate rise and the scenario set beside it — a what-if for this visit, so nothing is saved.
   document.getElementById("cashFlowForecastPanel").addEventListener("change", function(e){

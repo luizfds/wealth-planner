@@ -1183,7 +1183,7 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /no balance/);
     assert.match(html, /class="acct-mgmt-limit field-control"[^>]*value="5000"/);
     assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
-    assert.match(html, /<span>Owed on cards and loans<\/span><b class="owed">−\$9,700/);
+    assert.match(html, /<span>Owed on credit cards and bank loan accounts<\/span><b class="owed">−\$9,700/);
   } finally { Object.assign(state, keep); }
 });
 
@@ -1315,7 +1315,7 @@ test("Money → Trips: each trip with its budget, the line's year shared out, pu
     assert.match(open, /data-trip-all="t1">All 1 are the trip/);
     assert.doesNotMatch(open, /NaN|undefined/);
     state.trips = [];
-    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripPlanTitle"/);
+    assert.match(tripsCardHtml("2027-03-11"), /class="ledger-note empty-state"[^>]*>No trips yet[\s\S]*data-empty-scroll="#tripNewSummary"/);
   } finally { Object.assign(state, keep); tripsUi.confirming = ""; }
 });
 

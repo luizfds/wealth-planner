@@ -8,6 +8,7 @@
 // the new one included. It says the lowest balance and when, what of today's cash is set aside for settlement (not
 // emergency money), and which months fall under the emergency reserve — and only says there's a shortfall when the
 // balance actually goes below nothing. What it assumes and what's missing are listed, never filled in as $0.
+import { projectRemaining } from "./projects.js";
 import { purchaseFigures } from "./purchase.js";
 import { calcRepaymentMonthly } from "./property.js";
 
@@ -54,6 +55,12 @@ export function liquidityForecast(o){
     events.forEach(function(e){
       if(e.index === i){ flow -= e.cashToBring; lines.push({ what: e.what + " settles — cash to bring", amount: -e.cashToBring }); }
       if(i > e.index && e.repayment > 0){ flow -= e.repayment; if(i === e.index + 1) lines.push({ what: e.what + " — loan repayments begin", amount: -e.repayment }); }
+    });
+    (o.projects || []).forEach(function(p){
+      var at = ym(p.month);
+      if(!at || at.year !== m.year || at.month !== m.month) return;
+      var remaining = projectRemaining(p, o.transactions);
+      if(remaining){ flow -= remaining; lines.push({ what:p.name, amount:-remaining }); }
     });
     bal = r2(bal + flow);
     out.push({ year: m.year, month: m.month, net: r2(flow), balance: bal, items: (m.items || []).concat(lines) });

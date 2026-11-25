@@ -1,4 +1,4 @@
-import { furnishingHtml, updateFurnishingResults } from "./furnishing.js";
+import { furnishingHtml } from "./furnishing.js";
 import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
@@ -89,12 +89,12 @@ function tripCardHtml(t, today, lineName){
   return '<li class="trip-row is-' + st + '" data-trip-id="' + escapeAttr(t.id) + '">' +
     '<div class="trip-head"><span class="trip-main"><b>' + escapeAttr(t.name) + '</b><span>' + escapeAttr(whenText(t, today)) + ' · ' + escapeAttr(lineName[t.lineId] || "no line") + '</span></span>' +
       '<span class="trip-status is-' + st + '">' + STATUS[st] + '</span></div>' +
-    figure +
+    figure + (t.from ? '<p>Booked ahead · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date < t.from; }))) + ' · On the trip · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date >= t.from && tx.date <= (t.to || t.from); }))) + '</p>' : '') +
     (pending.length ? '<button type="button" class="btn btn-sm trip-confirm-btn" data-trip-confirm="' + escapeAttr(t.id) + '" aria-expanded="' + open + '">' + pending.length + ' purchase' + (pending.length === 1 ? '' : 's') + ' on these days to confirm</button>' : '') +
     (open ? confirmListHtml(t, pending, lineName) : '') +
     (tripsUi.editing === t.id ? formHtml(t) : '') +
     '<div class="trip-actions">' +
-      (t.from ? '<button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' : '') +
+      '<button type="button" class="btn btn-sm" data-book-trip="' + escapeAttr(t.id) + '">Log a booking</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' +
       '<button type="button" class="btn btn-sm btn-ghost" data-trip-edit="' + escapeAttr(t.id) + '">Edit<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
       '<button type="button" class="btn btn-sm btn-danger" data-trip-del="' + escapeAttr(t.id) + '">Remove<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
     '</div>' +
@@ -161,10 +161,10 @@ export function tripsCardHtml(today){
   var pastBudget = past.reduce(function(s, t){ return s + (Number(t.budget) || 0); }, 0);
   return lines.map(function(l){ return splitHtml(l, today, lineName); }).join("") +
     (now.length ? '<ul class="trip-list">' + now.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul>'
-      : emptyStateHtml(past.length ? "No trips coming up — plan the next one below, with its own budget." : "No trips yet — plan one below: a name, its dates (or just a month), a budget and the line it comes out of.", { scroll: "#tripPlanTitle", label: "Plan a trip ↓" })) +
+      : emptyStateHtml(past.length ? "No trips coming up — plan the next one below, with its own budget." : "No trips yet — plan one below: a name, its dates (or just a month), a budget and the line it comes out of.", { scroll: "#tripNewSummary", label: "Plan a trip ↓" })) +
     (past.length ? '<details class="trip-past"><summary><b>Past trips</b><span>' + past.length + ' · ' + fmtCurrency0.format(pastSpent) + ' spent' + (pastBudget ? ' of ' + fmtCurrency0.format(pastBudget) : '') + '</span></summary>' +
       '<ul class="trip-list">' + past.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul></details>' : '') +
-    formHtml(null);
+    '<details class="trip-new"><summary id="tripNewSummary">+ Add trip</summary>' + formHtml(null) + "</details>";
 }
 
 export function renderTrips(){ return keepUi(drawTrips); }
@@ -172,5 +172,5 @@ function drawTrips(){
   var el = typeof document !== "undefined" && document.getElementById("tripsBody");
   if(!el) return;
   el.innerHTML = furnishingHtml() + tripsCardHtml();
-  updateFurnishingResults(el);
+
 }

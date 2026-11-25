@@ -588,7 +588,7 @@
           <!-- November 2026: This month by category, This year so far and Spending over time were three cards with three
                charts and their own words, and they disagreed. One card now, one span at a time (components/expenses.js
                patternSpan). One-offs are out of all three. -->
-          <details class="ledger" id="patternsCard" open>
+          <details class="ledger" id="patternsCard" data-remember-fold>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Patterns</h2></div>
               <div class="ledger-total" id="patternsLabel"></div>
@@ -614,7 +614,7 @@
             </div>
           </details>
           <!-- November 2026: each property's money at a glance (components/propertymoney.js propertyAsideHtml). -->
-          <details class="ledger" id="propertyMoneyCard" open hidden data-part="property">
+          <details class="ledger" id="propertyMoneyCard" data-remember-fold hidden data-part="property">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Property</h2></div>
             </summary>
@@ -684,7 +684,7 @@
               <summary>
                 <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Debts</h2></div>
                 <div class="ledger-total">Total <b id="totalDebtsAmount">—</b></div>
-              </summary>
+              </summary><p class="ledger-note">Other debts, including personal and student loans. Property loans are under Accounts → Property → Loans.</p>
               <div class="ledger-body">
                 <p class="ledger-note help" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation in Net worth → Property; don't duplicate them here).</p>
                 <div id="debtsTable"></div>
@@ -1049,7 +1049,7 @@
         <!-- November 2026: scenarios put away, to restore as they were. -->
         <div class="ledgers" id="scenarioArchiveList" hidden></div>
         <!-- v3.175.0 (item 210): side by side. -->
-        <div id="scenarioCompare"></div>
+        <details class="ledger" id="scenarioComparisonFold" data-remember-fold><summary>Compare scenarios side by side</summary><div id="scenarioCompare"></div></details>
         <!-- What a scenario's purchase does to net worth today: the cash it takes and what's left (was under Accounts' list). -->
         <div class="ledgers plan-funding">
             <details class="ledger" id="purchaseFundingCard">
@@ -1079,7 +1079,20 @@
             <div class="ledger-body">
               <p class="ledger-note help" style="margin-left:0">Projects each scenario's net worth forward: your home equity grows with the property and shrinks with the loan paydown, while your surplus savings (and existing portfolio) compound as investments. A scenario with its own "invest instead of buying" leg (Scenarios tab) compounds that money at its own growth rate instead. Living costs and housing costs inflate each year and your income grows at its own rate; a mortgage repayment is the one thing that stays fixed in nominal terms, as it is in reality. Any row given an "Ends" date stops counting from then on. All assumptions below are yours to set — treat the result as a "what if," not a forecast. Choose a scenario in the chart legend to hide or show its line.</p>
               <!-- v3.158.0 (item 188): the assumptions and life events fold under one line, so the chart comes first. -->
-              <details class="tax-advanced proj-assumptions" id="projAssumptions">
+
+              <p class="ledger-note help"><span id="projRealHelp">Today's dollars: Deflated by the inflation rate above, so every figure is worth what it would buy today — directly comparable to the expenses you typed in.</span> <span id="projNominalHelp">Future dollars: The raw future figure, not adjusted for inflation. Larger, but not comparable to anything you've entered.</span></p>
+              <div class="proj-basis-row">
+                <div class="seg-control" id="projBasis" role="group" aria-label="Show figures in">
+                  <button type="button" class="seg-option" data-proj-basis="real" aria-describedby="projRealHelp">Today's dollars</button>
+                  <button type="button" class="seg-option" data-proj-basis="nominal" aria-describedby="projNominalHelp">Future dollars</button>
+                </div>
+                <span class="proj-basis-note" id="projBasisNote"></span>
+              </div>
+              <div class="proj-basis-row" id="projSourceRow"></div>
+              <div class="wi-strip" id="whatIfStrip"></div>
+              <p class="proj-headline" id="projHeadline"></p>
+              <div id="projOutputs"></div>
+              <details class="tax-advanced proj-assumptions" id="projAssumptions" data-remember-fold>
               <summary>Assumptions and life events <span class="ps-summary-line" id="projAssumptionsLine"></span></summary>
               <div class="proj-controls">
                 <div class="proj-field"><label for="projHorizon">Horizon (years)</label><input class="field-control" type="number" min="1" max="50" step="1" id="projHorizon" aria-describedby="projHorizonHelp"><p class="field-help help" id="projHorizonHelp">How many years forward the chart and table below project.</p></div>
@@ -1093,18 +1106,6 @@
               </div>
               <div id="lifeEventsBody"></div>
               </details>
-              <p class="ledger-note help"><span id="projRealHelp">Today's dollars: Deflated by the inflation rate above, so every figure is worth what it would buy today — directly comparable to the expenses you typed in.</span> <span id="projNominalHelp">Future dollars: The raw future figure, not adjusted for inflation. Larger, but not comparable to anything you've entered.</span></p>
-              <div class="proj-basis-row">
-                <div class="seg-control" id="projBasis" role="group" aria-label="Show figures in">
-                  <button type="button" class="seg-option" data-proj-basis="real" aria-describedby="projRealHelp">Today's dollars</button>
-                  <button type="button" class="seg-option" data-proj-basis="nominal" aria-describedby="projNominalHelp">Future dollars</button>
-                </div>
-                <span class="proj-basis-note" id="projBasisNote"></span>
-              </div>
-              <div class="proj-basis-row" id="projSourceRow"></div>
-              <div class="wi-strip" id="whatIfStrip"></div>
-              <p class="proj-headline" id="projHeadline"></p>
-              <div id="projOutputs"></div>
             </div>
           </details>
         </div>

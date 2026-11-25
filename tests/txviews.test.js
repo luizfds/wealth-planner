@@ -47,10 +47,11 @@ test("a saved view's total is the same filter set by hand", function(){
   assert.equal(views.length, 0);
 });
 
-test("a trip is its dates, narrowed further by the filter's own", function(){
+test("a project matches linked transactions across dates", function(){
   var trips = [{ id: "t1", name: "Coast", from: "2026-10-02", to: "2026-10-06" }];
   var e = effectiveFilter({ trip: "t1" }, trips);
-  assert.equal(e.from, "2026-10-02"); assert.equal(e.to, "2026-10-06");
+  assert.equal(e.from, ""); assert.equal(e.to, "");
+  assert.equal(filterEntries([Object.assign({}, E[0], {project:"t1"}), E[1]], e).length, 1);
   assert.equal(effectiveFilter({ trip: "t1", to: "2026-10-04" }, trips).to, "2026-10-04");
   assert.equal(filterEntries(E, effectiveFilter({ trip: "gone" }, trips)).length, 0);
   assert.ok(hasOwnDates({ trip: "t1" }));

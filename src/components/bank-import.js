@@ -1,3 +1,4 @@
+import { fileProject } from "../calc/projects.js";
 // The bank-import review screen: drop a statement in, check what it worked out, confirm.
 //
 // Its own file rather than more of components/expenses.js, which is already 1,767 lines and twice
@@ -262,9 +263,19 @@ export var TRANSFER_PREFIX = "transfer:";
 export function setBankImportGroupLine(key, expenseId){
   var g = findGroup(key);
   if(!g) return;
+  delete g.choice.project;
   g.choice.incomeTarget = null;
   g.choice.transferAccount = "";
   g.choice.newAccount = "";
+  if(expenseId && expenseId.startsWith("project:")){
+    g.choice.project = expenseId.slice(8);
+    g.choice.linkedExpenseId = null;
+    g.choice.category = "";
+    g.choice.newLine = null;
+    g.source = "chosen";
+    bankImport.coverage = coverageOfGroups(bankImport.groups);
+    return;
+  }
   if(expenseId && expenseId.indexOf(TRANSFER_PREFIX) === 0){
     g.choice.transferAccount = expenseId.slice(TRANSFER_PREFIX.length);
     // A new account (named from the description), made when the import is confirmed.
@@ -321,7 +332,7 @@ function coverageOfGroups(groups){
 // in-place patch. They disagreed the moment a fourth way to place a group (a pending new line) was
 // added, so there is only one of these now.
 function groupIsPlaced(g){
-  return !!(g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget || g.choice.transferAccount);
+  return !!(g.choice.project || g.choice.linkedExpenseId || (g.choice.category || "").trim() || g.choice.newLine || g.choice.incomeTarget || g.choice.transferAccount);
 }
 // An account a transfer names that isn't in the app yet: "TRANSFER TO SAVINGS" → "Savings". The follow-up review
 // (November 2026): with no other account to pick, a row read as a transfer could only come in as spending.
@@ -626,6 +637,9 @@ function groupRowHtml(g){
           '<option value="">' + (g.isCredit ? "Don't import" : "Spending, not on a budget line") + '</option>' +
           (g.isCredit ? "" : '<option value="' + NEW_LINE_VALUE + '"' + (g.choice.newLine ? " selected" : "") + '>+ New line "' + escapeAttr(suggestedLineName(g.key)) + '"</option>') +
           (g.isCredit ? receivedOptgroupHtml(g) : "") +
+          (!g.isCredit ? '<optgroup label="Projects">' + (state.projects || []).concat(state.trips || []).map(function(p){
+            return '<option value="project:' + escapeAttr(p.id) + '"' + (g.choice.project === p.id ? ' selected' : '') + '>' + escapeAttr(p.name) + '</option>';
+          }).join("") + '</optgroup>' : "") +
           transferOptgroupHtml(g) +
           budgetLineOptgroupsHtml(g.choice.linkedExpenseId) +
         '</select>' +
@@ -858,7 +872,8 @@ export function patchBankImportPanel(groupKey){
     row.classList.toggle("is-unplaced", !placed);
     // Answering a trip's question changes the line: the list and the question follow it.
     var lineSel = row.querySelector(".bank-group-line");
-    if(lineSel && !g.choice.newLine && lineSel.value !== (g.choice.linkedExpenseId || "")) lineSel.value = g.choice.linkedExpenseId || "";
+    if(lineSel && g.choice.project) lineSel.value = "project:" + g.choice.project;
+    else if(lineSel && !g.choice.newLine && lineSel.value !== (g.choice.linkedExpenseId || "")) lineSel.value = g.choice.linkedExpenseId || "";
     var tripQ = row.querySelector(".bank-import-trip");
     if(tripQ) tripQ.outerHTML = tripQuestionHtml(g);
     // A line brings its category: the line of text and the list follow it.
@@ -992,6 +1007,7 @@ export function commitBankImport(inboxSource){
       };
       // November 2026: on a trip's days, the answer — still on the trip's line is "part of the trip".
       if(g.tripId){ if(g.choice.linkedExpenseId && g.choice.linkedExpenseId === g.tripLineId) t.trip = g.tripId; else t.tripNo = g.tripId; }
+      if(g.choice.project) fileProject(state, t, g.choice.project);
       state.transactions.push(t);
       created.push(t.id);
     });
@@ -1000,7 +1016,7 @@ export function commitBankImport(inboxSource){
     // number climb with use rather than staying wherever the line names happened to land it.
     var before = state.importRules.length;
     // A trip's rows say where the trip went, not where this merchant belongs — nothing to learn.
-    if(!g.tripId) learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
+    if(!g.tripId && !g.choice.project) learnRule(state.importRules, g.label, g.choice, function(){ return genId("rule"); });
     if(state.importRules.length > before) learned++;
   });
   // v3.150.0: what was logged by hand, matched to its statement row, takes the bank's amount, date

@@ -1,3 +1,5 @@
+import { ageOn } from "./people.js";
+import { localDateStr } from "../lib/format.js";
 import { state } from "../state.js";
 import { toAudAmount, totalDebtsValue, totalNetWorthValue, liquidAssetsValue, scenarioTotals, currentScenario } from "./engine.js";
 import { propertyIlliquidEquityToday } from "./property.js";
@@ -29,8 +31,13 @@ export var DEFAULT_PRESERVATION_AGE = 60;
 
 export function fireSettings(){
   var f = state.fire || {};
+  var people = getTaxPeople();
+  var person = people.includes(f.person) ? f.person : people[0];
+  var profile = person && state.tax && state.tax.settings && state.tax.settings[person];
+  var age = ageOn(profile && profile.dateOfBirth, localDateStr());
   return {
-    currentAge: f.currentAge == null || f.currentAge === "" ? null : Number(f.currentAge),
+    person: person || "", ageFromPeople: age != null,
+    currentAge: age != null ? age : f.currentAge == null || f.currentAge === "" ? null : Number(f.currentAge),
     retireAge: f.retireAge == null || f.retireAge === "" ? null : Number(f.retireAge),
     preservationAge: f.preservationAge == null || f.preservationAge === "" ? DEFAULT_PRESERVATION_AGE : Number(f.preservationAge)
   };

@@ -1,3 +1,4 @@
+import { fileProject } from "../calc/projects.js";
 // ---------------- Spending, wired (v3.206.1, item 237) ----------------
 //
 // Cash flow → Spending: the list's filters, money in, transfers, splits, bulk edit, the transaction table, trips,
@@ -557,6 +558,7 @@ export function wireSpending(){
       var amtEl = txRow && txRow.querySelector(".m-row-amt");
       if(amtEl) amtEl.textContent = fmtCurrency2.format(t.amount);
     }
+    else if(e.target.classList.contains("tx-project")){ fileProject(state, t, e.target.value); }
     else if(e.target.classList.contains("tx-link")){
       var linkedId = e.target.value || null;
       t.linkedExpenseId = linkedId;

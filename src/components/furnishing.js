@@ -1,6 +1,6 @@
 import { state, commit, genId } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
-import { fmtCurrency2 } from "../lib/format.js";
+import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { furnishingDecision } from "../calc/furnishing.js";
 import { projectSpent, projectRemaining } from "../calc/projects.js";
 
@@ -45,13 +45,20 @@ function read(form){
   data.name = data.name.trim();
   return data;
 }
+export function projectBudgetBarHtml(spent, budget){
+  if(!(budget > 0)) return "";
+  var pct = Math.max(0, Math.min(100, Math.round(spent / budget * 100)));
+  return '<div class="trip-bar' + (spent > budget ? " is-over" : "") + '" role="img" aria-label="' + escapeAttr(fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(budget)) + '"><span style="width:' + pct + '%"></span></div>';
+}
+
 export function furnishingHtml(){
   var projects = state.projects || [];
   var cards = projects.map(function(p){
     if(editing === p.id) return editor(p);
+    var spent = projectSpent(p,state.transactions);
     return '<article class="trip-row project-card"><h2 class="section-title">' + escapeAttr(p.name) + '</h2><p>' + escapeAttr(p.kind) + ' · From savings' +
-      (p.propertyName ? ' · ' + escapeAttr(p.propertyName) : '') + '</p><p>Budget ' + money(p.budget) + ' · Spent ' + money(projectSpent(p,state.transactions)) +
-      ' · Remaining ' + money(projectRemaining(p,state.transactions)) + '</p><p>' + decision(p) + '</p><div class="trip-actions"><button class="btn" data-book-trip="' + escapeAttr(p.id) + '">Log spend</button> <button class="btn" data-sv data-sv-trip="' + escapeAttr(p.id) + '">Its transactions</button> <button class="btn" data-project-edit="' + escapeAttr(p.id) + '">Edit project</button></div></article>';
+      (p.propertyName ? ' · ' + escapeAttr(p.propertyName) : '') + '</p><div class="trip-figures"><b class="trip-spent">' + money(spent) + '</b><span>of ' + money(p.budget) + '</span></div>' + projectBudgetBarHtml(spent,p.budget) +
+      '<p>Remaining ' + money(projectRemaining(p,state.transactions)) + '</p><p>' + decision(p) + '</p><div class="trip-actions"><button class="btn" data-book-trip="' + escapeAttr(p.id) + '">Log spend</button> <button class="btn" data-sv data-sv-trip="' + escapeAttr(p.id) + '">Its transactions</button> <button class="btn" data-project-edit="' + escapeAttr(p.id) + '">Edit project</button></div></article>';
   }).join("");
   return '<h2 class="section-title">Projects</h2>' + cards + (editing === "new" ? editor({}) : '<button class="btn" data-project-edit="new">+ Add project</button>');
 }

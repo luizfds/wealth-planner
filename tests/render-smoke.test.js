@@ -1953,7 +1953,7 @@ test("viewsBarHtml and the filter panel draw saved views, the new filters and th
   assert.match(cf.viewsBarHtml(), /data-cf-view-save/);
   var html = cf.filterBarHtml([], []);
   assert.match(html, /At least <b>\$20/);
-  assert.match(html, /Event budget: <b>Coast/);
+  assert.match(html, /aria-label="Remove filter Event budget: Coast"[^>]*><svg[\s\S]*?<b>Coast/);
   cf.txFilterPanel.open = true;
   html = cf.filterBarHtml([], []);
   assert.match(html, /data-cf-filter="min"/);

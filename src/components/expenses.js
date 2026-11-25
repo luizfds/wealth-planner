@@ -926,7 +926,12 @@ import { projectOptions } from "./furnishing.js";
 export function quickLogTripHtml(dateStr){
   if(!(state.trips || []).length && !(state.projects || []).length) return "";
   var suggested = quickLogTrip(dateStr);
-  var id = quickLog.projectId == null ? suggested && suggested.id : quickLog.projectId;
+  if(quickLog.projectId !== null || !suggested || quickLog.linkedId) return "";
+  return '<div class="qlog-trip"><b>Part of ' + escapeAttr(suggested.name) + '?</b><div class="qlog-trip-acts">' +
+    '<button type="button" class="btn btn-sm" data-event-answer="' + escapeAttr(suggested.id) + '">Yes, this event</button>' +
+    '<button type="button" class="btn btn-sm" data-event-answer="">No, everyday</button></div><small>' + escapeAttr(eventFundingHint(suggested.id,dateStr)) + '</small></div>';
+}
+function eventFundingHint(id,dateStr){
   var lineEvent = (state.trips || []).find(function(t){ return t.id === id; });
   var line = lineEvent && budgetLineItems().find(function(l){ return l.id === lineEvent.lineId; });
   var event = lineEvent || (state.projects || []).find(function(p){ return p.id === id; });
@@ -934,16 +939,11 @@ export function quickLogTripHtml(dateStr){
   if(event){
     var spent = lineEvent ? tripSpend(event,state.transactions) : projectSpent(event,state.transactions);
     var left = tripLeft(event, spent, dateStr || localDateStr());
-    hint = (line ? 'Files to ' + escapeAttr(line.what) : 'Paid from savings') +
+    hint = (line ? 'Files to ' + line.what : 'Paid from savings') +
       (left.budget > 0 ? ' · ' + fmtCurrency0.format(Math.abs(left.left)) + (left.over ? ' over' : ' left of ' + fmtCurrency0.format(left.budget)) : '') +
       (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' days' : '');
   }
-  var ask = suggested && (!id || id === suggested.id);
-  return '<label class="event-picker">Event budget<select id="quickLogProject" class="field-control">' + projectOptions(id) + '</select></label>' +
-    (ask ? '<div class="qlog-trip"><b>Part of ' + escapeAttr(suggested.name) + '?</b><div class="qlog-trip-acts">' +
-      [true,false].map(function(yes){ var on = yes === !!id; return '<button type="button" class="btn btn-sm' + (on ? ' is-on' : '') + '" aria-pressed="' + on + '" data-event-answer="' + (yes ? escapeAttr(suggested.id) : '') + '">' + (yes ? 'Yes, this event' : 'No, everyday') + '</button>'; }).join("") +
-      '</div><small>' + (hint || 'Stays on the line you pick') + '</small></div>' : hint ? '<small>' + hint + '</small>' : '');
-
+  return hint;
 }
 export function setQuickLogShowAllChips(value){
   if(!quickLog) return;
@@ -994,6 +994,7 @@ export function setQuickLogDateOpen(value){
 // already gone this month. It's the whole reason to pick a line before logging rather than
 // after — you find out you're at $120 of $200 *while* deciding, not on a report later.
 export function quickLogContextText(item){
+  if(quickLog && quickLog.projectId) return eventFundingHint(quickLog.projectId, quickLog.date);
   if(quickLog && quickLog.sign < 0){
     return item
       ? "Recorded as a refund — it comes back off what you've spent on this line."
@@ -1029,7 +1030,7 @@ export function submitQuickLog(amount, note, dateStr, category){
   // mode rather than trusted to have been cleared by every path that could get here.
   if(quickLog.sign < 0 && quickLog.refundOf) t.refundOf = quickLog.refundOf;
   var trip = quickLogTrip(t.date);
-  var eventId = quickLog.projectId == null ? trip && trip.id : quickLog.projectId;
+  var eventId = quickLog.projectId;
   if(trip && !eventId) answerTrip(t, trip, false);
   if(eventId) fileProject(state, t, eventId);
   state.transactions.push(t);
@@ -1094,9 +1095,9 @@ function quickLogCategoryHtml(item){
 // the chip area so filtering can rewrite the chips without touching the input (see
 // setQuickLogChipFilter).
 function quickLogSearchHtml(){
-  if(quickLogChipOrder().length <= QUICK_LOG_CHIP_COUNT) return "";
+  if(!(state.projects || []).length && !(state.trips || []).length && quickLogChipOrder().length <= QUICK_LOG_CHIP_COUNT) return "";
   return '<input type="search" id="quickLogSearch" class="qlog-search" value="' + escapeAttr(quickLog.chipFilter || "") + '"' +
-    ' placeholder="Search budget lines…" aria-label="Search budget lines" autocomplete="off">';
+    ' placeholder="Search budget lines or events…" aria-label="Search budget lines or events" autocomplete="off">';
 }
 function quickLogChipHtml(item){
   var selected = quickLog.linkedId === item.id;
@@ -1126,6 +1127,19 @@ function quickLogChipsHtml(){
   var ordered = quickLogChipOrder();
   var filter = (quickLog.chipFilter || "").trim();
   var hasMore = ordered.length > QUICK_LOG_CHIP_COUNT;
+  var events = (state.projects || []).concat(state.trips || []);
+  var today = quickLog.date || localDateStr();
+  var recent = new Map();
+  (state.transactions || []).forEach(function(t){
+    var id = t.project || t.trip;
+    if(id && t.date > (recent.get(id) || "")) recent.set(id,t.date);
+  });
+  var eligible = events.filter(function(e){ return !e.to || e.to >= today || recent.has(e.id); })
+    .sort(function(a,b){ return (recent.get(b.id) || "").localeCompare(recent.get(a.id) || ""); }).slice(0,2);
+  var visible = events.filter(function(e){
+    return e.id === quickLog.projectId || (filter ? e.name.toLowerCase().includes(filter.toLowerCase()) : quickLog.showAllChips || eligible.includes(e));
+  });
+  hasMore = hasMore || visible.length < events.length;
   var matched = 0;
   var shown;
   if(filter){
@@ -1146,19 +1160,23 @@ function quickLogChipsHtml(){
   // it under the thumb ahead of the real lines would make the easy path the one that doesn't
   // actually feed actual-vs-planned. It survives filtering — it's the answer to "nothing here
   // matches what I just bought", which is exactly when a search comes up empty.
-  var oneOffSelected = !quickLog.linkedId;
+  chips += visible.map(function(e){
+    var on = quickLog.projectId === e.id;
+    return '<button type="button" class="qlog-chip' + (on ? ' is-selected' : '') + '" data-event-chip="' + escapeAttr(e.id) + '" aria-pressed="' + on + '" aria-label="Event budget: ' + escapeAttr(e.name) + '">' + iconSvg("calendar",15) + ' ' + escapeAttr(e.name) + '</button>';
+  }).join("");
+  var oneOffSelected = !quickLog.linkedId && !quickLog.projectId;
   chips += '<button type="button" class="qlog-chip qlog-chip-oneoff' + (oneOffSelected ? " is-selected" : "") + '" data-qlog-chip=""' +
     ' aria-pressed="' + (oneOffSelected ? "true" : "false") + '">One-off</button>';
   if(!filter && hasMore && !quickLog.showAllChips){
     chips += '<button type="button" class="qlog-chip qlog-chip-more" data-qlog-more>More…</button>';
   }
-  var note = (filter && !matched)
-    ? '<p class="qlog-no-match">No budget line matches “' + escapeAttr(filter) + '” — log it as a one-off, or clear the search.</p>'
+  var note = (filter && !matched && !visible.length)
+    ? '<p class="qlog-no-match">No budget line or event matches “' + escapeAttr(filter) + '” — log it as a one-off, or clear the search.</p>'
     : "";
   return '<div class="qlog-chip-area" data-qlog-chip-area>' + note + '<div class="qlog-chips">' + chips + '</div></div>';
 }
 function quickLogDateRowHtml(){
-  var today = localDateStr();
+  var today = quickLog.date || localDateStr();
   if(quickLog.dateOpen){
     return '<div class="qlog-date-row"><label class="qlog-date-label" for="quickLogDate">Date</label>' +
       '<input type="date" id="quickLogDate" class="qlog-date field-control" value="' + escapeAttr(today) + '" aria-label="Date to log this under"></div>';
@@ -1202,7 +1220,7 @@ export function renderQuickLogSheet(){
       quickLogMerchantChipsHtml(item) +
       quickLogCategoryHtml(item) +
       quickLogDateRowHtml() +
-      '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
+      '<div id="quickLogTrip">' + quickLogTripHtml(quickLog.date) + '</div>' +
       '<button type="button" class="btn review-log-btn qlog-submit' + (quickLog.sign < 0 ? " is-refund" : "") + '" data-qlog-submit>' +
         (quickLog.sign < 0 ? "Log refund" : "Log spend") + '</button>' +
       // The follow-up review: the page had a second button for this beside + Log spend; it's the sheet's way further.
@@ -1493,7 +1511,7 @@ function transactionRowHtml(t, idx){
     // v3.111.0: the bank's own text, when the name shown is a cleaned-up version of it.
     nameTitle: (t.what || "").trim() && transactionDisplayName(t, state.shared) !== t.what.trim() ? t.what.trim() : "",
     // November 2026: a property's money says which property and what for (calc/propertymoney.js).
-    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t), event ? '<span class="event-tag">Event · ' + escapeAttr(event.name) + '</span>' : ""],
+    subLines: [propSub ? propSub + (transactionAccount(t) ? ' · ' + escapeAttr(transactionAccount(t)) : '') : transactionSummaryText(t), event ? '<span class="event-tag"><span class="visually-hidden">Event budget: </span>' + iconSvg("calendar",14) + ' ' + escapeAttr(event.name) + '</span>' : ""],
     // November 2026: spending on no line says so beside its amount — it's kept out of the budget's figures.
     amountHtml: fmtCurrency2.format(Number(t.amount) || 0) + (t.linkedExpenseId || propSub || event ? '' : '<small class="cf-tag">one-off</small>')
   });

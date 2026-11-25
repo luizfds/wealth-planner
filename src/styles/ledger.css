@@ -2451,3 +2451,4 @@
 .event-picker{ display:grid; gap:4px; font-weight:600; }
 .event-tag{ display:inline-block; max-width:100%; overflow-wrap:anywhere; padding:2px 8px; border-radius:99px; background:var(--tab-money-wash); color:var(--tab-money-ink); font-size:var(--fs-xs); }
 .project-card{ margin-bottom:10px; }
+.event-tag svg, [data-event-chip] svg, [data-cf-chip-clear="trip"] svg{ vertical-align:-2px; }

@@ -178,7 +178,10 @@ function rerenderQuickLogPreservingInput(apply){
   var noteEl = document.getElementById("quickLogNote");
   var amount = amountEl ? amountEl.value : "";
   var note = noteEl ? noteEl.value : "";
+  var category = document.getElementById("quickLogCategory")?.value;
   apply();
+  var cat = document.getElementById("quickLogCategory");
+  if(cat && category) cat.value = category;
   var newAmount = document.getElementById("quickLogAmount");
   var newNote = document.getElementById("quickLogNote");
   if(newAmount) newAmount.value = amount;
@@ -368,39 +371,16 @@ export function wireCashflowSheets(){
     if(e.target.closest("[data-tx-add-full]")){ requestCloseActiveOverlay(); return; }
     // On a trip's days: part of the trip? (November 2026) — patched in place, so what's typed stays.
 
-    var answer = e.target.closest("[data-event-answer]");
-    if(answer){
-      quickLog.projectId = answer.dataset.eventAnswer;
-      patchQuickLogTrip();
-      document.querySelector('#quickLogTrip [aria-pressed="true"]')?.focus();
-      return;
-    }
-    var chip = e.target.closest("[data-qlog-chip]");
-    if(chip){
-      // Patched in place rather than re-rendered: the whole point of picking the line after
-      // typing the amount is that changing your mind costs nothing, and a re-render here would
-      // drop the caret out of a field the user may still be editing.
-      var wasOneOff = !quickLog.linkedId;
-      setQuickLogLink(chip.getAttribute("data-qlog-chip"));
-      var isOneOff = !quickLog.linkedId;
-      // Crossing between linked and one-off adds or removes the Category field (a linked
-      // transaction inherits its line's), which needs a re-render; staying on the same side of
-      // that line only needs the selection and context patched, so the caret stays put.
-      if(wasOneOff !== isOneOff){
-        rerenderQuickLogPreservingInput(function(){ renderQuickLogSheet(); });
-        return;
-      }
-      document.querySelectorAll("[data-qlog-chip]").forEach(function(el){
-        var on = el.getAttribute("data-qlog-chip") === (quickLog.linkedId || "");
-        el.classList.toggle("is-selected", on);
-        el.setAttribute("aria-pressed", on ? "true" : "false");
+    var choice = e.target.closest("[data-event-answer], [data-event-chip], [data-qlog-chip]");
+    if(choice){
+      var eventId = choice.dataset.eventChip || choice.dataset.eventAnswer || "";
+      var lineId = choice.dataset.qlogChip || "";
+      rerenderQuickLogPreservingInput(function(){
+        quickLog.projectId = eventId;
+        setQuickLogLink(lineId);
+        renderQuickLogSheet();
       });
-      var linked = quickLog.linkedId && budgetLineItems().find(function(i){ return i.id === quickLog.linkedId; });
-      var ctx = document.querySelector(".qlog-context");
-      if(ctx) ctx.textContent = quickLogContextText(linked);
-      var noteEl = document.getElementById("quickLogNote");
-      if(noteEl) noteEl.placeholder = linked ? "Note (optional)" : "What was it? (optional)";
-      patchQuickLogTrip();
+      document.querySelector(eventId ? '[data-event-chip="' + CSS.escape(eventId) + '"]' : '[data-qlog-chip="' + CSS.escape(lineId) + '"]')?.focus({preventScroll:true});
       return;
     }
     var merchantChip = e.target.closest("[data-qlog-merchant]");
@@ -453,8 +433,12 @@ export function wireCashflowSheets(){
   // setQuickLogChipFilter) — a re-render per keystroke would drop the caret out of the field
   // being typed into, the same reason picking a chip patches in place.
   document.getElementById("quickLogRoot").addEventListener("change", function(e){
-    if(e.target.id === "quickLogProject"){ quickLog.projectId = e.target.value; patchQuickLogTrip(); document.getElementById("quickLogProject")?.focus(); }
-    if(e.target.id === "quickLogDate") patchQuickLogTrip();
+
+    if(e.target.id === "quickLogDate"){
+      quickLog.date = e.target.value;
+      patchQuickLogTrip();
+      document.querySelector(".qlog-context").textContent = quickLogContextText(budgetLineItems().find(function(l){ return l.id === quickLog.linkedId; }));
+    }
   });
   document.getElementById("quickLogRoot").addEventListener("input", function(e){
     if(e.target.id === "quickLogSearch"){ setQuickLogChipFilter(e.target.value); return; }

@@ -8520,7 +8520,7 @@ const JOURNEYS = {
     const trip = await stored(page, 'state.trips.find(t => t.name === "Beach weekend")');
     check(trip.budget === 900 && trip.lineId === "demo-travel" && trip.from === "2026-11-01" && trip.to === "2026-11-05", "the trip didn't save its dates, budget and line: " + JSON.stringify(trip));
     const card = page.locator('.trip-row[data-trip-id="' + trip.id + '"]');
-    check(/Away now/.test(await card.innerText()) && /of \$900/.test(await card.innerText()), "the trip's card doesn't show it's on, against its budget");
+    check(/In progress/.test(await card.innerText()) && /of \$900/.test(await card.innerText()), "the trip's card doesn't show it's on, against its budget");
     // What's already logged on its days is asked about, one at a time; a "No" is remembered and never asked again.
     const pending = await stored(page, 'state.transactions.filter(t => t.date >= "2026-11-01" && t.date <= "2026-11-05" && !t.trip && !t.tripNo && t.amount > 0).length');
     if(pending){

@@ -41,7 +41,7 @@ export function lineLabeler(lines){
 // with the other filters; applied filters remain visible when the panel is closed.
 export var txFilterPanel = { open: false, search: false };
 var FILTER_KEYS = [["account"], ["category"], ["line"], ["person"], ["trip"], ["min"], ["max"], ["from"], ["to"]];
-function tripName(id){ var t = (state.trips || []).concat(state.projects || []).find(function(x){ return x.id === id; }); return t ? t.name || "Trip" : "A deleted trip"; }
+function tripName(id){ var t = (state.trips || []).concat(state.projects || []).find(function(x){ return x.id === id; }); return t ? t.name || "Event budget" : "A deleted event budget"; }
 function inputHtml(key, label, type, value, extra){
   return '<label class="cf-filter"><span>' + label + '</span><input class="field-control" type="' + type + '" data-cf-filter="' + key + '" value="' + escapeAttr(value || "") + '" aria-label="Filter: ' + label.toLowerCase() + '"' + (extra || '') + '></label>';
 }

@@ -4,7 +4,7 @@ import { fmtCurrency0, fmtCurrency2 } from "../lib/format.js";
 import { furnishingDecision } from "../calc/furnishing.js";
 import { projectSpent, projectRemaining } from "../calc/projects.js";
 
-import { addTrip } from "../calc/trips.js";
+import { addTrip, updateTrip } from "../calc/trips.js";
 import { budgetLineOptgroupsHtml } from "./expenses.js";
 
 var editing = null;
@@ -27,11 +27,11 @@ function editor(p){
   return '<form class="trip-form" data-furnishing><h2 class="section-title">' + (p.id ? "Edit budget" : "Add budget") + '</h2><div class="trip-form-grid">' +
     field("name", "Event name", p.name, "text", "required") +
     field("budget","Budget ($)",p.budget,"number",'required min="0" step="0.01"') +
-    (p.id ? '<p>Paid from savings</p>' : '<label class="field-label">Paid from<select class="field-control" name="lineId"><option value="">Savings</option>' + budgetLineOptgroupsHtml("") + '</select></label>') +
+    (p.id && !p.lineId ? '<p>Paid from savings</p>' : '<label class="field-label">Paid from<select class="field-control" name="lineId">' + (p.id ? "" : '<option value="">Savings</option>') + budgetLineOptgroupsHtml(p.lineId || "") + '</select></label>') +
     '</div><details><summary>Dates and property</summary><div class="trip-form-grid">' +
     field("from","Starts",p.from,"date","") + field("to","Ends",p.to,"date","") +
     '<label class="field-label">Linked property<select class="field-control" name="purchaseId"><option value="">None</option>' + options(links, p.purchaseId) + '</select></label>' +
-    field("month","Forecast month",p.month,"month","") + '</div></details><details data-savings-only><summary>Spending and purchase estimate</summary><div class="trip-form-grid">' +
+    field("month","Forecast month",p.month,"month","") + '</div></details><details data-savings-only' + (p.lineId ? " hidden" : "") + '><summary>Spending and purchase estimate</summary><div class="trip-form-grid">' +
     field("spent","Already spent outside linked transactions ($)",p.spent,"number",'min="0" step="0.01"') +
     field("cash","Expected cash after settlement before this purchase ($)",p.cash,"number",'step="0.01"') +
     field("buffer","Cash buffer to keep ($)",p.buffer,"number",'min="0" step="0.01"') +
@@ -55,6 +55,8 @@ export function projectBudgetBarHtml(spent, budget){
   var pct = Math.max(0, Math.min(100, Math.round(spent / budget * 100)));
   return '<div class="trip-bar' + (spent > budget ? " is-over" : "") + '" role="img" aria-label="' + escapeAttr(fmtCurrency0.format(spent) + " of " + fmtCurrency0.format(budget)) + '"><span style="width:' + pct + '%"></span></div>';
 }
+
+export function eventEditorHtml(event){ return editing === event.id ? editor(event) : ""; }
 
 export function furnishingHtml(){
   var projects = state.projects || [];
@@ -94,7 +96,7 @@ export function wireFurnishing(body, redraw){
       form.elements.to.setCustomValidity("End date must follow the start date."); form.elements.to.reportValidity(); return;
     }
     if(values.lineId){
-      var event = addTrip(state, values, function(){ return genId("trip"); });
+      var event = editing === "new" ? addTrip(state, values, function(){ return genId("trip"); }) : updateTrip(state, editing, values);
       event.purchaseId = values.purchaseId;
       editing = null;
       commit(["trips"]);

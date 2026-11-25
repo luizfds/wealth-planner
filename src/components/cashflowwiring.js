@@ -190,6 +190,8 @@ function patchQuickLogTrip(){
   if(!box) return;
   var dateEl = document.getElementById("quickLogDate");
   box.innerHTML = quickLogTripHtml(dateEl && dateEl.value ? dateEl.value : undefined);
+  var lines = document.querySelector("[data-qlog-lines]");
+  if(lines) lines.hidden = !!box.querySelector("select")?.value;
 }
 function performQuickLog(){
   var amountEl = document.getElementById("quickLogAmount");
@@ -222,7 +224,7 @@ function performQuickLog(){
   showToast(t.amount < 0
     ? "Logged a " + fmtCurrency2.format(Math.abs(t.amount)) + " refund against " + transactionDisplayName(t, budgetLineItems())
     : "Logged " + fmtCurrency2.format(t.amount) + " to " + transactionDisplayName(t, budgetLineItems()) + (t.trip ? " · part of " + tripName(t.trip) : ""));
-  if(t.trip || t.tripNo) renderTrips();
+  if(t.project || t.trip || t.tripNo) renderTrips();
 }
 function tripName(id){ var tr = (state.trips || []).find(function(x){ return x.id === id; }); return tr ? tr.name : "the trip"; }
 // ---------------- Income → Received (v3.46.0) ----------------

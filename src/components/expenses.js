@@ -1181,10 +1181,10 @@ export function renderQuickLogSheet(){
       '<button type="button" class="icon-btn" data-qlog-close aria-label="Close">✕</button></div>' +
       quickLogAmountRowHtml() +
       '<div id="quickLogTrip">' + quickLogTripHtml() + '</div>' +
-      '<div class="qlog-section-label">What was it for?</div>' +
+      '<div data-qlog-lines' + (quickLog.projectId || (quickLog.projectId == null && quickLogTrip()) ? ' hidden' : '') + '><div class="qlog-section-label">What was it for?</div>' +
       quickLogSearchHtml() +
       quickLogChipsHtml() +
-      '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p>' +
+      '<p class="qlog-context">' + escapeAttr(quickLogContextText(item)) + '</p></div>' +
       quickLogRefundChipsHtml(item) +
       '<input type="text" id="quickLogNote" class="qlog-note field-control" placeholder="' + escapeAttr(item ? "Note (optional)" : "What was it? (optional)") + '" aria-label="Note (optional)">' +
       quickLogMerchantChipsHtml(item) +
@@ -1430,7 +1430,7 @@ export function transactionSummaryText(t){
   var linked = t.linkedExpenseId && budgetLineItems().find(function(i){ return i.id === t.linkedExpenseId; });
   var acct = transactionAccount(t);
   // v3.138.0: no date — the list is grouped under a header per day.
-  var bits = [linked ? linked.what : "One-off"];
+  var bits = [linked ? linked.what : t.project ? "Paid from savings" : "One-off"];
   if(acct) bits.push(acct);
   var refundLabel = refundTargetLabel(t);
   if(refundLabel) bits.push(refundLabel);

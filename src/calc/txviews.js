@@ -67,7 +67,7 @@ export function describeFilter(key, value, opts){
   if(key === "min"){ label = "At least"; v = "$" + value; sep = " "; }
   else if(key === "max"){ label = "At most"; v = "$" + value; sep = " "; }
   else if(key === "from" || key === "to"){ label = key === "from" ? "From" : "To"; v = opts.date ? opts.date(value) : value; sep = " "; }
-  else if(key === "trip"){ label = "Trip"; v = opts.tripName ? opts.tripName(value) : value; }
+  else if(key === "trip"){ label = "Event budget"; v = opts.tripName ? opts.tripName(value) : value; }
   else if(key === "line"){ label = "Line"; v = opts.lineName ? opts.lineName(value) : value; }
   else label = key.charAt(0).toUpperCase() + key.slice(1);
   return { label: label, value: v, text: label + sep + v, sep: sep };

@@ -99,12 +99,13 @@ export function liquidityForecast(o){
       if(e.index === i){ flow -= e.cashToBring; lines.push({ what: e.what + " settles — cash to bring", amount: -e.cashToBring }); }
       if(i > e.index && e.repayment > 0){ flow -= e.repayment; if(i === e.index + 1) lines.push({ what: e.what + " — loan repayments begin", amount: -e.repayment }); }
     });
-    (projectEntries.get(i) || []).forEach(function(entry){
+    var payments = projectEntries.get(i) || [];
+    payments.forEach(function(entry){
       flow += entry.amount;
       lines.push({ what: entry.what, amount: entry.amount });
     });
     bal = r2(bal + flow);
-    out.push({ year: m.year, month: m.month, net: r2(flow), balance: bal, items: (m.items || []).concat(lines) });
+    out.push({ year: m.year, month: m.month, net: r2(flow), balance: bal, items: (m.items || []).concat(lines), payments: payments });
     if(bal < lowest.balance) lowest = { balance: bal, index: i };
   });
 

@@ -565,10 +565,16 @@ function liquidityHtml(forecast){
     pillsHtml({ id: "liq-stress", label: "Rates", name: "liq-stress", value: String(liqUi.stress), attrs: { "data-liq-stress": "1" },
       options: [{ value: "0", label: "As they are" }, { value: "1", label: "+1%" }, { value: "2", label: "+2%" }] }) +
     (scenarioOpts.length > 1 ? fieldHtml({ id: "liq-compare", label: "Set beside", type: "select", box: true, value: other, options: scenarioOpts, attrs: { "data-liq-compare": "1" } }) : '') + '</div>';
+  var payments = f.months.filter(function(m){ return m.payments.length; }).map(function(m){
+    return '<li><b>' + label(m) + '</b><ul>' + m.payments.map(function(payment){
+      return '<li>' + escapeAttr(payment.what) + ' · ' + money(payment.amount) + '</li>';
+    }).join("") + '</ul></li>';
+  }).join("");
   var table = '<details class="liq-table"><summary>The numbers' + (f.assumptions.length || f.missing.length ? ' and what it assumes' : '') + '</summary>' +
     '<table><thead><tr><th scope="col">Month</th><th scope="col">In and out</th><th scope="col">Cash at the end</th>' + (g ? '<th scope="col">' + escapeAttr(other) + '</th>' : '') + '</tr></thead><tbody>' +
     f.months.map(function(m, i){ return '<tr><th scope="row">' + label(m) + '</th><td>' + money(m.net) + '</td><td>' + money(m.balance) + '</td>' + (g ? '<td>' + money(g.months[i].balance) + '</td>' : '') + '</tr>'; }).join("") +
     '</tbody></table>' +
+    (payments ? '<p class="liq-k">Event payments by month</p><ul>' + payments + '</ul>' : '') +
     (f.missing.length ? '<p class="liq-k">Missing</p><ul>' + f.missing.map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join("") + '</ul>' : '') +
     (f.assumptions.length ? '<p class="liq-k">Assumed</p><ul>' + f.assumptions.map(function(x){ return '<li>' + escapeAttr(x) + '</li>'; }).join("") + '</ul>' : '') + '</details>';
   return '<div class="liq">' + head + '<p class="liq-summary">' + escapeAttr(summary) + '</p>' + chart + notes.join("") + controls + table + '</div>';

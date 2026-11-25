@@ -6052,7 +6052,7 @@ that folds or moves something is mocked up first and keeps every control reachab
 - `[ ]` **B1** Bank accounts says what "owed" holds and what Debts holds.
 - `[ ]` **B4** Retirement and Financial independence take the age from People's date of birth; one place to type it.
 - `[ ]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
-- `[ ]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
+- `[x]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
 - `[ ]` **C3** Accounts on a desktop in two columns.
 - `[ ]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.
 
@@ -6060,10 +6060,10 @@ that folds or moves something is mocked up first and keeps every control reachab
 questions (name, address, who makes it, numbers, feedback, tone) first.
 - `[ ]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
 - `[ ]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
-- `[ ]` **L3** The screenshot script from the sample household (needs B6).
+- `[x]` **L3** The screenshot script from the sample household (needs B6).
 - `[ ]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
 - `[ ]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
-- `[ ]` **L6** A README for the repository.
+- `[x]` **L6** A README for the repository.
 - `[ ]` **L7** A custom domain, if wanted.
 
 **4. Carried over**

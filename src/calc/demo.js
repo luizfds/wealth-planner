@@ -58,7 +58,7 @@ var LINES = [
   { id: "demo-pets", what: "Pet care", category: "Personal", classification: "Wants", account: "Credit Card", amount: 90, freq: "Monthly", day: 25, merchants: ["Paws Vet", "Pet Barn Supplies"] },
   { id: "demo-gifts", what: "Gifts", category: "Other", classification: "Wants", account: "Credit Card", amount: 1200, freq: "Yearly", irregular: true, merchants: ["Gift Shop", "Bookworm Books"] },
   { id: "demo-travel", what: "Holidays", category: "Other", classification: "Wants", account: "Credit Card", amount: 5000, freq: "Yearly", irregular: true, merchants: ["Sky Air", "Seaside Stays"] },
-  { id: "demo-contents", what: "Contents insurance", category: "Insurance", classification: "Needs", account: "Everyday Account", amount: 540, freq: "Yearly", month: 8, day: 4, fixed: true, merchants: ["Steady Insurance"] }
+  { id: "demo-contents", what: "Contents insurance", category: "Insurance", classification: "Needs", account: "Everyday Account", amount: 540, freq: "Yearly", month: 8, day: 4, fixed: true, merchants: ["Homeguard Cover"] }
 ];
 
 // The property, its loan and its manager's costs.
@@ -155,8 +155,8 @@ export function demoHousehold(today){
     { id: "demo-cash-everyday", what: "Everyday Account", category: "Cash", amount: last(everyday), history: everyday },
     { id: "demo-cash-savings", what: "High Interest Savings", category: "Cash", amount: last(savings), history: savings }
   ].concat(shares).concat([
-    { id: "demo-super-alex", what: "Superannuation", category: "Super", person: "Alex", amount: last(superA), history: superA },
-    { id: "demo-super-sam", what: "Superannuation", category: "Super", person: "Sam", amount: last(superB), history: superB },
+    { id: "demo-super-alex", what: "Alex's super", category: "Super", person: "Alex", amount: last(superA), history: superA },
+    { id: "demo-super-sam", what: "Sam's super", category: "Super", person: "Sam", amount: last(superB), history: superB },
     { id: "demo-car", what: "Family car", category: "Vehicle", purchasePrice: 32000, purchaseDate: yearsAgo(today, 3), depreciationRate: 12, amount: 21500, computed: true, computedNote: "auto: declining balance", history: series(function(i){ return 21500 * Math.pow(1.01, n - i); }) }
   ]);
 
@@ -204,6 +204,12 @@ export function demoHousehold(today){
       { id: "demo-pay-sam", what: "Sam's salary (Employer B)", classification: "", account: "Everyday Account", person: "Sam", incomeType: "Gross", amount: 7400, freq: "Monthly" }
     ],
     ip: [],
+    // November 2026: two trips out of the Holidays line — one coming up in a few weeks, one being planned with just a
+    // month — so Money → Trips has something to show. Dates follow today, like everything else here.
+    trips: [
+      { id: "demo-trip-coast", name: "A week at the coast", from: addDays(today, 32), to: addDays(today, 39), lineId: "demo-travel", budget: 2400 },
+      { id: "demo-trip-hills", name: "Long weekend in the hills", from: "", to: "", month: addDays(today, 150).slice(0, 7), lineId: "demo-travel", budget: 900 }
+    ],
     shared: LINES.map(function(l){ var o = Object.assign({}, l); delete o.merchants; delete o.day; delete o.month; delete o.fixed; return o; }),
     home: { "Renting": homeLines("rent", 620, 0, 95, 0, 0), "Buy a house": buyHouse, "Buy an apartment": buyUnit },
     purchase: {

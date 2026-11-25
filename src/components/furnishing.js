@@ -28,9 +28,9 @@ export function furnishingHtml(){
         '" required type="number" step="0.01"' + (key === "cash" ? "" : ' min="0"') +
         ' value="' + escapeAttr(saved[key] == null ? "" : String(saved[key])) + '"></label>';
     }).join("");
-    return '<form class="trip-form" data-furnishing="' + escapeAttr(p.id) + '"><h3>Furnish the new home</h3><p>From savings · Linked to ' +
+    return '<form class="trip-form" data-furnishing="' + escapeAttr(p.id) + '"><h2 class="section-title">Furnish the new home</h2><p>From savings · Linked to ' +
       escapeAttr(p.what || "property purchase") + '</p><div class="trip-form-grid">' + fields +
-      '</div><p role="status"></p><button class="btn btn-primary" type="submit">Save estimate</button></form>';
+      '</div><p role="status"></p><button class="btn" type="submit">Save estimate</button></form>';
   }).join("");
 }
 export function updateFurnishingResults(body){

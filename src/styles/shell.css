@@ -298,7 +298,7 @@
   .quick-fab{
     all:unset; box-sizing:border-box;
     width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    background: var(--action-fill); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
+    background: var(--tab-1); color:#fff; box-shadow: 0 6px 18px rgba(0,0,0,0.28); cursor:pointer;
     transition: transform .12s ease, filter .15s ease;
   }
   .quick-fab[hidden]{ display:none; }

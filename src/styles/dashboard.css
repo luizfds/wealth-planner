@@ -739,14 +739,15 @@
 .home-glance-tile b{ position:relative; font-family: var(--font-num); font-size:var(--fs-xl); font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-glance-tile small{ position:relative; font-size:var(--fs-xs); max-width:100%; overflow-wrap:anywhere; }
 .home-glance-tile.is-hero{ grid-column: 1 / -1; min-height:140px; padding:18px 20px; gap:4px; background: linear-gradient(135deg, var(--tab-today-1) 0%, var(--tab-today-2) 100%);
-  box-shadow: 0 10px 24px -12px rgba(14,116,144,.7); }
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tab-today-1) 55%, transparent); }
+.home-glance-tile.is-hero .home-glance-k{ text-transform:none; letter-spacing:0; }
 .home-glance-tile.is-hero b{ font-size: var(--fs-3xl); letter-spacing:-.02em; }
 .home-glance-chip{ display:inline-block; padding:2px 8px; border-radius:100px; background: rgba(15,23,42,.28); font-weight:600; }
 .home-glance-stale{ display:inline-block; margin-left:6px; font-weight:600; text-decoration: underline; text-underline-offset:2px; }
 .home-glance-asof{ display:inline-block; margin-left:6px; }
 .home-glance-spark{ position:absolute; right:0; bottom:0; width:58%; height:62%; pointer-events:none; }
 .home-glance-spark .fill{ fill: rgba(255,255,255,.12); }
-.home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.55); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.home-glance-spark .line{ fill:none; stroke: rgba(255,255,255,.9); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
 .home-glance-tile.is-good{ --tile-bg: linear-gradient(160deg, #047857, #065f46); }
 .home-glance-tile.is-bad, .home-glance-tile.is-alert{ --tile-bg: linear-gradient(160deg, #be123c, #9f1239); }
 .home-glance-tile.is-warn{ --tile-bg: linear-gradient(160deg, #b45309, #92400e); }
@@ -827,10 +828,15 @@
 .panel .liq-sub{ margin:8px 0 6px; font-size:var(--fs-md); font-weight:600; }
 
 /* #457: Where you stand — at most five decision figures, each a way to where it's worked out. */
+.home-card.home-standing{ border:0; padding:0; background:transparent; box-shadow:none; }
 .home-standing{ display:flex; flex-direction:column; gap:10px; }
 .hs-list{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:8px; }
 .hs-fig{ width:100%; height:100%; min-height:44px; display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 12px; border:0; border-radius:14px;
   background: var(--paper-sunken); color: var(--ink); font:inherit; text-align:left; cursor:pointer; }
+.hs-fig{ border-top:3px solid var(--ink-soft); background:var(--paper-raised); }
+.hs-fig.is-good{ border-color:var(--good-ink); }
+.hs-fig.is-warn{ border-color:var(--warn-ink); background:color-mix(in srgb, var(--warn-ink) 7%, var(--paper-raised)); }
+.hs-fig.is-bad{ border-color:var(--bad-ink); background:color-mix(in srgb, var(--bad-ink) 6%, var(--paper-raised)); }
 .hs-fig:hover{ background: color-mix(in srgb, var(--brass) 8%, var(--paper-sunken)); }
 .hs-fig:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
 .hs-k{ font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); }

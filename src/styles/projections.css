@@ -7,6 +7,7 @@
   .proj-basis-note{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .proj-headline{ font-size:var(--fs-md); line-height:1.5; color: var(--ink-soft); margin:0 0 16px; }
   .proj-headline b{ color: var(--brass-strong); font-weight:600; }
+  #projChart{ margin-bottom:14px; }
   /* v3.177.0 (item 204): what-ifs you can drag */
   .wi-strip{ border:1px solid var(--border); border-radius: var(--inner-radius); padding:12px 14px; margin:0 0 14px; background: var(--paper); }
   .wi-head{ display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:8px; }

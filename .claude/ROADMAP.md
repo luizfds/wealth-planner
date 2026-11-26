@@ -6051,7 +6051,7 @@ that folds or moves something is mocked up first and keeps every control reachab
 **2. Clearer (mock-ups first, `release: minor`)**
 - `[x]` **B1** Bank accounts labels **Total owed** as including property loans and gives cards, personal loans and similar balances their own **Other debts** heading.
 - `[x]` **B4** Retirement and Financial independence take the age from People's date of birth; one place to type it.
-- `[~]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
+- `[x]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
 - `[x]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
 - `[ ]` **C3** Accounts on a desktop in two columns.
 - `[ ]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.

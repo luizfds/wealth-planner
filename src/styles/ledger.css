@@ -1753,33 +1753,47 @@
   .bh-sec{ display:flex; flex-direction:column; gap:6px; }
   .bh-sec h3{ margin:0 0 2px; font-size:var(--fs-md); font-weight:600; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
   .bh-sec h3 small{ font-weight:400; font-size:var(--fs-xs); color: var(--ink-soft); }
-  .bh-inbox{ display:flex; flex-direction:column; gap:10px; }
-  .bh-tidy{ display:flex; align-items:center; gap:12px; width:100%; min-height:60px; padding:12px 16px; border-radius: var(--card-radius); border:1px solid color-mix(in srgb, var(--warn-ink) 30%, transparent);
-    background: color-mix(in srgb, var(--warn-ink) 9%, var(--paper-raised)); color: var(--ink); font: inherit; text-align:left; cursor:pointer; }
-  .bh-tidy:focus-visible{ outline:none; box-shadow: var(--focus-ring); }
-  /* The notices about the budget, one quiet line under the Tidy list (the app's "N to look at" line, moved here). */
-  .bh-notices{ all:unset; box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:8px 14px;
-    border-radius: var(--card-radius); border:1px solid var(--border); background: var(--paper-raised); font-size:var(--fs-sm); cursor:pointer; }
-  .bh-notices:focus-visible{ box-shadow: var(--focus-ring); }
-  .bh-notices-n{ flex:none; font-weight:600; color: var(--tab-ink); }
-  .bh-notices-top{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color: var(--ink-soft); }
-  .bh-tidy-n{ flex:none; width:32px; height:32px; border-radius:999px; display:grid; place-items:center; background: var(--warn-ink); color: var(--paper-raised); font-weight:600; }
-  .bh-tidy-text{ flex:1; display:flex; flex-direction:column; min-width:0; }
-  .bh-tidy-text small{ font-size:var(--fs-xs); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .bh-tidy-go{ font-weight:600; color: var(--warn-ink); }
-  .bh-inbox-card{ display:flex; flex-direction:column; gap:10px; padding:16px; border-radius: var(--card-radius); background: var(--paper-raised); border:1px solid var(--border); box-shadow: var(--shadow); }
-  .bh-inbox-top{ display:flex; justify-content:space-between; align-items:center; }
-  .bh-kicker{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--warn-ink); }
-  .bh-count{ font-size:var(--fs-xs); color: var(--ink-soft); }
-  .bh-inbox-title{ margin:0; font-size:var(--fs-lg); font-weight:600; line-height:1.3; }
-  .bh-inbox-body{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); line-height:1.5; }
-  .bh-inbox-facts{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin:0; padding:10px 12px; border-radius: var(--inner-radius); background: var(--paper-sunken); }
-  .bh-inbox-facts dt{ font-size:var(--fs-xs); color: var(--ink-soft); }
+  .bh-review{ min-width:0; border:1px solid var(--border); border-radius:var(--card-radius); background:var(--paper-raised); }
+  .bh-review-toggle{ display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-height:60px; padding:12px 16px;
+    border:0; border-radius:var(--card-radius); background:color-mix(in srgb, var(--tab-ink) 6%, var(--paper-raised)); color:var(--ink);
+    font:inherit; text-align:left; cursor:pointer; }
+  .bh-review-toggle:focus-visible{ outline:none; box-shadow:var(--focus-ring); }
+  .bh-review-toggle[aria-expanded="true"]{ border-end-start-radius:0; border-end-end-radius:0; }
+  .bh-review-toggle-text{ display:flex; flex-direction:column; min-width:0; }
+  .bh-review-toggle-text small{ color:var(--ink-soft); font-size:var(--fs-xs); }
+  .bh-review-action{ display:flex; flex:none; align-items:center; gap:9px; color:var(--tab-ink); font-size:var(--fs-sm); font-weight:600; }
+  .bh-review-body{ border-top:1px solid var(--border); padding-inline:14px; }
+  .bh-review-group{ padding-block:12px; }
+  .bh-review-group + .bh-review-group, .bh-review-footer{ border-top:1px solid var(--border); }
+  .bh-review-group h3{ display:flex; align-items:center; gap:8px; margin:2px 0 7px; font-size:var(--fs-md); font-weight:600; }
+  .bh-review-group h3 span{ display:inline-grid; place-items:center; min-width:24px; min-height:22px; padding-inline:6px; border-radius:999px;
+    background:var(--paper-sunken); color:var(--ink-soft); font-family:var(--font-num); font-size:var(--fs-xs); }
+  .bh-review-item > summary{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; min-height:48px;
+    padding:8px 4px 8px 0; list-style:none; cursor:pointer; }
+  .bh-review-item + .bh-review-item{ border-top:1px solid var(--border); }
+  .bh-review-item > summary::-webkit-details-marker{ display:none; }
+  .bh-review-item-text{ display:grid; gap:2px; min-width:0; overflow-wrap:anywhere; }
+  .bh-review-item-text small{ font-size:var(--fs-xs); color:var(--ink-soft); }
+  .bh-review-item-text b{ font-size:var(--fs-sm); font-weight:600; }
+  .bh-review-chevron{ width:8px; height:8px; margin:0 2px 3px; border:solid currentColor; border-width:0 1.5px 1.5px 0; transform:rotate(45deg); }
+  .bh-review-item[open] > summary .bh-review-chevron, .bh-review-toggle[aria-expanded="true"] .bh-review-chevron{ transform:rotate(225deg); margin-top:6px; }
+  .bh-inbox-card, .bh-review-notice{ padding:12px; margin-bottom:8px; border-radius:var(--inner-radius); background:var(--paper-sunken); overflow-wrap:anywhere; }
+  .bh-inbox-card{ display:flex; flex-direction:column; gap:10px; }
+  .bh-inbox-body, .bh-review-notice p{ margin:0; font-size:var(--fs-sm); color:var(--ink-soft); line-height:1.5; }
+  .bh-inbox-facts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0; padding:10px 12px;
+    border-radius:var(--inner-radius); background:var(--paper-raised); }
+  .bh-inbox-facts dt{ font-size:var(--fs-xs); color:var(--ink-soft); }
   .bh-inbox-facts dd{ margin:0; font-weight:600; }
-  .bh-inbox-act{ display:flex; flex-wrap:wrap; gap:8px; }
-  .bh-inbox-act .btn-primary{ flex: 1 1 100%; }
-  .bh-next{ display:flex; flex-direction:column; gap:4px; padding-top:8px; border-top:1px solid var(--border); }
-  .bh-next-item{ font-size:var(--fs-sm); color: var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bh-inbox-act, .bh-review-notice > div{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .bh-inbox-act .btn-primary{ flex:1 1 100%; }
+  .bh-review-hide, .bh-review-more[open] > summary > .bh-review-show{ display:none; }
+  .bh-review-more[open] > summary > .bh-review-hide{ display:inline; }
+  .bh-review-more > summary, .bh-review-footer > button, .bh-review-notice .link-btn{ align-content:center; min-height:44px;
+    color:var(--tab-ink); font-size:var(--fs-sm); font-weight:600; }
+  .bh-review-more > summary{ cursor:pointer; }
+  .bh-review-item > summary:focus-visible, .bh-review-more > summary:focus-visible{ outline:2px solid var(--tab-ink); outline-offset:2px; border-radius:var(--inner-radius); }
+  .bh-review-footer{ padding-block:3px; }
+  #budgetSplitCard, #historyBudgetCard, #trimCard, #budgetLines, #allSuggestions{ scroll-margin-top:96px; }
   .bh-due{ list-style:none; margin:0; padding:0; }
   .bh-due li{ display:grid; grid-template-columns: 76px minmax(0,1fr) auto; gap:10px; align-items:center; min-height:40px; border-bottom:1px solid var(--paper-sunken); }
   .bh-due li:last-child{ border-bottom:0; }
@@ -2362,7 +2376,6 @@
   .bh-all-suggest-head small{ font-size:var(--fs-xs); color: var(--ink-soft); }
   .bh-all-suggest[open] > summary{ margin-bottom:12px; }
   .bh-all-suggest > .ledger + .ledger{ margin-top:12px; }
-  .bh-inbox-all{ margin-top:6px; min-height:44px; }
   .pat-head{ display:flex; flex-direction:column; gap:4px; padding:12px 14px; margin:0 0 10px; border:1px solid var(--border); border-radius: var(--inner-radius); background: var(--paper-raised); }
   .pat-k{ font-size:var(--fs-sm); color: var(--ink-soft); }
   .pat-v{ display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }

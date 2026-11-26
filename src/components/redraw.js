@@ -201,12 +201,12 @@ function defineViews(){
   // Drawn after the save, like the bell's badge: it reads every notification and all the advice, and doing that
   // inside each save took saving a transfer from about 225ms to over 400ms on the speed budget's slowed CPU (#267).
   defineView("attentionLine", ["expenses", "tax", "plan", "assets", "properties", "accounts", "networth"], function(){ renderAttentionLine(true); }, ["*"], { later: true });
-  defineView("budgetSplit", ["expenses"], renderBudgetSplit, ["shared", "transactions", "home", "properties", "tidyOk", "scenarioChanges", "scenarios", "yearBasis"], { tabs: { expenses: ["expensesSub-budget"] } });
+  defineView("budgetSplit", ["expenses"], renderBudgetSplit, ["shared", "transactions", "home", "properties", "purchases", "accounts", "transfers", "income", "incomeLog", "tidyOk", "scenarioChanges", "scenarios", "yearBasis", "noticesDismissed", "parts"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("adjustPlan", ["expenses"], renderAdjust, ["shared", "transactions", "home", "properties", "scenarioChanges", "scenarios", "income", "tax"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("tidy", ["expenses"], renderTidy, ["transactions", "shared", "home", "properties", "tidyOk", "trips", "importRules"], { tabs: { expenses: ["expensesSub-budget"] } });
   defineView("trim", ["expenses"], renderTrim, ["shared", "transactions", "home", "scenarioChanges", "scenarios"]);
   defineView("recurring", ["expenses"], renderRecurring, ["transactions", "shared"]);
-  defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared"]);
+  defineView("budgetFromHistory", ["expenses"], renderBudgetFromHistory, ["transactions", "shared", "home", "properties", "purchases"]);
   defineView("trips", ["expenses"], renderTrips, ["projects", "purchases", "trips", "transactions", "shared", "home", "properties", "yearBasis"], { tabs: { expenses: ["expensesSub-trips"] } });
   defineView("retirement", ["plan"], renderRetirement, ["*"]);
 }

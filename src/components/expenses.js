@@ -7,6 +7,7 @@ import { tidyMarkerHtml, tidyLinkHtml, currentStrays, tidyStraysForLineHtml } fr
 import { strayCountByLine } from "../calc/tidy.js";
 import { loanRepaymentMonthly, ipProperties } from "../calc/property.js";
 import { scenarioTotals, currentScenario } from "../calc/engine.js";
+import { budgetLineSources } from "../calc/budgetsplit.js";
 import { billsForMonth, billsToConfirm } from "../calc/bills.js";
 import { autoPaysForMonth, autoPayLineIds } from "../calc/autopay.js";
 import { renameAccount } from "../calc/accountlinks.js";
@@ -137,20 +138,10 @@ function sharedGroupOrder(axis){
 // Loan repayments are deliberately not lines: they're derived from balance/rate/term rather than
 // budgeted, so there's nothing to edit and nothing to fall behind on logging. They keep their own
 // summary card below the list instead.
-function budgetLineSources(scenario){
-  scenario = scenario || currentScenario();
-  var sources = [{ section: "shared", items: state.shared }];
-  var homeItems = state.home[scenario];
-  if(homeItems && homeItems.length) sources.push({ section: "home:" + scenario, items: homeItems });
-  ipProperties().forEach(function(p){
-    if(p.expenses && p.expenses.length) sources.push({ section: "propexp:" + p.id, items: p.expenses });
-  });
-  return sources;
-}
 // Flat list of { item, section, idx } across every source, in display order.
 function allBudgetLines(){
   var lines = [];
-  budgetLineSources().forEach(function(source){
+  budgetLineSources(state, currentScenario()).forEach(function(source){
     source.items.forEach(function(item, idx){ lines.push({ item: item, section: source.section, idx: idx }); });
   });
   return lines;
@@ -2044,7 +2035,7 @@ export function categoryChartHtml(groups, unit, opts){
 // the actual-vs-planned panel totals exactly what the list shows, rather than the two disagreeing
 // about whether rent counts.
 export function budgetLineItems(scenario){
-  return budgetLineSources(scenario).reduce(function(acc, source){ return acc.concat(source.items); }, []);
+  return budgetLineSources(state, scenario || currentScenario()).flatMap(function(source){ return source.items; });
 }
 // The subset you can actually log spend against. A computed line (a synced home-loan repayment, a
 // property manager fee worked out from the rent) is a real cost and stays in the list and in the

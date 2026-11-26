@@ -203,8 +203,11 @@ test("budget lines spending suggests are a To do once the first month is behind 
     assert.equal(shown.length, 1, "a household months in gets the To do");
     assert.match(shown[0].title, /budget line.*suggested from your spending/);
     assert.equal(shown[0].page, "expenses"); assert.equal(shown[0].sub, "budget");
+    const spending = state.transactions;
+    state.transactions = spending.map(t => ({ ...t, forProperty: "example-purchase", forCost: "deposit" }));
+    assert.equal(todo().length, 0, "payments towards a property purchase are outside the household budget");
     // A household in its first month: the checklist asks instead.
-    state.transactions = state.transactions.filter(t => t.date >= ago(40)).map(t => t);
+    state.transactions = spending.filter(t => t.date >= ago(40));
     const first = state.transactions.reduce((a, t) => t.date < a ? t.date : a, "9999");
     if(first >= ago(59)) assert.equal(todo().length, 0, "while the first month shows, it asks — not a To do as well");
   } finally { Object.assign(state, keep); changed(); }

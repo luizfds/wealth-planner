@@ -7146,11 +7146,14 @@ const JOURNEYS = {
     await go(page, 'expenses', 'data-expenses-sub', 'budget');
     await waited(page, () => !!document.querySelector('#budgetSplitBody .bh-hero'), 'the answer at the top of Budget');
     check(/Lifestyle/.test(await page.locator('#budgetSplitBody .bh-hero-top').innerText()), 'the headline is not about Lifestyle');
-    // The hint is a card in the inbox (November 2026): put the others off with Later until it's first.
+    // Open the suggestion directly, including when it is among the extra rows.
     await page.locator('#budgetSplitBody [data-inbox-toggle]').click();
     const fix = page.locator('#budgetSplitBody [data-inbox-yes="hint:setaside-monthly|jsc"]');
-    for(let i = 0; i < 40 && !await fix.count() && await page.locator('#budgetSplitBody [data-inbox-later]').count(); i++){ await page.locator('#budgetSplitBody [data-inbox-later]').click(); await settle(page); }
-    check(await fix.count() === 1, 'the set-aside line spent every month was not offered as every month');
+    const suggestion = page.locator('#budgetSplitBody [data-review-row="hint:setaside-monthly|jsc"] > summary');
+    const more = suggestion.locator('xpath=ancestor::details[@data-review-more]/summary');
+    if(await more.count()) await more.click();
+    await suggestion.click();
+    check(await fix.isVisible(), 'the set-aside line spent every month was not offered as every month');
     await fix.click();
     await settle(page);
     check(await st(page, 'state.shared.find(l => l.id === "jsc").irregular') === false, 'Make it every month did not change the line');
@@ -7230,7 +7233,7 @@ const JOURNEYS = {
     check(await st(page, 'state.transactions.find(t => t.id === "jrx1").linkedExpenseId') === 'jrh', 'Move inside the line did not move it');
     check(await page.locator('[data-line-id="jrp"] .tidy-pill').count() === 0, 'the line is still marked to check');
   },
-  // The easier Budget (November 2026): the answer first, the inbox a card at a time (a yes undone, a Later), the lines'
+  // The easier Budget (November 2026): the answer first, the grouped review list (a yes undone, a Later), the lines'
   // filters remembered, Adjust the plan saved and undone, and Income on its own tab.
   async budgethome(page){
     await quiet(page);
@@ -7250,6 +7253,8 @@ const JOURNEYS = {
       for(let i = 0; i < 5; i++) tx('jhh', 'HARDWARE CO EXAMPLE TOWN', 25);
       // Biscuit's own shop, months back, so Adjust has three months to go on.
       [100, 130].forEach((k, i) => s.transactions.push({ id: 'jhf' + i, date: ago(k), amount: 100, what: 'Petshop One', linkedExpenseId: 'jhp', account: '' }));
+      // Unfiled household spending makes a real history suggestion.
+      [10, 40, 70, 100].forEach((k, i) => s.transactions.push({ id: 'jhn' + i, date: ago(k), amount: 25, what: 'Circuit Cinema' }));
       s.tidyOk = {};
       m.commit(['shared', 'transactions', 'tidyOk']);
     });
@@ -7257,30 +7262,42 @@ const JOURNEYS = {
     await waited(page, () => !!document.querySelector('#budgetSplitBody .bh-hero'), 'the answer at the top of Budget');
     check(/Lifestyle/.test(await page.locator('#budgetSplitBody .bh-hero-top').innerText()), 'the top does not lead with Lifestyle');
     check(!(await page.locator('#incomeGroups').isVisible()), 'income is still on Budget');
-    // The inbox: the biggest misfiled purchase first — ours.
-    const count = () => page.evaluate(() => { const n = document.querySelector('#budgetSplitBody .bh-tidy-n'); return n ? Number(n.textContent) : 0; });
-    // Whether the hardware card is still in the inbox. (The count alone can move by more than one: moving a purchase changes
-    // what's typical on both lines, so a plan-drift card can come or go with it.)
+    const review = page.locator('#budgetSplitBody [data-inbox-toggle]');
+    const count = async () => Number((await review.innerText()).match(/(\d+) to look at/)?.[1]);
     const hasCard = () => page.evaluate(async () => (await import('/src/components/budgetsplit.js')).budgetSplitModel().inbox.some(c => c.kind === 'misfiled' && /\|jhp$/.test(c.id)));
     check(await count() >= 1 && await hasCard(), 'the misfiled purchase is not in the inbox');
-    await page.locator('#budgetSplitBody [data-inbox-toggle]').click();
-    const yes = page.locator('#budgetSplitBody [data-inbox-yes]');
-    await yes.waitFor();
-    check(/Hardware/i.test(await page.locator('#budgetSplitBody .bh-inbox-title').innerText()), 'the first card is not the misfiled hardware purchase');
-    check(await page.evaluate(() => document.activeElement && document.activeElement.hasAttribute('data-inbox-yes')), 'focus did not land on the first answer');
-    await yes.click();
+    await review.click();
+    const list = page.locator('#bhInboxBody');
+    check(await list.isVisible(), 'the review list did not open');
+    check(await page.evaluate(() => document.activeElement?.hasAttribute('data-inbox-toggle')), 'focus left the review button');
+    check(await page.locator('#attentionLine button:visible').count() === 0, 'Budget has a second attention strip');
+    const card = list.locator('[data-review-row$="|jhp"]').filter({ hasText: /Hardware/i });
+    const summary = card.locator(':scope > summary');
+    await summary.press('Enter');
+    check(await card.locator('[data-inbox-yes]').isVisible(), 'the hardware purchase did not open inline');
+    await card.locator('[data-inbox-yes]').click();
     await settle(page);
     check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhh', 'Move did not move it');
     check(!(await hasCard()), 'the card stayed after its answer');
     await page.locator('#toastWrap .toast-undo-btn').last().click();
     await settle(page);
     check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhp' && await hasCard(), 'Undo did not bring it back');
-    check(/Hardware/i.test(await page.locator('#budgetSplitBody .bh-inbox-title').innerText()), 'the card is not first again after the undo');
-    await page.locator('#budgetSplitBody [data-inbox-later]').click();
-    await settle(page);
-    const firstTitle = await page.locator('#budgetSplitBody .bh-inbox-title').count() ? await page.locator('#budgetSplitBody .bh-inbox-title').innerText() : '';
-    check(!/Hardware/i.test(firstTitle), 'Later did not put it off');
-    check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhp', 'Later changed something');
+    check(await card.locator('[data-inbox-later]').isVisible(), 'Undo did not reopen the returned item');
+    await card.locator('[data-inbox-later]').click();
+    check(!(await hasCard()), 'Later did not put the card off');
+    check(await st(page, 'state.transactions.find(t => t.id === "jhx1").linkedExpenseId') === 'jhp', 'Later changed the purchase');
+    const suggestion = list.locator('[data-review-row^="budgetsuggest:"] > summary');
+    const more = suggestion.locator('xpath=ancestor::details[@data-review-more]/summary');
+    if(await more.count()) await more.click();
+    await suggestion.click();
+    await list.getByRole('button', {name: 'Review suggested budget lines →'}).click();
+    check(await page.locator('#historyBudgetBody').isVisible(), 'the suggestion did not open the history tool');
+    const notice = list.locator('[data-review-row="wants"]');
+    await notice.locator(':scope > summary').click();
+    check(await notice.getByRole('button', { name: /Dismiss: Lifestyle/ }).isVisible(), 'the budget observation did not show its actions inline');
+    const oldCount = await count();
+    await notice.getByRole('button', { name: /Dismiss: Lifestyle/ }).click();
+    check(await notice.count() === 0 && await count() === oldCount - 1, 'dismissing the observation did not update the review count');
     // The lines: filters remembered on this device.
     await page.locator('#sharedGroups [data-line-filter="all"]').click();
     await settle(page);

@@ -1,10 +1,9 @@
 // ---------------- Money → Budget, the top: one answer first (November 2026) — calc/budgetsplit.js, calc/tidyinbox.js ----
 //
 // What's left for Lifestyle this month, a day, and whether it's on pace — the one figure to watch, since Essentials are
-// mostly bills. Then Essentials and Lifestyle spent of their plan, everything that needs tidying as one inbox opened in
-// place (a card at a time), the bills due in the next seven days, the pots, and money in as one line (Money → Income has
-// the rest). Set-aside spending is never in the month's figures — it comes out of its pot — and a purchase on no line
-// isn't either: it's said underneath.
+// mostly bills. Then Essentials and Lifestyle spent of their plan, the review list, bills due in the next seven days,
+// the pots, and money in (Money → Income has the rest). Set-aside spending comes out of its pot, and purchases with
+// no line are shown separately from the month's figures.
 import { state } from "../state.js";
 import { monthSplit, pots, budgetHints, lifestylePace, classWord, ESSENTIAL_MEANS } from "../calc/budgetsplit.js";
 import { inboxCards } from "../calc/tidyinbox.js";
@@ -20,10 +19,10 @@ import { currentStrays } from "./tidy.js";
 import { fmtCurrency0, localDateStr } from "../lib/format.js";
 import { escapeAttr } from "../lib/html.js";
 import { emptyStateHtml } from "../lib/empty.js";
-import { viewItems } from "../lib/attention.js";
+import { viewItems, attentionIconHtml, canDismiss } from "../lib/attention.js";
 
-// This device's session: the inbox open or not, the cards put off for later, every pot shown.
-export var budgetSplitUi = { inboxOpen: false, later: {}, allPots: false, pick: {} };
+// This device's session: open review rows and groups, items put off for later, and whether to show every pot.
+export var budgetSplitUi = { inboxOpen: false, later: {}, allPots: false, pick: {}, reviewRows: new Set(), reviewGroups: new Set() };
 var POTS_SHOWN = 4;
 var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -58,8 +57,7 @@ export function budgetSplitModel(today){
     property: propertySuggestions(state, today, state.tidyOk || {}), propLines: lineSuggestions(state, state.tidyOk || {}), lines: lines, ok: state.tidyOk || {} })
     .filter(function(c){ return !budgetSplitUi.later[c.id]; });
   var income = incomeActuals(ym).filter(function(t){ return !t.irregular; });
-  // The app assessment (November 2026): Budget has one place for what to sort out. The notices about it (the page's
-  // "N to look at" line everywhere else — components/attentionline.js leaves it off Budget) are said under the Tidy list.
+  // Budget's own notices share the review list with the cards. Other pages keep the strip (attentionline.js).
   var notices = [];
   try { var here = viewItems({ page: "expenses", sub: "budget" }, today); notices = here.todo.concat(here.know); } catch(e){ notices = []; }
   return { ym: ym, today: today, lines: lines.length, split: split, notices: notices,
@@ -73,6 +71,12 @@ export function budgetSplitModel(today){
 export function renderBudgetSplit(){
   var el = typeof document !== "undefined" && document.getElementById("budgetSplitBody");
   if(!el) return;
+  // Preserve expanded details when a cost is picked, a card is answered or the overall list is closed.
+  el.querySelectorAll("details[data-review-row], details[data-review-more]").forEach(function(d){
+    var key = d.dataset.reviewRow || d.dataset.reviewMore;
+    var open = d.hasAttribute("data-review-row") ? budgetSplitUi.reviewRows : budgetSplitUi.reviewGroups;
+    if(d.open) open.add(key); else open.delete(key);
+  });
   el.innerHTML = budgetSplitHtml(budgetSplitModel());
 }
 
@@ -111,31 +115,88 @@ function miniBar(label, swatch, spent, planned){
     '<span class="bh-track"><span class="bh-fill ' + swatch + (over ? ' over' : '') + '" style="width:' + pct(spent, planned) + '%"></span></span></div>';
 }
 
-// The inbox, opened in place: the first card, its two answers and Later, and what's next.
-export function inboxHtml(cards){
-  if(!cards.length) return emptyStateHtml("All tidy — nothing to look at. New things show here as statements come in.", { done: true, className: "bh-inbox-done" });
-  var c = cards[0];
-  return '<section class="bh-inbox-card" aria-label="' + escapeAttr("Thing to tidy, 1 of " + cards.length) + '">' +
-    '<div class="bh-inbox-top"><span class="bh-kicker">' + escapeAttr(c.label) + '</span><span class="bh-count">1 of ' + cards.length + '</span></div>' +
-    '<h3 class="bh-inbox-title">' + escapeAttr(c.title) + '</h3><p class="bh-inbox-body">' + escapeAttr(c.body) + '</p>' +
+function reviewCardBody(c){
+  var id = escapeAttr(c.id);
+  return '<div class="bh-inbox-card"><p class="bh-inbox-body">' + escapeAttr(c.body) + '</p>' +
     '<dl class="bh-inbox-facts">' + c.facts.map(function(f){ return '<div><dt>' + escapeAttr(f[0]) + '</dt><dd>' + escapeAttr(f[1]) + '</dd></div>'; }).join("") + '</dl>' +
-    // November 2026: a purchase's card picks which of its costs (the guess first, changeable).
-    (c.picks ? '<div class="bh-inbox-picks"><span class="field-label" id="pick-' + escapeAttr(c.id) + '">Which cost</span><div class="bl-chips" role="group" aria-labelledby="pick-' + escapeAttr(c.id) + '">' + c.picks.map(function(p){
+    (c.picks ? '<div class="bh-inbox-picks"><span class="field-label">Which cost</span><div class="bl-chips" role="group" aria-label="Which cost">' + c.picks.map(function(p){
       var on = (budgetSplitUi.pick[c.id] || c.pick) === p.value;
-      return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-inbox-pick="' + escapeAttr(p.value) + '" data-inbox-pick-for="' + escapeAttr(c.id) + '">' + escapeAttr(p.label) + '</button>';
+      return '<button type="button" class="bl-chip' + (on ? " is-on" : "") + '" aria-pressed="' + on + '" data-inbox-pick="' + escapeAttr(p.value) + '" data-inbox-pick-for="' + id + '">' + escapeAttr(p.label) + '</button>';
     }).join("") + '</div></div>' : '') +
-    '<div class="bh-inbox-act"><button type="button" class="btn btn-primary" data-inbox-yes="' + escapeAttr(c.id) + '">' + escapeAttr(c.yes.label) + '</button>' +
-      '<button type="button" class="btn" data-inbox-no="' + escapeAttr(c.id) + '">' + escapeAttr(c.no.label) + '</button>' +
-      '<button type="button" class="btn btn-ghost" data-inbox-later="' + escapeAttr(c.id) + '">Later</button></div>' +
-    (c.why ? '<p class="bh-inbox-why">Why it\'s asking: ' + escapeAttr(c.why) + '</p>' : '') +
-    '<button type="button" class="link-btn bh-inbox-all" data-all-suggest>All suggestions →</button>' +
-    (cards.length > 1 ? '<div class="bh-next"><span class="bh-kicker">Next</span>' + cards.slice(1, 4).map(function(n){ return '<span class="bh-next-item">' + escapeAttr(n.title) + '</span>'; }).join("") +
-      (cards.length > 4 ? '<span class="bh-next-item">and ' + (cards.length - 4) + ' more</span>' : '') + '</div>' : '') +
-  '</section>';
+    '<div class="bh-inbox-act"><button type="button" class="btn btn-primary" data-inbox-yes="' + id + '">' + escapeAttr(c.yes.label) + '</button>' +
+      '<button type="button" class="btn" data-inbox-no="' + id + '">' + escapeAttr(c.no.label) + '</button>' +
+      '<button type="button" class="btn btn-ghost" data-inbox-later="' + id + '">Later</button></div>' +
+    (c.why ? '<p class="bh-inbox-why">Why it’s asking: ' + escapeAttr(c.why) + '</p>' : '') + '</div>';
+}
+
+var TIDY_KINDS = new Set(["misfiled", "property", "propline"]);
+var REVIEW_GROUPS = [
+  { key: "tidy", title: "Tidy up", icon: "txreview", rowName: "tidy item" },
+  { key: "suggestions", title: "Suggestions", icon: "budgetsuggest", rowName: "suggestion" },
+  { key: "checks", title: "Checks", icon: "data", rowName: "check" }
+];
+var NOTICE_DESTINATIONS = new Map([
+  ["budgetsuggest", ["historyBudgetCard", "Review suggested budget lines"]],
+  ["plan-padding", ["trimCard", "Open Trim"]],
+  ["budget", ["budgetSplitCard", "See this month’s budget"]]
+]);
+var REVIEW_ROWS_SHOWN = 2;
+
+function suggestionNotice(n){ return n.type === "budgetsuggest" || n.id === "plan-padding"; }
+
+function reviewNoticeBody(n){
+  var target = NOTICE_DESTINATIONS.get(n.type) || NOTICE_DESTINATIONS.get(n.id) || ["budgetLines", "See budget lines"];
+  var link = '<button type="button" class="link-btn" data-review-jump="' + target[0] + '"' +
+    (n.group === "todo" ? ' data-review-read="' + escapeAttr(n.id) + '"' : '') + '>' + target[1] + ' →</button>';
+  var dismiss = canDismiss(n) ? '<button type="button" class="btn btn-ghost" data-notice-dismiss="' + escapeAttr(n.id) +
+    '" aria-label="' + escapeAttr("Dismiss: " + n.title) + '">Dismiss</button>' : '';
+  return '<div class="bh-review-notice"><p>' + escapeAttr(n.detail || "") + '</p><div>' + link + dismiss + '</div></div>';
+}
+
+function reviewRowHtml(item, group){
+  var card = !!item.yes;
+  return '<details class="bh-review-item" data-review-row="' + escapeAttr(item.id) + '"' + (budgetSplitUi.reviewRows.has(item.id) ? ' open' : '') + '>' +
+    '<summary>' + attentionIconHtml(card ? { type: group.icon } : item) + '<span class="bh-review-item-text"><small>' + escapeAttr(item.label) + '</small><b>' +
+    escapeAttr(item.title) + '</b></span><span class="bh-review-chevron" aria-hidden="true"></span></summary>' +
+    (card ? reviewCardBody(item) : reviewNoticeBody(item)) + '</details>';
+}
+
+function reviewGroupHtml(group, items){
+  if(!items.length) return "";
+  var row = function(item){ return reviewRowHtml(item, group); };
+  var extra = items.length - REVIEW_ROWS_SHOWN;
+  var more = extra > 0 ? '<details class="bh-review-more" data-review-more="' + group.key + '"' +
+    (budgetSplitUi.reviewGroups.has(group.key) ? ' open' : '') + '><summary><span class="bh-review-show">Show ' + extra +
+    ' more ' + group.rowName + (extra === 1 ? '' : 's') + '</span><span class="bh-review-hide">Show fewer ' + group.rowName + 's</span></summary>' +
+    items.slice(REVIEW_ROWS_SHOWN).map(row).join("") + '</details>' : '';
+  return '<section class="bh-review-group" data-review-section="' + group.key + '" aria-labelledby="budgetReview-' + group.key + '"><h3 id="budgetReview-' + group.key + '">' +
+    group.title + ' <span>' + items.length + '</span></h3>' + items.slice(0, REVIEW_ROWS_SHOWN).map(row).join("") + more + '</section>';
+}
+
+function budgetReviewHtml(cards, notices){
+  var count = cards.length + notices.length;
+  if(!count) return emptyStateHtml("All clear — nothing to look at.", { done: true, className: "bh-inbox-done" });
+  var groups = [
+    cards.filter(function(c){ return TIDY_KINDS.has(c.kind); }),
+    cards.filter(function(c){ return !TIDY_KINDS.has(c.kind); }).concat(notices.filter(suggestionNotice)),
+    notices.filter(function(n){ return !suggestionNotice(n); })
+  ];
+  var names = REVIEW_GROUPS.filter(function(group, i){ return groups[i].length; }).map(function(group){ return group.title; }).join(" · ");
+  var open = budgetSplitUi.inboxOpen;
+  var sections = open ? REVIEW_GROUPS.map(function(group, i){ return reviewGroupHtml(group, groups[i]); }).join("") : "";
+  return '<div class="bh-review"><button type="button" class="bh-review-toggle" data-inbox-toggle aria-expanded="' + open +
+    '" aria-controls="bhInboxBody"><span class="bh-review-toggle-text"><b>' + count + ' to look at</b><small>' + names +
+    '</small></span><span class="bh-review-action">' + (open ? "Close" : "Review") +
+    '<span class="bh-review-chevron" aria-hidden="true"></span></span></button><div class="bh-review-body" id="bhInboxBody"' + (open ? "" : " hidden") + '>' +
+    sections + (open ? '<div class="bh-review-footer"><button type="button" class="link-btn" data-review-jump="allSuggestions">Open budget tools →</button></div>' : "") + '</div></div>';
 }
 
 export function budgetSplitHtml(m){
-  if(!m.lines) return emptyStateHtml("No budget lines yet — add what you spend, and this shows what's left each month.", { scroll: "#sharedGroups", label: "Go to the budget ↓" });
+  var notices = m.notices || [];
+  if(!m.lines){
+    var empty = emptyStateHtml("No budget lines yet — add what you spend, and this shows what's left each month.", { scroll: "#sharedGroups", label: "Go to the budget ↓" });
+    return m.inbox.length || notices.length ? '<div class="bh-col">' + empty + budgetReviewHtml(m.inbox, notices) + '</div>' : empty;
+  }
   var s = m.split, p = m.pace;
   var isNow = m.ym === m.today.slice(0, 7);
   var when = isNow ? "day " + p.day + " of " + p.days : MONTHS[Number(m.ym.slice(5, 7)) - 1] + " " + m.ym.slice(0, 4);
@@ -155,15 +216,7 @@ export function budgetSplitHtml(m){
     '<p class="bh-note">Essential: ' + escapeAttr(ESSENTIAL_MEANS) + '. Set-aside spending comes out of its pot, not these figures.</p>' +
   '</section>';
   // 2. What needs you.
-  var n = m.inbox.length, notices = m.notices || [];
-  var count = n + notices.length;
-  var noticeList = notices.length ? '<button type="button" class="bh-notices" data-attn-line aria-haspopup="dialog">' +
-    escapeAttr(notices.map(function(item){ return item.title; }).join(" · ")) + ' ›</button>' : '';
-  var inbox = count ? '<div class="bh-inbox"><button type="button" class="bh-tidy" data-inbox-toggle aria-expanded="' + !!budgetSplitUi.inboxOpen +
-    '" aria-controls="bhInboxBody"><span class="bh-tidy-n">' + count + '</span><span class="bh-tidy-text"><b>To look at</b><small>' +
-    n + ' to tidy · ' + notices.length + ' notices</small></span><span class="bh-tidy-go">' + (budgetSplitUi.inboxOpen ? "Close" : "Review") + '</span></button>' +
-    '<div id="bhInboxBody"' + (budgetSplitUi.inboxOpen ? '' : ' hidden') + '>' + (budgetSplitUi.inboxOpen && n ? inboxHtml(m.inbox) : '') +
-    noticeList + '</div></div>' : emptyStateHtml("All tidy — nothing to look at.", {done:true, className:"bh-inbox-done"});
+  var inbox = budgetReviewHtml(m.inbox, notices);
   // 3. What's coming.
   var dueTotal = m.upcoming.reduce(function(t, b){ return t + (Number(b.amount) || 0); }, 0);
   var coming = '<section class="bh-sec"><h3>Coming up <small>' + (m.upcoming.length ? 'next 7 days · ' + money(dueTotal) : 'next 7 days') + '</small></h3>' +

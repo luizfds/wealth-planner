@@ -19,6 +19,17 @@ import { CLASS_WORDS, classWord } from "../constants.js";
 export { CLASS_WORDS, classWord };
 export var ESSENTIAL_MEANS = "you'd still pay it if money got tight";
 
+// The same shared, housing and investment lines drive the Budget list and suggestions from spending.
+export function budgetLineSources(st, scenario){
+  var sources = [{ section: "shared", items: st.shared || [] }];
+  var home = (st.home || {})[scenario];
+  if(home && home.length) sources.push({ section: "home:" + scenario, items: home });
+  (st.properties || []).forEach(function(p){
+    if(p.kind === "IP" && p.expenses && p.expenses.length) sources.push({ section: "propexp:" + p.id, items: p.expenses });
+  });
+  return sources;
+}
+
 function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
 function r2(n){ return Math.round(n * 100) / 100; }
 function byId(lines){ var m = {}; (lines || []).forEach(function(l){ if(l && l.id) m[l.id] = l; }); return m; }

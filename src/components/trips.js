@@ -1,5 +1,6 @@
 import { eventItemsHtml } from "./eventitems.js";
-import { furnishingHtml, eventEditorHtml, projectBudgetBarHtml } from "./furnishing.js";
+import { eventBudgetsHeadingHtml, eventEditorHtml, paymentEstimateHtml } from "./furnishing.js";
+import { projectSpent } from "../calc/projects.js";
 import { state } from "../state.js";
 import { escapeAttr } from "../lib/html.js";
 import { fmtCurrency0, fmtCurrency2, fmtDate, localDateStr } from "../lib/format.js";
@@ -69,30 +70,48 @@ function confirmListHtml(t, pending, lineName){
   '</div>';
 }
 
-function tripCardHtml(t, today, lineName){
-  var st = tripStatus(t, today);
-  var spent = tripSpend(t, state.transactions);
-  var left = tripLeft(t, spent, today);
-  var pending = st === "planning" ? [] : tripToConfirm(t);
-  var open = tripsUi.confirming === t.id;
-  var figure = t.budget > 0
-    ? '<div class="trip-figures"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b><span>of ' + fmtCurrency0.format(t.budget) + '</span></div>' + projectBudgetBarHtml(spent, t.budget) +
-      '<p class="trip-left' + (left.over ? " is-over" : "") + '">' + (left.over ? fmtCurrency0.format(-left.left) + ' over' : fmtCurrency0.format(left.left) + ' left') +
-        (left.perDay != null ? ' · ' + fmtCurrency0.format(left.perDay) + ' a day for ' + left.daysLeft + ' day' + (left.daysLeft === 1 ? '' : 's') : '') + '</p>'
-    : '<div class="trip-figures"><b class="trip-spent">' + fmtCurrency0.format(spent) + '</b><span>spent · no budget set</span></div>';
-  return '<li class="trip-row is-' + st + '" data-trip-id="' + escapeAttr(t.id) + '">' +
-    '<div class="trip-head"><span class="trip-main"><b>' + escapeAttr(t.name) + '</b><span>' + escapeAttr(whenText(t, today)) + ' · ' + escapeAttr(lineName[t.lineId] || "no line") + '</span></span>' +
-      '<span class="trip-status is-' + st + '">' + STATUS[st] + '</span></div>' +
-    figure + (t.from ? '<p>Before event · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date < t.from; }))) + ' · During event · ' + fmtCurrency0.format(tripSpend(t, state.transactions.filter(function(tx){ return tx.date >= t.from && tx.date <= (t.to || t.from); }))) + '</p>' : '') +
-    (pending.length ? '<button type="button" class="btn btn-sm trip-confirm-btn" data-trip-confirm="' + escapeAttr(t.id) + '" aria-expanded="' + open + '">' + pending.length + ' purchase' + (pending.length === 1 ? '' : 's') + ' on these days to confirm</button>' : '') +
-    (open ? confirmListHtml(t, pending, lineName) : '') +
-    eventItemsHtml(t) + eventEditorHtml(t) +
+function eventMoney(amount){
+  return (Number.isInteger(amount) ? fmtCurrency0 : fmtCurrency2).format(amount);
+}
+
+function eventFiguresHtml(spent, left){
+  var figure = '<div class="trip-figures"><b class="trip-spent">' + eventMoney(spent) + '</b>';
+  if(!left.budget) return figure + '<span>spent · no budget set</span></div>';
+  var pct = Math.max(0, Math.min(100, Math.round(spent / left.budget * 100)));
+  return figure + '<span>of ' + eventMoney(left.budget) + '</span></div>' +
+    '<div class="trip-bar' + (left.over ? ' is-over' : '') + '" role="img" aria-label="' + escapeAttr(eventMoney(spent) + ' of ' + eventMoney(left.budget)) + '"><span style="width:' + pct + '%"></span></div>' +
+    '<p class="trip-left' + (left.over ? " is-over" : "") + '">' + eventMoney(Math.abs(left.left)) + (left.over ? ' over' : ' left') +
+    (left.perDay != null ? ' · ' + eventMoney(left.perDay) + ' a day for ' + left.daysLeft + ' day' + (left.daysLeft === 1 ? '' : 's') : '') + '</p>';
+}
+
+function eventCardHtml(event, today, lineName, fromSavings){
+  var status = tripStatus(event, today);
+  var spent = fromSavings ? Math.round(projectSpent(event, state.transactions) * 100) / 100 : tripSpend(event, state.transactions);
+  var left = tripLeft(event, spent, today);
+  if(fromSavings) left.perDay = null;
+  var funding = fromSavings ? "savings" : lineName[event.lineId] || "a missing budget line";
+  var timing = event.from || !fromSavings ? whenText(event, today) : "";
+  var metadata = ['Paid from ' + funding, timing, event.propertyName].filter(Boolean).join(' · ');
+  var pending = !fromSavings && status !== "planning" ? tripToConfirm(event) : [];
+  var open = !fromSavings && tripsUi.confirming === event.id;
+  var id = escapeAttr(event.id), name = escapeAttr(event.name);
+  var timingSpend = !fromSavings && event.from
+    ? '<p class="trip-note">Before event · ' + fmtCurrency0.format(tripSpend(event, state.transactions.filter(function(tx){ return tx.date < event.from; }))) +
+      ' · During event · ' + fmtCurrency0.format(tripSpend(event, state.transactions.filter(function(tx){ return tx.date >= event.from && tx.date <= (event.to || event.from); }))) + '</p>'
+    : '';
+  return '<li class="trip-row is-' + status + '" data-event-id="' + id + '"' + (fromSavings ? '' : ' data-trip-id="' + id + '"') + '>' +
+    '<div class="trip-head"><div class="trip-main"><h3 class="section-title">' + name + '</h3><span>' + escapeAttr(metadata) + '</span></div>' +
+    '<span class="trip-status is-' + status + '">' + STATUS[status] + '</span></div>' +
+    eventFiguresHtml(spent, left) + timingSpend +
+    (pending.length ? '<button type="button" class="btn btn-sm trip-confirm-btn" data-trip-confirm="' + id + '" aria-expanded="' + open + '">' + pending.length + ' purchase' + (pending.length === 1 ? '' : 's') + ' on these days to confirm</button>' : '') +
+    (open ? confirmListHtml(event, pending, lineName) : '') +
+    (fromSavings ? paymentEstimateHtml(event) : '') +
+    eventItemsHtml(event) + eventEditorHtml(event) +
     '<div class="trip-actions">' +
-      '<button type="button" class="btn btn-sm" data-book-trip="' + escapeAttr(t.id) + '">Log purchase</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + escapeAttr(t.id) + '">Its transactions</button>' +
-      '<button type="button" class="btn btn-sm btn-ghost" data-project-edit="' + escapeAttr(t.id) + '">Edit<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
-      '<button type="button" class="btn btn-sm btn-danger" data-trip-del="' + escapeAttr(t.id) + '">Remove<span class="visually-hidden"> ' + escapeAttr(t.name) + '</span></button>' +
-    '</div>' +
-  '</li>';
+      '<button type="button" class="btn btn-sm" data-book-trip="' + id + '">Log purchase</button><button type="button" class="btn btn-sm btn-ghost" data-sv data-sv-trip="' + id + '">Its transactions</button>' +
+      '<button type="button" class="btn btn-sm btn-ghost" data-project-edit="' + id + '">Edit budget<span class="visually-hidden"> for ' + name + '</span></button>' +
+      (fromSavings ? '' : '<button type="button" class="btn btn-sm btn-danger" data-trip-del="' + id + '">Remove<span class="visually-hidden"> ' + name + '</span></button>') +
+    '</div></li>';
 }
 
 // The line's year shared between its trips: one bar, a segment a trip, and what no trip has yet.
@@ -133,9 +152,11 @@ export function tripsCardHtml(today){
   if(!lines.length && defaultTripLine()) lines.push(defaultTripLine());
   var pastSpent = past.reduce(function(s, t){ return s + tripSpend(t, state.transactions); }, 0);
   var pastBudget = past.reduce(function(s, t){ return s + (Number(t.budget) || 0); }, 0);
-  return furnishingHtml() + (!now.length && !past.length && !(state.projects || []).length ? '<p class="ledger-note">Add a budget for an event you’re saving or spending for.</p>' : '') +
-    '<ul class="trip-list">' + now.map(function(t){ return tripCardHtml(t, today, lineName); }).join("") + '</ul>' +
-    (past.length ? '<details class="trip-past"><summary><b>Past events</b><span>' + past.length + ' · ' + fmtCurrency0.format(pastSpent) + ' spent' + (pastBudget ? ' of ' + fmtCurrency0.format(pastBudget) : '') + '</span></summary><ul class="trip-list">' + past.map(function(t){ return tripCardHtml(t,today,lineName); }).join("") + '</ul></details>' : '') +
+  var projects = state.projects || [];
+  return eventBudgetsHeadingHtml() + (!now.length && !past.length && !projects.length ? '<p class="ledger-note">Add a budget for an event you’re saving or spending for.</p>' : '') +
+    '<ul class="trip-list">' + projects.map(function(event){ return eventCardHtml(event, today, lineName, true); }).join("") +
+    now.map(function(event){ return eventCardHtml(event, today, lineName, false); }).join("") + '</ul>' +
+    (past.length ? '<details class="trip-past"><summary><b>Past events</b><span>' + past.length + ' · ' + fmtCurrency0.format(pastSpent) + ' spent' + (pastBudget ? ' of ' + fmtCurrency0.format(pastBudget) : '') + '</span></summary><ul class="trip-list">' + past.map(function(t){ return eventCardHtml(t,today,lineName,false); }).join("") + '</ul></details>' : '') +
     (trips.length ? lines.map(function(l){ return splitHtml(l,today,lineName); }).join("") : "");
 
 }

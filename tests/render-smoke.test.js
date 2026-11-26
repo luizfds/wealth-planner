@@ -1292,14 +1292,19 @@ test("Investments → Shares: the price sheet card and its template", async func
 
 test("Money → Trips: each trip with its budget, the line's year shared out, purchases to confirm, the plan form", async function(){
   const { tripsCardHtml, tripsUi } = await import("../src/components/trips.js");
-  var keep = { trips: state.trips, shared: state.shared, transactions: state.transactions };
+  var keep = { projects: state.projects, trips: state.trips, shared: state.shared, transactions: state.transactions };
   try {
     state.shared = [{ id: "trips", what: "Holidays", freq: "Yearly", irregular: true, amount: 6000 }, { id: "cafe", what: "Coffee", freq: "Weekly", irregular: true, amount: 20 }];
     state.trips = [{ id: "t1", name: "Coast", from: "2027-03-10", to: "2027-03-13", lineId: "trips", budget: 900 },
       { id: "t2", name: "Mountains", from: "", to: "", month: "2027-04", lineId: "trips", budget: 2400 },
       { id: "t3", name: "Old trip", from: "2027-01-02", to: "2027-01-04", lineId: "trips", budget: 0 }];
-    state.transactions = [{ id: "a", date: "2027-03-11", amount: 6, linkedExpenseId: "cafe", what: "FERN CAFE" }, { id: "b", date: "2027-03-12", amount: 280, linkedExpenseId: "trips", trip: "t1" }];
+    state.projects = [{ id: "p1", name: "Furnish <home>", propertyName: "2 Example St", budget: 12000 }];
+    state.transactions = [{ id: "a", date: "2027-03-11", amount: 6, linkedExpenseId: "cafe", what: "FERN CAFE" }, { id: "b", date: "2027-03-12", amount: 280, linkedExpenseId: "trips", trip: "t1" }, { project: "p1", amount: 2350.25 }];
     var html = tripsCardHtml("2027-03-11");
+    assert.match(html, /data-event-id="p1"><div class="trip-head"><div class="trip-main"><h3 class="section-title">Furnish &lt;home><\/h3><span>Paid from savings · 2 Example St/);
+    assert.match(html, /\$2,350\.25<\/b><span>of \$12,000/);
+    assert.match(html, /\$9,649\.75 left/);
+    assert.match(html, /data-event-id="t1" data-trip-id="t1"><div class="trip-head"><div class="trip-main"><h3 class="section-title">Coast<\/h3><span>Paid from Holidays/);
     assert.match(html, /Coast[\s\S]*day 2 of 4[\s\S]*In progress/);
     assert.match(html, /\$280<\/b><span>of \$900/);
     assert.match(html, /\$620 left · \$206 a day for 3 days/);
@@ -1315,6 +1320,7 @@ test("Money → Trips: each trip with its budget, the line's year shared out, pu
     assert.match(open, /data-trip-all="t1">All 1 belong here/);
     assert.doesNotMatch(open, /NaN|undefined/);
     state.trips = [];
+    state.projects = [];
     assert.match(tripsCardHtml("2027-03-11"), /Add a budget for an event/);
   } finally { Object.assign(state, keep); tripsUi.confirming = ""; }
 });

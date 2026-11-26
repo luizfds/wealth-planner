@@ -2401,6 +2401,7 @@
 .trip-row{ display:flex; flex-direction:column; align-items:stretch; gap:8px; padding:14px; text-align:left; border-radius:var(--card-radius); border:1px solid var(--border); background: var(--paper-raised); }
 .trip-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
 .trip-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.trip-main .section-title{ margin:0; overflow-wrap:anywhere; }
 .trip-main span{ color: var(--ink-soft); font-size:var(--fs-sm); }
 .trip-status{ flex:none; font-size:var(--fs-xs); font-weight:600; padding:3px 10px; border-radius:999px; background: var(--paper-raised); color: var(--ink-soft); }
 .trip-status.is-away{ background: var(--warn-wash, color-mix(in srgb, var(--warn-ink) 14%, transparent)); color: var(--warn-ink); }
@@ -2409,11 +2410,9 @@
 .trip-figures .trip-spent{ font-family: var(--font-num); font-size:var(--fs-xl, 22px); font-weight:600; }
 .trip-figures span{ color: var(--ink-soft); }
 .trip-bar{ height:10px; border-radius:999px; background: var(--paper-sunken); overflow:hidden; }
-.trip-bar > span{ display:block; height:100%; background: var(--good); }
-.project-card .trip-figures{ justify-content:space-between; }
-.project-card .trip-bar:not(.is-over) > span{ background:var(--tab-accounts-1); }
+.trip-bar > span{ display:block; height:100%; background: var(--tab-icon); }
 .trip-bar.is-over > span{ background: var(--bad); }
-.trip-left{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
+.trip-left, .trip-note{ margin:0; font-size:var(--fs-sm); color: var(--ink-soft); }
 .trip-left.is-over{ color: var(--bad-ink); font-weight:600; }
 .trip-confirm-btn{ align-self:flex-start; }
 .trip-actions{ display:flex; gap:8px; flex-wrap:wrap; }
@@ -2431,8 +2430,6 @@
 .trip-past > summary span{ color: var(--ink-soft); font-size:var(--fs-sm); }
 .trip-form{ display:flex; flex-direction:column; gap:10px; padding:14px; border-radius:14px; border:1px dashed var(--border); }
 .trip-form-title{ margin:0; font-size:var(--fs-md, 16px); font-weight:600; }
-.project-card{ display:grid; gap:8px; margin-block:12px; }
-.project-card p{ margin:0; }
 .trip-new > summary{ display:flex; align-items:center; min-height:44px; cursor:pointer; }
 .trip-form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 [data-furnishing] .trip-form-grid{ grid-template-columns:repeat(auto-fit,minmax(min(100%, 15rem),1fr)); }
@@ -2450,7 +2447,6 @@
 .event-heading{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .event-picker{ display:grid; gap:4px; font-weight:600; }
 .event-tag{ display:inline-block; max-width:100%; overflow-wrap:anywhere; padding:2px 8px; border-radius:99px; background:var(--tab-money-wash); color:var(--tab-money-ink); font-size:var(--fs-xs); }
-.project-card{ margin-bottom:10px; }
 .event-tag svg, [data-event-chip] svg, [data-cf-chip-clear="trip"] svg{ vertical-align:-2px; }
 
 .event-items{ border-block:1px solid var(--border); }

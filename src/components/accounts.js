@@ -120,7 +120,7 @@ export function accountsPageHtml(today){
   }
   var ov = accountsOverview({ accountOf: transactionAccount });
   var head = '<div class="acct-totals"><div><span>Cash held</span><b>' + fmtCurrency0.format(ov.held) + '</b></div>' +
-    '<div><span>Owed on credit cards and bank loan accounts</span><b class="' + (ov.owed > 0 ? "owed" : "") + '">' + (ov.owed > 0 ? "−" : "") + fmtCurrency0.format(ov.owed) + '</b></div></div>';
+    '<div><span>Total owed</span><b class="' + (ov.owed > 0 ? "owed" : "") + '">' + (ov.owed > 0 ? "−" : "") + fmtCurrency0.format(ov.owed) + '</b><small>Includes property loans</small></div></div>';
   var groups = GROUPS.map(function(g){
     var rows = state.accounts.map(function(a, i){ return { a: a, i: i }; }).filter(function(x){ return g.types.indexOf(x.a.type) !== -1; });
     if(!rows.length) return "";

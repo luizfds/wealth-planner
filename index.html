@@ -682,11 +682,11 @@
           <!-- #413: debts outside a property loan, from Investments → Summary — cards and loans already live here. -->
           <details class="ledger" open>
               <summary>
-                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Debts</h2></div>
+                <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Other debts</h2></div>
                 <div class="ledger-total">Total <b id="totalDebtsAmount">—</b></div>
-              </summary><p class="ledger-note">Other debts, including personal and student loans. Property loans are under Accounts → Property → Loans.</p>
+              </summary><p class="ledger-note">Record credit cards, personal loans and similar balances here. Manage property loans under Property → Loans.</p>
               <div class="ledger-body">
-                <p class="ledger-note help" style="margin-left:0">Anything you owe outside a property loan — credit cards, personal loans, BNPL. Subtracted from your net worth as a flat balance (no interest/repayment modeling here — property loans have their own full amortisation in Net worth → Property; don't duplicate them here).</p>
+                <p class="ledger-note help" style="margin-left:0">Balances here reduce net worth by the amount entered. Property loan interest and repayments are worked out from the loan's own schedule.</p>
                 <div id="debtsTable"></div>
                 <div class="ledger-footer"><button class="btn btn-sm" id="addDebtBtn">+ Add debt</button></div>
               </div>

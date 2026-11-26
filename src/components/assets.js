@@ -1761,7 +1761,7 @@ function drawDebts(){
   var total = totalDebtsValue();
   if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
   if(!state.debts.length){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
+    container.innerHTML = '<p class="ledger-note" style="margin:0">No other debts recorded yet.</p>';
     return;
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){

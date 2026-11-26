@@ -1123,6 +1123,7 @@
   .acct-totals div{ background: var(--paper-sunken); border:1px solid var(--border); border-radius:10px; padding:8px 12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
   .acct-totals span{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); }
   .acct-totals b{ font-size:var(--fs-lg); font-variant-numeric: tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .acct-totals small{ font-size:var(--fs-xs); color:var(--ink-soft); }
   .acct-totals b.owed, .acct-bal.owed, .acct-loose-row b.owed{ color: var(--bad-ink); }
   .acct-group{ margin-bottom:14px; }
   .acct-group-title{ font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin:0 0 6px; }

@@ -1171,7 +1171,7 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
   try {
     state.assets = [{ id: "as1", what: "Savings pot", category: "Cash", amount: 4200, history: [{ date: "2026-09-01", value: 4000 }, { date: "2026-10-01", value: 4200 }] }];
     state.debts = [{ id: "d1", what: "Card", balance: 700, history: [] }, { id: "d2", what: "Car loan", balance: 9000 }];
-    state.properties = [];
+    state.properties = [{ id: "p1", what: "1 Example St", loans: [{ id: "l1", what: "Example mortgage", balance: 100000 }] }];
     state.accounts = [{ id: "a1", name: "Bank One", type: "savings", link: "asset:as1" }, { id: "a2", name: "Fern Card", type: "credit", statementStartDay: 3, limit: 5000, link: "debt:d1" }, { id: "a3", name: "Spare", type: "everyday", link: "" }];
     openAccounts.a2 = true;
     var html = accountsPageHtml("2026-10-18");
@@ -1183,7 +1183,7 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /no balance/);
     assert.match(html, /class="acct-mgmt-limit field-control"[^>]*value="5000"/);
     assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
-    assert.match(html, /<span>Owed on credit cards and bank loan accounts<\/span><b class="owed">−\$9,700/);
+    assert.match(html, /<span>Total owed<\/span><b class="owed">−\$109,700<\/b><small>Includes property loans<\/small>/);
   } finally { Object.assign(state, keep); }
 });
 

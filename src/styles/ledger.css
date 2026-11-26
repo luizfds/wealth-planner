@@ -1326,6 +1326,11 @@
   @media (max-width:720px){ .tx-view-toggle{ display:none; } }
   /* v3.118.0: the report frame, charts and drill-down. */
   .rf-bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin:10px 0; }
+  @media (max-width:600px){
+    .rf-bar{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+    .rf-bar:has([data-rf="group"], [data-rf="from"]) > :first-child{ grid-column:1 / -1; }
+    .rf-bar .field-control{ min-width:0; width:100%; }
+  }
   .rc{ margin:6px 0 12px; }
   .rc svg{ width:100%; height:auto; display:block; }
   .rc-label{ fill: var(--ink-soft); font-size:var(--fs-xs); font-family: var(--font-num); }

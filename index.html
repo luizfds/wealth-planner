@@ -160,7 +160,7 @@
     <header class="app-topbar">
       <div class="app-topbar-left">
         <button type="button" class="link-btn page-back" id="pageBack" hidden><span class="page-back-chevron" aria-hidden="true">‹</span><span class="page-back-label">Today</span></button>
-        <h1 id="pageTitle">Today</h1>
+        <div class="app-topbar-title"><h1 id="pageTitle">Today</h1></div>
         <!-- #425: where an inner screen lives, on a desktop (nav.js renderCrumbs). -->
         <nav class="page-crumbs" id="pageCrumbs" aria-label="Breadcrumb" hidden></nav>
         <div class="period-wrap">
@@ -842,24 +842,22 @@
       <section class="app-page" id="page-properties" hidden>
         <div class="page-intro-row">
           <p class="page-intro help" id="propertyPageHelp">What you actually own — value, loans, and the rent/expenses tied to each property. <span id="propertyLoanExportHelp">Export loans CSV downloads every loan, across every property, as a CSV file.</span></p>
-          <div class="page-intro-actions"><button type="button" class="btn btn-sm btn-ghost" data-import-open="property" aria-haspopup="dialog">Import data…</button></div>
-        </div>
-        <div class="cash-rate" id="cashRatePanel" hidden></div>
-        <div class="record-toolbar">
-          <div class="record-heading">
-            <h2 class="section-title">Properties</h2>
-            <span class="ledger-total">Total <b id="propertiesListTotal">—</b></span>
-          </div>
-          <div class="record-controls">
+          <div class="page-intro-actions">
             <div class="page-overflow">
-              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Properties export" title="Properties export">⋯</button>
+              <button type="button" class="page-overflow-btn" data-overflow-toggle aria-haspopup="true" aria-expanded="false" aria-label="Property import and export" title="Property import and export">⋯</button>
               <div class="page-overflow-menu" data-overflow-menu hidden>
-              <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" aria-describedby="propertyLoanExportHelp">Export loans CSV</button>
+                <button type="button" class="btn btn-sm btn-ghost" data-import-open="property" aria-haspopup="dialog">Import data…</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="propertyLoansExportCsvBtn" aria-describedby="propertyLoanExportHelp">Export loans CSV</button>
               </div>
             </div>
           </div>
         </div>
+        <div class="cash-rate" id="cashRatePanel" hidden></div>
         <div id="buyingBody" class="buying-list" hidden></div>
+        <div class="record-heading property-list-heading">
+          <h2 class="section-title">Owned properties</h2>
+          <span class="ledger-total" id="propertiesListValue" hidden>Total <b id="propertiesListTotal">—</b></span>
+        </div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
         <div id="propertiesSummary" hidden>

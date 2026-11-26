@@ -116,9 +116,11 @@
    One card per person, rows of document figures that edit in place, and a worksheet column that
    reads down in myTax's order. Amount columns are mono and right-aligned so a column of figures
    can be checked against a statement by eye. */
-.ty-top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-.ty-top label{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); }
-.ty-top select{ font:inherit; font-size:var(--fs-md); font-weight:600; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--paper); color:var(--ink); }
+.ty-top{ display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; margin-bottom:12px; }
+.ty-yearnote{ display:flex; flex-direction:column; gap:2px; }
+.ty-yearnote b{ font-size:var(--fs-lg); }
+.ty-yearnote .ledger-note{ margin:0; }
+.ty-year-actions{ display:flex; flex-wrap:wrap; gap:6px; }
 .ty-person{ container-type:inline-size; border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:12px 0; background:var(--paper-raised); }
 .ty-person-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
 .ty-person-head h3{ margin:0; font-size:var(--fs-lg); }
@@ -238,7 +240,7 @@
 :root[data-theme="dark"] .pp-dob{ color-scheme:dark; }
 .pp-age{ font-size:var(--fs-xs); font-weight:600; color:var(--ink-soft); white-space:nowrap; }
 .pp-age::after{ content:" yrs"; }
-.pp-remove{ margin-left:auto; flex:none; }
+.pp-card-actions{ display:flex; justify-content:flex-end; border-top:1px solid var(--border); margin-top:14px; padding-top:8px; }
 .pp-uses{ font-size:var(--fs-sm); color:var(--ink-soft); margin:6px 0 12px; line-height:1.45; }
 .pp-hours-wrap{ margin-top:12px; }
 /* v3.145.0: whether pay already allows for a rental's loss. */

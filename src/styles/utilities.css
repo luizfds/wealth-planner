@@ -73,13 +73,10 @@ details:has(> .help-btn) > summary{ padding-right:52px; }
 .record-filter-panel .cf-dir{ flex-wrap:wrap; }
 
 /* #260: the report leads; its catalogue lives in a searchable native dialog. */
-.rp-selection{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.rp-selection > strong{ font-size:var(--fs-lg); }
-/* The app assessment (November 2026): reports as eight families — the family's name over the report's, its other
-   views as chips (on the page and in the chooser). */
-.rp-selection-name{ display:flex; flex-direction:column; min-width:0; }
-.rp-selection-name small{ font-size:var(--fs-xs); font-weight:600; color: var(--tab-ink); text-transform:uppercase; letter-spacing:.04em; }
-.rp-selection-name strong{ font-size:var(--fs-lg); }
+.rp-selection{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:10px; }
+.rp-selection .rp-head{ margin:0; }
+.rp-selection > button{ flex:none; }
+.rp-selection-family{ display:block; font-size:var(--fs-xs); font-weight:600; color: var(--tab-ink); text-transform:uppercase; letter-spacing:.04em; }
 .rp-family-views{ display:flex; flex-wrap:wrap; gap:6px; }
 .rp-more-views{ margin:14px 0 4px; }
 .rp-more-views h3{ margin:0 0 8px; font-size:var(--fs-xs); font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }

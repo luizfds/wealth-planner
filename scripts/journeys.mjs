@@ -4909,7 +4909,7 @@ const JOURNEYS = {
     check(await stored(page, 'JSON.stringify({costs:state.properties[0].acquisitionCosts,loans:state.properties[0].loans})') === beforeMove, 'Undo did not restore the acquisition cost and loan');
     await page.locator('#pageHelpBtn').click();
     check(await page.locator('#propertyPageHelp').isVisible() && /every loan, across every property/.test(await page.locator('#propertyPageHelp').innerText()), 'page help omits loan export scope');
-    await page.locator('#page-properties [data-overflow-toggle]').click();
+    await page.getByRole('button', {name:'Property import and export'}).click();
     const download = page.waitForEvent('download');
     await page.locator('#propertyLoansExportCsvBtn').click();
     const file = await download, stream = await file.createReadStream();

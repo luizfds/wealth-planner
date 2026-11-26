@@ -51,7 +51,7 @@ test("the rules read the household: a purchase under strain, borrowed deposit mo
     assert.ok(off.impactYearly > 0, "a home loan's offset is worth more than a deductible loan's");
     assert.equal(off.scenario, "Buy Example Town", "it's about that scenario's purchase (#392)");
     var html = adviceHomeHtml(a);
-    assert.match(html, /What the app notices/);
+    assert.match(html, /<h2 class="section-title">Household observations<\/h2>/);
     assert.doesNotMatch(html, /data-adv-go="plan"/, "Home's Insights hold the household's observations only (#392)");
   });
 });

@@ -725,6 +725,7 @@
    gradient is 7:1 or better; the gradient is the same in both themes. */
 .buying-list{ display:grid; gap:14px; margin:0 0 16px; }
 .buying-list[hidden]{ display:none; }
+.property-list-heading{ flex-direction:row; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:4px 12px; margin-bottom:8px; }
 .buy-card{ border:1px solid var(--border); border-radius:var(--card-radius); background: var(--paper-raised); box-shadow: var(--shadow); overflow:hidden; min-width:0; }
 .buy-hero{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; padding:18px 20px; color:#fff;
   background: linear-gradient(135deg, #6d28d9 0%, #4338ca 55%, #1e40af 100%); }

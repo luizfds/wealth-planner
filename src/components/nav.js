@@ -635,6 +635,9 @@ export function showPage(id, opts){
     // Its own name (v3.139.1): `data-page` marks the buttons that go to a page, and a click handler
     // looking for the nearest one found <body> — the mobile More tab opened the current page instead.
     document.body.setAttribute("data-current-page", id);
+    // Detail pages use the same section for accents and the active mobile tab.
+    if(id === "detail") document.body.setAttribute("data-detail-section", tabId);
+    else document.body.removeAttribute("data-detail-section");
     document.getElementById("pageTitle").textContent = titleFor(id);
     var navLabel = document.getElementById("navMenuCurrentLabel");
     if(navLabel) navLabel.textContent = page ? page.label : "Today";

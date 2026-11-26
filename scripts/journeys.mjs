@@ -2120,6 +2120,11 @@ const JOURNEYS = {
       };
     });
     const navigationDone=()=>page.evaluate(()=>window.__searchTransitionDone);
+    const detailColoursMatch = family => page.evaluate(prefix => {
+      const css = getComputedStyle(document.body);
+      return ['1', 'wash', 'ink', 'icon'].every(token =>
+        css.getPropertyValue('--tab-' + token) === css.getPropertyValue('--tab-' + prefix + '-' + token));
+    }, family);
     await page.evaluate(async () => {
       const {state} = await import('/src/state.js');
       state.transactions.push({id:'search-first',what:'Example duplicate',date:'2025-01-01',amount:100,account:'Bank One'},
@@ -2162,9 +2167,11 @@ const JOURNEYS = {
       }
       await waited(page,()=>location.pathname.endsWith('/detail/transaction/search-second'),'exact historical transaction');
       check((await page.locator('#detailBody').innerText()).includes('200'),'wrong duplicate transaction');
+      check(await detailColoursMatch('money'),'transaction did not inherit Money colours at '+width+'/'+theme);
       await navigationDone();
       await page.goBack();
-      await waited(page,p=>location.pathname===p,'search origin',origin);
+      await waited(page,p=>location.pathname===p && document.body.dataset.currentPage==='dashboard','search origin',origin);
+      check(await detailColoursMatch('today'),'returning to Today retained Money colours');
       await open('Example salary');
       await page.press('#searchInput','Enter');
       await waited(page,()=>location.pathname.endsWith('/detail/income/search-income'),'exact income');
@@ -2209,6 +2216,7 @@ const JOURNEYS = {
     const scenarioIndex=await page.evaluate(async()=>(await import('/src/lib/search.js')).searchApp(document.getElementById('searchInput').value).findIndex(r=>r.type==='Scenario'));
     await click(page,'[data-search-result="'+scenarioIndex+'"]');
     await waited(page,()=>location.pathname.includes('/detail/scenario/'),'scenario record');
+    check(await detailColoursMatch('plan'),'scenario detail did not inherit Plan colours');
     await open('Import rules');
     await page.press('#searchInput','Enter');
     await waited(page,()=>location.pathname.endsWith('/settings/rules'),'Import rules destination');

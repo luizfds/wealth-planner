@@ -7,8 +7,8 @@ import { requestCloseActiveOverlay } from "../lib/overlaystack.js";
 // added, so they're added in the same order.
 import { adviceFor } from "../calc/advice.js";
 import { householdSummary } from "../calc/aisummary.js";
-import { proposeBudget, applyBudgetProposals } from "../calc/budgetfromhistory.js";
-import { recalcComputedItems } from "../calc/engine.js";
+import { proposeHouseholdBudget, applyBudgetProposals } from "../calc/budgetfromhistory.js";
+import { currentScenario, recalcComputedItems } from "../calc/engine.js";
 import { learnRule } from "../calc/import-rules.js";
 import { unbudgetedRecurring, risingLines, catchAllSuggestions } from "../calc/recurring.js";
 import { recurringRuleManagerHtml, validateRecurringRule, approvedOccurrences, categoryInsightsHtml, upsertRecurringRule, toggleRecurringRule, deleteRecurringRule, recordApprovedOccurrences } from "./recurringrules.js";
@@ -19,7 +19,8 @@ import { showToast, showUndoToast } from "../lib/toast.js";
 import { state, persist, commit, genId } from "../state.js";
 import { spendingTransactions } from "../calc/propertymoney.js";
 import { setNoticeDismissed } from "../lib/attention.js";
-import { refreshNotifPanel } from "./notifpanel.js";
+import { markNotificationRead } from "../lib/notifications.js";
+import { refreshNotifPanel, renderNotifBadge } from "./notifpanel.js";
 import { renderAdvice, adviceUi } from "./advice.js";
 import { askUi, cancelAiApproval, setAiKey, setAiModel, askClaude, setLastReview, copyPrompt, askBody } from "./askclaude.js";
 import { budgetFromHistoryHtml, historyBudgetUi } from "./budgethistory.js";
@@ -52,7 +53,7 @@ function currentRecurring(){
     c: catchAllSuggestions(loggableBudgetLineItems(), spending, localDateStr()) };
 }
 // v3.115.0: Budget → Build from what you've spent.
-function currentHistoryBudget(){ return proposeBudget(spendingTransactions(state), budgetLineItems(), localDateStr()); }
+function currentHistoryBudget(){ return proposeHouseholdBudget(state, currentScenario(), localDateStr()); }
 function renderBudgetFromHistory(){
   var el = document.getElementById("historyBudgetBody");
   if(!el) return;
@@ -90,12 +91,13 @@ export function wireAdvice(){
   });
   document.addEventListener("click", async function(e){
     if(!e.target.closest) return;
-    // #305: put an observation away, or bring it back — on Insights and in the bell. Its commit redraws the lists.
+    // #305: put an observation away on Insights, in the bell or in Budget. Its commit redraws the lists.
     var put = e.target.closest("[data-notice-dismiss], [data-notice-restore]");
     if(put){
       var away = put.hasAttribute("data-notice-dismiss");
       setNoticeDismissed(put.getAttribute(away ? "data-notice-dismiss" : "data-notice-restore"), away);
       commit(["noticesDismissed"]);
+      if(put.closest("[data-review-row]")) focusBudgetReview(put);
       refreshNotifPanel();
       showToast(away ? "Put away — it comes back if its figures change" : "Back in the list");
       return;
@@ -535,29 +537,51 @@ export function wireTidy(){
   });
 }
 
-// ---------------- Money → Budget: things to tidy, a card at a time (November 2026) ----------------
-// One inbox for misfiled purchases, Essential/Lifestyle and set-aside hints, plans far from spending and new repeating
-// charges (calc/tidyinbox.js). Each answer is one commit with an undo; "no" is remembered, Later lasts the session.
-// The old tools sit inside All suggestions (round 2, board B): one opened from elsewhere opens it too.
+// ---------------- Money → Budget: things to review ----------------
+// Each card answer is one commit with an undo; "no" is remembered, Later lasts the session.
 function openAllSuggestions(card){ var wrap = card && card.closest("details.bh-all-suggest"); if(wrap) wrap.open = true; }
 var INBOX_TOUCHES = { move: ["transactions"], set: ["shared", "home"], amount: ["shared", "home"], addLine: ["shared", "transactions"], ok: ["tidyOk"],
   linkProp: ["transactions", "purchases", "accounts"], lineProp: ["shared"] };
-function focusInbox(){
-  var b = document.querySelector("#bhInboxBody [data-inbox-yes]") || document.querySelector("#budgetSplitBody [data-inbox-toggle]");
-  if(b) b.focus({ preventScroll: true });
+function focusBudgetReview(from){
+  var row = from && from.closest("[data-review-row]");
+  var section = row && row.closest("[data-review-section]");
+  var root = document.getElementById("bhInboxBody");
+  var same = root && row && root.querySelector('[data-review-row="' + CSS.escape(row.dataset.reviewRow) + '"] > summary');
+  var first = root && section && root.querySelector('[data-review-section="' + CSS.escape(section.dataset.reviewSection) + '"] > details > summary');
+  var target = same && same.getClientRects().length ? same : first || document.querySelector("#budgetSplitBody [data-inbox-toggle]") ||
+    document.getElementById("budgetSplitCard");
+  if(target) target.focus();
+}
+function openBudgetReviewTarget(button){
+  var target = document.getElementById(button.dataset.reviewJump);
+  if(!target) return;
+  var notice = button.dataset.reviewRead;
+  if(notice){ markNotificationRead(notice); renderNotifBadge(); }
+  openAllSuggestions(target);
+  if(target.tagName === "DETAILS") target.open = true;
+  target.scrollIntoView({ block: "start" });
+  var focus = target.querySelector(":scope > summary") || target;
+  focus.focus({ preventScroll: true });
 }
 export function wireBudgetSplit(){
   var body = document.getElementById("budgetSplitBody");
   body.addEventListener("click", function(e){
     var b = e.target.closest("button");
     if(!b) return;
-    if(b.hasAttribute("data-inbox-toggle")){ budgetSplitUi.inboxOpen = !budgetSplitUi.inboxOpen; renderBudgetSplit(); focusInbox(); return; }
+    if(b.hasAttribute("data-inbox-toggle")){ budgetSplitUi.inboxOpen = !budgetSplitUi.inboxOpen; renderBudgetSplit(); focusBudgetReview(); return; }
     if(b.getAttribute("data-bs-more") === "pots"){ budgetSplitUi.allPots = !budgetSplitUi.allPots; renderBudgetSplit(); return; }
-    if(b.hasAttribute("data-all-suggest")){ var all = document.getElementById("allSuggestions"); if(all){ all.open = true; all.scrollIntoView({ behavior: "smooth", block: "start" }); var sm = all.querySelector("summary"); if(sm) sm.focus({ preventScroll: true }); } return; }
+    if(b.dataset.reviewJump){ openBudgetReviewTarget(b); return; }
     var pick = b.getAttribute("data-inbox-pick");
-    if(pick !== null){ budgetSplitUi.pick[b.getAttribute("data-inbox-pick-for")] = pick; renderBudgetSplit(); var same = document.querySelector('[data-inbox-pick="' + pick + '"]'); if(same) same.focus({ preventScroll: true }); return; }
+    if(pick !== null){
+      var cardId = b.dataset.inboxPickFor;
+      budgetSplitUi.pick[cardId] = pick;
+      renderBudgetSplit();
+      var same = body.querySelector('[data-inbox-pick-for="' + CSS.escape(cardId) + '"][data-inbox-pick="' + CSS.escape(pick) + '"]');
+      if(same) same.focus({ preventScroll: true });
+      return;
+    }
     var later = b.getAttribute("data-inbox-later");
-    if(later){ budgetSplitUi.later[later] = true; renderBudgetSplit(); focusInbox(); return; }
+    if(later){ budgetSplitUi.later[later] = true; renderBudgetSplit(); focusBudgetReview(b); return; }
     var yes = b.getAttribute("data-inbox-yes"), no = b.getAttribute("data-inbox-no");
     if(!yes && !no) return;
     var card = budgetSplitModel().inbox.find(function(c){ return c.id === (yes || no); });
@@ -571,8 +595,8 @@ export function wireBudgetSplit(){
     if(!undo) return;
     var touched = INBOX_TOUCHES[answer.act.type] || ["*"];
     commit(touched);
-    focusInbox();
-    showUndoToast(answer.act.type === "ok" ? "Kept as it is — it won't be asked again" : answer.label + " — done", function(){ undo(); commit(touched); focusInbox(); });
+    focusBudgetReview(b);
+    showUndoToast(answer.act.type === "ok" ? "Kept as it is — it won't be asked again" : answer.label + " — done", function(){ undo(); commit(touched); focusBudgetReview(b); });
   });
 }
 

@@ -13,6 +13,8 @@
 import { merchantKey } from "./import-rules.js";
 import { cadenceOf } from "./recurring.js";
 import { knownMerchant, cleanMerchantName } from "./merchantbook.js";
+import { spendingTransactions } from "./propertymoney.js";
+import { budgetLineSources } from "./budgetsplit.js";
 
 var NEEDS = ["housing", "groceries", "utilities", "health", "insurance", "transport", "car", "childcare", "education", "investment property"];
 var MIN_MONTHS = 3, MIN_OWN_YEARLY = 300;
@@ -90,6 +92,11 @@ export function proposeBudget(transactions, lines, today, opts){
   out.leftover.yearly = r2(out.leftover.yearly);
   out.proposals.sort(function(a, b){ return b.yearly - a.yearly; });
   return out;
+}
+
+export function proposeHouseholdBudget(st, scenario, today){
+  var lines = budgetLineSources(st, scenario).flatMap(function(source){ return source.items; });
+  return proposeBudget(spendingTransactions(st), lines, today);
 }
 
 // Adds the chosen proposals as budget lines and links the transactions each came from.

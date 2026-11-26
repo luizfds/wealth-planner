@@ -421,8 +421,8 @@
         </div>
         <div class="ledgers">
           <!-- November 2026: one answer first — what's left for Lifestyle, the pace, what needs tidying, what's due, the pots. -->
-          <section class="bh-wrap" id="budgetSplitCard" aria-label="This month's budget"><div id="budgetSplitBody"></div></section>
-          <details class="ledger" open>
+          <section class="bh-wrap" id="budgetSplitCard" tabindex="-1" aria-label="This month's budget"><div id="budgetSplitBody"></div></section>
+          <details class="ledger" id="budgetLines" open>
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Lines</h2></div>
               <div class="ledger-total">The plan <b id="totalSharedMonthly">—</b></div>
@@ -447,10 +447,9 @@
             </summary>
             <div class="ledger-body"><div id="adjustBody"></div></div>
           </details>
-          <!-- November 2026 (round 2, board B): the old tools stay — inside, as All suggestions. Each comes up in Things to
-               tidy one card at a time; here is every one of them, the way they were. -->
+          <!-- The dedicated tools are also reachable from the review list. -->
           <details class="bh-all-suggest" id="allSuggestions">
-          <summary class="bh-all-suggest-head"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><span><b>All suggestions</b><small>Build from what you've spent · Tidy up · Trim · Recurring payments — each also comes up in Things to tidy, one at a time</small></span></summary>
+          <summary class="bh-all-suggest-head"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><span><b>Budget tools</b><small>Build from what you've spent · Tidy up · Trim · Recurring payments</small></span></summary>
           <details class="ledger" id="historyBudgetCard">
             <summary>
               <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Build from what you've spent</h2></div>

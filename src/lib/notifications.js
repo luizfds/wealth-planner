@@ -19,7 +19,7 @@ import { householdSubscriptions, cancelReminders } from "../calc/subscriptions.j
 import { cashRateMove } from "../calc/cashrate.js";
 import { reviewYear, yearHasData } from "../calc/yearreview.js";
 import { planProgress } from "../calc/planprogress.js";
-import { proposeBudget } from "../calc/budgetfromhistory.js";
+import { proposeHouseholdBudget } from "../calc/budgetfromhistory.js";
 import { currentScenario } from "../calc/engine.js";
 import { shouldShowSetup } from "./setup.js";
 import { tripStatus, tripPending } from "../calc/trips.js";
@@ -455,9 +455,8 @@ function tripNotifications(){
 function budgetSuggestionNotification(){
   if(!hasRealUserData() || !(state.transactions || []).length) return [];
   var today = todayStr();
-  var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var b = null;
-  try { b = proposeBudget(state.transactions || [], lines, today); } catch(e){ return []; }
+  try { b = proposeHouseholdBudget(state, currentScenario(), today); } catch(e){ return []; }
   if(!b || !b.ready || !(b.proposals || []).length) return [];
   if(shouldShowSetup(state, { budget: b, today: today })) return [];
   var n = b.proposals.length;
@@ -465,7 +464,7 @@ function budgetSuggestionNotification(){
   var hash = 0; for(var i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) | 0;
   return [{ id: "budgetsuggest:" + n + ":" + (hash >>> 0).toString(36), type: "budgetsuggest", severity: "info",
     title: n + " budget line" + (n === 1 ? "" : "s") + " suggested from your spending",
-    detail: "Keep, change or skip each — Money → Budget → Budget from history.", date: today, page: "expenses", sub: "budget" }];
+    detail: "Choose which lines to add in Money → Budget → Build from what you’ve spent.", date: today, page: "expenses", sub: "budget" }];
 }
 
 // ---------------- The year in review is ready (#396) ----------------

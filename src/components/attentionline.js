@@ -23,7 +23,7 @@ export function renderAttentionLine(force){
   if(!force && key === lastKey && el.parentElement === page) return;
   lastKey = key;
   var html = "";
-  // Budget says its notices under its own Tidy list (components/budgetsplit.js): one place to sort things out there.
+  // Budget shows its notices in its review list (components/budgetsplit.js).
   var onBudget = view.page === "expenses" && (!view.sub || view.sub === "budget");
   try { html = onBudget ? "" : attentionLineHtml(viewItems(view)); } catch(e){ html = ""; }
   if(el.parentElement !== page){

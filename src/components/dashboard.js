@@ -1,4 +1,3 @@
-import { spendingTransactions } from "../calc/propertymoney.js";
 import { hasDraft, draftChanged } from "../calc/scenariodraft.js";
 import { state, persist } from "../state.js";
 import { setupProgress, shouldShowSetup } from "../lib/setup.js";
@@ -22,7 +21,7 @@ import { fmtCurrency0, fmtCompact, fmtPercent1, fmtRunway, localDateStr, fmtDate
 import { escapeAttr } from "../lib/html.js";
 import { showToast, showUndoToast } from "../lib/toast.js";
 import { renderLineChart } from "../lib/charts.js";
-import { proposeBudget } from "../calc/budgetfromhistory.js";
+import { proposeHouseholdBudget } from "../calc/budgetfromhistory.js";
 import { applyHomeLayout } from "../lib/homelayout.js";
 import { scenarioSharedItems, effectiveChanges } from "../calc/scenariochanges.js";
 import { rateStress, breakEvenGrowthCached } from "../calc/scenariostress.js";
@@ -200,9 +199,8 @@ export function renderSetupPanel(nothingEntered){
 }
 // What the budget step needs to know: whether a budget can be proposed from the spending yet.
 export function setupOpts(){
-  var lines = (state.shared || []).concat((state.home || {})[currentScenario()] || []);
   var budget = null;
-  try { budget = proposeBudget(spendingTransactions(state), lines, localDateStr()); } catch(e){ budget = null; }
+  try { budget = proposeHouseholdBudget(state, currentScenario(), localDateStr()); } catch(e){ budget = null; }
   return { budget: budget, today: localDateStr() };
 }
 // v3.162.0 (item 192): "Your first month" — the household's own month as the setup has it so far, and

@@ -6049,7 +6049,7 @@ that folds or moves something is mocked up first and keeps every control reachab
 - `[x]` **C1, C2, C5** No period chip on More; every report names its family; toasts clear of the + button.
 
 **2. Clearer (mock-ups first, `release: minor`)**
-- `[ ]` **B1** Bank accounts says what "owed" holds and what Debts holds.
+- `[~]` **B1** Bank accounts says what "owed" holds and what Debts holds.
 - `[ ]` **B4** Retirement and Financial independence take the age from People's date of birth; one place to type it.
 - `[ ]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
 - `[x]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.

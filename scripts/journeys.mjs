@@ -5956,7 +5956,26 @@ const JOURNEYS = {
   async holdings(page){
     await quiet(page);
     await go(page, "assets", "data-assets-sub", "Shares");
-    await page.evaluate(() => [...document.querySelectorAll(".m-asset-rows [data-row-toggle]")].find(t => t.getClientRects().length).click());
+    const holding = page.locator('#assetsSub-Shares .m-asset-rows .m-row:visible').first();
+    const details = holding.getByRole('button', {name:/ details$/});
+    const record = await details.getAttribute('data-detail-id');
+    const edit = holding.getByRole('button', {name:/^Edit /});
+    for(const control of [details, edit]){
+      const rect = await control.boundingBox();
+      check(rect.width >= 44 && rect.height >= 44, 'Holding control is smaller than 44px');
+    }
+    await details.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(id => document.body.dataset.currentPage === 'detail' && location.pathname.endsWith('/' + id), record);
+    await page.goBack();
+    await page.waitForFunction(() => document.body.dataset.currentPage === 'assets');
+    await edit.focus();
+    await page.keyboard.press('Space');
+    const closeEditor = holding.getByRole('button', {name:'Close editor', exact:true});
+    await closeEditor.waitFor();
+    await page.keyboard.press('Escape');
+    check(await edit.evaluate(el => el === document.activeElement), 'Closing the editor did not restore focus to Edit');
+    await holding.locator('.share-row-summary').click({position:{x:4,y:8}});
     const row = ".m-row.open";
     await page.locator(row + " .h-qty").waitFor({ state: "visible" });
     const idx = Number(await page.evaluate(r => document.querySelector(r).getAttribute("data-index"), row));

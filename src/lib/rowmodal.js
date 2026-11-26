@@ -2,6 +2,7 @@
 // path to body instead of disabling an ancestor that also contains the editor.
 export function rowModal(getRow, returnTarget, missing){
   var root = null, owned = new Set(), stopped = false;
+  var summaryToggle = ".m-row-summary[data-row-toggle], .m-row-summary > button[data-row-toggle]";
   var questionOpen = function(){ return !!document.querySelector("dialog[open]"); };
   function stops(row){
     return Array.from(row.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')).filter(function(el){
@@ -14,8 +15,11 @@ export function rowModal(getRow, returnTarget, missing){
   }
   function unname(row){
     if(!row) return;
-    var header = row.querySelector(".m-row-summary[data-row-toggle]");
-    if(header) header.removeAttribute("aria-label");
+    var header = row.querySelector(summaryToggle);
+    if(header){
+      header.removeAttribute("aria-label");
+      if(header.tagName === "BUTTON") header.setAttribute("aria-haspopup", "dialog");
+    }
     row.removeAttribute("role"); row.removeAttribute("aria-modal"); row.removeAttribute("aria-label"); row.removeAttribute("tabindex");
   }
   function update(){
@@ -28,8 +32,11 @@ export function rowModal(getRow, returnTarget, missing){
     row.setAttribute("role", "dialog"); row.setAttribute("aria-modal", "true"); row.setAttribute("tabindex", "-1");
     var name = row.querySelector(".m-row-name");
     row.setAttribute("aria-label", "Edit " + (name && name.textContent.trim() || "item"));
-    var header = row.querySelector(".m-row-summary[data-row-toggle]");
-    if(header) header.setAttribute("aria-label", header.textContent.trim() + " — Close editor");
+    var header = row.querySelector(summaryToggle);
+    if(header){
+      if(header.tagName === "BUTTON") header.removeAttribute("aria-haspopup");
+      header.setAttribute("aria-label", header.tagName === "BUTTON" ? "Close editor" : header.textContent.trim() + " — Close editor");
+    }
     var desired = new Set();
     for(var branch = row; branch && branch !== document.body; branch = branch.parentElement){
       Array.from(branch.parentElement.children).forEach(function(el){

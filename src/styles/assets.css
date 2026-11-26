@@ -30,6 +30,21 @@
      640px" trade-off. A holding with no symbol set falls back to the name alone in the primary
      (.m-row-name) slot, same as before this existed. */
   .m-row-share-name{ flex:1 1 auto; min-width:0; }
+  .share-row-summary .detail-link{
+    display:inline-flex; align-items:center; min-width:44px; min-height:44px; margin-block:-12px;
+  }
+  .share-row-toggle{
+    appearance:none; border:0; background:none; color:inherit; font:inherit; cursor:pointer; padding:0;
+    display:flex; align-items:center; justify-content:flex-end; flex:none; gap:10px; min-width:44px; min-height:44px;
+  }
+  .share-row-toggle:focus-visible{ outline:2px solid var(--brass); outline-offset:2px; border-radius:4px; }
+  /* Keep the allocation colours and use the higher-contrast ink on each badge. */
+  .share-row-summary .m-avatar{ color:#000; }
+  .share-row-summary .m-avatar:is(.m-avatar-neutral, .series-color-5, .series-color-6){ color:#fff; }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .share-row-summary .m-avatar:is(.m-avatar-neutral, .series-color-6){ color:#000; }
+  }
+  :root[data-theme="dark"] .share-row-summary .m-avatar:is(.m-avatar-neutral, .series-color-6){ color:#000; }
   /* Units · price stays on one line; at 12px it can still lose its end to an ellipsis on a narrow phone. */
   .m-row-share-name .m-row-sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .m-row-name-line{ display:flex; align-items:baseline; gap:5px; min-width:0; }
@@ -52,7 +67,7 @@
   /* v3.155.0: on a narrow phone the trend line gives up width so units · price keeps its last digits. */
   @media (max-width: 420px){ .m-row-summary .sparkline{ width:34px; margin:0 2px; } }
   @media (max-width: 379px){ .m-row-summary .sparkline{ display:none; } }
-  .m-row-share-value{ text-align:right; flex:none; }
+  .m-row-share-value{ display:flex; flex-direction:column; text-align:right; flex:none; }
   .m-row-share-value .asset-trend.gain-cell{ display:block; padding-left:0; margin-top:2px; text-align:right; }
   /* A USD gain/loss figure ("USD 2,100 (30.6%)") is the value block's widest line on a narrow
      phone — capping the block's width forces just that one line to wrap onto two rather than

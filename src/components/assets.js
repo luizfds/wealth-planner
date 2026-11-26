@@ -10,7 +10,6 @@ import { fmtCurrency0, fmtCurrency2, fmtPercent1, fmtCurrency0For, fmtCurrency2F
 import { escapeAttr, segLabel, figureAttrs } from "../lib/html.js";
 import { detailLinkHtml } from "./detail.js";
 // v3.128.0: a holding's name opens its own page.
-function nameLink(item){ return item.id ? detailLinkHtml("asset", item.id, item.what || "Holding") : escapeAttr(item.what); }
 import { historyTrendHtml, ledgerFields, ledgerFieldId, rowEditSlot } from "../lib/ledger-table.js";
 import { superEstimate } from "../calc/estimates.js";
 import { renderLineChart, renderStackedAreaChart, dateAxisFormat, sparklineHtml, sparklinePlaceholderHtml } from "../lib/charts.js";
@@ -752,7 +751,7 @@ function modernShareRowHtml(item, idx, colorIdx){
   var currency = holdingCurrency(item);
   var isOpen = !!modernAssetRowOpen["assets:" + idx];
   var initials = (item.symbol || item.what || "?").slice(0, 2).toUpperCase();
-  var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '">' + escapeAttr(initials) + '</span>';
+  var avatar = '<span class="m-avatar' + (colorIdx != null ? " series-color-" + colorIdx : " m-avatar-neutral") + '" aria-hidden="true">' + escapeAttr(initials) + '</span>';
   var spark = sparklineHtml(item.history) || sparklinePlaceholderHtml();
   // Qty · current price, not qty · avg cost — the collapsed row's one line of secondary detail
   // should explain the Value figure shown to its right (qty * price), and price is what's
@@ -765,10 +764,10 @@ function modernShareRowHtml(item, idx, colorIdx){
   // needing to hide below 640px (the previous fix). Falls back to the name alone, in the primary
   // weight, for a holding with no symbol set.
   var symbolText = (item.symbol || "").trim();
-  var titleHtml = symbolText
-    ? '<span class="m-row-name">' + (item.id ? detailLinkHtml("asset", item.id, symbolText) : escapeAttr(symbolText)) + '</span><span class="m-row-name-secondary">' + escapeAttr(item.what) + '</span>'
-    : '<span class="m-row-name">' + nameLink(item) + '</span>';
-  var summary = '<div class="m-row-summary" role="button" tabindex="0" data-row-toggle>' +
+  var name = symbolText || item.what || "Holding";
+  var titleHtml = '<span class="m-row-name">' + (item.id ? detailLinkHtml("asset", item.id, name, "", name + " details") : escapeAttr(name)) + '</span>' +
+    (symbolText ? '<span class="m-row-name-secondary">' + escapeAttr(item.what) + '</span>' : '');
+  var summary = '<div class="m-row-summary share-row-summary">' +
     avatar +
     '<div class="m-row-share-name">' +
       // A sibling to .m-row-name, not nested inside it — .m-row-name-secondary truncates with an
@@ -779,12 +778,14 @@ function modernShareRowHtml(item, idx, colorIdx){
       '<div class="m-row-sub h-sub-cell">' + fmtQtyDisplay.format(qty) + ' · ' + fmtCurrency2For(currency).format(price) + '</div>' +
     '</div>' +
     spark +
-    '<div class="m-row-share-value">' +
-      '<div class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0For(currency).format(qty * price) + '</div>' +
-      '<div class="h-gain-cell">' + gainLossHtml(item) + '</div>' +
-      '<div class="h-change-cell">' + priceChangeHtml(item) + '</div>' +
-    '</div>' +
-    '<span class="m-row-chev" aria-hidden="true">✕</span>' +
+    '<button type="button" class="share-row-toggle" data-row-toggle aria-haspopup="dialog">' +
+      '<span class="visually-hidden">Edit ' + escapeAttr(name) + ' </span>' +
+      '<span class="m-row-share-value">' +
+        '<span class="m-row-amt h-value-cell" data-computed="amt">' + fmtCurrency0For(currency).format(qty * price) + '</span> ' +
+        '<span class="h-gain-cell">' + gainLossHtml(item) + '</span> ' +
+        '<span class="h-change-cell">' + priceChangeHtml(item) + '</span>' +
+      '</span><span class="m-row-chev" aria-hidden="true">✕</span>' +
+    '</button>' +
   '</div>';
   var field = ledgerFields(item, "assets", idx, "holding");
   var edit = '<div class="m-row-edit"><div class="m-row-edit-inner"><div class="m-row-edit-pad">' +

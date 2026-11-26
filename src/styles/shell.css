@@ -476,6 +476,13 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact) .period-wrap{ grid-area:3 / 1; }
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact) .page-actions-slot{ grid-area:3 / 2; justify-self:end; }
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact) .actions{ grid-area:1 / 2 / 3 / 3; align-self:start; }
+
+  /* The longer Today titles use the full row below the back link and the app controls. */
+  body[data-current-page="dashboard"]:has(:is(#dashboardSub-insights, #dashboardSub-benchmarks):not([hidden])) .app-topbar:not(.is-compact) .page-back{ flex-basis:auto; margin-block:0; }
+  body[data-current-page="dashboard"]:has(:is(#dashboardSub-insights, #dashboardSub-benchmarks):not([hidden])) .app-topbar:not(.is-compact) .app-topbar-title{ flex-basis:100%; }
+  body[data-current-page="dashboard"]:has(:is(#dashboardSub-insights, #dashboardSub-benchmarks):not([hidden])) .app-topbar:not(.is-compact) .actions{
+    position:absolute; inset-block-start:calc(12px + env(safe-area-inset-top)); inset-inline-end:16px;
+  }
 }
 /* Simpler navigation step 1: an inner page's way back, named for where it goes — before the title on a desktop,
    on its own line above it on a phone. */

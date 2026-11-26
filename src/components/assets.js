@@ -1760,8 +1760,11 @@ function drawDebts(){
   if(!container) return;
   var total = totalDebtsValue();
   if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+  var empty = container.nextElementSibling;
+  if(empty && empty.matches(".empty-state")) empty.remove();
   if(!state.debts.length){
-    container.innerHTML = '<p style="color:var(--ink-soft);font-size:var(--fs-sm);margin:0">No debts tracked — add anything you owe outside a property loan (credit cards, personal loans, BNPL).</p>';
+    container.innerHTML = "";
+    container.insertAdjacentHTML("afterend", emptyStateHtml("No other debts recorded yet.", { beside: true }));
     return;
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){

@@ -34,7 +34,8 @@ test("the answers become ordinary rows: pay, accounts with balances, rent and mo
     assert.equal(state.income[0].person, "Alex");
     assert.equal(state.income[0].incomeType, "Gross");
     assert.equal(state.income[0].amount, 90000);
-    assert.equal(state.fire.currentAge, 34);
+    assert.deepEqual(state.fire.planningAges, { Alex: 34 });
+    assert.equal(state.fire.scenarioAgePerson, "Alex");
     assert.equal(accountBalance(state.accounts[0]).balance, 2500);
     assert.equal(accountBalance(state.accounts[1]).balance, 700, "a card stores what it owes, positive");
     assert.equal(accountBalance(state.accounts[2]).balance, null, "no balance typed, nothing invented");

@@ -3859,12 +3859,33 @@ const JOURNEYS = {
     await tryField(A + ".acct-mgmt-limit", "-500", "state.accounts[" + card + "].limit", "a card limit");
     // Plan → Retirement (Insights' until the follow-up review): a retirement age.
     await go(page, "plan", "data-plan-sub", "retirement");
-    await page.evaluate(async () => { const m = await import("/src/state.js"); Object.values(m.state.tax.settings).forEach(p=>delete p.dateOfBirth); m.commit(["tax"]); });
-    await page.locator("#fireCurrentAge").waitFor({ state: "visible" });
-    await page.fill("#fireCurrentAge", "41"); await page.press("#fireCurrentAge", "Tab");
-    await eventually(async () => await stored(page, "(state.fire || {}).currentAge") === 41);
+    await page.evaluate(async () => {
+      const m = await import("/src/state.js");
+      m.state.fire = { person: "Alex", currentAge: 41, retireAge: 60 };
+      delete m.state.tax.settings.Sam.dateOfBirth;
+      m.migrateState(m.state);
+      m.commit(["fire", "tax"]);
+    });
+    const person = page.locator("[data-retire-person]");
+    const age = page.locator("#fireCurrentAge");
+    const summary = page.locator("#firePanel .fire-age-context");
+    await page.locator(".rt-age-read").waitFor();
+    check(/Alex.*From Tax → People/s.test(await summary.innerText()), "Financial independence missed the age source");
+    await page.getByRole("button", { name: "Edit date of birth →" }).click();
+    const dob = page.locator('.pp-dob[data-pp-person="Alex"]');
+    await dob.waitFor();
+    await dob.fill("");
+    await eventually(async () => await stored(page, "state.tax.settings.Alex.dateOfBirth") === "");
+    await go(page, "plan", "data-plan-sub", "retirement");
+    check(await age.inputValue() === "41" && (await summary.innerText()).includes("Saved planning age"), "Removing the birth date lost the saved age");
+    await person.selectOption("Sam");
+    check(await age.inputValue() === "" && (await summary.innerText()).includes("Sam · Set a current age"), "Sam borrowed Alex's planning age");
+    await age.fill("43"); await age.press("Tab");
+    await eventually(async () => await stored(page, "state.fire.planningAges.Sam") === 43);
     await settle(page); // the save's own redraw of the panel, done before the next field is tried
-    await tryField("#fireCurrentAge", "120", "(state.fire || {}).currentAge", "an age");
+    await tryField("#fireCurrentAge", "120", "state.fire.planningAges.Sam", "an age");
+    await person.selectOption("Alex");
+    check(await age.inputValue() === "41", "Saving Sam's age replaced Alex's");
     // Home → Benchmarks: the fixed rate, and a goal's target.
     await go(page, "dashboard", "data-dashboard-sub", "benchmarks");
     await page.locator("[data-bm-rate]").waitFor({ state: "visible" });

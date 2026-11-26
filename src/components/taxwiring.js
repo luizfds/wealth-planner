@@ -32,8 +32,8 @@ import { patchOpenRowBreakdowns, patchIncomeGroupTotals, patchSyntheticIncomeRow
 import { showPage, showAssetsSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage } from "./nav.js";
 import { renderPeople, setPersonField, peopleSummaryText } from "./people.js";
 import { renderProjectionOutputs } from "./projections.js";
-import { renderTotals, renderAll, renderChecksBadge, updatePersonSuggestions } from "./redraw.js";
-import { findProperty, rerenderTableFor, openNewRowModal } from "./rows.js";
+import { renderTotals, renderAll, renderChecksBadge } from "./redraw.js";
+import { findProperty, openNewRowModal } from "./rows.js";
 import { saveTransfer } from "./spendingwiring.js";
 import { taxYearFillStatements, renderTaxYear, setTaxYearSelected, taxYearAddRow, taxYearDeleteRow, taxYearRestoreRow, taxYearSetField, taxYearToggleEvidence, taxYearMarkLodged, worksheetText, taxYearSelected, taxYearPrintHtml } from "./taxyear.js";
 import { rentalLogged } from "../calc/propertyactuals.js";
@@ -55,15 +55,7 @@ function syncClaimFields(tr, item){
 // row and record that names a person; this is the refresh after either.
 function afterPeopleChange(){
   recalcComputedItems();
-  rerenderTableFor("income");
-  updatePersonSuggestions();
-  renderTaxSuper();
-  renderPeopleTab();
-  renderCards();
-  renderDetail();
-  renderTotals();
-  renderProjectionOutputs();
-  persist();
+  commit(["income", "assets", "shared", "home", "properties", "tax", "taxYears", "fire"]);
 }
 function renderPeopleTab(){
   renderPeople();

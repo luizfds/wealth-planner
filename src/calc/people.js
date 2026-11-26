@@ -64,6 +64,16 @@ export function renamePersonEverywhere(oldName, newName){
   // Ownership shares live on each property — missing one would drop that share to 0%.
   (state.properties || []).forEach(function(p){ if(moveKey(p.ownership, oldName, newName)) changed++; });
   if(state.tax && moveKey(state.tax.settings, oldName, newName)) changed++;
+  var fire = state.fire;
+  if(fire){
+    if(fire.person === oldName){ fire.person = newName; changed++; }
+    if(fire.scenarioAgePerson === oldName){ fire.scenarioAgePerson = newName; changed++; }
+    if(fire.planningAges && Object.hasOwn(fire.planningAges, oldName)){
+      fire.planningAges = { ...fire.planningAges, [newName]: fire.planningAges[oldName] };
+      delete fire.planningAges[oldName];
+      changed++;
+    }
+  }
   Object.keys(state.taxYears || {}).forEach(function(fy){
     var rec = state.taxYears[fy];
     if(!rec) return;
@@ -90,4 +100,24 @@ export function ageOn(dob, today){
   var age = t[0] - b[0];
   if(t[1] < b[1] || (t[1] === b[1] && t[2] < b[2])) age--;
   return age >= 0 ? age : null;
+}
+
+export function savedPlanningAge(st, person){
+  var fire = st.fire || {};
+  var ages = fire.planningAges;
+  var age = ages ? (Object.hasOwn(ages, person) ? ages[person] : null) : fire.currentAge;
+  return age == null || age === "" || !Number.isFinite(Number(age)) ? null : Number(age);
+}
+
+// Age-timed scenario changes keep the last manual planning age even when Retirement is viewed for someone else.
+export function scenarioPlanningAge(st){
+  return savedPlanningAge(st, st.fire?.scenarioAgePerson ?? "");
+}
+
+export function setPlanningAge(st, person, age){
+  var fire = st.fire || (st.fire = {});
+  var ages = { ...fire.planningAges, [person]: age };
+  if(age == null) delete ages[person];
+  fire.planningAges = ages;
+  fire.scenarioAgePerson = person;
 }

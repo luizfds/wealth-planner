@@ -13,6 +13,7 @@
 import { state } from "../state.js";
 import { computeNetWorthSeries } from "./engine.js";
 import { changesFor } from "./scenariochanges.js";
+import { scenarioPlanningAge } from "./people.js";
 
 var SCRATCH = "\u0000what-if";
 function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
@@ -20,9 +21,9 @@ function num(v){ var n = Number(v); return isFinite(n) ? n : 0; }
 // The sliders' starting values: the saved plan.
 export function whatIfDefaults(st){
   st = st || state;
-  var p = st.projection || {}, f = st.fire || {};
+  var p = st.projection || {};
   return { retireAge: null, investReturnRate: num(p.investReturnRate), inflationRate: num(p.inflationRate), extraMonthly: 0, rateShockPct: num(p.rateShockPct),
-    currentAge: f.currentAge == null || f.currentAge === "" ? null : num(f.currentAge) };
+    currentAge: scenarioPlanningAge(st) };
 }
 // Whether the sliders say anything the saved plan doesn't.
 export function whatIfMoved(w, st){

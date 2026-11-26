@@ -13,6 +13,7 @@ import { effectiveChanges } from "./scenariochanges.js";
 import { ipFigures } from "./scenariolegs.js";
 import { recalcPurchase } from "./property.js";
 import { IP_CATEGORY } from "../constants.js";
+import { scenarioPlanningAge } from "./people.js";
 
 function fyOf(iso){ var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)); return m >= 7 ? y : y - 1; }
 // The day before — an old home line ends the day the new one starts, so no day counts both.
@@ -37,7 +38,7 @@ function run(st, name, today, idFactory, apply){
   var cfg = st.purchase && st.purchase[name], inv = st.invest && st.invest[name];
   var buying = !!(cfg && cfg.enabled && !(inv && inv.enabled));
   // Later: a change dated in a later year, at an age not yet reached, or waiting on cash (v3.183.0).
-  var age = st.fire && st.fire.currentAge !== "" && st.fire.currentAge != null ? Number(st.fire.currentAge) : null;
+  var age = scenarioPlanningAge(st);
   var later = function(c){
     if(c.when === "cash" && Number(c.whenCash) > 0 && c.kind !== "sell") return true;
     if(c.when === "age") return age == null || Number(c.whenAge) > age;

@@ -25,15 +25,24 @@ function slider(key, label, min, max, step, value, fmt){
 
 export function retirementHtml(today){
   today = today || localDateStr();
-  var plan = retirementPlan(retireLevers);
-  var f = fireSettings();
-  var person = getTaxPeople().length > 1 ? '<label class="cf-filter">Person<select class="field-control" data-retire-person>' +
-    getTaxPeople().map(function(name){ return '<option' + (name === f.person ? ' selected' : '') + '>' + escapeAttr(name) + '</option>'; }).join("") + '</select></label>' : '';
-  var ages = '<div class="rt-ages">' + person + '<label class="cf-filter"><span>Your age now</span><input class="field-control" type="number" min="16" max="90" id="fireCurrentAge" ' + (f.ageFromPeople ? 'readonly aria-label="Current age from Tax People"' : 'aria-label="My age now"') + ' value="' + (f.currentAge != null ? f.currentAge : "") + '"></label>' +
+  var f = fireSettings(today);
+  var plan = retirementPlan(retireLevers, f);
+  var people = getTaxPeople();
+  var person = people.length > 1 ? '<label class="cf-filter"><span>Person</span><select class="field-control" data-retire-person>' +
+    people.map(function(name){ return '<option' + (name === f.person ? ' selected' : '') + '>' + escapeAttr(name) + '</option>'; }).join("") + '</select></label>' : '';
+  var ageField = f.ageFromPeople
+    ? '<div class="cf-filter rt-age-read"><span>Current age</span><b>' + f.currentAge + '</b></div>'
+    : '<label class="cf-filter"><span>Current age</span><input class="field-control" type="number" min="16" max="99" id="fireCurrentAge" aria-describedby="retirementAgeSource" value="' + (f.currentAge == null ? "" : f.currentAge) + '"></label>';
+  var source = f.ageFromPeople ? "From the date of birth saved in Tax → People."
+    : f.currentAge != null ? "Saved planning age" + (f.person ? " for " + f.person : "") + "."
+    : "Enter a planning age" + (f.person ? " for " + f.person + " or add their date of birth." : " to see when you could stop working.");
+  var peopleAction = f.person ? '<button type="button" class="link-btn" data-go="tax/people">' +
+    (f.ageFromPeople ? "Edit date of birth" : "Add date of birth") + ' →</button>' : '';
+  var ages = '<div class="rt-age-setup"><div class="rt-ages">' + person + ageField +
     '<label class="cf-filter"><span>Stop working at</span><input class="field-control" id="fireRetireAge" type="number" min="16" max="99" value="' + (f.retireAge == null ? "" : f.retireAge) + '"></label>' +
-    '<label class="cf-filter"><span>Super opens at</span><input class="field-control" type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>';
-  if(f.ageFromPeople) ages += '<p class="ledger-note">Current age comes from the date of birth in Tax → People.</p>';
-  if(plan.needsAge) return '<p class="ledger-note" style="margin:0 0 10px">Type your age to see when you could stop working. Everything else comes from the plan already in the app.</p>' + ages;
+    '<label class="cf-filter"><span>Super opens at</span><input class="field-control" type="number" min="55" max="70" data-rt-fire="preservationAge" value="' + (f.preservationAge != null ? f.preservationAge : 60) + '"></label></div>' +
+    '<div class="rt-age-source"><p class="ledger-note" id="retirementAgeSource">' + escapeAttr(source) + '</p>' + peopleAction + '</div></div>';
+  if(plan.needsAge) return ages;
   var run = plan.run, inp = plan.inputs;
   // v3.139.0 (item 173): lead with the age that holds up when returns rise and fall (9 runs in 10),
   // the steady-returns age beside it — the steady one alone promised years the odds didn't back.
@@ -75,7 +84,7 @@ export function retirementHtml(today){
     '<div><span>Super cap room this year</span><b>' + money(room) + '</b><small>' + (room > 0 ? "Concessional room left across " + sc.length + " " + (sc.length === 1 ? "person" : "people") + " — the “extra into super” lever, before tax." : "Caps are used.") + '</small><button type="button" class="link-btn" data-rt-go="super">Super →</button></div>' +
     '<div><span>Savings goals</span><b>' + go.goals.length + '</b><small>' + (go.neededMonthly ? money(go.neededMonthly) + "/mo going to goals comes out of what's saved for retirement." : "None taking from the monthly surplus.") + '</small><button type="button" class="link-btn" data-rt-go="goals">Goals →</button></div>' +
     '<div><span>Progress to the 4% number</span><b>' + (plan.progress != null ? fmtPercent0.format(Math.min(1, plan.progress)) : "—") + '</b><small>' + money(inp.split.accessible + inp.split.superValue) + ' of ' + money(plan.fiNumber) + ' (super and accessible money; your home doesn\'t count).</small></div></div>';
-  return headline + sliders + check + oddsHtml + dd + lev + links + ages +
+  return headline + ages + sliders + check + oddsHtml + dd + lev + links +
     '<p class="ledger-note" style="margin:8px 0 0">In today\'s dollars at a real return of ' + (Math.round(inp.realReturn * 1000) / 10) + '% (Plan → Projections sets the rates). A guide, not advice: the checks above assume a steady return, spending and the 4% rule; the odds draw each year\'s return around that rate, ' + (Number(state.projection.investVolatility != null ? state.projection.investVolatility : 12)) + '% up or down typically (Plan → Projections), and spend the same each year to ' + LIVE_TO + '.</p>';
 }
 

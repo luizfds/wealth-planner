@@ -8,7 +8,7 @@ import { fireSettings, fireWealthSplit, realReturnRate, annualSuperContributions
 // years, so the page can say "what changes it" in the only unit that matters.
 //
 // levers: { retireAge, annualExpenses, extraSavingsMonthly, extraSuperYearly, realReturn }
-export function retirementInputs(levers){
+export function retirementInputs(levers, settings){
   levers = levers || {};
   var base = {
     split: fireWealthSplit(),
@@ -18,18 +18,19 @@ export function retirementInputs(levers){
     // Extra concessional super lands after 15% contributions tax.
     superContributions: annualSuperContributions() + (Number(levers.extraSuperYearly) || 0) * 0.85
   };
-  var s = fireSettings();
+  var s = settings || fireSettings();
   base.currentAge = s.currentAge;
   base.preservationAge = s.preservationAge;
   return base;
 }
 
-export function retirementPlan(levers){
+export function retirementPlan(levers, settings){
   levers = levers || {};
-  var inp = retirementInputs(levers);
+  var s = settings || fireSettings();
+  var inp = retirementInputs(levers, s);
   if(inp.currentAge == null) return { needsAge: true };
   var earliest = earliestWorkableRetirementAge(inp);
-  var age = levers.retireAge != null ? levers.retireAge : (fireSettings().retireAge != null ? fireSettings().retireAge : (earliest || 60));
+  var age = levers.retireAge ?? s.retireAge ?? earliest ?? 60;
   var run = simulateRetirementAt(age, inp);
   // What each lever is worth: the earliest age with that one change on top of the current settings.
   var with_ = function(extra){ return earliestWorkableRetirementAge(Object.assign({}, inp, extra)); };

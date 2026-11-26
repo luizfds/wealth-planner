@@ -151,6 +151,15 @@
 .rt-links .link-btn{ align-self:flex-start; background:none; border:0; padding:4px 0; color: var(--brass-strong); cursor:pointer; font-size:var(--fs-sm); }
 .rt-ages{ display:flex; gap:10px; flex-wrap:wrap; }
 .rt-ages .cf-filter{ width:140px; }
+.rt-age-setup{ margin-block:12px 18px; }
+.rt-age-read b{ display:flex; align-items:center; min-height:44px; padding-inline:10px; border-radius:var(--field-radius); background:var(--paper-sunken); }
+.rt-age-source{ display:flex; align-items:center; flex-wrap:wrap; gap:0 12px; margin-top:4px; }
+.rt-age-source p{ margin:0; }
+.rt-age-source button{ min-height:44px; color:var(--tab-ink); }
+@media (max-width:640px){
+  .rt-ages{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .rt-ages .cf-filter, .rt-ages .field-control{ min-width:0; width:100%; }
+}
 @media (max-width: 640px){ .rt-sliders, .rt-links{ grid-template-columns: 1fr; } }
 
 /* ---------------- Reports → Month in detail (v3.81.0) ---------------- */

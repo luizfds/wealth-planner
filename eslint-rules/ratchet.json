@@ -120,7 +120,7 @@
   "stateWrites": 5
  },
  "src/components/taxwiring.js": {
-  "persist": 12,
+  "persist": 11,
   "stateWrites": 9
  },
  "src/lib/activity.js": {

@@ -76,7 +76,7 @@ export function accountRowHtml(a, idx, today){
         '<span class="acct-card-sub' + (stale ? " warn" : "") + '">' + escapeAttr(sub.join(" · ")) + (stale ? " — " + age + " days ago" : "") + '</span>' +
       '</button>' +
       '<span class="acct-card-spark">' + sparklineHtml(bal.history.slice(-12), { width: 56, height: 20 }) + '</span>' +
-      amount + actions +
+      amount + (actions ? '<div class="acct-layout-actions">' + actions + '</div>' : '') +
     '</div>';
   var balanceRow = editing
     ? '<div class="acct-bal-edit"><label><span>' + (owed ? "Owed today" : "Balance today") + ' $</span><input type="number" step="0.01" class="acct-bal-input field-control" data-acct-index="' + idx + '" value="' + (bal.balance != null ? bal.balance : "") + '" aria-label="' + escapeAttr((a.name || "Account") + (owed ? " amount owed" : " balance")) + '"></label>' +
@@ -125,7 +125,7 @@ export function accountsPageHtml(today){
     var rows = state.accounts.map(function(a, i){ return { a: a, i: i }; }).filter(function(x){ return g.types.indexOf(x.a.type) !== -1; });
     if(!rows.length) return "";
     return '<div class="acct-group"><div class="acct-group-title">' + g.title + '</div>' + rows.map(function(x){ return accountRowHtml(x.a, x.i, today); }).join("") + '</div>';
-  }).join("");
+  }).filter(Boolean);
   var loose = ov.loose.length
     ? '<div class="acct-group acct-loose"><div class="acct-group-title">Balances with no account yet</div>' +
         '<p class="ledger-note" style="margin:0 0 6px">These already count in net worth. Make each an account so it\'s updated here with the rest.</p>' +
@@ -134,7 +134,10 @@ export function accountsPageHtml(today){
             '<button type="button" class="btn btn-sm btn-ghost" data-acct-adopt="' + escapeAttr(l.link) + '" data-acct-adopt-type="' + l.suggest + '">Make it an account</button></div>';
         }).join("") + '</div>'
     : '';
-  return head + groups + loose;
+  var columns = groups.length > 1
+    ? '<div class="acct-layout-columns"><div>' + groups[0] + '</div><div>' + groups.slice(1).join("") + '</div></div>'
+    : groups.join("");
+  return head + columns + loose;
 }
 
 export function renderAccountsPage(){

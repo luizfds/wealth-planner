@@ -3533,6 +3533,8 @@ const JOURNEYS = {
       await choice.click();
       await page.waitForFunction(id => { const i = document.activeElement; return document.body.dataset.currentPage === 'accounts' && i && i.matches('.acct-bal-input') && i.closest('[data-acct-index]'); }, id, { timeout: 5000 });
       check(await page.evaluate(id => { const i = document.activeElement, card = i.closest('.acct-card'); return !!card && !!card.querySelector('[data-acct-bal-save]') && JSON.stringify(window.__wp || null) !== 'x'; }, id), width + ': Update a balance did not open that account\'s balance form');
+      const split = await page.locator('#accountsTable .acct-layout-columns').evaluate(layout => layout.children[0].getBoundingClientRect().left < layout.children[1].getBoundingClientRect().left);
+      check(split === (width >= 1100), width + ': account groups are in the wrong layout');
       await page.locator('[data-acct-bal-cancel]').first().click();
     }
     // Categories, folded: fewer controls than one per name, delete and look each.

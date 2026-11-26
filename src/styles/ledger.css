@@ -1140,6 +1140,17 @@
   .acct-bal{ flex:none; font-weight:600; font-size:var(--fs-lg); font-variant-numeric: tabular-nums; white-space:nowrap; }
   .acct-bal.muted{ font-weight:600; font-size:var(--fs-xs); color: var(--ink-soft); }
   .acct-card-update{ flex:none; }
+  .acct-layout-actions{ display:contents; }
+  @media (min-width:1100px){
+    .acct-layout-columns{ display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); align-items:start; gap:18px; }
+    .acct-layout-columns > div{ min-width:0; }
+    .acct-layout-columns .acct-card-main{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px 10px; }
+    .acct-layout-columns .acct-card-toggle{ grid-column:1; }
+    .acct-layout-columns .acct-card-name{ white-space:normal; overflow-wrap:anywhere; }
+    .acct-layout-columns .acct-card-spark{ grid-column:2; }
+    .acct-layout-columns .acct-bal{ grid-column:3; }
+    .acct-layout-columns .acct-layout-actions{ display:flex; grid-column:1 / -1; justify-content:flex-end; align-items:center; gap:6px; }
+  }
   .acct-del{ color: var(--bad-ink); }
   .acct-bal-edit{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px; }
   .acct-bal-edit label{ display:flex; align-items:center; gap:6px; font-size:var(--fs-sm); color: var(--ink-soft); flex:1 1 180px; }

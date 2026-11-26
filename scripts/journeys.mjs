@@ -7957,6 +7957,12 @@ const JOURNEYS = {
     check((await page.locator('.proj-reading-scenario:not([hidden])').innerText()).includes('excluded from the saved-plan ranking'),'stress summary lacks qualification');
     await page.locator('[data-proj-stress-enabled]').uncheck();
     check(await picker.inputValue()!==stress,'disabled stress line remains selected');
+    check(await page.evaluate(()=>{
+      const headline = document.querySelector('#projHeadline').getBoundingClientRect();
+      const chart = document.querySelector('#projChart').getBoundingClientRect();
+      const controls = document.querySelector('#whatIfStrip').getBoundingClientRect();
+      return headline.top < chart.top && chart.top < controls.top;
+    }), 'projection headline and chart should appear before the What if controls');
     await page.locator('[data-wi="extraMonthly"]').evaluate(e=>{e.value='500';e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));});
     check(await picker.locator('option').count()===2,'what-if and saved plan missing from selector');
     await parity();

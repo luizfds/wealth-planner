@@ -126,8 +126,9 @@ export function renderProjectionOutputs(){
   return keepUi(renderProjectionContent);
 }
 function renderProjectionContent(){
-  var container = document.getElementById("projOutputs");
-  if(!container) return;
+  var chart = document.getElementById("projChart");
+  var container = document.getElementById("projSupportingOutputs");
+  if(!chart || !container) return;
   stale = false;
   dragCache = null;
   var horizon = Math.max(1, Number(state.projection.horizonYears) || 1);
@@ -231,15 +232,14 @@ function renderProjectionContent(){
   // v3.34.0: the chart gets its own host. renderLineChart redraws itself when its container's width
   // changes — which it always does once, because the first render happens while the page is hidden —
   // and a redraw empties the container, so the milestone table appended beside it vanished.
-  container.innerHTML = "";
-  var stressPanel = document.createElement("div");
-  stressPanel.innerHTML = projectionStressHtml();
-  container.appendChild(stressPanel);
   var chartHost = document.createElement("div");
-  container.appendChild(chartHost);
+  chart.replaceChildren(chartHost);
   lastChartHost = chartHost;
   renderLineChart(chartHost, series, chartOpts(horizon, realTerms, spread ? { lo: spread.lo, hi: spread.hi, colorClass: "series-color-" + (bandIdx % 8) } : null));
 
+  var stressPanel = document.createElement("div");
+  stressPanel.innerHTML = projectionStressHtml();
+  container.replaceChildren(stressPanel);
   var readings = document.createElement('div');
   readings.className = 'proj-readings';
   readings.innerHTML = projectionTablesHtml(series, horizon, realTerms);

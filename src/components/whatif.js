@@ -48,7 +48,7 @@ export function whatIfStripHtml(){
     return '<label class="wi-field"><span class="wi-label">' + s.label + ' <b data-wi-val="' + s.key + '">' + wiValueText(s.key, v, w) + '</b></span>' +
       '<input type="range" class="proj-slider" data-wi="' + s.key + '" min="' + min + '" max="' + s.max + '" step="' + s.step + '" value="' + pos + '" aria-label="' + s.label + '"></label>';
   };
-  return '<div class="wi-head"><b>What if…</b><span class="wi-hint">Drag — the chart redraws against your saved plan (dashed). Nothing is saved until you keep it.</span></div>' +
+  return '<div class="wi-head"><b>What if…</b><span class="wi-hint">Try changes on the chart above. Keep this as a scenario to save them.</span></div>' +
     '<div class="wi-grid">' + WI_SLIDERS.map(row).join("") + '</div>' +
     '<div class="wi-actions"><button type="button" class="btn btn-sm' + (moved ? ' btn-primary' : '') + '" data-wi-keep' + (moved ? '' : ' disabled') + '>Keep this as a scenario</button>' +
     '<button type="button" class="btn btn-sm btn-ghost" data-wi-reset' + (moved ? '' : ' disabled') + '>Back to the plan</button></div>';

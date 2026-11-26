@@ -25,13 +25,13 @@ export function performanceCardHtml(perf, periodLabel, mw){
     '<div><span>Distributions</span><b>' + money(perf.incomeWindow) + '</b><small>' + escapeAttr(periodLabel) + ' · ' + money(perf.incomeAll) + ' all time</small></div>' +
     '<div><span>Total return</span><b class="' + (perf.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(perf.totalReturn) + '</b><small>gain + distributions' + (perf.realised ? ' + ' + money(perf.realised) + ' realised' : '') + '</small>' +
       (mw && mw.irr != null ? '<small class="inv-mw" title="Money-weighted: the yearly rate that every buy, sale and distribution since ' + escapeAttr(mw.since) + ', and today\'s value, works out to — it counts how long each dollar was in">' + perYear(mw.irr) + ' money-weighted</small>' : '') + '</div></div>';
-  var rows = '<div class="inv-table" role="table" aria-label="Performance by holding"><div class="inv-tr inv-th" role="row"><span>Holding</span><span>Value</span><span>Gain</span><span>Distributions</span><span>Total return</span></div>' +
+  var rows = '<div class="inv-table" role="table" aria-label="Performance by holding"><div class="inv-tr inv-th" role="row"><span role="columnheader">Holding</span><span role="columnheader">Value</span><span role="columnheader">Gain</span><span role="columnheader">Distributions</span><span role="columnheader">Total return</span></div>' +
     perf.rows.map(function(r){
-      return '<div class="inv-tr" role="row"><span class="inv-name">' + escapeAttr(r.name) + (r.symbol && r.symbol !== r.name ? ' <small>' + escapeAttr(r.symbol) + '</small>' : '') + '</span>' +
-        '<span>' + money(r.value) + '</span>' +
-        '<span class="' + (r.gain >= 0 ? "up" : "down") + '">' + (r.hasCost ? signedMoney(r.gain) + ' <small>' + pct(r.gainPct) + '</small>' : '<small>no cost</small>') + '</span>' +
-        '<span>' + money(r.incomeAll) + '</span>' +
-        '<span class="' + (r.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(r.totalReturn) + (r.totalReturnPct != null ? ' <small>' + pct(r.totalReturnPct) + '</small>' : '') +
+      return '<div class="inv-tr" role="row"><span class="inv-name" role="rowheader">' + escapeAttr(r.name) + (r.symbol && r.symbol !== r.name ? ' <small>' + escapeAttr(r.symbol) + '</small>' : '') + '</span>' +
+        '<span role="cell">' + money(r.value) + '</span>' +
+        '<span role="cell" class="' + (r.gain >= 0 ? "up" : "down") + '">' + (r.hasCost ? signedMoney(r.gain) + ' <small>' + pct(r.gainPct) + '</small>' : '<small>no cost</small>') + '</span>' +
+        '<span role="cell">' + money(r.incomeAll) + '</span>' +
+        '<span role="cell" class="' + (r.totalReturn >= 0 ? "up" : "down") + '">' + signedMoney(r.totalReturn) + (r.totalReturnPct != null ? ' <small>' + pct(r.totalReturnPct) + '</small>' : '') +
           (mwBy[r.index] && mwBy[r.index].irr != null ? '<small class="inv-mw-row">' + perYear(mwBy[r.index].irr) + '</small>' : '') + '</span></div>';
     }).join("") + '</div>' +
     (perf.uncosted ? '<p class="ledger-note" style="margin:6px 0 0">' + perf.uncosted + ' holding' + (perf.uncosted === 1 ? " has" : "s have") + ' no cost recorded, so it isn\'t in the gain — add its purchase lots or an average cost.</p>' : '');

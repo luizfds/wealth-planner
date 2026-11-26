@@ -535,6 +535,9 @@ function wireModernRowToggle(containerId, openState){
   if(!container) return;
   container.addEventListener("click", function(e){
     var toggle = e.target.closest("[data-row-toggle]");
+    // A summary with separate Details and Edit controls still opens the editor from its background.
+    var summary = e.target.closest(".share-row-summary");
+    if(!toggle && summary && !e.target.closest("button")) toggle = summary.querySelector("[data-row-toggle]");
     if(!toggle) return;
     var row = toggle.closest(".m-row");
     if(!row) return;
@@ -558,7 +561,7 @@ function wireModernRowToggle(containerId, openState){
   container.addEventListener("keydown", function(e){
     if(e.key !== "Enter" && e.key !== " ") return;
     var toggle = e.target.closest("[data-row-toggle]");
-    if(!toggle) return;
+    if(!toggle || toggle.tagName === "BUTTON") return;
     e.preventDefault();
     toggle.click();
   });

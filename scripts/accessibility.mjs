@@ -85,8 +85,7 @@ for(const width of widths)for(const scheme of schemes){
    await page.waitForTimeout(300);
    await page.evaluate(()=>document.querySelectorAll('.app-page:not([hidden]) details').forEach(d=>{d.open=true;}));
   }
-  if(pg==='assets' && sub==='Shares') await scan('list-toolbar/Shares', '#assetsSub-Shares .record-toolbar');
-  else await scan(pg+'/'+sub);
+  await scan(pg+'/'+sub);
   if(pg==='expenses' && sub==='spending'){
    const numbers=page.locator('.trend-numbers');
    if(await numbers.count()){

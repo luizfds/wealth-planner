@@ -33,8 +33,9 @@ export var DETAIL_KINDS = ["scenario", "transaction", "income", "account", "asse
 function money(v){ return v == null ? "—" : (v < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(v)); }
 function pct(v){ return v == null ? "—" : (Math.round(v * 1000) / 10) + "%"; }
 // A link to another detail page — what every list now uses.
-export function detailLinkHtml(kind, id, label, cls){
-  return '<button type="button" class="detail-link' + (cls ? " " + cls : "") + '" data-detail="' + kind + '" data-detail-id="' + escapeAttr(id) + '">' + escapeAttr(label) + '</button>';
+export function detailLinkHtml(kind, id, label, cls, ariaLabel){
+  return '<button type="button" class="detail-link' + (cls ? " " + cls : "") + '" data-detail="' + kind + '" data-detail-id="' + escapeAttr(id) + '"' +
+    (ariaLabel ? ' aria-label="' + escapeAttr(ariaLabel) + '"' : '') + '>' + escapeAttr(label) + '</button>';
 }
 function facts(list){
   return '<dl class="dt-facts">' + list.filter(function(f){ return f && f[1] != null && f[1] !== ""; }).map(function(f){ return '<div><dt>' + escapeAttr(f[0]) + '</dt><dd>' + f[1] + '</dd></div>'; }).join("") + '</dl>';

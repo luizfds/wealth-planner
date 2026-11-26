@@ -4909,7 +4909,16 @@ const JOURNEYS = {
     check(await stored(page, 'JSON.stringify({costs:state.properties[0].acquisitionCosts,loans:state.properties[0].loans})') === beforeMove, 'Undo did not restore the acquisition cost and loan');
     await page.locator('#pageHelpBtn').click();
     check(await page.locator('#propertyPageHelp').isVisible() && /every loan, across every property/.test(await page.locator('#propertyPageHelp').innerText()), 'page help omits loan export scope');
-    await page.getByRole('button', {name:'Property import and export'}).click();
+    await page.setViewportSize({width:320,height:844});
+    await page.evaluate(() => window.scrollTo(0,0));
+    const tools = page.getByRole('button', {name:'Property import and export'});
+    await tools.click();
+    const menu = page.locator('#pageActionsSlot [data-overflow-menu]:visible');
+    check(await menu.getByRole('button', {name:'Import data…'}).isVisible(), 'Property import is missing from the tools menu');
+    check(await menu.evaluate(e => {
+      const rect = e.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= innerWidth;
+    }), 'Property tools are clipped at 320px');
     const download = page.waitForEvent('download');
     await page.locator('#propertyLoansExportCsvBtn').click();
     const file = await download, stream = await file.createReadStream();

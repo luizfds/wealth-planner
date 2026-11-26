@@ -1,5 +1,6 @@
 import { state, genId } from "../state.js";
 import { setAccountBalance } from "./accounts.js";
+import { setPlanningAge } from "./people.js";
 
 // ---------------- First-run setup (v3.74.0) ----------------
 //
@@ -40,7 +41,7 @@ export function applyFirstRun(answers, today){
     var pay = setupAmount(p.pay) || 0;
     state.income.push({ id: genId("inc"), what: name + "'s pay", classification: "", category: "", account: "", amount: pay, freq: p.payFreq || "Yearly",
       person: name, incomeType: "Gross", superMode: "On top", sacrificeMode: "none", sacrificeValue: 0 });
-    if(i === 0 && Number(p.age) > 0){ if(!state.fire) state.fire = {}; state.fire.currentAge = Number(p.age); }
+    if(i === 0 && Number(p.age) > 0) setPlanningAge(state, name, Number(p.age));
     made.people++;
   });
   var firstAccount = "";

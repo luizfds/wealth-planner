@@ -192,7 +192,7 @@ export function defaultState(){
     // realTerms shows the series in today's dollars rather than future ones.
     projection: { horizonYears: 20, investReturnRate: 7, propertyAppreciationRate: 5, inflationRate: 3, rateShockPct: 0, incomeGrowthRate: 3, realTerms: true, investVolatility: 12, propertyVolatility: 6 },
     // Age now, target retirement age, and when super unlocks — see calc/fire.js.
-    fire: { currentAge: null, retireAge: null, preservationAge: 60 },
+    fire: { planningAges: {}, retireAge: null, preservationAge: 60 },
     // privateHospitalCover / familyThresholds are household-level, not per person: the Medicare
     // levy surcharge is assessed on a family basis once you have a spouse, and a policy covers a
     // household. Modelled as a family/singles switch rather than a dependants count because the
@@ -956,6 +956,20 @@ export var MIGRATION_STEPS = [
       s.projects.push(Object.assign({}, p.furnishing, {id:"project-" + p.id, name:"Furnish the new home", kind:"Home setup", purchaseId:p.id, propertyName:p.what}));
       delete p.furnishing;
     });
+  } },
+  { n: 40, name: "planning ages belong to a person", run: function(s){
+    if(!s.fire || typeof s.fire !== "object" || Array.isArray(s.fire)) s.fire = {};
+    var f = s.fire;
+    if(!f.planningAges || typeof f.planningAges !== "object" || Array.isArray(f.planningAges)){
+      f.planningAges = {};
+      if(f.currentAge != null && f.currentAge !== "" && Number.isFinite(Number(f.currentAge))){
+        var first = (Array.isArray(s.income) ? s.income : []).find(function(row){ return row && row.incomeType === "Gross" && row.person; });
+        var person = typeof f.person === "string" && f.person || (first && first.person) || "";
+        f.planningAges = { [person]: Number(f.currentAge) };
+        f.scenarioAgePerson = person;
+      }
+    }
+    delete f.currentAge;
   } }
 ];
 

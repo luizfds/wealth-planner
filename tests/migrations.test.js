@@ -387,3 +387,15 @@ test("step 39: a saved furnishing estimate survives independently of the purchas
   assert.equal(st.projects[0].budget, 1000);
   assert.equal(st.projects[0].spent, 100);
 });
+
+test("step 40: a legacy age follows the saved profile, or the first named person", function(){
+  const income = [{ incomeType: "Net", person: "Untracked" }, { incomeType: "Gross", person: "Alex" }, { incomeType: "Gross", person: "Sam" }];
+  const selected = run(40, { income, fire: { currentAge: "41", person: "Sam", retireAge: 62 } });
+  assert.deepEqual(selected.fire, { person: "Sam", retireAge: 62, planningAges: { Sam: 41 }, scenarioAgePerson: "Sam" });
+  run(40, selected);
+  assert.deepEqual(selected.fire.planningAges, { Sam: 41 });
+  assert.deepEqual(run(40, { income, fire: { currentAge: 40 } }).fire.planningAges, { Alex: 40 });
+  assert.deepEqual(run(40, { fire: { currentAge: 40 } }).fire.planningAges, { "": 40 });
+  assert.deepEqual(run(40, { income, fire: { currentAge: 40, person: "Jordan" } }).fire.planningAges, { Jordan: 40 });
+  assert.deepEqual(run(40, { fire: { currentAge: "" } }).fire, { planningAges: {} });
+});

@@ -15,6 +15,7 @@ import { scenarioMonthlyChange } from "../calc/scenariodiff.js";
 import { recalcComputedItems, scenarioTotals, currentScenario, computeNetWorthSeries } from "../calc/engine.js";
 import { renderLineChart } from "../lib/charts.js";
 import { scenarioTimeline, yearText } from "../calc/scenariotimeline.js";
+import { scenarioPlanningAge } from "../calc/people.js";
 import { buyInvestSummaryHtml, calcFor, calcScenarioHeadHtml } from "./calculators.js";
 import { scenarioAccountHtml, renderScenarioAccountChart } from "./scenarioaccount.js";
 import { periodsOf, sumField } from "../calc/ledger.js";
@@ -150,7 +151,7 @@ export function scenarioTimelineHtml(key){
   var cfg = state.purchase[key], inv = state.invest[key];
   var changes = effectiveChanges(key);
   var cashWaits = changes.some(function(c){ return c && c.when === "cash"; });
-  var age = state.fire && state.fire.currentAge !== "" && state.fire.currentAge != null ? Number(state.fire.currentAge) : null;
+  var age = scenarioPlanningAge(state);
   var events = scenarioTimeline({ changes: changes, triggers: cashWaits ? computeNetWorthSeries(key, 30).triggers : {}, age: age,
     buying: !!(cfg && cfg.enabled && !(inv && inv.enabled)), investing: !!(inv && inv.enabled), buyMonth: cfg && cfg.buyMonth, today: localDateStr(),
     propertyName: function(id){ var p = (state.properties || []).find(function(x){ return x.id === id; }); return p ? p.what : null; } });

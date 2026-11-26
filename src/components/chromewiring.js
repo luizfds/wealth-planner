@@ -5,6 +5,8 @@
 // Moved out of app.js as it was, listener for listener; app.js calls each wire…() where its listeners used to be
 // added, so they're added in the same order.
 import { setLineProperty } from "../calc/propertymoney.js";
+import { fireSettings } from "../calc/fire.js";
+import { setPlanningAge } from "../calc/people.js";
 import { onMoneyBlur } from "../lib/moneyfield.js";
 import { runManualUpdateCheck } from "./updates.js";
 import { cardPaymentsForMonth, usualCardSource } from "../calc/bills.js";
@@ -312,9 +314,7 @@ export function wireNavigation(){
     if(where === "backup"){ showPage("settings"); showAccountsSubpage("preferences"); return; }
     showPage(where);
   });
-  // The FIRE panel's two age inputs. Delegated from #firePanel rather than bound by id, because
-  // renderDetail() replaces that panel's innerHTML on every dashboard refresh — a direct listener
-  // would be attached to a node that no longer exists by the second render.
+  // Retirement draws new fields after a person or a setting changes, so listen on their container.
   //
   // Written on "change" (not "input"): re-rendering the panel mid-keystroke would pull the field
   // out from under the caret, and a half-typed "5" on the way to "52" would briefly report a plan
@@ -323,11 +323,17 @@ export function wireNavigation(){
     var isCurrent = e.target.id === "fireCurrentAge";
     var isRetire = e.target.id === "fireRetireAge";
     if(!isCurrent && !isRetire) return;
-    if(!state.fire) state.fire = {};
     // #263: blank is "not set"; an age outside 16–99 is said, not quietly made 16 or 99.
     var age = readInput(e.target, { min: 16, max: 99, whole: true, range: "Enter an age from 16 to 99, in whole years." });
     if(!age) return;
-    state.fire[isCurrent ? "currentAge" : "retireAge"] = age.value;
+    if(isCurrent){
+      var settings = fireSettings();
+      if(settings.ageFromPeople) return;
+      setPlanningAge(state, settings.person, age.value);
+    } else {
+      if(!state.fire) state.fire = {};
+      state.fire.retireAge = age.value;
+    }
     commit(["fire"]);
   });
   // #454: the cash forecast's rate rise and the scenario set beside it — a what-if for this visit, so nothing is saved.

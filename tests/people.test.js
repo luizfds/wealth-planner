@@ -19,11 +19,12 @@ function household(){
     home: { Base: [{ what: "Rent", deductible: true, deductiblePerson: "Alex", deductiblePct: 5 }] },
     properties: [{ id: "p1", what: "1 Example St", kind: "IP", ownership: { Alex: 60, Sam: 40 }, expenses: [{ what: "Rates", deductiblePerson: "Alex" }], income: [] }],
     tax: { settings: { Alex: { dateOfBirth: "1988-03-14", helpBalance: 4000 }, Sam: {} } },
+    fire: { person: "Alex", scenarioAgePerson: "Alex", planningAges: { Alex: 41, Sam: 36 } },
     taxYears: { 2024: { people: { Alex: { incomeStatements: [] } }, lodged: { Alex: { taxable: 1 } } }, 2025: { people: { Sam: {} }, lodged: {} } }
   };
 }
 function withState(fn){
-  var keys = ["income", "assets", "shared", "home", "properties", "tax", "taxYears"];
+  var keys = ["income", "assets", "shared", "home", "properties", "tax", "taxYears", "fire"];
   var keep = {};
   keys.forEach(function(k){ keep[k] = state[k]; });
   try { Object.assign(state, household()); fn(); } finally { keys.forEach(function(k){ state[k] = keep[k]; }); }
@@ -50,6 +51,7 @@ test("renaming walks income, holdings, budget lines, ownership, settings and tax
     assert.deepEqual(getTaxPeople(), ["Jordan", "Sam"]);
     assert.equal(state.properties[0].ownership.Jordan, 60);
     assert.equal(state.tax.settings.Jordan.helpBalance, 4000);
+    assert.deepEqual(state.fire, { person: "Jordan", scenarioAgePerson: "Jordan", planningAges: { Jordan: 41, Sam: 36 } });
     assert.ok(state.taxYears[2024].people.Jordan && state.taxYears[2024].lodged.Jordan);
     assert.equal(state.shared[1].deductiblePerson, "Jordan", "an unflagged line keeps its person too");
   });

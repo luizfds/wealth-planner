@@ -10,6 +10,7 @@ import { spendingTransactions } from "../calc/propertymoney.js";
 import { partOn } from "../calc/parts.js";
 import { BENCHMARKS } from "../constants.js";
 import { getTaxPeople, ageOnDate } from "../calc/tax.js";
+import { savedPlanningAge } from "../calc/people.js";
 import { scenarioTotals, totalNetWorthValue, toAudAmount, currentScenario } from "../calc/engine.js";
 import { periodsOf } from "../calc/ledger.js";
 import { superComparison, netWorthComparison, retirementComparison, housingComparison, relativeText, cagr, propertyMarketComparison } from "../calc/benchmarks.js";
@@ -43,16 +44,16 @@ export function gatherHousehold(){
   var today = localDateStr();
   var people = getTaxPeople();
   var settings = (state.tax && state.tax.settings) || {};
-  var fireAge = state.fire && state.fire.currentAge != null && state.fire.currentAge !== "" ? Number(state.fire.currentAge) : null;
   var supers = state.assets.filter(function(a){ return a.category === "Super"; });
   var personRows = people.map(function(p){
     var age = ageOnDate(settings[p] && settings[p].dateOfBirth, today);
-    if(age == null && people.length === 1) age = fireAge;
+    if(age == null && people.length === 1) age = savedPlanningAge(state, p);
     var mine = supers.filter(function(a){ return a.person === p || (!a.person && people.length === 1); });
     return { name: p, age: age, super: mine.reduce(function(s, a){ return s + toAudAmount(a, a.amount); }, 0), hasSuper: mine.length > 0 };
   });
   var ages = personRows.map(function(r){ return r.age; }).filter(function(a){ return a != null; });
-  if(!people.length && fireAge != null) ages = [fireAge];
+  var unnamedAge = !people.length ? savedPlanningAge(state, "") : null;
+  if(unnamedAge != null) ages = [unnamedAge];
   var t = scenarioTotals(currentScenario());
   // Gross household income: Gross rows as entered, Net rows as they are (slightly understates the
   // gross, so the housing share reads slightly high — said in the note).
@@ -111,7 +112,7 @@ export function householdCompareHtml(d){
         "across all ages the median was " + fmtCurrency0.format(BENCHMARKS.netWorth.overallMedian) + " against an average of " + fmtCurrency0.format(BENCHMARKS.netWorth.overallMean) + ". It's the latest the ABS has published; wealth has grown since.",
       esc(BENCHMARKS.netWorth.source)));
   } else if(d.netWorth){
-    out.push(row("Household net worth", short(d.netWorth), "", "Add a date of birth (or your age on Insights → Financial independence) to compare with households your age.", ""));
+    out.push(row("Household net worth", short(d.netWorth), "", "Add a date of birth in Tax → People to compare with households your age.", ""));
   }
   if(d.savingsRate != null){
     var sr = BENCHMARKS.savingRatio.value;

@@ -1250,7 +1250,7 @@ test("Plan → Retirement: asks for an age, then answers with levers and links",
   var keep = state.fire;
   try {
     state.fire = { currentAge: null, retireAge: null, preservationAge: 60 };
-    assert.match(retirementHtml("2026-10-18"), /Type your age/);
+    assert.match(retirementHtml("2026-10-18"), /Enter a planning age/);
     state.fire = { currentAge: 40, retireAge: null, preservationAge: 60 };
     var html = retirementHtml("2026-10-18");
     assert.match(html, /What changes it/);
@@ -2117,7 +2117,7 @@ test("the Make it real sheet lists what it will do and what it leaves", async fu
 test("the what-if strip draws its sliders, and Keep this only once one has moved", async function(){
   var m = await import("../src/components/whatif.js");
   var was = { fire: state.fire };
-  state.fire = Object.assign({}, state.fire, { currentAge: 41 });
+  state.fire = Object.assign({}, state.fire, { planningAges: { "": 41 }, scenarioAgePerson: "" });
   m.resetWhatIf();
   var html = m.whatIfStripHtml();
   assert.match(html, /data-wi="retireAge"/);
@@ -2210,7 +2210,7 @@ test("a change can start at an age or when cash reaches an amount, and says when
   var sc = await import("../src/components/scenariochanges.js");
   var was = { ch: state.scenarioChanges, scen: state.scenarios, fire: state.fire };
   state.scenarios = (state.scenarios || []).concat(["Wait"]);
-  state.fire = Object.assign({}, state.fire, { currentAge: 35 });
+  state.fire = Object.assign({}, state.fire, { planningAges: { "": 35 }, scenarioAgePerson: "" });
   state.scenarioChanges = Object.assign({}, state.scenarioChanges, { Wait: [{ id: "w1", kind: "cost", what: "Second car", amount: 300, freq: "Monthly", when: "cash", whenCash: 999999999 }] });
   sc.changeOpen.w1 = true;
   var html = sc.scenarioChangesHtml("Wait");

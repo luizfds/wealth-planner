@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { state, setState, migrateState } from "../src/state.js";
 import { computeNetWorthSeries, recalcComputedItems, scenarioLegChanges } from "../src/calc/engine.js";
+import { setPlanningAge } from "../src/calc/people.js";
 
 function household(changes){
   return migrateState({
@@ -58,7 +59,7 @@ test("super doesn't count toward a deposit: cash alone has to reach it", functio
 test("at an age: the year that age is reached; with no age known, never", function(){
   run([unit({ when: "age", whenAge: 40 })], function(){
     assert.equal(scenarioLegChanges("Wait")[0].fromYear, 5);
-    state.fire.currentAge = "";
+    setPlanningAge(state, "Alex", null);
     assert.equal(scenarioLegChanges("Wait").length, 0);
   });
 });

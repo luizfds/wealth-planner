@@ -646,9 +646,12 @@ export function renderDetail(){
 // have counted the family home the moment a Buy scenario was active. It answered "will the pot be
 // big enough?" while staying silent on "can you reach 60 on what isn't super?", which is the
 // question that actually decides whether an early retirement is possible.
-function fireAgeInputsHtml(settings){
-  if(settings.currentAge == null || settings.retireAge == null) return '<p>Set your ages under Retirement above.</p>';
-  return '<p>Age ' + settings.currentAge + ' today · Stop working at ' + settings.retireAge + '</p>';
+function fireAgeSummaryHtml(settings){
+  var person = settings.person ? escapeAttr(settings.person) + " · " : "";
+  if(settings.currentAge == null) return '<p class="fire-age-context">' + person + 'Set a current age in Retirement above.</p>';
+  var source = settings.ageFromPeople ? "From Tax → People" : "Saved planning age";
+  var retire = settings.retireAge == null ? "Set a stop-working age in Retirement above." : "Stop working at " + settings.retireAge;
+  return '<p class="fire-age-context">' + person + 'Age ' + settings.currentAge + ' today · ' + source + '<br>' + retire + '</p>';
 }
 
 // A timeline, not a progress bar: the point is *when* each pot becomes usable, which a percentage
@@ -688,14 +691,14 @@ function renderFireProgress(scenario, t){
     '<div class="fire-stat-row"><span>Target to sustain ' + fmtCurrency0.format(annualExpenses) + '/yr</span><b>' + fmtCurrency0.format(targetFI) + '</b></div>';
 
   if(settings.currentAge == null || settings.retireAge == null){
-    panel.innerHTML = head + splitHtml + fireAgeInputsHtml(settings) +
-      '<p class="fire-note">Add both ages to see whether you can actually reach ' + settings.preservationAge +
+    panel.innerHTML = head + fireAgeSummaryHtml(settings) + splitHtml +
+      '<p class="fire-note">With both ages set, this can show whether you can reach ' + settings.preservationAge +
       ' on the money that isn\'t super. Until then this only answers whether the pot could ever be big enough — not whether you could get there.</p>';
     return;
   }
 
   var run = simulateRetirementAt(settings.retireAge);
-  if(!run){ panel.innerHTML = head + splitHtml + fireAgeInputsHtml(settings); return; }
+  if(!run){ panel.innerHTML = head + fireAgeSummaryHtml(settings) + splitHtml; return; }
   var earliest = earliestWorkableRetirementAge();
 
   var verdict, verdictClass;
@@ -713,7 +716,7 @@ function renderFireProgress(scenario, t){
     ? (earliest != null && earliest < run.retireAge ? " You could stop as early as " + earliest + "." : "")
     : (earliest != null ? " The earliest that works is " + earliest + "." : " No age up to 75 works on these numbers.");
 
-  panel.innerHTML = head +
+  panel.innerHTML = head + fireAgeSummaryHtml(settings) +
     '<p class="fire-verdict ' + verdictClass + '">' + escapeAttr(verdict) + escapeAttr(earliestNote) + '</p>' +
     fireBridgeHtml(settings, run) +
     '<div class="fire-stat-row"><span>Accessible at ' + run.retireAge + '</span><b>' + fmtCurrency0.format(run.accessibleAtRetire) + '</b></div>' +
@@ -723,7 +726,6 @@ function renderFireProgress(scenario, t){
     '<div class="fire-stat-row"><span>Pot at ' + settings.preservationAge + ' (accessible + super)</span><b>' + fmtCurrency0.format(run.potAtPreservation) + '</b></div>' +
     '<div class="fire-stat-row"><span>Target at 4%</span><b>' + fmtCurrency0.format(run.targetFI) + '</b></div>' +
     splitHtml +
-    fireAgeInputsHtml(settings) +
     '<p class="fire-note">Today\'s dollars throughout — returns are net of inflation, so these figures compare directly with the expenses you entered. Super keeps growing through the bridge but is never drawn on before ' + settings.preservationAge + '. Excludes the home you live in: selling it means buying or renting another.</p>';
 }
 

@@ -20,6 +20,7 @@ import { legsMonthly, legsInYear, monthsFromNow } from "./scenariolegs.js";
 import { isDraftKey } from "./scenariodraft.js";
 import { saleCgt } from "./salecgt.js";
 import { drawFor } from "./cashdraw.js";
+import { scenarioPlanningAge } from "./people.js";
 
 // Every non-Shares asset, and every Shares holding on the ASX, is already AUD — the only
 // currency this app ever mixes in is USD (US-market and Crypto holdings, see MARKET_CURRENCY).
@@ -142,7 +143,7 @@ var LEG_KINDS = { rent: 1, ip: 1, cost: 1, sell: 1, extra: 1, once: 1 };
 // reaches an amount (when: "cash", whenCash). An age becomes its year here; with no age known it never
 // starts. Cash is decided year by year inside computeNetWorthSeries. Copies — the saved changes stay as typed.
 export function scenarioLegChanges(scenario){
-  var age = currentAgeOrNull();
+  var age = scenarioPlanningAge(state);
   var today = localDateStr();
   return effectiveChanges(scenario).filter(function(c){ return c && LEG_KINDS[c.kind]; }).map(function(c){
     // Item 251: a month becomes months from now (and the year it falls in); rent or a cost can stop in one.
@@ -162,7 +163,6 @@ export function isCashTriggered(c){ return !!(c && c.when === "cash" && c.kind !
 // v3.177.0 (item 204): a scenario can carry its own assumptions — an "assume" change (return, inflation,
 // a rate rise) laid over the household's projection settings. Everything the projection reads goes
 // through this, so a what-if kept as a scenario draws exactly what the sliders showed.
-function currentAgeOrNull(){ var a = state.fire && state.fire.currentAge; return a == null || a === "" || !isFinite(Number(a)) ? null : Number(a); }
 export function projectionFor(scenario){
   var base = state.projection || {};
   var a = effectiveChanges(scenario).find(function(c){ return c && c.kind === "assume"; });
@@ -369,7 +369,7 @@ export function computeNetWorthSeries(scenario, horizonYears, opts){
   var triggers = {};
   pending.forEach(function(c){ triggers[c.id] = null; });
   var soldFrom = {};
-  var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : currentAgeOrNull());
+  var retireYear = (opts && opts.retireYear != null) ? opts.retireYear : retireYearFor(scenario, opts && opts.currentAge != null ? opts.currentAge : scenarioPlanningAge(state));
   legs.forEach(function(c){ if(c.kind === "sell" && legCtx.sold[c.propertyId]) soldFrom[c.propertyId] = Math.max(0, Math.floor(Number(c.fromYear) || 0)) + 1; });
   for(var year = 0; year <= horizonYears; year++){
     if(year > 0 && pending.length){

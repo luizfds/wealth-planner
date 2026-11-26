@@ -206,6 +206,7 @@
      becomes usable — a single percentage of total net worth can't express that, which is exactly
      how the old version managed to look healthy while counting money locked until 60. */
   .fire-verdict{ font-size:var(--fs-md); font-weight:600; margin:10px 0 12px; line-height:1.45; }
+  .fire-age-context{ font-size:var(--fs-sm); color:var(--ink-soft); }
   .fire-verdict.ok{ color: var(--good-ink); }
   .fire-verdict.short{ color: var(--bad-ink); }
   .fire-timeline{ display:flex; gap:3px; margin-bottom:6px; }

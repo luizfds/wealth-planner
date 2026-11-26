@@ -1760,8 +1760,11 @@ function drawDebts(){
   if(!container) return;
   var total = totalDebtsValue();
   if(totalEl) totalEl.textContent = fmtCurrency0.format(total);
+  var empty = container.nextElementSibling;
+  if(empty && empty.matches(".empty-state")) empty.remove();
   if(!state.debts.length){
-    container.innerHTML = '<p class="ledger-note" style="margin:0">No other debts recorded yet.</p>';
+    container.innerHTML = "";
+    container.insertAdjacentHTML("afterend", emptyStateHtml("No other debts recorded yet.", { beside: true }));
     return;
   }
   container.innerHTML = '<div class="m-rows">' + state.debts.map(function(d, idx){

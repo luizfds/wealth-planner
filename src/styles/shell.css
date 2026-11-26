@@ -468,7 +468,7 @@ body:is([data-current-page="networth"], [data-current-page="accounts"], [data-cu
   }
   .app-topbar-title .page-help-btn{ flex:none; }
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact){
-    display:grid; grid-template-columns:max-content minmax(0,1fr) auto; gap:4px 6px;
+    display:grid; grid-template-columns:max-content minmax(0,1fr) auto; align-items:center; gap:4px 6px;
   }
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact) .app-topbar-left{ display:contents; }
   body:is([data-current-page="assets"], [data-current-page="properties"]) .app-topbar:not(.is-compact) .page-back{ grid-area:1 / 1 / 2 / 3; }

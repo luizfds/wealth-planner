@@ -2170,7 +2170,7 @@ const JOURNEYS = {
       check(await detailColoursMatch('money'),'transaction did not inherit Money colours at '+width+'/'+theme);
       await navigationDone();
       await page.goBack();
-      await waited(page,p=>location.pathname===p,'search origin',origin);
+      await waited(page,p=>location.pathname===p && document.body.dataset.currentPage==='dashboard','search origin',origin);
       check(await detailColoursMatch('today'),'returning to Today retained Money colours');
       await open('Example salary');
       await page.press('#searchInput','Enter');

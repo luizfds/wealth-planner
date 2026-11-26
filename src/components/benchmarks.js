@@ -401,7 +401,7 @@ var SECTIONS = [];
 // Later sections register themselves here (investments, targets, property) so the page order is
 // one list: [{id, title, sub, html: function(){}}].
 export function registerBenchmarkSection(section){ SECTIONS.push(section); }
-registerBenchmarkSection({ id: "household", title: "How you compare", sub: "published Australian figures, people your age",
+registerBenchmarkSection({ id: "household", title: "Household benchmarks", sub: "published Australian figures",
   html: function(){ return householdCompareHtml(gatherHousehold()); } });
 
 registerBenchmarkSection({ id: "investments", part: "shares", title: "Your shares against the market", sub: "the same dollars on the same dates",

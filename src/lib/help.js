@@ -105,7 +105,8 @@ function addPageHelpButton(){
   var title = document.getElementById("pageTitle");
   if(!title || document.getElementById("pageHelpBtn")) return;
   title.insertAdjacentHTML("afterend", buttonHtml().replace('class="help-btn" data-help-toggle', 'class="help-btn page-help-btn" id="pageHelpBtn" data-page-help')
-    .replace(/About this section/g, "About this page") + '<div class="page-actions-slot" id="pageActionsSlot"></div>');
+    .replace(/About this section/g, "About this page"));
+  title.parentElement.insertAdjacentHTML("afterend", '<div class="page-actions-slot" id="pageActionsSlot"></div>');
   movePageActions();
 }
 var pending = { decorate: false, page: false };

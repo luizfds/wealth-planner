@@ -306,22 +306,22 @@ function drawTaxYear(){
   if(docs) docs.innerHTML = taxDocumentsHtml();
 }
 // Which year this is, and — while it's still running — a one-tap way to the year being lodged.
-function yearSelectHtml(id, fy, today, primary){
-  var nowFy = todayTaxFy(today);
+function taxYearHeaderHtml(id, fy, action, note){
+  var nowFy = todayTaxFy();
   var running = fy >= nowFy;
-  primary = primary && nextToLodge(nowFy - 1) != null;
-  return '<div class="ty-yearnote" id="' + id + '"><b>' + fyLabel(fy) + '</b>' +
-    (running ? '<span class="ledger-note" style="margin:0">still running — figures so far, an estimate.</span>' +
-        '<button type="button" class="btn btn-sm' + (primary ? " btn-primary" : "") + '" data-ty-year="' + (nowFy - 1) + '">Open ' + fyLabel(nowFy - 1) + '</button>'
-      : '<span class="ledger-note" style="margin:0">change the year with the period beside the page title.</span>') + '</div>';
+  return '<div class="ty-top"><div class="ty-yearnote" id="' + id + '"><b>' + fyLabel(fy) + '</b>' +
+    '<span class="ledger-note">' + (running ? 'Still running — figures so far, an estimate.' : 'Change the year with the period beside the page title.') + '</span>' +
+    (note ? '<span class="ledger-note warn">' + escapeAttr(note) + '</span>' : '') + '</div>' +
+    '<div class="ty-year-actions">' +
+    (running ? '<button type="button" class="btn btn-sm" data-ty-year="' + (nowFy - 1) + '">Open ' + fyLabel(nowFy - 1) + '</button>' : '') +
+    action + '</div></div>';
 }
 export function taxYearHtml(){
   var people = getTaxPeople();
   if(!people.length) return emptyStateHtml("Add a Gross income row with a Person to start a worksheet.", { go: "expenses/income", label: "Go to Income →", className: "tax-empty" });
   var fy = taxYearSelected();
-  return '<div class="ty-top">' + yearSelectHtml("taxYearSelect", fy, undefined, true) +
-      (taxTablesFor(fy).assumed ? '<span class="ledger-note warn" style="margin:0">' + fyLabel(fy) + ' rates are partly assumed.</span>' : '') +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-print style="margin-left:auto">Print / save as PDF</button></div>' +
+  return taxYearHeaderHtml("taxYearSelect", fy, '<button type="button" class="btn btn-sm" data-ty-print>Print / save as PDF</button>',
+      taxTablesFor(fy).assumed ? fyLabel(fy) + " rates are partly assumed." : "") +
     rentHtml(fy) +
     people.map(function(person){ return personCardHtml(person, fy); }).join("") +
     closeYearHtml(fy);
@@ -370,8 +370,8 @@ export function taxDocumentsHtml(){
   var rec = taxYearRecord(fy, false);
   var ev = evidenceItems(fy);
   var ticked = ev.filter(function(i){ return rec && rec.evidence[i.key]; }).length;
-  return '<div class="ty-top">' + yearSelectHtml("taxDocsYearSelect", fy) +
-      '<button type="button" class="btn btn-sm btn-ghost" data-ty-import style="margin-left:auto" title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button></div>' +
+  return taxYearHeaderHtml("taxDocsYearSelect", fy,
+      '<button type="button" class="btn btn-sm" data-ty-import title="Merge a tax year file — one year\'s income statements, interest, deductions, rental schedule and fund statements — into this plan, leaving everything else as it is">Import a year</button>', "") +
     '<h3 class="ty-docs-head">To keep for ' + fyLabel(fy) + ' <span class="ty-docs-count">' + ticked + ' of ' + ev.length + '</span></h3>' +
     (ev.length
       ? '<div class="ty-evidence">' + ev.map(function(i){

@@ -62,9 +62,7 @@ export function personCardHtml(person, index, today){
   return '<div class="pp-card" data-error-scope="Tax details for ' + pid + '" data-pp-card="' + pid + '">' + errorSummaryLiveHtml() +
     '<div class="pp-head"><span class="m-avatar series-color-' + (index % 8) + '" aria-hidden="true">' + escapeAttr(person.charAt(0).toUpperCase()) + '</span>' +
       '<input type="text" class="pp-name inline-name" data-pp-person="' + pid + '" value="' + pid + '" aria-label="Name" aria-describedby="pp-' + index + '-uses">' +
-      (age != null ? '<span class="pp-age">' + age + '</span>' : '') +
-      // November 2026: said in words — a lone ✕ beside the age read as part of it.
-      '<button type="button" class="btn btn-sm btn-danger pp-remove" data-pp-remove="' + pid + '">Remove from tax<span class="visually-hidden">: ' + pid + '</span></button></div>' +
+      (age != null ? '<span class="pp-age">' + age + '</span>' : '') + '</div>' +
     // #261: what renaming does was a title tooltip on the name; it's said here, with what names them, and describes it.
     '<p class="pp-uses" id="pp-' + index + '-uses">Renaming updates everything that names them: ' + usesText(personReferences(person)) + '</p>' +
     '<div class="tax-inputs pp-fields">' +
@@ -84,6 +82,7 @@ export function personCardHtml(person, index, today){
     (ownsRentalLoss(person) ? '<label class="pp-variation"><input type="checkbox" class="pp-in pp-var" data-pp-person="' + pid + '"' + (st.withholdingVariation ? " checked" : "") + '> ' +
       '<span>Pay already allows for the rental’s loss <small>— a PAYG withholding variation, so less tax comes out of each pay. Unticked, the tax it saves is planned as a refund after lodging, not in the monthly take-home.</small></span></label>' : '') +
     '<div class="pp-hours-wrap"><div class="tax-inputs-label">Hours worked from home</div><div class="pp-hours-row">' + hours.join("") + '</div></div>' +
+    '<div class="pp-card-actions"><button type="button" class="btn btn-sm btn-danger pp-remove" data-pp-remove="' + pid + '">Remove from tax<span class="visually-hidden">: ' + pid + '</span></button></div>' +
   '</div>';
 }
 

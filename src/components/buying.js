@@ -219,7 +219,7 @@ function drawBuying(){
   if(!el) return;
   var list = state.purchases || [];
   el.hidden = !list.length;
-  el.innerHTML = list.length ? buyingHtml(list, cashOnHand(), localDateStr()) : "";
+  el.innerHTML = list.length ? '<h2 class="visually-hidden">Buying</h2>' + buyingHtml(list, cashOnHand(), localDateStr()) : "";
   restoreFolds(el);
 }
 

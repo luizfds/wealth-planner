@@ -313,12 +313,13 @@ function familyViewsHtml(){
     return '<button type="button" class="rp-view-chip' + (on ? ' active' : '') + '"' + (on ? ' aria-current="true"' : '') + ' data-report-view="' + escapeAttr(r.key) + '">' + escapeAttr(r.label) + '</button>';
   }).join('') + '</div></nav>';
 }
-function pickerHtml(){
+function pickerHtml(title, subtitle){
   var current = REPORTS.find(function(r){ return r.key === reportShown.key; }) || REPORTS[0];
-  // The report's family (the app assessment): its name above, and its other views beside this one as chips.
-  // Every report names its family, one report in it or several (the whole-app assessment, C2).
   var fam = reportFamily(current.key);
-  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><span class="rp-selection-name">' + (fam ? '<small>' + escapeAttr(fam.label) + '</small>' : '') + '<strong>' + escapeAttr(current.label) + '</strong></span>' +
+  return '<div class="rp-selection" data-current-report="' + escapeAttr(current.key) + '"><div class="rp-head"><div>' +
+    (fam && fam.label !== title ? '<small class="rp-selection-family">' + escapeAttr(fam.label) + '</small>' : '') +
+    (title ? '<h2>' + escapeAttr(title) + '</h2>' : '') +
+    (subtitle ? '<span>' + escapeAttr(subtitle) + '</span>' : '') + '</div></div>' +
     '<button type="button" class="btn btn-sm" data-report-choose aria-haspopup="dialog">Choose report</button></div>' + pinsHtml(3) +
     ((state.savedReports || []).length > 3 ? '<button type="button" class="btn btn-sm btn-ghost" data-report-choose>All pinned reports</button>' : '');
 }
@@ -434,17 +435,17 @@ export function reportEmptyHtml(rep){
     : emptyStateHtml("Nothing to report yet for this one.", { done: true, className: "rp-empty" });
 }
 export function reportsPageHtml(opts){
-  var picker = pickerHtml();
   // v3.68.0: the year-end pack is a checklist with hand-off buttons, not a table.
-  if(reportShown.key === "yearend") return picker + yearEndHtml() + familyViewsHtml();
-  if(reportShown.key === "month") return picker + monthDetailHtml() + familyViewsHtml();
+  if(reportShown.key === "yearend") return pickerHtml() + yearEndHtml() + familyViewsHtml();
+  if(reportShown.key === "month") return pickerHtml("Month in detail") + monthDetailHtml() + familyViewsHtml();
   var rep = buildReport(reportShown.key, opts);
-  return picker + frameControlsHtml(rep, opts) +
-    '<section class="rp-sheet" id="reportSheet"><div class="rp-head"><div><h2>' + escapeAttr(rep.title) + '</h2><span>' + escapeAttr(reportSubtitle(rep, opts)) + '</span></div>' +
-      // November 2026: a row of buttons — as ghost buttons they read as three loose words under the title.
-      '<div class="rp-actions"><button type="button" class="btn btn-sm" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm" data-report-share>Share CSV</button>' : '') + '</div></div>' +
+  var actions = '<div class="rp-actions"><button type="button" class="btn btn-sm" data-report-pin title="Keep this report with its settings above the list">Pin</button><button type="button" class="btn btn-sm" data-report-print>Print / PDF</button><button type="button" class="btn btn-sm" data-report-csv>Download CSV</button>' + (canShareCsv() ? '<button type="button" class="btn btn-sm" data-report-share>Share CSV</button>' : '') + '</div>';
+  return '<section class="rp-sheet" id="reportSheet">' + pickerHtml(rep.title, reportSubtitle(rep, opts)) + frameControlsHtml(rep, opts) +
       (rep.sections ? yearReviewSectionsHtml(rep.sections, false, nextYearPlanHtml(opts)) + (reportIsEmpty(rep) ? '' : '<details class="yr-figures"><summary>The year in figures</summary>' + storyHtml(rep) + reportPresentationHtml(rep) + '</details>')
-        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportPresentationHtml(rep) + drillHtml(rep, opts)) + reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) + (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') + '</section>' + familyViewsHtml() + planningReadinessHtml(state, localDateStr());
+        : reportIsEmpty(rep) ? reportEmptyHtml(rep) : storyHtml(rep) + reportChartHtml(chartOf(rep)) + reportPresentationHtml(rep) + drillHtml(rep, opts)) +
+      reportDisclosureHtml(reportDisclosure(state, localDateStr(), reportIsEmpty(rep) ? Object.assign({}, rep, { note: null }) : rep)) +
+      (rep.note && !reportIsEmpty(rep) ? '<p class="ledger-note rp-note">' + escapeAttr(rep.note) + '</p>' : '') +
+      actions + '</section>' + familyViewsHtml() + planningReadinessHtml(state, localDateStr());
 }
 export function renderReports(){
   var el = typeof document !== "undefined" && document.getElementById("reportsBody");

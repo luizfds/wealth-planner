@@ -6056,14 +6056,14 @@ that folds or moves something is mocked up first and keeps every control reachab
 - `[x]` **C3** Accounts on a desktop in two columns.
 - `[x]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.
 
-**3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner answers its open
-questions (name, address, who makes it, numbers, feedback, tone) first.
-- `[ ]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
-- `[ ]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
+**3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner approved the defaults in [decision 0017](../docs/decisions/0017-public-landing-page.md).
+- `[x]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
+- `[x]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
 - `[x]` **L3** The screenshot script from the sample household (needs B6).
-- `[ ]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
-- `[ ]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
+- `[x]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
+- `[x]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
 - `[x]` **L6** A README for the repository.
+- `[ ]` Activate GoatCounter and the no-login feedback form once the owner supplies their public site code and form URL.
 - `[ ]` **L7** A custom domain, if wanted.
 
 **4. Carried over**

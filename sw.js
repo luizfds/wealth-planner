@@ -20,6 +20,7 @@ self.addEventListener("activate", function(event){
 });
 
 var SHELL_URL = new URL("index.html", self.registration.scope).href;
+var ABOUT_PATH = new URL("about", self.registration.scope).pathname;
 
 // "Give me a genuinely clean copy" — sent by the page when the user accepts an update banner.
 // A plain reload isn't enough on its own: the version check only reads index.html, so a freshly
@@ -71,10 +72,14 @@ self.addEventListener("fetch", function(event){
 
 self.addEventListener("fetch", function(event){
   if(event.request.method !== "GET") return;
+  var url = new URL(event.request.url);
   // v3.75.0: the price sheet is read live or not at all. A cached copy served offline would be
   // applied as today's prices, so Google Sheets requests go straight to the network, uncached.
   if(/^https:\/\/docs\.google\.com\//.test(event.request.url)) return;
+  // The landing page's uncredentialled counter should never become an offline resource.
+  if(url.hostname.endsWith(".goatcounter.com") && url.pathname === "/count") return;
   var isNavigation = event.request.mode === "navigate";
+  var isAbout = url.pathname === ABOUT_PATH || url.pathname === ABOUT_PATH + "/" || url.pathname === ABOUT_PATH + "/index.html";
   // fetch(event.request) alone still goes through the browser's own HTTP cache (a layer below
   // this one, governed by GitHub Pages' response headers) — so "network-first" could silently be
   // satisfied by a stale disk-cached response without this worker or the origin ever being asked,
@@ -98,7 +103,7 @@ self.addEventListener("fetch", function(event){
         // path. A real, separate .html file (welcome.html, 404.html) is not that — caching its
         // content under SHELL_URL would silently replace the actual app shell, breaking offline
         // navigation to every pushState'd route afterward.
-        var isDistinctHtmlPage = /\.html$/i.test(new URL(event.request.url).pathname) && event.request.url !== SHELL_URL;
+        var isDistinctHtmlPage = isAbout || (/\.html$/i.test(url.pathname) && event.request.url !== SHELL_URL);
         var copyForShell = (isNavigation && !isDistinctHtmlPage) ? response.clone() : null;
         // Caching is a side effect of returning `response` below — without waitUntil(), the browser
         // is free to tear down this fetch event (and the still-pending cache write) the instant the
@@ -115,7 +120,7 @@ self.addEventListener("fetch", function(event){
     }).catch(function(){
       return caches.match(event.request).then(function(cached){
         if(cached) return cached;
-        if(isNavigation) return caches.match(SHELL_URL);
+        if(isNavigation && !isAbout) return caches.match(SHELL_URL);
         return Promise.reject("offline and not cached");
       });
     })

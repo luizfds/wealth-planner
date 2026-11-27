@@ -4,20 +4,22 @@
 <!-- v3.202.0 (item 233): what this page may load and run. Inline scripts only by hash (npm run stamp
      works them out — the import map changes every version); styles may be inline (style="" in the markup the
      components build); network only to this site and the services the app names in Settings. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-7hJPW0a/cKYJNMogn6g62PLSRlxhwSwWux4r0u6+5VY=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-w3ien3D+ctN+5w9sgb06WVReLAP2cYqVjHstE5KSLjo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-yAAaFnC52d0EHIZBXP3Hy4bEVSwUXypqiYYC9WRycLs=' 'sha256-ogL24sunRadwm9LH6Jw0u1aTI7tlA28ySqIHiHCL7gY=' 'sha256-TC3k1aZhoKOF0fgTfkMRjiJE7/T0iFhpm9ITZ+8UoP8=' 'sha256-w3ien3D+ctN+5w9sgb06WVReLAP2cYqVjHstE5KSLjo='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://docs.google.com https://*.googleusercontent.com https://api.dropboxapi.com https://content.dropboxapi.com https://api.coingecko.com https://api.frankfurter.app https://api.frankfurter.dev https://api.anthropic.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- A genuinely first-ever visit (nothing saved yet, never seen either intro page) gets sent to
-     the onboarding tutorial instead of straight into an empty Dashboard. Plain synchronous
-     script, not a module — needs to run and redirect before the rest of this page (fonts,
-     styles.css, the app bundle) starts loading, or the user sees a flash of the real app first.
-     "wealthPlanner.v1" duplicates state.js's STORAGE_KEY constant (can't import it here without
-     becoming an async module, which would defeat the point) — keep both in sync if it ever
-     changes. welcome.html/onboarding.html both set wealthPlanner.hasSeenIntro on load, so this
-     never fires twice for the same visitor and never hijacks someone mid-import. -->
+<!-- Only a fresh visit to the app entry gets the landing page. Run before the app loads to
+     avoid flashing Today. Keep the synchronous keys and GitHub Pages path in sync with state.js
+     and nav.js. The named entry links and bank-app shares bypass the landing page. -->
 <script>
   try{
-    if(!localStorage.getItem("wealthPlanner.v1") && !localStorage.getItem("wealthPlanner.hasSeenIntro")){
-      location.replace("onboarding.html");
+    const query = new URLSearchParams(location.search);
+    const root = location.hostname.endsWith(".github.io") ? "/wealth-planner/" : "/";
+    if(query.get("start") === "1" || query.get("mock") === "1"){
+      localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
+    }else if((location.pathname === root || location.pathname === root + "index.html")
+      && query.get("shared") !== "1" && !sessionStorage.getItem("wealthPlanner.redirectPath")
+      && !localStorage.getItem("wealthPlanner.v1") && !localStorage.getItem("wealthPlanner.hasSeenIntro")
+      && !localStorage.getItem("wealthPlanner.page")){
+      location.replace(root + "about/");
     }
   }catch(e){}
 </script>
@@ -213,6 +215,7 @@
             <button class="btn btn-sm btn-danger menu-danger" id="resetBtn" title="Clear everything back to a blank slate">Reset everything…</button>
             <div class="avatar-divider"></div>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-tour-start aria-haspopup="dialog">Take a tour</button>
+            <a class="btn btn-sm btn-ghost avatar-item" id="avatarFeedback" href="about/#feedback" target="_blank" rel="noopener noreferrer">Send feedback</a>
             <a class="btn btn-sm btn-ghost avatar-item" href="https://github.com/luizfds/wealth-planner/issues/new" target="_blank" rel="noopener noreferrer">Request a feature</a>
             <button type="button" class="btn btn-sm btn-ghost avatar-item" data-avatar-go="updates">Check for updates</button>
             <p class="avatar-version" id="avatarVersion"></p>

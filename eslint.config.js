@@ -23,6 +23,7 @@ export default [
     }
   },
   { files: ["sw.js"], languageOptions: { sourceType: "script", globals: { ...globals.serviceworker } } },
+  { files: ["about/landing.js"], languageOptions: { globals: globals.browser } },
   {
     // Scripts drive a browser: what they hand to page.evaluate runs there, so both sets of globals.
     files: ["tests/**/*.js", "scripts/**/*.mjs", "eslint.config.js", "eslint-rules/**/*.js", "eslint-rules/**/*.mjs"],

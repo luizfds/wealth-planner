@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 // Synthetic-only accessibility scan. Run with the CI-pinned Playwright and axe-core versions.
 // Browser emulation and accessibility-tree checks do not certify physical devices or screen readers.
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.webmanifest':'application/manifest+json'};
+const types={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.webp':'image/webp','.webmanifest':'application/manifest+json'};
 const server=http.createServer((req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-  let f=path.join(root,pathname === '/' ? 'index.html' : pathname);
+  const f=path.join(root,pathname.endsWith('/') ? pathname + 'index.html' : pathname);
   if(!f.startsWith(root+'/') || !fs.existsSync(f)||!fs.statSync(f).isFile()){res.writeHead(404);res.end('Not found');return;}
   res.writeHead(200,{'Content-Type':types[path.extname(f)]||'application/octet-stream'});fs.createReadStream(f).pipe(res);
 });
@@ -410,7 +410,10 @@ for(const width of widths)for(const scheme of schemes){
  }
  await page.locator('[data-fr-close]').click();
  await page.waitForFunction(()=>!document.querySelector('#firstRunRoot [role="dialog"]'));
- await page.goto(base+'/onboarding.html');await page.evaluate(axe);await scan('onboarding');
+ await page.goto(base+'/about/');await page.evaluate(axe);await scan('landing');
+ await page.getByText('What connects to the internet?',{exact:true}).click();
+ await page.getByRole('button',{name:'Plan',exact:true}).click();
+ await scan('landing-details');
  await page.goto(base+'/welcome.html');await page.evaluate(axe);await scan('welcome');
  await context.close();
 }

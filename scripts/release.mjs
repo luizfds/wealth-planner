@@ -16,7 +16,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // What a visitor gets: anything else is docs, tests or tooling.
 export function shipsToUsers(file){
-  return /^(src\/|vendor\/|icons\/)/.test(file) || ["index.html", "styles.css", "sw.js", "manifest.webmanifest", "welcome.html", "onboarding.html"].indexOf(file) !== -1;
+  return /^(src\/|vendor\/|icons\/|about\/)/.test(file) || ["index.html", "styles.css", "sw.js", "manifest.webmanifest", "welcome.html", "onboarding.html", "robots.txt", "sitemap.xml"].indexOf(file) !== -1;
 }
 export function nextVersion(current, bump){
   const p = String(current).replace(/^v/, "").split(".").map(Number);

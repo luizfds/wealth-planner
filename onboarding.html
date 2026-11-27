@@ -1,113 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-AU">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Welcome to Wealth Planner</title>
-<meta name="robots" content="noindex">
-<meta name="description" content="What Wealth Planner does and how it works.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233b82f6'/%3E%3Cpath d='M8 11 L11.5 21 L16 14 L20.5 21 L24 11' stroke='%23ffffff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<!-- Open Graph / Twitter Card — see welcome.html for the full rationale. -->
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Wealth Planner">
-<meta property="og:title" content="Welcome to Wealth Planner">
-<meta property="og:description" content="What Wealth Planner does and how it works.">
-<meta property="og:url" content="https://luizfds.github.io/wealth-planner/onboarding.html">
-<meta property="og:image" content="https://luizfds.github.io/wealth-planner/icons/icon-512.png">
-<meta property="og:image:width" content="512">
-<meta property="og:image:height" content="512">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Welcome to Wealth Planner">
-<meta name="twitter:description" content="What Wealth Planner does and how it works.">
-<meta name="twitter:image" content="https://luizfds.github.io/wealth-planner/icons/icon-512.png">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0f19">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<style>
-  /* 28px, not 48: every pixel above the fold is spent getting the CTAs into the first screen. */
-  .ob-wrap{ max-width:520px; margin:0 auto; padding:28px 20px 60px; }
-  .ob-brand{ text-align:center; margin-bottom:8px; }
-  .ob-brand .app-brand-name{ font-size:26px; justify-content:center; }
-  .ob-tagline{ text-align:center; color:var(--ink-soft); font-size:14px; margin:6px 0 20px; }
-  .ob-card{
-    background:var(--paper-raised); border:1px solid var(--border); border-radius:14px;
-    padding:24px 22px; box-shadow:var(--shadow); margin-bottom:16px;
-  }
-  .ob-card h1, .ob-card h2{ font-size:19px; margin:0 0 8px; letter-spacing:-0.01em; }
-  .ob-card > p{ color:var(--ink-soft); font-size:13.5px; margin:0; line-height:1.6; }
-  .ob-sections{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:16px; }
-  .ob-sections li{ display:flex; gap:12px; align-items:flex-start; font-size:13.5px; }
-  .ob-icon{
-    flex:none; width:30px; height:30px; border-radius:8px; background:var(--brass-wash); color:var(--brass-strong);
-    display:flex; align-items:center; justify-content:center; margin-top:1px; font-size:14px;
-  }
-  .ob-sections b{ display:block; margin-bottom:2px; }
-  .ob-sections span{ color:var(--ink-soft); }
-  .ob-privacy{
-    display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:var(--ink-soft); line-height:1.55;
-  }
-  .ob-privacy .ob-icon{ background:var(--good-wash); color:var(--good); }
-  .ob-hero{ padding-bottom:18px; }
-  .ob-actions{ margin-top:20px; }
-  .ob-cta{ display:flex; width:100%; text-align:center; text-decoration:none; margin-bottom:10px; justify-content:center; }
-  .ob-alt{ text-align:center; font-size:12.5px; margin:14px 0 0; }
-  /* inline-block with real padding: this reads as a sentence but functions as the third way into
-     the app, and at 33px it was the last control in the app under the 40px floor. */
-  .ob-alt a{
-    color:var(--brass-strong); text-decoration:underline; text-underline-offset:2px;
-    display:inline-block; padding:10px 4px;
-  }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="refresh" content="0; url=about/">
+  <link rel="canonical" href="https://luizfds.github.io/wealth-planner/about/">
+  <title>Welcome to Wealth Planner</title>
 </head>
 <body>
-  <main class="ob-wrap">
-    <div class="ob-brand">
-      <div class="app-brand-name"><svg class="app-brand-mark" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="currentColor"/><path d="M5.6 8l3 8.2 3.4-6.4 3.4 6.4 3-8.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Wealth Planner</div>
-    </div>
-    <p class="ob-tagline">Budget · Property · Tax · Net worth — all in one place</p>
-
-    <!-- Pitch and both CTAs inside the first screen. This page used to run 1374px on an 844px
-         viewport with "Try it with sample data" at 1155px and "Start from scratch" at 1209px — so
-         the only two ways into the app were 1.4 screens down, and a first-time visitor had to
-         scroll on faith to find out there was a way in at all. The detail below is still worth
-         having for a stranger following a link; it just isn't the toll gate any more. -->
-    <div class="ob-card ob-hero">
-      <h1>Your household's money, in one place</h1>
-      <p>A budget, spending imported from your bank, Australian tax worked out, everything you own and owe — and a plan: keep renting or buy, how net worth grows, when you can retire.</p>
-      <div class="ob-actions">
-        <a class="ob-cta btn btn-primary" href="index.html?mock=1">Try it with sample data →</a>
-        <a class="ob-cta btn" href="index.html">Start from scratch →</a>
-      </div>
-      <p class="ob-alt">Importing a file someone shared with you? <a href="welcome.html">Go here instead →</a></p>
-    </div>
-
-    <div class="ob-card">
-      <h2>What's inside</h2>
-      <p style="margin-bottom:18px">Today, Money, Accounts, Plan and More: one set of numbers — what you log in one shows up in the others.</p>
-      <ul class="ob-sections">
-        <li><span class="ob-icon">⌂</span><span><b>Today</b><span>Net worth and how it moved, where you stand this month, what needs you, and a monthly review that checks the figures add up.</span></span></li>
-        <li><span class="ob-icon">☰</span><span><b>Money</b><span>A budget, income after tax, spending imported from a bank or card statement (CSV or PDF), and a bills calendar.</span></span></li>
-        <li><span class="ob-icon">◆</span><span><b>Accounts</b><span>Net worth, bank accounts, shares, crypto and super with daily prices, and property with its loans, offsets and rent.</span></span></li>
-        <li><span class="ob-icon">⇄</span><span><b>Plan</b><span>Rent-or-buy scenarios with stamp duty and LMI, projections years out, goals, and retirement.</span></span></li>
-        <li><span class="ob-icon">$</span><span><b>Tax, in More</b><span>Income tax, Medicare and super worked out for you; payslips checked against the plan; each year's return and documents.</span></span></li>
-      </ul>
-    </div>
-
-    <div class="ob-card">
-      <div class="ob-privacy">
-        <span class="ob-icon">✓</span>
-        <span>No account and no server: what you enter is kept in this browser. It only leaves when you choose to — sync sends it encrypted with your passphrase to your own Dropbox or folder, price updates ask for ticker names (never amounts), and Ask Claude sends a minimised financial summary (not guaranteed anonymous) with your own key. Export a backup from the menu at the top right to keep a copy or move to another device.</span>
-      </div>
-    </div>
-
-  </main>
-  <script>
-    // Landing here at all means the auto-redirect that brought a first-time visitor here has
-    // done its job — never show it again, even if they back out without picking either option.
-    try{ localStorage.setItem("wealthPlanner.hasSeenIntro", "1"); }catch(e){}
-  </script>
+  <p><a href="about/">Continue to Wealth Planner</a></p>
 </body>
 </html>

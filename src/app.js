@@ -263,17 +263,22 @@ import { closeActiveOverlayNow, handleOverlayHistory } from "./lib/overlaystack.
   if(initialPage === "plan" && initialPlanSub === "goals") renderGoalsTab();
   if(initialPage === "dashboard" && routeFromUrl && routeFromUrl.sub){ showDashboardSubpage(routeFromUrl.sub, { replace: true }); if(routeFromUrl.sub === "review"){ renderMonthReview(); renderHealth(); } }
 
-  // onboarding.html's "Try it with sample data" link lands here with ?mock=1 — generate it
+  // The landing page's "Try it with sample data" link lands here with ?mock=1 — generate it
   // after confirming replacement if a household already exists. A sample link can be
   // revisited after setup, so the URL alone is never permission to discard saved data.
-  var wantsSample = new URLSearchParams(location.search).get("mock") === "1";
+  var entryQuery = new URLSearchParams(location.search);
+  var wantsSample = entryQuery.get("mock") === "1";
   function fillSample(){ buildDemoState(); renderAll(); persist(); showToast("Sample data generated"); offerTour(); }
   if(wantsSample && !hasRealUserData()) fillSample();
   else if(wantsSample) queueMicrotask(function(){
     confirmDialog("Replace this household with sample data? Export a backup first to keep your data.", {title:"Use sample data",accept:"Replace with sample",danger:true})
       .then(function(ok){ if(ok) fillSample(); }).catch(function(){ showToast("Sample data could not be loaded."); });
   });
-  if(new URLSearchParams(location.search).has("mock")) history.replaceState(history.state, "", location.pathname + location.hash);
+  if(entryQuery.has("mock") || entryQuery.get("start") === "1"){
+    entryQuery.delete("mock"); entryQuery.delete("start");
+    var remainingQuery = entryQuery.toString();
+    history.replaceState(history.state, "", location.pathname + (remainingQuery ? "?" + remainingQuery : "") + location.hash);
+  }
   wireShortcuts();
   wireMoneyFields();
 

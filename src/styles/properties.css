@@ -754,6 +754,13 @@
 .buy-fold-edit{ color: var(--brass-strong); font-size:var(--fs-sm); }
 .buy-fold[open] > summary .buy-fold-edit{ display:none; }
 .buy-fold[open] > summary{ border-color: transparent; padding-left:0; }
+.buy-funding-body{ display:flex; flex-direction:column; gap:12px; }
+.buy-funding-fold > summary{ display:none; }
+@media (max-width:720px){
+  .buy-tiles{ order:-1; }
+  .buy-funding-fold > summary{ display:flex; }
+  .buy-funding-body{ margin:4px 10px 12px; }
+}
 .buy-sub{ margin:0 0 6px; font-size:var(--fs-md); font-weight:600; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline; }
 .buy-sub small{ font-size:var(--fs-xs); font-weight:400; color: var(--ink-soft); }
 .buy-cost-list{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }

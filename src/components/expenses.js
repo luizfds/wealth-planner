@@ -1294,9 +1294,9 @@ export function setTransactionsShowAll(value){
   transactionsShowAll = value;
   renderTransactions();
 }
-// v3.158.0 (item 188): ten, not 25 — the list heads a page with four more sections under it, and 25
-// rows put them seven screens down on a phone. "Show all N" is one tap.
+// The recent list leaves room for the import and spending tools below it.
 var TRANSACTIONS_RECENT_COUNT = 10;
+var PHONE_TRANSACTIONS_RECENT_COUNT = 5;
 // Modern-mode open/closed state per row, same lifetime/shape as modernSharedRowOpen etc. — keyed
 // "tx:<idx>" (idx is the transaction's real state.transactions[] position, stable across a
 // resort) so an in-progress edit stays open across the rebuild a date edit triggers.
@@ -1630,8 +1630,10 @@ function drawTransactions(){
         all.length + (all.length === 1 ? " entry sits" : " entries sit") + " outside it — choose Year or All in Filters, or another period in the header.") + '</p>';
     return;
   }
-  var hasMore = shown.length > TRANSACTIONS_RECENT_COUNT;
-  var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, TRANSACTIONS_RECENT_COUNT);
+  var onPhone = typeof window !== "undefined" && window.innerWidth <= 720;
+  var recentCount = onPhone ? PHONE_TRANSACTIONS_RECENT_COUNT : TRANSACTIONS_RECENT_COUNT;
+  var hasMore = shown.length > recentCount;
+  var visible = (transactionsShowAll || !hasMore) ? shown : shown.slice(0, recentCount);
   // v3.117.0: the table, on a wide screen when chosen.
   if(txGrid.on && (typeof window === "undefined" || window.innerWidth > 720)){
     container.innerHTML = top + controlHtml + bulk + (filtered ? totalsLineHtml(totals, shown.length, shown) : '') +

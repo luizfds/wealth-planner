@@ -7969,8 +7969,47 @@ const JOURNEYS = {
     await chart.tap();
     check(await root.locator('.viz-tooltip.show').count() > 0, 'chart tap no longer shows exact values');
   },
+  async mobilepagefolds(page){
+    await quiet(page);
+    await go(page,'properties');
+    const funding = page.locator('.buy-funding-fold').first();
+    const portfolio = page.locator('#propertyPortfolioFold');
+    check(await funding.getAttribute('open') === null && await portfolio.getAttribute('open') === null, 'secondary property sections opened by default');
+    check(await page.locator('.buy-tile').first().isVisible(), 'the purchase summary was folded');
+    await funding.locator(':scope > summary').click();
+    check(await funding.locator('.vbar-wrap').isVisible(), 'purchase funding figures did not open');
+    await portfolio.locator(':scope > summary').click();
+    check(await page.locator('#propertiesSummaryStats').isVisible(), 'portfolio figures did not open');
+
+    await go(page,'plan','data-plan-sub','scenarios');
+    const forecast = page.locator('#cashFlowForecastFold');
+    const chart = forecast.locator('.liq-chart');
+    check(await forecast.getAttribute('open') === null && /Lowest balance .*\$/.test(await forecast.locator(':scope > summary').innerText()), 'closed forecast did not say the lowest balance');
+    check(await page.locator('#cards [role="radio"]').first().isVisible(), 'scenario cards were folded');
+    await page.setViewportSize({width:1280,height:844});
+    await chart.waitFor({state:'visible'});
+    check(!await forecast.locator(':scope > summary').isVisible(), 'the phone forecast heading is visible on desktop');
+    await page.setViewportSize({width:390,height:844});
+    await chart.waitFor({state:'hidden'});
+    await go(page,'dashboard','data-dashboard-sub','overview');
+    await page.locator('[data-home-scroll="#cashFlowForecastPanel"]').click();
+    await chart.waitFor({state:'visible'});
+
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.evaluate(async () => (await import('/src/components/expenses.js')).setTransactionsRange('all'));
+    const rows = page.locator('#transactionsTable .m-rows > :is(.m-row,.cf-row,.cf-other)');
+    check(await rows.count() === 5, 'the phone starting list does not have five rows');
+    await page.locator('[data-tx-show-all-toggle="1"]').click();
+    check(await rows.count() > 5, 'Show all did not keep the rest of the transactions available');
+    await page.locator('[data-tx-show-all-toggle="0"]').click();
+    check(await rows.count() === 5, 'Show recent only did not restore the compact list');
+    await page.setViewportSize({width:1280,height:844});
+    await waited(page, () => document.querySelectorAll('#transactionsTable .m-rows > :is(.m-row,.cf-row,.cf-other)').length === 10, 'desktop to show ten recent transactions');
+  },
   async projectionsummary(page){
     await go(page,'plan','data-plan-sub','projections');
+    await page.locator('#projectionWhatIfFold > summary').click();
+    await page.locator('#projectionDetailsFold > summary').click();
     const picker=page.locator('[data-proj-reading-scenario]');
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
     async function parity(){

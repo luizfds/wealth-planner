@@ -477,11 +477,19 @@ function renderSavingsBreakdown(scenario){
 function renderCashFlowForecastPanel(){
   var panel = document.getElementById("cashFlowForecastPanel");
   if(!panel) return;
+  var caption = document.getElementById("cashFlowLowestBalance");
   if(!state.income.length && !state.shared.length){
+    if(caption) caption.textContent = "";
     panel.innerHTML = '<h2 class="section-title">12-month cash flow forecast</h2><p class="fire-note">Add some income and expenses to see a month-by-month forecast here.</p>';
     return;
   }
   var forecast = monthlyCashFlowForecast(12);
+  var liquidity = liquidityForecast(liquidityInputs(forecast.months));
+  if(caption){
+    var low = liquidity.lowest;
+    caption.textContent = low ? "Lowest balance " + liquidityMoney(low.balance) + " · " + liquidityLowWhen(low) : "";
+    caption.className = "mobile-fold-caption " + liquidityTone(liquidity);
+  }
   // v3.33.0: a run of months with nothing landing in them is one row ("Oct – Jan · 4 steady
   // months"), not twelve identical "steady month — no one-off items" lines with the months that
   // actually differ buried among them.
@@ -507,7 +515,7 @@ function renderCashFlowForecastPanel(){
   var reserveNote = (forecast.reserveIncome || forecast.reserveExpense)
     ? '<p class="fire-note help">Includes ' + fmtCurrency0.format(Math.max(0, forecast.reserveExpense - forecast.reserveIncome)) + '/mo set aside for items marked "no fixed timing" (e.g. Extras, property maintenance) — spread evenly rather than expected on a specific date.</p>'
     : '';
-  panel.innerHTML = '<h2 class="section-title">12-month cash flow forecast</h2>' + liquidityHtml(forecast) +
+  panel.innerHTML = '<h2 class="section-title">12-month cash flow forecast</h2>' + liquidityHtml(liquidity) +
     '<h3 class="liq-sub">What each month adds or takes</h3>' +
     '<p class="fire-note help" style="margin-bottom:10px">Steady baseline ' + fmtCurrency0.format(forecast.baselineNet) + '/mo, adjusted below for annual/quarterly items landing in their actual month.</p>' +
     rows + reserveNote;
@@ -527,13 +535,15 @@ export function liquidityInputs(months, stressPct){
   try { reserve = emergencyFund().target; } catch(e){ reserve = null; }
   return { months: months, startCash: hasCash ? cashOnHand() : null, projects: state.projects, transactions: state.transactions, purchases: state.purchases || [], loans: loans, stressPct: stressPct == null ? liqUi.stress : stressPct, reserveTarget: reserve, today: localDateStr() };
 }
-function liquidityHtml(forecast){
-  var f = liquidityForecast(liquidityInputs(forecast.months));
+function liquidityMonth(m){ return MONTH_NAMES[m.month - 1].slice(0, 3) + " " + String(m.year).slice(2); }
+function liquidityMoney(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); }
+function liquidityLowWhen(low){ return low.now ? "today" : "end of " + liquidityMonth(low); }
+function liquidityTone(f){ return f.shortfall > 0 ? "is-bad" : f.monthsUnderReserve > 0 ? "is-warn" : "is-good"; }
+function liquidityHtml(f){
   if(!f.months.length) return "";
   var other = liqUi.compare && (state.scenarios || []).indexOf(liqUi.compare) !== -1 && liqUi.compare !== currentScenario() ? liqUi.compare : "";
   var g = other ? liquidityForecast(liquidityInputs(monthlyCashFlowForecast(12, other).months)) : null;
-  var label = function(m){ return MONTH_NAMES[m.month - 1].slice(0, 3) + " " + String(m.year).slice(2); };
-  var money = function(n){ return (n < 0 ? "−" : "") + fmtCurrency0.format(Math.abs(n)); };
+  var label = liquidityMonth, money = liquidityMoney;
   // The balance at each month's end as columns, a scenario's as a line over them, the reserve as a dashed line.
   var all = f.months.map(function(m){ return m.balance; }).concat(g ? g.months.map(function(m){ return m.balance; }) : []).concat(f.reserveTarget > 0 ? [f.reserveTarget] : []).concat([0]);
   var hi = Math.max.apply(null, all), lo = Math.min.apply(null, all), span = Math.max(1, hi - lo), W = 360, H = 120, n = f.months.length, cw = W / n;
@@ -549,8 +559,7 @@ function liquidityHtml(forecast){
   var chart = '<svg class="liq-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + escapeAttr("Cash at the end of each month. " + summary + (g ? " The line is " + other + "." : "")) + '" preserveAspectRatio="none">' +
     '<line class="liq-zero" x1="0" x2="' + W + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' + reserve + cols + line + '</svg>' +
     '<div class="liq-axis" aria-hidden="true"><span>' + label(f.months[0]) + '</span><span>' + label(f.months[n - 1]) + '</span></div>';
-  var tone = f.shortfall > 0 ? "is-bad" : f.monthsUnderReserve > 0 ? "is-warn" : "is-good";
-  var head = '<div class="liq-head ' + tone + '"><span>Lowest balance</span><b>' + money(low.balance) + '</b><small>' + (low.now ? "today" : "end of " + label(low)) + '</small></div>';
+  var head = '<div class="liq-head ' + liquidityTone(f) + '"><span>Lowest balance</span><b>' + money(low.balance) + '</b><small>' + liquidityLowWhen(low) + '</small></div>';
   var notes = [];
   if(f.shortfall > 0) notes.push('<p class="liq-note is-bad">' + fmtCurrency0.format(f.shortfall) + ' short at the lowest point — move a payment, or plan where it comes from.</p>');
   else if(f.monthsUnderReserve > 0) notes.push('<p class="liq-note is-warn">' + f.monthsUnderReserve + ' month' + (f.monthsUnderReserve === 1 ? "" : "s") + ' under your emergency reserve of ' + fmtCurrency0.format(f.reserveTarget) + '.</p>');

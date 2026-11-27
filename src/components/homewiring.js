@@ -375,7 +375,14 @@ export function wireHomeSummary(){
     if(go === "plan" && sub){
       showPage("plan"); showPlanSubpage(sub, { replace: true });
       var to = b.getAttribute("data-home-scroll");
-      if(to) setTimeout(function(){ var el = document.querySelector(to); if(el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350);
+      if(to) setTimeout(function(){
+        var el = document.querySelector(to);
+        if(!el) return;
+        var fold = el.closest("[data-mobile-fold]");
+        if(fold) fold.open = true;
+        var heading = fold && fold.querySelector("summary");
+        (heading && heading.getClientRects().length ? heading : el).scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 350);
       return;
     }
     if(go === "settings"){ showAccountsSubpage(sub || "categories"); if(sub === "checks") renderHealth(); if(sub === "people") renderPeopleTab(); return; }

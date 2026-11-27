@@ -859,29 +859,34 @@
         </div>
         <div id="propertiesBody"></div>
         <button type="button" class="btn btn-sm" id="addPropertyBtn">+ Add property</button>
-        <div id="propertiesSummary" hidden>
-          <h2 class="section-title">Portfolio summary</h2>
-          <p class="ledger-note help" id="propertiesSummaryHelp">Total equity: value minus what's owed after the offset — matches each card's own Net equity tile, summed across the portfolio. Net cash flow: rent minus expenses and loan repayments, across every investment property. Avg gross yield: annual rent ÷ value, weighted by each investment property's own value.</p>
-          <div class="stat-row" id="propertiesSummaryStats"></div>
-        </div>
-        <div class="ledgers">
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Equity vs debt</h2></div>
-            </summary>
-            <div class="ledger-body">
-              <p class="ledger-note help" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
-              <div id="propertiesEquityDebtBar"></div>
+        <details class="mobile-fold" id="propertyPortfolioFold" data-mobile-fold data-remember-fold open>
+          <summary><span class="mobile-fold-label">Portfolio summary and charts</span></summary>
+          <div class="mobile-fold-body">
+            <div id="propertiesSummary" hidden>
+              <h2 class="section-title">Portfolio summary</h2>
+              <p class="ledger-note help" id="propertiesSummaryHelp">Total equity: value minus what's owed after the offset — matches each card's own Net equity tile, summed across the portfolio. Net cash flow: rent minus expenses and loan repayments, across every investment property. Avg gross yield: annual rent ÷ value, weighted by each investment property's own value.</p>
+              <div class="stat-row" id="propertiesSummaryStats"></div>
             </div>
-          </details>
-          <details class="ledger" open>
-            <summary>
-              <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Total property value over time</h2></div>
-            </summary>
-            <div class="ledger-body"><div id="propertiesValueHistoryPanel"></div></div>
-          </details>
-        </div>
-        <div id="propertiesCompareList"></div>
+            <div class="ledgers">
+              <details class="ledger" open>
+                <summary>
+                  <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Equity vs debt</h2></div>
+                </summary>
+                <div class="ledger-body">
+                  <p class="ledger-note help" style="margin-left:0">What you actually own vs. what's still owed, added up across every property.</p>
+                  <div id="propertiesEquityDebtBar"></div>
+                </div>
+              </details>
+              <details class="ledger" open>
+                <summary>
+                  <div class="ledger-title"><svg class="ledger-caret" width="9" height="9" viewBox="0 0 8 8"><path d="M1 0l6 4-6 4z" fill="currentColor"/></svg><h2 class="section-title">Total property value over time</h2></div>
+                </summary>
+                <div class="ledger-body"><div id="propertiesValueHistoryPanel"></div></div>
+              </details>
+            </div>
+            <div id="propertiesCompareList"></div>
+          </div>
+        </details>
       </section>
 
 
@@ -1041,7 +1046,12 @@
         <div class="sc-compare" id="scenarioSavingsStrip" hidden></div>
         <!-- The app assessment (November 2026): the cash month by month through the next 12, a home's settlement in its month,
              moved here from Insights — it's about the plan, and Today's "Lowest cash" opens it. -->
-        <div class="panel plan-cash-forecast" id="cashFlowForecastPanel"></div>
+        <details class="mobile-fold" id="cashFlowForecastFold" data-mobile-fold data-remember-fold open>
+          <summary><span class="mobile-fold-label">12-month cash flow forecast<small class="mobile-fold-caption" id="cashFlowLowestBalance"></small></span></summary>
+          <div class="mobile-fold-body">
+            <div class="panel plan-cash-forecast" id="cashFlowForecastPanel"></div>
+          </div>
+        </details>
         <div class="cards" id="cards" role="radiogroup" aria-label="Choose active scenario"></div>
         <!-- November 2026: scenarios put away, to restore as they were. -->
         <div class="ledgers" id="scenarioArchiveList" hidden></div>
@@ -1089,8 +1099,18 @@
               <p class="proj-headline" id="projHeadline"></p>
               <div id="projOutputs">
                 <div id="projChart"></div>
-                <div class="wi-strip" id="whatIfStrip"></div>
-                <div id="projSupportingOutputs"></div>
+                <details class="mobile-fold mobile-fold-inline" id="projectionWhatIfFold" data-mobile-fold data-remember-fold open>
+                  <summary><span class="mobile-fold-label">What if…</span></summary>
+                  <div class="mobile-fold-body">
+                    <div class="wi-strip" id="whatIfStrip"></div>
+                  </div>
+                </details>
+                <details class="mobile-fold mobile-fold-inline" id="projectionDetailsFold" data-mobile-fold data-remember-fold open>
+                  <summary><span class="mobile-fold-label">Projection details and tools</span></summary>
+                  <div class="mobile-fold-body">
+                    <div id="projSupportingOutputs"></div>
+                  </div>
+                </details>
               </div>
               <details class="tax-advanced proj-assumptions" id="projAssumptions" data-remember-fold>
               <summary>Assumptions and life events <span class="ps-summary-line" id="projAssumptionsLine"></span></summary>
@@ -1110,11 +1130,16 @@
           </details>
         </div>
         <!-- From Insights (the follow-up review): how the plan has done against what happened. -->
-        <div class="detail-grid plan-reality">
-          <div class="panel" id="actualVsExpectedPanel"></div>
-          <div class="panel" id="projectionAccuracyPanel"></div>
-          <div class="panel" id="contributionsGrowthPanel"></div>
-        </div>
+        <details class="mobile-fold" id="projectionTrackingFold" data-mobile-fold data-remember-fold open>
+          <summary><span class="mobile-fold-label">How the plan is tracking</span></summary>
+          <div class="mobile-fold-body">
+            <div class="detail-grid plan-reality">
+              <div class="panel" id="actualVsExpectedPanel"></div>
+              <div class="panel" id="projectionAccuracyPanel"></div>
+              <div class="panel" id="contributionsGrowthPanel"></div>
+            </div>
+          </div>
+        </details>
         </div>
       </section>
 

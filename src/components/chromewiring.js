@@ -29,7 +29,7 @@ import { keepUi } from "../lib/keepui.js";
 import { setNetWorthFilter } from "./networth.js";
 import { renderSharedGroups, renderTransactions, setBudgetGroupBy, renderBudgetGroupByToggle, toggleBudgetGroup, setAllBudgetGroupsCollapsed, allBudgetGroupsCollapsed, setYearBasis, setLineView } from "./expenses.js";
 import { renderIncomeGroups, setIncomeShowAs } from "./income.js";
-import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, goCrumb, currentPageAction, currentPageId, dashboardSubpage, planSubpage } from "./nav.js";
+import { showPage, closeNavMenu, showAssetsSubpage, showDashboardSubpage, showExpensesSubpage, showAccountsSubpage, showTaxSubpage, showPlanSubpage, QUICK_ACTIONS, quickActionsSheetHtml, goBackInApp, goCrumb, currentPageAction, currentPageId, dashboardSubpage, planSubpage, appAssetUrl } from "./nav.js";
 import { isSimple, setStoredMode, applyMode, endSimpleOffer } from "../lib/mode.js";
 import { renderShowMore, showMoreHere, renderSimpleOffer } from "./showmore.js";
 import { closeAllOverflowMenus } from "./overlays.js";
@@ -305,6 +305,7 @@ export function wireNavigation(){
     if(c) requestAnimationFrame(function(){ setTimeout(function(){ shrinkBy = Math.max(shrinkBy, before - topbar.offsetHeight); }, 200); });
   }, { passive: true });
   document.getElementById("avatarVersion").textContent = document.querySelector(".app-version-num").textContent;
+  document.getElementById("avatarFeedback").href = appAssetUrl("about/#feedback");
   document.querySelector(".avatar-menu").addEventListener("click", function(e){
     var go = e.target.closest("[data-avatar-go]");
     if(!go) return;

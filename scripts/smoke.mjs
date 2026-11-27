@@ -31,9 +31,10 @@ const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : pat
 const SHOTS = process.env.SHOTS_DIR ? path.resolve(process.env.SHOTS_DIR) : null;
 if(SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
-  ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
+  ".webmanifest": "application/manifest+json", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+  if(p.endsWith("/")) p += "index.html";
   let file = path.join(root, p);
   if(!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, "index.html");
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
@@ -87,6 +88,18 @@ for (const [scheme, width] of PASSES) {
   const errors = [];
   page.on("pageerror", e => errors.push("page error: " + e.message));
   page.on("console", m => { if(m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push("console: " + m.text()); });
+  if(!SHOTS){
+    const landing = await page.goto(base + "/about/");
+    if(landing?.ok() && await page.getByRole("heading", { name: "Your household’s money, in one place." }).count()){
+      const fit = await page.evaluate(() => {
+        const links = document.querySelectorAll(".hero a");
+        return links.length === 3 && [...links].every(a => a.getBoundingClientRect().bottom <= innerHeight)
+          && document.documentElement.scrollWidth <= innerWidth;
+      });
+      if(!fit) failures.push(scheme + " " + width + " landing: entry links out of view or horizontal overflow");
+      await page.waitForFunction(() => document.querySelector(".hero-shot img")?.naturalWidth > 0);
+    }else failures.push(scheme + " " + width + " landing: missing landing page");
+  }
   await page.goto(base + "/index.html?mock=1");
   await page.waitForFunction(() => ((JSON.parse(localStorage.getItem("wealthPlanner.v1") || "{}").income) || []).length > 0, null, { timeout: 15000 });
   await page.waitForTimeout(800);

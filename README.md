@@ -4,8 +4,8 @@ A free planner for an Australian household's money: a budget, spending brought i
 tax and super worked out, everything you own and owe, and a plan — keep renting or buy, how net worth grows, when you
 could stop working. It runs in your browser, and what you enter stays there.
 
-**Open it:** <https://luizfds.github.io/wealth-planner/> — try it with the sample household first (invented people,
-an invented address, invented figures), or start with your own.
+**Take a look:** <https://luizfds.github.io/wealth-planner/about/>. Try it with the sample household, or start with
+your own. [Open the app](https://luizfds.github.io/wealth-planner/) to return to a saved household.
 
 ## Private by design
 
@@ -64,7 +64,7 @@ The browser checks need Playwright at the version CI uses:
 npm i --no-save playwright@1.56.0 && npx playwright install chromium
 node scripts/smoke.mjs          # every page at phone, tablet and desktop widths, light and dark
 node scripts/journeys.mjs       # real flows, end to end
-node scripts/landing-shots.mjs  # screenshots of the sample household, for the landing page and this README
+node scripts/landing-shots.mjs /tmp/wealth-planner-shots  # screenshots of the sample household
 ```
 
 ## How it's built, and why

@@ -1,87 +1,30 @@
-# A public landing page — the plan
+# Wealth Planner’s landing page
 
-Status: **proposed** (November 2026). The owner decides the open questions at the end before anything is built; the
-page is mocked up on the design canvas first, as every other change this month was.
+The [approved defaults](../decisions/0017-public-landing-page.md) keep the Wealth Planner name, GitHub Pages address and independent maker credit. The page introduces a free Australian household planner and lets visitors see the actual app before starting.
 
-## Why
+## Structure
 
-The app has no front door. A first visit to the site with no saved household is sent to `onboarding.html` — written
-for someone already deciding to try it, `noindex`, with no screenshots, no answers to "is it safe?" or "does it work
-for us?", and nothing a search engine or a link preview can use. People who'd find the app useful (Australian
-households, couples planning together, first home buyers, property investors) have no page that tells them what it
-does before they're inside it.
+- The hero keeps both ways into the app on the first phone screen, with a third link for a shared backup.
+- The privacy explanation covers local data, backups, encrypted sync, market prices and Ask Claude.
+- The Today screenshot and four more examples show Money, Accounts, Plan and Tax, with a short explanation for each.
+- The FAQ covers getting started, two people, offline and phone use, and general financial information.
+- The footer links to the GitHub repository and feedback. The avatar menu takes app users to the same feedback section.
 
-## What the page has to do
+## Routes and assets
 
-1. **Say what it is in one line**, above the fold on a phone: a free planner for an Australian household's money —
-   budget, tax, property and net worth in one place, kept in your browser.
-2. **Show it** — real screens from the sample household, not illustrations.
-3. **Answer the trust question first**: no account, no server, nothing leaves the browser unless you choose (sync
-   encrypted with your passphrase, prices by ticker only, Ask Claude with your own key and a minimised summary).
-4. **Get them in, two ways**: *Try it with sample data* and *Start with your own* — the same two doors
-   `onboarding.html` has today — plus *Open a file someone shared* (`welcome.html`).
-5. **Be found and shared**: indexable, a proper title and description, a 1200×630 link preview, a sitemap.
+The app stays at the repository root. A first visit without an existing household or app history redirects to `about/`. A saved household, app link, bookmark or bank-app share continues into the app. `onboarding.html` redirects to the landing page. The service worker keeps landing-page navigations separate from the app shell used for offline deep links.
 
-## Content, top to bottom
+The landing page uses static HTML and CSS with a small, same-origin script. Content, sample and setup links are available without the landing script. Screenshots use the app’s invented sample household and alternate with the reader’s light or dark setting. To refresh them, run `SHOTS_ONLY=today,money,accounts,plan,tax node scripts/landing-shots.mjs /tmp/wealth-planner-shots`, convert the Today phone and other desktop screenshots to WebP, and replace the matching images in `about/img/`. Refresh `about/img/share.jpg` if the Today screenshot or hero copy changes. The share image is 1200×630.
 
-| Section | What it says | Notes |
-| --- | --- | --- |
-| **Hero** | The one line; a sub-line ("Budget, spending from your bank statements, Australian tax and super, property and a plan — no sign-up"); the two buttons; a phone screenshot of Today. | Both buttons inside the first 844px screen, as `onboarding.html` learned. |
-| **Private by design** | Three short points: stays in your browser · no account · you choose what leaves. Link to how sync and backups work. | The page's most important promise; said plainly, no fine print. |
-| **What it does** | Five tiles, one per place in the app — Today, Money, Accounts, Plan, Tax & reports — each a sentence and a screenshot. | Names match the app's menu exactly (one name per place). |
-| **Made for Australia** | Income tax, Medicare and super worked out; returns in myTax's order; stamp duty and LMI by state; offsets, negative gearing, franking; the RBA cash rate. | Descriptive use of public names (myTax, RBA) only. |
-| **Who it's for** | Three short stories with invented people: a couple sharing a budget; buying a first home (deposit, costs, settlement); an investment property (rent, costs, the rental schedule). | Invented throughout (decision 0004). |
-| **Bring your data in** | Bank statements (CSV, PDF, OFX, QIF), payslips, broker trades, spreadsheets; rules learned as you go. No bank login, ever. | Sets the expectation: files, not bank feeds. |
-| **How to start** | 1 Try the sample · 2 Start with your own (five-minute setup) · 3 Import a statement. | |
-| **Questions** | Is it free? Where is my data? What if I clear my browser? Can two of us use it? Does it work offline / on a phone? Is this financial advice? Who makes it? | Each a short answer; `<details>` so the page stays short. |
-| **Footer** | Open the app · the source on GitHub · request a feature · version · "General information only, not financial advice." | The general-advice line also sits under the hero's numbers. |
+## Deployment settings
 
-## Where it lives
+GitHub Pages serves `about/index.html` directly. Its two optional public settings are attributes on the opening `<html>` element.
 
-**Recommended: a new static page at `about/` (`/wealth-planner/about/`), with the first visit sent there instead of
-`onboarding.html`.** The app stays at the root, so every installed copy (`start_url: "."`), bookmark, deep link, the
-share target and the service worker's scope keep working. A returning visitor (a saved household) goes straight to
-the app as today; a new one lands on the page. `onboarding.html` becomes a redirect to `about/` for old links.
+- **`data-goatcounter-site`** takes the site code from an owner-managed `<code>.goatcounter.com` dashboard. Enable the tracking pixel for that site in GoatCounter. The page counts visits only on the published GitHub Pages origin, using a fixed path with no cookies, query, referrer or household data. It honours browser Do Not Track and Global Privacy Control signals. A blank setting sends no request and hides the disclosure.
+- **`data-feedback-form`** takes a published `https://tally.so/r/…` URL. Set up two short prompts (“What were you trying to do?” and “What got in the way?”), with an optional email for a reply. Add the reminder about leaving out statements and financial details to the form itself. The app fetches nothing from Tally. A visitor opens the form in their browser by following the link. GitHub Issues stays available when the URL is blank.
 
-Considered and not recommended: making the root the landing page and moving the app to `/app/` — it breaks installed
-apps, every saved link and the 404 deep-link route, for a nicer address a custom domain gives more cheaply later.
+The repository’s sitemap names the public canonical landing page. GitHub Pages serves the repository’s `robots.txt` under `/wealth-planner/`. Crawlers use the host’s root robots file for host-wide rules.
 
-## How it's built
+## Verification
 
-- **Static HTML and CSS, no build step** (decision 0001), no script needed to read it; a small inline script only
-  for the first-visit check, its hash in the CSP (`npm run stamp -- --hashes`).
-- **The app's design tokens**: the page links the base and token layers of `styles.css` (or a small `landing.css` in
-  the same layers), so colours, type and dark mode match the app (decision 0010).
-- **The same CSP and security baseline** (decision 0014); no third-party scripts, fonts as the app loads them.
-- **No tracking by default.** If the owner wants numbers, a privacy-respecting, cookie-free counter — an owner's
-  decision, and the CSP entry with it.
-- **Screenshots generated, not hand-made**: a script (`scripts/landing-shots.mjs`) drives the sample household at a
-  fixed date, phone and desktop, light and dark, and writes compressed images to `about/img/`. Re-run on a release
-  so the page never shows an old app.
-- **Findable**: title and description, canonical URL, Open Graph and Twitter cards with a 1200×630 image,
-  `SoftwareApplication` structured data, `robots.txt` and `sitemap.xml` at the site root.
-- **Fast**: under 200 KB before images on a phone, images lazy below the fold, a Lighthouse budget checked in CI.
-- **Tested like the app**: in the smoke run's widths and themes, axe in the accessibility job, and a journey —
-  landing → *Try it with sample data* → Today, and landing → *Start* → setup — with a time budget.
-
-## Steps
-
-| Step | What | Done when |
-| --- | --- | --- |
-| L1 | A decision record (where it lives, what it promises) and the copy, reviewed by the owner. | Decision 0017 merged. |
-| L2 | Mock-ups on the canvas: phone and desktop, light and dark. | Owner agrees. |
-| L3 | The sample household fit to be photographed (assessment B6), and the screenshot script. | Images in `about/img/` from a script. |
-| L4 | Build `about/`: the page, its styles, the first-visit route, `onboarding.html` redirecting. | Smoke, axe and the journeys pass. |
-| L5 | Findable: meta, preview image, structured data, `robots.txt`, `sitemap.xml`. | A link preview shows the card; the page is indexable. |
-| L6 | A README for the repository pointing at the page, the privacy model and how to run it. | README merged. |
-| L7 (later) | A custom domain, if the owner wants one: `CNAME`, the hard-coded origins in `og:url`/`og:image`, the manifest. | — |
-
-## Open questions for the owner
-
-1. **Name**: keep "Wealth Planner"? It's generic and hard to find in search; a distinctive name helps the page and a
-   domain. (A name is also worth a trademark search before it's printed anywhere.)
-2. **Address**: `…/about/` on GitHub Pages for now, or a custom domain from the start?
-3. **Who makes it**: say it's one person's project (with a link to GitHub), or keep the maker out of it?
-4. **Numbers**: no analytics (as now), or a cookie-free counter?
-5. **Feedback**: is *Request a feature* (a GitHub issue) the channel, or an email?
-6. **Tone**: the app's plain, direct voice — or a little warmer for strangers?
+Smoke checks read the landing page at the existing phone, tablet and desktop widths in both themes. The journey covers a new root visit, the old onboarding link, shared-file welcome, sample data, a returning household, offline deep links and a fresh setup. Axe scans the landing page and its expanded details.

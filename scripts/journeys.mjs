@@ -113,11 +113,12 @@ import { STATEMENT_CSV, statementPdf, agentStatementPdf, LOAN_STATEMENT_CSV } fr
 
 const root = process.env.SMOKE_ROOT ? path.resolve(process.env.SMOKE_ROOT) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json",
-  ".webmanifest": "application/manifest+json", ".png": "image/png", ".svg": "image/svg+xml" };
+  ".webmanifest": "application/manifest+json", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml" };
 let dropShellRequests = false, droppedShellRequests = 0;
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
   if(dropShellRequests && p === "/index.html"){ droppedShellRequests++; res.destroy(); return; }
+  if(p.endsWith("/")) p += "index.html";
   let file = path.join(root, p);
   if(!file.startsWith(root) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, "index.html");
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
@@ -135,7 +136,7 @@ function check(ok, what){ if(!ok) throw new Error(what); }
 async function fresh(opts){
   opts = opts || {};
   const ctx = await browser.newContext({ viewport: { width: opts.width || 390, height: 844 }, hasTouch: !!opts.touch, isMobile: !!opts.touch, serviceWorkers: opts.blockWorker ? "block" : "allow" });
-  await ctx.addInitScript(([stored]) => {
+  if(!opts.landing) await ctx.addInitScript(([stored]) => {
     if(sessionStorage.getItem("journeyLoaded")) return;
     localStorage.setItem("wealthPlanner.hasSeenIntro", "1");
     // #339: a journey is someone who has been here before; the tour's own journey clears this to be asked.
@@ -202,6 +203,7 @@ async function fresh(opts){
   // finding the step a journey's timing depends on (#267). Off by default.
   else if(STRESS_CPU){ const cdp = await ctx.newCDPSession(page); await cdp.send("Emulation.setCPUThrottlingRate", { rate: STRESS_CPU }); }
   nameWaits(page);
+  if(opts.landing) return { ctx, page, errors };
   await page.goto(base + "/index.html" + (opts.query || (opts.stored ? "" : "?mock=1")));
   await page.waitForFunction(() => document.documentElement.hasAttribute("data-wp-ready") && document.querySelector(".app-page:not([hidden])"), null, { timeout: 60000 });
   // A journey starts once the app's startup reads (prices, the cash rate) are done, so none lands halfway through
@@ -8689,6 +8691,40 @@ const JOURNEYS = {
     await page.evaluate(async () => { const m = await import("/src/state.js"); m.state.transactions.push({ id: "tx-trip-pending", date: "2026-11-03", amount: 9.5, what: "Fern Bakery", linkedExpenseId: null, category: "Eating out" }); m.commit(["transactions"]); });
     const todo = await page.evaluate(async () => (await import("/src/lib/notifications.js")).getNotifications().filter(n => n.type === "trip").map(n => n.title + "|" + n.page + "|" + n.sub));
     check(todo.length === 1 && /^\d+ purchases? on Beach weekend's days to confirm\|expenses\|trips/.test(todo[0]), "Today's To do doesn't carry the trip's unanswered purchase: " + JSON.stringify(todo));
+  },
+  landing: async page => {
+    await page.goto(base + "/");
+    await page.waitForURL("**/about/");
+    await page.getByRole("button", { name: "Accounts", exact: true }).click();
+    check(await page.locator("#screen-accounts").isVisible() && !await page.locator("#screen-money").isVisible(), "the feature picker did not change the visible example");
+    check(!await page.locator("#feedback-form").isVisible(), "the feedback form appeared without a URL");
+    await page.getByRole("link", { name: "Open a file someone shared" }).click();
+    await page.waitForURL("**/welcome.html");
+    await page.goto(base + "/onboarding.html");
+    await page.waitForURL("**/about/");
+    await page.getByRole("link", { name: "Try it with sample data" }).click();
+    await page.waitForFunction(() => ((JSON.parse(localStorage.getItem("wealthPlanner.v1") || "{}").income) || []).length > 0);
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    await page.goto(base + "/");
+    await page.waitForSelector("html[data-wp-ready]");
+    check(!page.url().includes("/about/"), "a returning household was sent to the landing page");
+    check(await page.locator("#avatarFeedback").getAttribute("href") === "/about/#feedback", "the app feedback link does not point to the landing page");
+    await page.goto(base + "/about/");
+    await page.waitForFunction(async () => !!await caches.match(location.href));
+    await page.context().setOffline(true);
+    try{
+      await page.goto(base + "/expenses");
+      await page.waitForSelector("html[data-wp-ready]");
+      check(await page.locator("body").getAttribute("data-current-page") === "expenses", "the landing page replaced the offline app shell");
+    }finally{
+      await page.context().setOffline(false);
+    }
+    await page.evaluate(() => localStorage.clear());
+    await page.goto(base + "/about/");
+    await page.getByRole("link", { name: "Start with your own" }).click();
+    await page.waitForSelector('#firstRunRoot [role="dialog"]');
+    check(!new URL(page.url()).searchParams.has("start"), "the start entry flag stayed in the app URL");
+    check(!await page.evaluate(() => ((JSON.parse(localStorage.getItem("wealthPlanner.v1") || "{}").income) || []).length), "starting a household silently added sample data");
   }
 };
 
@@ -8702,7 +8738,7 @@ if(process.env.SHARD){
   pick = pick.filter((_, i) => i % n === k - 1);
 }
 if(!process.env.SPEED_ONLY) for(const name of pick){
-  const { ctx, page, errors } = await fresh({blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["noswipetabs", "rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
+  const { ctx, page, errors } = await fresh({landing:name === "landing", blockWorker:name === "bankconfirmfailure", propertyReview:name === "propertystatementreview", bankRead:["bankreadrecovery","bankconfirmfailure"].includes(name), taxFailure:name === "taximporterrors", touch:["noswipetabs", "rowlabelfocus", "signedamounts", "errorsummarybounds", "billconfirmation", "exactsearch", "errorsummaries", "periodranges", "periodheader", "basicinvestmenthelp", "investmentssummaryhelp", "incomehelp", "propertyremaininghelp", "propertyactionhelp", "propertyfigurehelp", "propertysummaryhelp", "monthhelp", "taxhelp", "projectionhelp", "spendinghelp", "mobileinvestments", "propertycostfields", "propertyoverviewfields", "propertyincomefields", "propertytoolsfields", "propertyrecordfields", "sharesquickperiod", "peoplefields", "taxreturnfields", "taxplanningfields", "budgetclarity", "scenariocalcfields", "scenariofields", "setupfields"].includes(name)});
   const t0 = Date.now();
   try { await JOURNEYS[name](page); }
   catch(e){ failures.push(name + ": " + e.message); }

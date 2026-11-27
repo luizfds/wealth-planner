@@ -6058,11 +6058,11 @@ that folds or moves something is mocked up first and keeps every control reachab
 
 **3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner answers its open
 questions (name, address, who makes it, numbers, feedback, tone) first.
-- `[ ]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
-- `[ ]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
+- `[~]` **L1** Decision 0017: where the landing page lives and what it promises; its copy.
+- `[~]` **L2** Mock-ups on the canvas: phone and desktop, light and dark.
 - `[x]` **L3** The screenshot script from the sample household (needs B6).
-- `[ ]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
-- `[ ]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
+- `[~]` **L4** `about/` built; the first visit routed there; `onboarding.html` redirects; smoke, axe and a journey.
+- `[~]` **L5** Findable: meta, a 1200×630 preview, structured data, `robots.txt`, `sitemap.xml`.
 - `[x]` **L6** A README for the repository.
 - `[ ]` **L7** A custom domain, if wanted.
 

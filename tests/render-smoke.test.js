@@ -1175,8 +1175,9 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     state.accounts = [{ id: "a1", name: "Bank One", type: "savings", link: "asset:as1" }, { id: "a2", name: "Fern Card", type: "credit", statementStartDay: 3, limit: 5000, link: "debt:d1" }, { id: "a3", name: "Spare", type: "everyday", link: "" }];
     openAccounts.a2 = true;
     var html = accountsPageHtml("2026-10-18");
-    assert.match(html, /Bank accounts/);
-    assert.match(html, /Credit cards/);
+    assert.match(html, /<div class="acct-layout-columns"><div><div class="acct-group"><div class="acct-group-title">Bank accounts/);
+    assert.match(html, /<\/div><div><div class="acct-group"><div class="acct-group-title">Credit cards/);
+    assert.match(html, /<\/div><\/div><div class="acct-group acct-loose">/);
     assert.match(html, /\$4,200/);
     assert.match(html, /−\$700/);
     assert.match(html, /\$4,300 of \$5,000 available/);
@@ -1184,7 +1185,11 @@ test("Accounts page: grouped cards with balances, a card's available limit, and 
     assert.match(html, /class="acct-mgmt-limit field-control"[^>]*value="5000"/);
     assert.match(html, /data-acct-adopt="debt:d2" data-acct-adopt-type="loan"/);
     assert.match(html, /<span>Total owed<\/span><b class="owed">−\$109,700<\/b><small>Includes property loans<\/small>/);
-  } finally { Object.assign(state, keep); }
+    state.accounts = state.accounts.filter(function(a){ return a.type !== "credit"; });
+    var oneGroup = accountsPageHtml("2026-10-18");
+    assert.match(oneGroup, /Bank accounts/);
+    assert.doesNotMatch(oneGroup, /acct-layout-columns/);
+  } finally { delete openAccounts.a2; Object.assign(state, keep); }
 });
 
 test("property Tax tab: the year's rental result line by line, and each owner's share", async function(){

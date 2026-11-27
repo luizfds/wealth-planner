@@ -1120,6 +1120,8 @@ function propertiesEquityDebtBarHtml(){
 export function renderPropertiesSummary(){
   var summary = document.getElementById("propertiesSummary");
   if(summary) summary.hidden = !state.properties.length;
+  var fold = document.getElementById("propertyPortfolioFold");
+  if(fold) fold.classList.toggle("mobile-fold-empty", !state.properties.length);
   var listValue = document.getElementById("propertiesListValue");
   if(listValue) listValue.hidden = !state.properties.length;
   var listTotal = document.getElementById("propertiesListTotal");

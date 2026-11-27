@@ -6054,7 +6054,7 @@ that folds or moves something is mocked up first and keeps every control reachab
 - `[x]` **B5** Budget's two inboxes and the page's strip as one "N to look at", every item kept.
 - `[x]` **B6** The sample household with a fund per person and no Checks of its own; a test that keeps it so.
 - `[x]` **C3** Accounts on a desktop in two columns.
-- `[ ]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.
+- `[x]` **C4** Property, Scenarios, Projections and Transactions folded below their first screen.
 
 **3. A front door** ([docs/design/landing-page.md](../docs/design/landing-page.md)) — the owner answers its open
 questions (name, address, who makes it, numbers, feedback, tone) first.

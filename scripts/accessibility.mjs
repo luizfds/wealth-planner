@@ -118,6 +118,8 @@ for(const width of widths)for(const scheme of schemes){
    }
   }
   if(pg==='plan' && sub==='projections' && width<768){
+   const details=page.locator('#projectionDetailsFold');
+   if(!await details.evaluate(d=>d.open)) await details.locator(':scope > summary').click();
    await page.locator('.proj-reading-scenario:not([hidden]) details').evaluateAll(ds=>ds.forEach(d=>d.open=true));
    await scan('projection-reading/details');
    await page.locator('[data-proj-reading-full-toggle]').check();
@@ -254,6 +256,8 @@ for(const width of widths)for(const scheme of schemes){
    if(invented)await page.evaluate(async()=>{const s=await import('/src/state.js');s.state.debts=[];s.commit(['debts']);});
   }
   if(pg==='properties'){
+   const portfolio=page.locator('#propertyPortfolioFold');
+   if(!await portfolio.evaluate(d=>d.open)) await portfolio.locator(':scope > summary').click();
    await page.locator('#propertiesSummary [data-help-toggle]').click();
    await scan('property-summary/help', '#propertiesSummary');
    await page.locator('#propertiesSummary [data-help-toggle]').click();

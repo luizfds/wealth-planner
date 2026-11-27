@@ -5006,6 +5006,7 @@ const JOURNEYS = {
   },
   async propertysummaryhelp(page){
     await go(page, 'properties');
+    await page.locator('#propertyPortfolioFold > summary').click();
     const root = page.locator('#propertiesSummary');
     const help = root.locator('[data-help-toggle]');
     const note = page.locator('#propertiesSummaryHelp');
@@ -7460,10 +7461,11 @@ const JOURNEYS = {
     const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
     await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
     await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="paidWith"][value="loan"])').last().click();
+    await card.locator('.buy-funding-fold > summary').click();
     check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
     // #452: the lender's approved loan, typed from its letter, checked against the loan and the fee added to it.
     const gross = page.locator(cardSel + ' [data-buy-field="grossLoan"]');
-    if(!(await gross.isVisible())) await page.locator(cardSel + ' .buy-fold > summary').click();
+    if(!(await gross.isVisible())) await card.locator('.buy-fold:has([data-buy-field="grossLoan"]) > summary').click();
     await gross.fill('489000'); await gross.press('Tab');
     await page.locator(cardSel + ' details[id$="-more"] > summary').click();
     check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
@@ -7969,8 +7971,47 @@ const JOURNEYS = {
     await chart.tap();
     check(await root.locator('.viz-tooltip.show').count() > 0, 'chart tap no longer shows exact values');
   },
+  async mobilepagefolds(page){
+    await quiet(page);
+    await go(page,'properties');
+    const funding = page.locator('.buy-funding-fold').first();
+    const portfolio = page.locator('#propertyPortfolioFold');
+    check(await funding.getAttribute('open') === null && await portfolio.getAttribute('open') === null, 'secondary property sections opened by default');
+    check(await page.locator('.buy-tile').first().isVisible(), 'the purchase summary was folded');
+    await funding.locator(':scope > summary').click();
+    check(await funding.locator('.vbar-wrap').isVisible(), 'purchase funding figures did not open');
+    await portfolio.locator(':scope > summary').click();
+    check(await page.locator('#propertiesSummaryStats').isVisible(), 'portfolio figures did not open');
+
+    await go(page,'plan','data-plan-sub','scenarios');
+    const forecast = page.locator('#cashFlowForecastFold');
+    const chart = forecast.locator('.liq-chart');
+    check(await forecast.getAttribute('open') === null && /Lowest balance .*\$/.test(await forecast.locator(':scope > summary').innerText()), 'closed forecast did not say the lowest balance');
+    check(await page.locator('#cards [role="radio"]').first().isVisible(), 'scenario cards were folded');
+    await page.setViewportSize({width:1280,height:844});
+    await chart.waitFor({state:'visible'});
+    check(!await forecast.locator(':scope > summary').isVisible(), 'the phone forecast heading is visible on desktop');
+    await page.setViewportSize({width:390,height:844});
+    await chart.waitFor({state:'hidden'});
+    await go(page,'dashboard','data-dashboard-sub','overview');
+    await page.locator('[data-home-scroll="#cashFlowForecastPanel"]').click();
+    await chart.waitFor({state:'visible'});
+
+    await go(page,'expenses','data-expenses-sub','spending');
+    await page.evaluate(async () => (await import('/src/components/expenses.js')).setTransactionsRange('all'));
+    const rows = page.locator('#transactionsTable .m-rows > :is(.m-row,.cf-row,.cf-other)');
+    check(await rows.count() === 5, 'the phone starting list does not have five rows');
+    await page.locator('[data-tx-show-all-toggle="1"]').click();
+    check(await rows.count() > 5, 'Show all did not keep the rest of the transactions available');
+    await page.locator('[data-tx-show-all-toggle="0"]').click();
+    check(await rows.count() === 5, 'Show recent only did not restore the compact list');
+    await page.setViewportSize({width:1280,height:844});
+    await waited(page, () => document.querySelectorAll('#transactionsTable .m-rows > :is(.m-row,.cf-row,.cf-other)').length === 10, 'desktop to show ten recent transactions');
+  },
   async projectionsummary(page){
     await go(page,'plan','data-plan-sub','projections');
+    await page.locator('#projectionWhatIfFold > summary').click();
+    await page.locator('#projectionDetailsFold > summary').click();
     const picker=page.locator('[data-proj-reading-scenario]');
     const original=await page.evaluate(async()=>JSON.stringify((await import('/src/state.js')).state));
     async function parity(){

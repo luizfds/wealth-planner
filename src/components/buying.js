@@ -183,8 +183,10 @@ export function purchaseCardHtml(p, cash, today){
   var actions = '<div class="buy-actions">' +
     '<button type="button" class="btn btn-primary" data-buy-settled>Settled — make it a property</button>' +
     '<button type="button" class="btn btn-danger btn-sm" data-buy-remove>Remove</button></div>';
+  var funding = bar || borrowedLine ? '<details class="buy-fold buy-funding-fold" data-mobile-fold data-remember-fold open id="' +
+    escapeAttr(id("funding")) + '"><summary>How the purchase is funded</summary><div class="buy-funding-body">' + bar + borrowedLine + '</div></details>' : "";
   return '<section class="buy-card" data-purchase="' + escapeAttr(p.id) + '" data-part="property" aria-label="' + escapeAttr("Buying " + name) + '">' + hero +
-    '<div class="buy-body">' + bar + borrowedLine + tiles + suggestBannerHtml(stored, today) + propertyEventsHtml(p.id, state) + fields + '<details class="buy-fold" data-remember-fold id="' + escapeAttr(id('costs')) + '"><summary>Deposit and costs · ' + escapeAttr(said.join(' · ')) + '</summary>' + costs + '</details><details class="buy-fold" data-remember-fold id="' + escapeAttr(id('more')) + '"><summary>More detail and settlement</summary>' + reconHtml(p, f) + actions + '</details>' + '</div></section>';
+    '<div class="buy-body">' + funding + tiles + suggestBannerHtml(stored, today) + propertyEventsHtml(p.id, state) + fields + '<details class="buy-fold" data-remember-fold id="' + escapeAttr(id('costs')) + '"><summary>Deposit and costs · ' + escapeAttr(said.join(' · ')) + '</summary>' + costs + '</details><details class="buy-fold" data-remember-fold id="' + escapeAttr(id('more')) + '"><summary>More detail and settlement</summary>' + reconHtml(p, f) + actions + '</details>' + '</div></section>';
 }
 
 // The purchase's figures as its transactions say — for the settlement sheet.

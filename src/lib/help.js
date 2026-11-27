@@ -23,7 +23,8 @@ export function setShowHelp(on){
 // The element whose header gets the ⓘ: the nearest <details> with a <summary>, or — for help that
 // isn't inside one — the help paragraph itself, which gets an inline button in front of it.
 function hostFor(el){
-  var d = el.closest("details");
+  // A phone-only fold keeps the help controls with their original section.
+  var d = el.closest("details:not([data-mobile-fold])");
   return d && d.querySelector(":scope > summary") ? d : null;
 }
 function buttonHtml(){

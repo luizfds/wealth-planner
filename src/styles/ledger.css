@@ -171,6 +171,29 @@
   .ledger-note{ font-size:var(--fs-xs); color: var(--ink-soft); margin:0 var(--card-px) 12px; }
   .ledger-body{ padding: 0 var(--card-px) var(--card-py); }
 
+  /* On a wide screen the contents keep their original layout. */
+  .mobile-fold, .mobile-fold-body{ display:contents; }
+  .mobile-fold > summary{ display:none; }
+  @media (max-width:720px){
+    .mobile-fold{ display:block; margin-block:10px; background:var(--paper-raised); border:1px solid var(--border);
+      border-radius:var(--card-radius); box-shadow:var(--shadow); }
+    .mobile-fold-inline{ box-shadow:none; }
+    .mobile-fold-empty{ display:none; }
+    .mobile-fold > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:48px;
+      padding:var(--card-py) var(--card-px); cursor:pointer; list-style:none; }
+    .mobile-fold > summary::-webkit-details-marker{ display:none; }
+    .mobile-fold > summary::after{ content:""; flex:none; width:8px; height:8px; margin:0 4px 3px;
+      border:solid var(--ink-soft); border-width:0 1.5px 1.5px 0; transform:rotate(45deg); }
+    .mobile-fold[open] > summary::after{ transform:rotate(225deg); }
+    .mobile-fold > summary:focus-visible{ outline:2px solid var(--tab-ink); outline-offset:-2px; border-radius:var(--card-radius); }
+    .mobile-fold-label{ display:grid; gap:3px; font-size:var(--fs-md); font-weight:600; }
+    .mobile-fold-caption{ color:var(--ink-soft); font-size:var(--fs-xs); font-weight:400; }
+    .mobile-fold-caption:empty{ display:none; }
+    .mobile-fold-caption.is-bad{ color:var(--bad-ink); }
+    .mobile-fold-caption.is-warn{ color:var(--warn-ink); }
+    .mobile-fold-body{ display:block; min-width:0; padding:0 var(--card-px) var(--card-py); }
+  }
+
   .table-scroll{ overflow-x:auto; overscroll-behavior-x: contain; border:1px solid var(--border); border-radius:10px; }
   .import-preview-table{ width:100%; border-collapse:collapse; }
   .import-preview-table th{

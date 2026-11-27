@@ -5006,6 +5006,7 @@ const JOURNEYS = {
   },
   async propertysummaryhelp(page){
     await go(page, 'properties');
+    await page.locator('#propertyPortfolioFold > summary').click();
     const root = page.locator('#propertiesSummary');
     const help = root.locator('[data-help-toggle]');
     const note = page.locator('#propertiesSummaryHelp');
@@ -7460,10 +7461,11 @@ const JOURNEYS = {
     const lmi = page.locator(cardSel + ' details.buy-cost[open]').last();
     await lmi.locator('[data-cost-field="amount"]').fill('9000'); await lmi.locator('[data-cost-field="amount"]').press('Tab');
     await page.locator(cardSel + ' details.buy-cost[open] label.pill:has([data-cost-field="paidWith"][value="loan"])').last().click();
+    await card.locator('.buy-funding-fold > summary').click();
     check((await page.locator(cardSel + ' .buy-borrowed').innerText()).includes('$9,000 added = $489,000 borrowed'), 'a fee added to the loan is not borrowed: ' + await page.locator(cardSel + ' .buy-borrowed').innerText().catch(() => 'none'));
     // #452: the lender's approved loan, typed from its letter, checked against the loan and the fee added to it.
     const gross = page.locator(cardSel + ' [data-buy-field="grossLoan"]');
-    if(!(await gross.isVisible())) await page.locator(cardSel + ' .buy-fold > summary').click();
+    if(!(await gross.isVisible())) await card.locator('.buy-fold:has([data-buy-field="grossLoan"]) > summary').click();
     await gross.fill('489000'); await gross.press('Tab');
     await page.locator(cardSel + ' details[id$="-more"] > summary').click();
     check(/Matches the lender's/.test(await page.locator(cardSel + ' .buy-recon').innerText()), 'the lender\'s loan was not checked against the purchase: ' + await page.locator(cardSel + ' .buy-recon').innerText());
